@@ -9,13 +9,6 @@ const map = L.map('map', {
   attributionControl: false,
 });
 
-// Detectar si se abre como archivo local (file://)
-const isLocalFile = location.protocol === 'file:';
-if (isLocalFile) {
-  document.getElementById('hosting-banner').style.display = 'flex';
-}
-
-
 // Tile layer managed by the Mapa admin panel (applyTileUrl called after JS loads)
 // See: TILE_PRESETS / _mapaSettings / applyTileUrl() below
 

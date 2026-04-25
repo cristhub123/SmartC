@@ -1,4 +1,3 @@
-
 /* ═══════════════════════════════════════════════════════════
    EXPAND CON ESCALA INDEPENDIENTE Y OFFSET POR POI
    ═══════════════════════════════════════════════════════════ */
@@ -430,5 +429,3 @@ function getCatIcon(cat, id) {
   const key = cat.lucide || id;
   return LUCIDE[key] || LUCIDE.default;
 }
-
-/* ═══════════════════════════════════════════════════════════
