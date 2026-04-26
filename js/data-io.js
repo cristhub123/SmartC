@@ -135,7 +135,7 @@ function runImportChecks(data) {
     d => {
       if (!d.schema) return 'Sin versión — puede ser archivo antiguo';
       if (d.schema === SCHEMA_VERSION) return true;
-      return `v${d.schema} → app usa v${SCHEMA_VERSION} (compatible)`;
+      return `v${d.schema} → app v${SCHEMA_VERSION} (✓ compatible hacia adelante)`;
     });
 
   chk('pois',       `Lugares (${(data.pois||[]).length} encontrados)`,
@@ -155,12 +155,14 @@ function runImportChecks(data) {
       return true;
     });
 
-  chk('settings',   'Configuración visual (outline, glow, sombra, tamaños)',
+  chk('settings',   'Configuración visual (outline, glow, tamaños)',
     d => {
       if (!d.settings) return 'Sin config guardada — se mantendrá la actual';
-      const keys = ['solidPx','glowPx','pinSize','expandScale','shadowOn','shadowColor','shadowOpacity'];
-      const missing = keys.filter(k => d.settings[k] === undefined);
-      if (missing.length) return `Faltan campos: ${missing.join(', ')} (se usarán defaults)`;
+      // Core fields that must exist
+      const core = ['solidPx','glowPx','pinSize','expandScale'];
+      const missing = core.filter(k => d.settings[k] === undefined);
+      if (missing.length) return `Campos básicos faltantes: ${missing.join(', ')} (defaults aplicados)`;
+      // Fields added in v3.0 — absence is fine for v2.0 files
       return true;
     });
 
@@ -244,17 +246,17 @@ function renderImportModal() {
 function confirmImport() {
   if (!_importData) return;
   const sel = key => _importChecks.find(c => c.key === key)?.selected;
+  const safecall = (fn, ...args) => { try { if (typeof fn === 'function') fn(...args); } catch(e) { console.warn('Import safecall error:', e); } };
 
   // ── Mapa settings ──
-  if (_importData.mapaSettings) {
-    Object.assign(_mapaSettings, _importData.mapaSettings);
-    // applyTileUrl/_mapaSettings are defined later in the script — call safely
-    if (typeof applyTileUrl === 'function') {
-      applyTileUrl(_mapaSettings.tileUrl);
-      applyMapaOpacity(_mapaSettings.opacity);
-      applyTint();
+  try {
+    if (_importData.mapaSettings && typeof _mapaSettings !== 'undefined') {
+      Object.assign(_mapaSettings, _importData.mapaSettings);
+      safecall(applyTileUrl, _mapaSettings.tileUrl);
+      safecall(applyMapaOpacity, _mapaSettings.opacity);
+      safecall(applyTint);
     }
-  }
+  } catch(e) { console.warn('mapaSettings import error:', e); }
 
   // ── POIs ──
   if (sel('pois') && _importData.pois?.length) {
@@ -297,15 +299,23 @@ function confirmImport() {
   }
 
   // ── Settings visuales ──
+  try {
   if (sel('settings') && _importData.settings) {
     // Merge genérico: cualquier propiedad futura también se restaura
     Object.assign(globalSettings, _importData.settings);
+    // Fill in v3.0 defaults if missing (for v2.0 files)
+    globalSettings.shadowOn      = globalSettings.shadowOn      ?? true;
+    globalSettings.shadowColor   = globalSettings.shadowColor   ?? 'rgba(0,0,0,0.35)';
+    globalSettings.shadowOpacity = globalSettings.shadowOpacity ?? 0.35;
+    globalSettings.solidEnabled  = globalSettings.solidEnabled  ?? true;
+    globalSettings.glowEnabled   = globalSettings.glowEnabled   ?? true;
+    globalSettings.shadowEnabled = globalSettings.shadowEnabled ?? true;
     const s = globalSettings;
 
-    applyGlobalDim();
-    rebuildAllMarkers();
-    if (typeof applyShadow === 'function') applyShadow();
-    if (typeof applyEyeGlowColor === 'function') applyEyeGlowColor();
+    safecall(applyGlobalDim);
+    safecall(rebuildAllMarkers);
+    safecall(applyShadow);
+    safecall(applyEyeGlowColor);
 
     // Sync UI — sliders y displays
     const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
@@ -329,22 +339,27 @@ function confirmImport() {
 
     document.documentElement.style.setProperty('--pp-name-size', (s.nameSize||26) + 'px');
   }
+  } catch(e) { console.warn('settings import error:', e); }
 
   // ── Categorías personalizadas ──
-  if (sel('customCats') && _importData.customCats) {
-    CUSTOM_CATS = {};
-    Object.entries(_importData.customCats).forEach(([k, v]) => { CUSTOM_CATS[k] = { ...v }; });
-    if (typeof renderCatsAdmin  === 'function') renderCatsAdmin();
-    if (typeof updateFilterBar  === 'function') updateFilterBar();
-  }
+  try {
+    if (sel('customCats') && _importData.customCats && typeof CUSTOM_CATS !== 'undefined') {
+      CUSTOM_CATS = {};
+      Object.entries(_importData.customCats).forEach(([k, v]) => { CUSTOM_CATS[k] = { ...v }; });
+      safecall(renderCatsAdmin);
+      safecall(updateFilterBar);
+    }
+  } catch(e) { console.warn('customCats import error:', e); }
 
   // ── Grupos ──
-  if (sel('groups') && _importData.groups?.length) {
-    GROUPS.length = 0;
-    _importData.groups.forEach(g => GROUPS.push({ ...g }));
-    if (typeof renderGroupsAdmin  === 'function') renderGroupsAdmin();
-    if (typeof refreshGroupSelects === 'function') refreshGroupSelects();
-  }
+  try {
+    if (sel('groups') && _importData.groups?.length && typeof GROUPS !== 'undefined') {
+      GROUPS.length = 0;
+      _importData.groups.forEach(g => GROUPS.push({ ...g }));
+      safecall(renderGroupsAdmin);
+      safecall(refreshGroupSelects);
+    }
+  } catch(e) { console.warn('groups import error:', e); }
 
   // ── Zonas ──
   if (sel('zonas') && _importData.zonas?.length) {
@@ -354,9 +369,9 @@ function confirmImport() {
     if (typeof renderZonasAdmin   === 'function') renderZonasAdmin();
   }
 
-  document.getElementById('import-warning').classList.remove('show');
+  try { document.getElementById('import-warning').classList.remove('show'); } catch(e) {}
   _importData = null;
-  document.getElementById('import-file').value = '';
+  try { document.getElementById('import-file').value = ''; } catch(e) {}
   const imported = _importChecks.filter(c => c.selected).map(c => c.label).join(', ');
   toast(`✅ Importado: ${imported}`);
 }
