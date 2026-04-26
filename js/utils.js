@@ -1,30 +1,4 @@
-/* ═══════════════════════════════════════════
-   TOAST
-═══════════════════════════════════════════ */
-function toast(msg) {
-  const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.classList.add('on');
-  clearTimeout(el._t);
-  el._t = setTimeout(() => el.classList.remove('on'), 2800);
-}
-
-/* ═══════════════════════════════════════════
-   POI PANEL SWIPE-TO-CLOSE (MOBILE)
-═══════════════════════════════════════════ */
-let swipeY = 0;
-const pp = document.getElementById('poi-panel');
-pp.addEventListener('touchstart', e => { swipeY = e.touches[0].clientY; }, {passive:true});
-pp.addEventListener('touchend', e => {
-  if (e.changedTouches[0].clientY - swipeY > 80 && pp.scrollTop === 0) {
-    if (expandedId !== null) collapsePin(expandedId);
-    closePoiPanel();
-  }
-}, {passive:true});
-
-/* ═══════════════════════════════════════════
-   INIT
-═══════════════════════════════════════════ */
+/* utils.js — image upload, url loader */
 /* ═══════════════════════════════════════════
    IMAGE UPLOAD LOGIC
 ═══════════════════════════════════════════ */

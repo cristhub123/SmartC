@@ -1,3 +1,4 @@
+/* data-io.js — export/import JSON v2.0+ */
 /* ═══════════════════════════════════════════════════════════
    EXPORT / IMPORT — Esquema canónico v1.0
    Campos estables (nunca cambian entre versiones):
@@ -6,65 +7,21 @@
      desc, hist, soc, events, iconCyber, iconWinter, iconZombie
    ═══════════════════════════════════════════════════════════ */
 
-const SCHEMA_VERSION = "3.0";
+const SCHEMA_VERSION = "2.0";
 
 /* ─────────────────────────────────────────
    EXPORT — includes POIs + globalSettings
    ───────────────────────────────────────── */
-/* ═══════════════════════════════════════════════════════════
-   EXPORT — snapshot completo de TODO el estado del admin
-   Cualquier propiedad nueva en globalSettings o nueva
-   colección (CUSTOM_CATS, GROUPS) se incluye automáticamente.
-   ═══════════════════════════════════════════════════════════ */
 function exportPOIs() {
-  // Aseguramos que eyeGlowIntensity y shadowOn/shadowColor/shadowOpacity
-  // ya están en globalSettings (se setean al cargar la página, pero por
-  // si acaso los inicializamos con defaults aquí)
-  const settings = {
-    solidPx:        globalSettings.solidPx        ?? 0,
-    solidColor:     globalSettings.solidColor      ?? '#ffffff',
-    glowPx:         globalSettings.glowPx          ?? 0,
-    glowColor:      globalSettings.glowColor       ?? '#60a5fa',
-    dimOpacity:     globalSettings.dimOpacity       ?? 0.35,
-    pinSize:        globalSettings.pinSize          ?? 44,
-    expandScale:    globalSettings.expandScale      ?? 3.2,
-    eyeGlowColor:   globalSettings.eyeGlowColor     ?? '#60a5fa',
-    eyeGlowIntensity: globalSettings.eyeGlowIntensity ?? 2,
-    nameSize:       globalSettings.nameSize         ?? 26,
-    shadowOn:       globalSettings.shadowOn         ?? true,
-    shadowColor:    globalSettings.shadowColor      ?? '#000000',
-    shadowOpacity:  globalSettings.shadowOpacity    ?? 0.20,
-    // Captura cualquier propiedad adicional que pueda haberse agregado
-    ...globalSettings,
-  };
-
   const payload = {
     schema:   SCHEMA_VERSION,
     app:      "smartcity-urbano",
     exported: new Date().toISOString().split('T')[0],
-
-    // ── Configuración del mapa (tile provider, tint, opacity) ──
-    mapaSettings: typeof _mapaSettings !== 'undefined' ? { ..._mapaSettings } : null,
-
-    // ── Configuración visual completa ──
-    settings,
-
-    // ── Categorías personalizadas (creadas en admin) ──
-    customCats: { ...CUSTOM_CATS },
-
-    // ── Grupos de lugares ──
-    groups: GROUPS.map(g => ({ ...g })),
-
-    // ── Zonas de interés ──
-    zonas: ZONAS.map(z => ({ ...z })),
-
-    // ── Lugares ──
+    settings: { ...globalSettings },           // ← toda la config visual
+    zonas:    ZONAS.map(z => ({...z})),        // ← zonas con su estado
     pois: POIS.map(p => ({
-      id: p.id, name: p.name,
-      category:  p.category,
-      categories: p.categories || null,
-      lat: p.lat, lng: p.lng,
-      icon: p.icon,
+      id: p.id, name: p.name, category: p.category,
+      lat: p.lat, lng: p.lng, icon: p.icon,
       imgB64:   p.imgB64   || null,
       imgAlt1:  p.imgAlt1  || null,
       imgAlt2:  p.imgAlt2  || null,
@@ -74,25 +31,21 @@ function exportPOIs() {
       soc:      p.soc      || [],
       tags:     p.tags     || [],
       events:   p.events   || [],
-      address:  p.address  || "",
-      groupId:  p.groupId  || null,
-      active:   p.active   !== false,
       iconCyber:  p.iconCyber  || "🔵",
       iconWinter: p.iconWinter || "❄️",
       iconZombie: p.iconZombie || "☣️",
-      categoryLabel: p.categoryLabel || (CAT[p.category]||{label:(p.category||'').toUpperCase()}).label,
-    })),
+      categoryLabel: p.categoryLabel || (CAT[p.category]||{label:p.category.toUpperCase()}).label,
+    }))
   };
-
   const json = JSON.stringify(payload, null, 2);
-  const blob = new Blob([json], { type: 'application/json' });
+  const blob = new Blob([json], {type:'application/json'});
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
   a.href = url;
   a.download = `smartcity-cordoba-${payload.exported}.json`;
   a.click();
   URL.revokeObjectURL(url);
-  toast(`✅ ${POIS.length} lugares + configuración completa exportados`);
+  toast(`✅ ${POIS.length} lugares + configuración exportados`);
 }
 
 /* ─────────────────────────────────────────
@@ -125,67 +78,47 @@ function runImportChecks(data) {
     let status = 'ok', detail = '';
     try {
       const result = fn(data);
-      if (result === true)              { status = 'ok'; }
+      if (result === true) { status = 'ok'; }
       else if (typeof result === 'string') { status = 'warn'; detail = result; }
     } catch(err) { status = 'error'; detail = err.message; }
     _importChecks.push({ key, label, status, detail, selected: status !== 'error' });
   }
 
-  chk('schema',     'Versión del archivo',
+  chk('schema',   'Versión del archivo',
     d => {
       if (!d.schema) return 'Sin versión — puede ser archivo antiguo';
       if (d.schema === SCHEMA_VERSION) return true;
-      return `v${d.schema} → app v${SCHEMA_VERSION} (✓ compatible hacia adelante)`;
+      return `v${d.schema} → app usa v${SCHEMA_VERSION} (compatible)`;
     });
-
-  chk('pois',       `Lugares (${(data.pois||[]).length} encontrados)`,
+  chk('pois',     `Lugares (${(data.pois||[]).length} encontrados)`,
     d => {
       if (!d.pois || !Array.isArray(d.pois)) throw new Error("No hay lista de lugares");
       if (d.pois.length === 0) return 'La lista está vacía';
       const bad = d.pois.filter(p => !p.name || p.lat === undefined || p.lng === undefined);
-      if (bad.length > 0) return `${bad.length} lugar(es) con datos incompletos (se cargarán con fallbacks)`;
+      if (bad.length > 0) return `${bad.length} lugar(es) con datos incompletos (se cargarán igual con fallbacks)`;
       return true;
     });
-
-  chk('images',     'Imágenes de edificios',
+  chk('images',   'Imágenes de edificios',
     d => {
       if (!d.pois) return true;
       const withImg = d.pois.filter(p => p.imgB64).length;
       if (withImg === 0) return 'Sin imágenes — se usarán emojis';
-      return true;
+      return true;  // "X lugares con imagen"
     });
-
-  chk('settings',   'Configuración visual (outline, glow, tamaños)',
+  chk('settings', 'Configuración visual (outline, glow, tamaños)',
     d => {
       if (!d.settings) return 'Sin config guardada — se mantendrá la actual';
-      // Core fields that must exist
-      const core = ['solidPx','glowPx','pinSize','expandScale'];
-      const missing = core.filter(k => d.settings[k] === undefined);
-      if (missing.length) return `Campos básicos faltantes: ${missing.join(', ')} (defaults aplicados)`;
-      // Fields added in v3.0 — absence is fine for v2.0 files
+      const keys = ['solidPx','glowPx','pinSize','expandScale'];
+      const missing = keys.filter(k => d.settings[k] === undefined);
+      if (missing.length) return `Faltan campos: ${missing.join(', ')} (se usarán defaults)`;
       return true;
     });
-
-  chk('customCats', `Categorías personalizadas (${Object.keys(data.customCats||{}).length} encontradas)`,
-    d => {
-      if (!d.customCats || !Object.keys(d.customCats).length)
-        return 'Sin categorías personalizadas — se mantendrán las actuales';
-      return true;
-    });
-
-  chk('groups',     `Grupos de lugares (${(data.groups||[]).length} encontrados)`,
-    d => {
-      if (!d.groups || !d.groups.length) return 'Sin grupos — se mantendrán los actuales';
-      return true;
-    });
-
-  chk('zonas',      `Zonas de interés (${(data.zonas||[]).length} encontradas)`,
+  chk('zonas',    `Zonas de interés (${(data.zonas||[]).length} encontradas)`,
     d => {
       if (!d.zonas || !d.zonas.length) return 'Sin zonas — se mantendrán las actuales';
       return true;
     });
-
-  chk('tags',       'Tags/Subcategorías por lugar',
+  chk('tags',     'Tags/Subcategorías por lugar',
     d => {
       if (!d.pois) return true;
       const withTags = d.pois.filter(p => p.tags && p.tags.length > 0).length;
@@ -245,29 +178,16 @@ function renderImportModal() {
 
 function confirmImport() {
   if (!_importData) return;
-  const sel = key => _importChecks.find(c => c.key === key)?.selected;
-  const safecall = (fn, ...args) => { try { if (typeof fn === 'function') fn(...args); } catch(e) { console.warn('Import safecall error:', e); } };
+  const sel = key => _importChecks.find(c=>c.key===key)?.selected;
 
-  // ── Mapa settings ──
-  try {
-    if (_importData.mapaSettings && typeof _mapaSettings !== 'undefined') {
-      Object.assign(_mapaSettings, _importData.mapaSettings);
-      safecall(applyTileUrl, _mapaSettings.tileUrl);
-      safecall(applyMapaOpacity, _mapaSettings.opacity);
-      safecall(applyTint);
-    }
-  } catch(e) { console.warn('mapaSettings import error:', e); }
-
-  // ── POIs ──
+  // POIs
   if (sel('pois') && _importData.pois?.length) {
     Object.keys(markers).forEach(id => removeMarker(parseInt(id)));
     markers = {}; POIS.length = 0;
     let maxId = 99;
     _importData.pois.forEach(p => {
       const poi = {
-        id: p.id, name: p.name,
-        category:   p.category,
-        categories: p.categories || null,
+        id: p.id, name: p.name, category: p.category,
         lat: parseFloat(p.lat), lng: parseFloat(p.lng),
         icon: p.icon || "📍",
         imgB64:  sel('images') ? (p.imgB64  || null) : null,
@@ -279,9 +199,6 @@ function confirmImport() {
         soc:      Array.isArray(p.soc)    ? p.soc    : [],
         tags:     sel('tags') && Array.isArray(p.tags) ? p.tags : [],
         events:   Array.isArray(p.events) ? p.events : [],
-        address:  p.address  || "",
-        groupId:  p.groupId  || null,
-        active:   p.active   !== false,
         iconCyber:  p.iconCyber  || "🔵",
         iconWinter: p.iconWinter || "❄️",
         iconZombie: p.iconZombie || "☣️",
@@ -293,86 +210,43 @@ function confirmImport() {
     nextId = maxId + 1;
     applyFilter(); renderList();
     if (POIS.length) {
-      const lats = POIS.map(p => p.lat), lngs = POIS.map(p => p.lng);
+      const lats = POIS.map(p=>p.lat), lngs = POIS.map(p=>p.lng);
       map.fitBounds([[Math.min(...lats),Math.min(...lngs)],[Math.max(...lats),Math.max(...lngs)]],{padding:[40,40],maxZoom:16,animate:true});
     }
   }
 
-  // ── Settings visuales ──
-  try {
+  // Settings
   if (sel('settings') && _importData.settings) {
-    // Merge genérico: cualquier propiedad futura también se restaura
     Object.assign(globalSettings, _importData.settings);
-    // Fill in v3.0 defaults if missing (for v2.0 files)
-    globalSettings.shadowOn      = globalSettings.shadowOn      ?? true;
-    globalSettings.shadowColor   = globalSettings.shadowColor   ?? 'rgba(0,0,0,0.35)';
-    globalSettings.shadowOpacity = globalSettings.shadowOpacity ?? 0.35;
-    globalSettings.solidEnabled  = globalSettings.solidEnabled  ?? true;
-    globalSettings.glowEnabled   = globalSettings.glowEnabled   ?? true;
-    globalSettings.shadowEnabled = globalSettings.shadowEnabled ?? true;
+    applyGlobalDim(); rebuildAllMarkers();
+    // Sync UI sliders
     const s = globalSettings;
-
-    safecall(applyGlobalDim);
-    safecall(rebuildAllMarkers);
-    safecall(applyShadow);
-    safecall(applyEyeGlowColor);
-
-    // Sync UI — sliders y displays
-    const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
-    const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-
-    setVal('g-solid-px',        s.solidPx);          setText('g-solid-px-val',       s.solidPx + 'px');
-    setVal('g-glow-px',         s.glowPx);            setText('g-glow-px-val',        s.glowPx + 'px');
-    setVal('g-pin-size',        s.pinSize);           setText('g-pin-size-val',       s.pinSize + 'px');
-    setVal('g-expand-scale',    s.expandScale * 10);  setText('g-expand-scale-val',   s.expandScale + '×');
-    setVal('g-name-size',       s.nameSize || 26);    setText('g-name-size-val',      (s.nameSize||26) + 'px');
-    setVal('g-solid-color',     s.solidColor);        setVal('g-solid-hex',           s.solidColor);
-    setVal('g-glow-color',      s.glowColor);         setVal('g-glow-hex',            s.glowColor);
-    setVal('g-eye-glow-color',  s.eyeGlowColor);
-    setVal('g-shadow-color',    s.shadowColor);
-    setVal('g-shadow-opacity',  Math.round((s.shadowOpacity||0.2)*100));
-    setText('g-shadow-opacity-val', Math.round((s.shadowOpacity||0.2)*100) + '%');
-    setVal('g-eye-glow-intensity', s.eyeGlowIntensity || 2);
-
-    const shadowToggle = document.getElementById('g-shadow-toggle');
-    if (shadowToggle) shadowToggle.classList.toggle('on', s.shadowOn !== false);
-
-    document.documentElement.style.setProperty('--pp-name-size', (s.nameSize||26) + 'px');
+    const setSlider = (id, val) => { const el=document.getElementById(id); if(el) el.value=val; };
+    setSlider('g-solid-px', s.solidPx);
+    setSlider('g-glow-px',  s.glowPx);
+    setSlider('g-pin-size', s.pinSize);
+    setSlider('g-expand-scale', s.expandScale * 10);
+    setSlider('g-name-size', s.nameSize || 26);
+    document.documentElement.style.setProperty('--pp-name-size', (s.nameSize||26)+'px');
+    document.getElementById('g-solid-px-val').textContent  = s.solidPx + 'px';
+    document.getElementById('g-glow-px-val').textContent   = s.glowPx + 'px';
+    document.getElementById('g-pin-size-val').textContent  = s.pinSize + 'px';
+    document.getElementById('g-expand-scale-val').textContent = s.expandScale + '×';
+    document.getElementById('g-name-size-val').textContent = (s.nameSize||26) + 'px';
   }
-  } catch(e) { console.warn('settings import error:', e); }
 
-  // ── Categorías personalizadas ──
-  try {
-    if (sel('customCats') && _importData.customCats && typeof CUSTOM_CATS !== 'undefined') {
-      CUSTOM_CATS = {};
-      Object.entries(_importData.customCats).forEach(([k, v]) => { CUSTOM_CATS[k] = { ...v }; });
-      safecall(renderCatsAdmin);
-      safecall(updateFilterBar);
-    }
-  } catch(e) { console.warn('customCats import error:', e); }
-
-  // ── Grupos ──
-  try {
-    if (sel('groups') && _importData.groups?.length && typeof GROUPS !== 'undefined') {
-      GROUPS.length = 0;
-      _importData.groups.forEach(g => GROUPS.push({ ...g }));
-      safecall(renderGroupsAdmin);
-      safecall(refreshGroupSelects);
-    }
-  } catch(e) { console.warn('groups import error:', e); }
-
-  // ── Zonas ──
+  // Zonas
   if (sel('zonas') && _importData.zonas?.length) {
     ZONAS.length = 0;
-    _importData.zonas.forEach(z => ZONAS.push({ ...z }));
-    if (typeof buildZonasDropdown === 'function') buildZonasDropdown();
-    if (typeof renderZonasAdmin   === 'function') renderZonasAdmin();
+    _importData.zonas.forEach(z => ZONAS.push(z));
+    buildZonasDropdown();
+    renderZonasAdmin();
   }
 
-  try { document.getElementById('import-warning').classList.remove('show'); } catch(e) {}
+  document.getElementById('import-warning').classList.remove('show');
   _importData = null;
-  try { document.getElementById('import-file').value = ''; } catch(e) {}
-  const imported = _importChecks.filter(c => c.selected).map(c => c.label).join(', ');
+  document.getElementById('import-file').value = '';
+  const imported = _importChecks.filter(c=>c.selected).map(c=>c.label).join(', ');
   toast(`✅ Importado: ${imported}`);
 }
 

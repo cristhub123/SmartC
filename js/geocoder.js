@@ -1,3 +1,4 @@
+/* geocoder.js — Nominatim address search */
 /* ═══════════════════════════════════════════
    GEOCODER — Nominatim (OpenStreetMap, gratuito, sin API key)
 ═══════════════════════════════════════════ */

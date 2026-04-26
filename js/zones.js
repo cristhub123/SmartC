@@ -1,3 +1,10 @@
+/* zones.js — zonas de interés + admin */
+/* ═══════════════════════════════════════════════════════════
+   ZONAS DE INTERÉS — zones.js (futuro archivo separado)
+   Datos canónicos: id, name, lat, lng, zoom
+   Datos extendidos: tags, attrs
+   ═══════════════════════════════════════════════════════════ */
+// Add active field to all zones on load
 const ZONAS = [
   { id:'guemes',     name:'Barrio Güemes',
     lat:-31.4227,  lng:-64.1880, zoom:16,

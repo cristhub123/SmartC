@@ -1,3 +1,11 @@
+/* config.js — DATA & CONSTANTS — loaded first */
+window.SC = window.SC || {};
+SC._tabPlugins = {};
+SC.registerTabPlugin = function(tabId, fn) {
+  SC._tabPlugins[tabId] = SC._tabPlugins[tabId] || [];
+  SC._tabPlugins[tabId].push(fn);
+};
+
 /* ═══════════════════════════════════════════
    DATA
 ═══════════════════════════════════════════ */

@@ -1,3 +1,4 @@
+/* cluster.js — cluster menu + nearby POIs wheel */
 /* ═══════════════════════════════════════════════════════════
    CLUSTER / RUEDA DE PINES
    ═══════════════════════════════════════════════════════════ */
@@ -130,22 +131,3 @@ map.on('movestart zoomstart', () => {
   document.querySelectorAll('[id^="cluster-btn-"]').forEach(b=>{if(b._tip)b._tip.remove();b.remove();});
   document.querySelectorAll('div[style*="backdrop-filter:blur(2px)"]').forEach(e=>e.remove());
 });
-
-/* ── TOGGLE POI ── */
-window.togglePoi = function(id, btn) {
-  const p = POIS.find(x => x.id === id);
-  if (!p) return;
-  p.active = !(p.active !== false);
-  btn.classList.toggle('on', p.active);
-  const row = btn.closest('.poi-row');
-  if (row) row.style.opacity = p.active ? '' : '.5';
-  const mEl = document.getElementById('pw-' + id);
-  const parent = mEl && mEl.parentElement;
-  if (parent) parent.style.visibility = p.active ? '' : 'hidden';
-  if (!p.active && expandedId === id) { collapsePin(id); closePoiPanel(); }
-  toast(p.active ? `✅ "${p.name}" activado` : `⭕ "${p.name}" desactivado`);
-};
-
-/* ── Wire up buttons ── */
-document.getElementById('btn-export').addEventListener('click', exportPOIs);
-document.getElementById('import-file').addEventListener('change', e => handleImportFile(e.target.files[0]));

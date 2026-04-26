@@ -9,16 +9,16 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 
-  <!-- Google Fonts -->
+  <!-- Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Nunito:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
   <!-- App CSS -->
   <link rel="stylesheet" href="css/base.css">
 
-  <!-- Critical inline CSS — evita flash blanco en carga -->
+  <!-- Critical inline: prevents white flash -->
   <style>
-    body { margin: 0; background: #f8f7f3; overflow: hidden; }
-    #map { width: 100vw; height: 100dvh; background: #e8e6df; }
+    body { margin:0; overflow:hidden; }
+    #map { width:100vw; height:100dvh; background:#e8e6df; }
   </style>
 </head>
 <body>
@@ -28,7 +28,6 @@
 </div>
 
 <div id="map"></div>
-<div id="mapa-tint-overlay" style="position:fixed;inset:0;z-index:200;pointer-events:none;background:rgba(76,175,80,0);transition:background .3s"></div>
 
 <div id="header">
   <button id="btn-zonas"><span class="zico"></span></button>
@@ -111,9 +110,8 @@
     <div class="atab on"  data-t="list">📋 Lugares</div>
     <div class="atab"     data-t="add">➕ Nuevo</div>
     <div class="atab"     data-t="global">🎨 Global</div>
-    <div class="atab"     data-t="mapa">🗺 Mapa</div>
     <div class="atab"     data-t="zonas-admin">📍 Zonas</div>
-    <div class="atab"     data-t="roadmap">📋 Roadmap</div>
+    <div class="atab"     data-t="roadmap">🗺 Roadmap</div>
     <div class="atab"     data-t="cats">🏷 Categ.</div>
     <div class="atab"     data-t="groups">📦 Grupos</div>
     <div class="atab"     data-t="edit" id="tab-edit-btn" style="display:none">✏️ Editando</div>
@@ -423,60 +421,6 @@
       <button class="btn-primary" id="btn-apply-global">✓ Aplicar a todos los pins</button>
     </div>
 
-    <!-- MAPA ADMIN -->
-    <div class="tpane" id="tp-mapa">
-
-      <!-- ── Fuente del mapa ── -->
-      <div class="sec-lbl">FUENTE DEL MAPA</div>
-      <div style="font-size:12px;color:var(--text3);line-height:1.55;margin-bottom:12px">
-        La app carga el mapa como mosaicos de imagen (tiles) desde una URL. Cambiá la URL para usar otro proveedor. El patrón debe contener <code style="background:var(--surface2);padding:1px 5px;border-radius:4px;font-size:11px">{z}/{x}/{y}</code>.
-      </div>
-
-      <!-- Presets -->
-      <div class="sec-lbl" style="margin-top:4px">ESTILOS PREDEFINIDOS</div>
-      <div id="tile-presets" style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px"></div>
-
-      <!-- URL custom -->
-      <div class="sec-lbl">URL PERSONALIZADA</div>
-      <div style="display:flex;gap:8px;margin-bottom:6px">
-        <input class="fi" id="mapa-custom-url" type="text" placeholder="https://tile.openstreetmap.org/{z}/{x}/{y}.png" style="font-size:11px;font-family:var(--font-m)">
-      </div>
-      <button class="btn-primary" id="btn-apply-tile" style="margin-bottom:4px">Aplicar URL</button>
-      <div id="tile-status" style="font-size:11px;color:var(--text3);margin-top:6px;min-height:16px"></div>
-
-      <!-- ── Opacidad del mapa base ── -->
-      <div class="divider"><span>APARIENCIA</span></div>
-      <div class="fg">
-        <label class="fl">Opacidad del mapa base</label>
-        <div style="display:flex;align-items:center;gap:10px">
-          <input type="range" id="mapa-opacity" min="10" max="100" value="100" style="flex:1;accent-color:var(--accent)">
-          <span id="mapa-opacity-val" style="font-family:var(--font-m);font-size:12px;min-width:36px;text-align:right">100%</span>
-        </div>
-      </div>
-
-      <!-- Tinte de color sobre el mapa -->
-      <div class="fg">
-        <label class="fl">Tinte de color sobre el mapa</label>
-        <div style="display:flex;gap:8px;align-items:center">
-          <div class="za-toggle on" id="mapa-tint-toggle" style="flex-shrink:0"></div>
-          <input type="color" id="mapa-tint-color" value="#4CAF50" style="width:40px;height:34px;border:1.5px solid var(--border);border-radius:6px;padding:2px;cursor:pointer">
-          <input type="range" id="mapa-tint-opacity" min="0" max="40" value="0" style="flex:1;accent-color:var(--accent)">
-          <span id="mapa-tint-opacity-val" style="font-family:var(--font-m);font-size:12px;min-width:32px;text-align:right">0%</span>
-        </div>
-        <div style="font-size:11px;color:var(--text3);margin-top:4px">Aplica un overlay de color semitransparente sobre todo el mapa.</div>
-      </div>
-
-      <!-- ── Capas visuales ── -->
-      <div class="divider"><span>CAPAS VISUALES</span></div>
-      <div style="font-size:12px;color:var(--text3);margin-bottom:12px;line-height:1.55">
-        Overlays adicionales que se dibujan <em>sobre</em> los tiles base. No dependen del proveedor.
-      </div>
-      <div id="mapa-layers-list" style="display:flex;flex-direction:column;gap:8px">
-        <!-- generado por JS -->
-      </div>
-
-    </div>
-
     <!-- ZONAS ADMIN -->
     <div class="tpane" id="tp-zonas-admin">
       <p style="font-size:12px;color:var(--text3);margin-bottom:12px">Activá/desactivá zonas y reordenalas arrastrando ⠿</p>
@@ -767,38 +711,48 @@
 <!-- Toast -->
 <div id="toast"></div>
 
-  <!-- ═══════════════════════════════
-       JS — orden de carga importante
-       ═══════════════════════════════ -->
+  <!--
+    SCRIPT LOAD ORDER — DO NOT CHANGE
+    Each file depends on the ones above it.
+    app.js must always be last.
+  -->
 
-  <!-- 1. Config & datos base (primero siempre) -->
+  <!-- 1. Namespace + data constants (no DOM, no functions) -->
   <script src="js/config.js" defer></script>
 
-  <!-- 2. Mapa y markers -->
+  <!-- 2. Map init -->
   <script src="js/map.js" defer></script>
+
+  <!-- 3. Core marker logic -->
   <script src="js/markers.js" defer></script>
   <script src="js/poi-panel.js" defer></script>
 
-  <!-- 3. UI helpers -->
+  <!-- 4. Admin panel (defines switchTab) -->
+  <script src="js/admin.js" defer></script>
+
+  <!-- 5. Utilities -->
   <script src="js/utils.js" defer></script>
   <script src="js/geocoder.js" defer></script>
-  <script src="js/categories.js" defer></script>
-  <script src="js/cluster.js" defer></script>
 
-  <!-- 4. Zonas -->
-  <script src="js/zones.js" defer></script>
-
-  <!-- 5. Admin panel -->
-  <script src="js/admin-core.js" defer></script>
-  <script src="js/admin-forms.js" defer></script>
+  <!-- 6. Admin sub-panels (use registerTabPlugin) -->
   <script src="js/admin-global.js" defer></script>
   <script src="js/roadmap.js" defer></script>
-  <script src="js/map-settings.js" defer></script>
+  <script src="js/zones.js" defer></script>
+  <script src="js/groups.js" defer></script>
+  <script src="js/categories.js" defer></script>
+  <script src="js/shadow-eye.js" defer></script>
 
-  <!-- 6. Export / Import -->
+  <!-- 7. Features -->
+  <script src="js/pin-adjust.js" defer></script>
+  <script src="js/location.js" defer></script>
+  <script src="js/cluster.js" defer></script>
+
+  <!-- 8. Data I/O -->
   <script src="js/data-io.js" defer></script>
 
-  <!-- 7. App init — siempre último -->
+  <!-- 9. Init orchestrator — ALWAYS LAST -->
+
+  <!-- 9. Init orchestrator — ALWAYS LAST -->
   <script src="js/app.js" defer></script>
 
 </body>

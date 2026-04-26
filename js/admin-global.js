@@ -1,3 +1,4 @@
+/* admin-global.js — globalSettings, outline, glow, rebuild */
 /* ═══════════════════════════════════════════════════════════
    GLOBAL APPEARANCE SETTINGS
    ═══════════════════════════════════════════════════════════ */

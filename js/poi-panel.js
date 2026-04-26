@@ -1,3 +1,4 @@
+/* poi-panel.js — openPoiPanel, closePoiPanel, applyFilter */
 /* ═══════════════════════════════════════════
    POI PANEL
 ═══════════════════════════════════════════ */

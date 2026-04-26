@@ -1,3 +1,4 @@
+/* roadmap.js — roadmap system */
 /* ═══════════════════════════════════════════════════════════
    ROADMAP SYSTEM
    Estructura portable — en versiones futuras irá a roadmap.json
@@ -71,17 +72,4 @@ document.getElementById('btn-add-rm').addEventListener('click', () => {
 });
 
 // Render roadmap when tab opens
-const _origSwitchTab = switchTab;
-window.switchTab = function(t) {
-  _origSwitchTab(t);
-  if (t === 'roadmap') renderRoadmap();
-  if (t === 'zonas-admin') renderZonasAdmin();
-  if (t === 'cats') renderCatsAdmin();
-};
-
-/* ═══════════════════════════════════════════════════════════
-   ZONAS DE INTERÉS — zones.js (futuro archivo separado)
-   Datos canónicos: id, name, lat, lng, zoom
-   Datos extendidos: tags, attrs
-   ═══════════════════════════════════════════════════════════ */
-// Add active field to all zones on load
+SC.registerTabPlugin('roadmap', renderRoadmap);
