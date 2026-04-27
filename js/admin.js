@@ -26,7 +26,7 @@ function switchTab(t) {
   document.querySelectorAll('.atab').forEach(a => a.classList.toggle('on', a.dataset.t === t));
   document.querySelectorAll('.tpane').forEach(p => p.classList.remove('on'));
   const targets = {list:'tp-list', add:'tp-add', edit:'tp-edit', global:'tp-global',
-    'zonas-admin':'tp-zonas-admin', roadmap:'tp-roadmap', groups:'tp-groups', cats:'tp-cats'};
+    'zonas-admin':'tp-zonas-admin', roadmap:'tp-roadmap', groups:'tp-groups', cats:'tp-cats', mapa:'tp-mapa'};
   const el = document.getElementById(targets[t]);
   if (el) el.classList.add('on');
   // Fire registered tab plugins (replaces all monkey-patching)

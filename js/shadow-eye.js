@@ -10,7 +10,13 @@ function applyShadow() {
   let s = document.getElementById('dyn-shadow');
   if (!s) { s = document.createElement('style'); s.id = 'dyn-shadow'; document.head.appendChild(s); }
   if (!globalSettings.shadowOn) {
-    s.textContent = '.pin-img-shadow,.pin-img-dot,.pin-img-ripple{display:none!important}';
+    // Hide ALL shadow elements — including the drop-shadow filter on the wrapper
+    s.textContent =
+      '.pin-img-shadow,.pin-img-dot,.pin-img-ripple{display:none!important}' +
+      '.pin-img-wrap{filter:none!important}' +
+      '.pin-wrap.big .pin-img-wrap{filter:none!important}';
+    // Also trigger outline rebuild so buildFilterString picks up shadowOn=false
+    if (typeof applyGlobalOutline === 'function') applyGlobalOutline();
     return;
   }
   const col = globalSettings.shadowColor || '#000000';
@@ -19,7 +25,12 @@ function applyShadow() {
   const g   = parseInt(col.slice(3,5),16);
   const b   = parseInt(col.slice(5,7),16);
   const rgba = `rgba(${r},${g},${b},${op})`;
-  s.textContent = `.pin-img-shadow{background:${rgba}!important;display:block!important}.pin-img-dot{background:${rgba}!important}.pin-img-ripple{background:${rgba}!important}`;
+  s.textContent =
+    `.pin-img-shadow{background:${rgba}!important;display:block!important}` +
+    `.pin-img-dot{background:${rgba}!important}` +
+    `.pin-img-ripple{background:${rgba}!important}` +
+    `.pin-img-wrap{filter:drop-shadow(0 4px 10px ${rgba})!important}`;
+  if (typeof applyGlobalOutline === 'function') applyGlobalOutline();
 }
 applyShadow();
 

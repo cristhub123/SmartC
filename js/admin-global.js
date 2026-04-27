@@ -17,13 +17,14 @@ const globalSettings = {
 /* Build filter string: glow first (underneath), then solid border */
 function buildFilterString(baseFilter) {
   const parts = [];
-  if (globalSettings.glowPx > 0) {
+  // Glow (only if enabled and > 0)
+  if (globalSettings.glowEnabled !== false && globalSettings.glowPx > 0) {
     const g = globalSettings.glowColor, px = globalSettings.glowPx;
     parts.push(`drop-shadow(0 0 ${px*2}px ${g})`, `drop-shadow(0 0 ${px}px ${g})`);
   }
-  if (globalSettings.solidPx > 0) {
+  // Solid outline (only if enabled and > 0)
+  if (globalSettings.solidEnabled !== false && globalSettings.solidPx > 0) {
     const c = globalSettings.solidColor, s = globalSettings.solidPx;
-    // Simulate solid outline via multiple tight drop-shadows
     parts.push(
       `drop-shadow(${s}px 0 0 ${c})`,
       `drop-shadow(-${s}px 0 0 ${c})`,
@@ -31,8 +32,11 @@ function buildFilterString(baseFilter) {
       `drop-shadow(0 -${s}px 0 ${c})`
     );
   }
-  parts.push(baseFilter || 'drop-shadow(0 4px 10px rgba(0,0,0,.4))');
-  return parts.join(' ');
+  // Base shadow — ONLY if shadowOn is true
+  if (globalSettings.shadowOn !== false) {
+    parts.push(baseFilter || 'drop-shadow(0 4px 10px rgba(0,0,0,.4))');
+  }
+  return parts.length ? parts.join(' ') : 'none';
 }
 
 function applyGlobalOutline() {

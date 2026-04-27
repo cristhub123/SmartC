@@ -5,9 +5,15 @@
    ═══════════════════════════════════════════ */
 
 function init() {
-  // 1. Tile fallback
-  tryTileProvider(0);
+  // 0. Load default tile style
+  if (typeof applyTileUrl === 'function') {
+    applyTileUrl(_mapaSettings ? _mapaSettings.tileUrl : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png');
+  } else {
+    // Fallback if map-settings not loaded
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {subdomains:'abcd',maxZoom:19}).addTo(map);
+  }
 
+  // 1. Tile fallback (legacy)
   // 2. Build all markers
   POIS.forEach(makeMarker);
 

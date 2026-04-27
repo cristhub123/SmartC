@@ -111,6 +111,7 @@
     <div class="atab"     data-t="add">➕ Nuevo</div>
     <div class="atab"     data-t="global">🎨 Global</div>
     <div class="atab"     data-t="zonas-admin">📍 Zonas</div>
+    <div class="atab"     data-t="mapa">🗺 Mapa</div>
     <div class="atab"     data-t="roadmap">🗺 Roadmap</div>
     <div class="atab"     data-t="cats">🏷 Categ.</div>
     <div class="atab"     data-t="groups">📦 Grupos</div>
@@ -435,6 +436,30 @@
       </div>
     </div>
 
+
+    <!-- MAPA -->
+    <div class="tpane" id="tp-mapa">
+      <div class="sec-lbl">ESTILO DEL MAPA</div>
+      <div class="mapa-preset-grid" id="mapa-preset-grid"></div>
+
+      <div class="divider"><span>URL PERSONALIZADA</span></div>
+      <div class="fg" style="margin-bottom:10px">
+        <label class="fl">URL del tile provider (debe tener {z}/{x}/{y})</label>
+        <div style="display:flex;gap:7px">
+          <input class="fi" id="mapa-url-input" type="text" placeholder="https://..." style="font-size:12px;flex:1">
+          <button class="btn-primary" id="mapa-url-apply" style="width:auto;padding:0 14px;margin-top:0">Aplicar</button>
+        </div>
+      </div>
+
+      <div class="divider"><span>OPACIDAD DEL MAPA</span></div>
+      <div class="fg">
+        <div style="display:flex;gap:10px;align-items:center">
+          <input type="range" id="mapa-opacity" min="10" max="100" value="100" style="flex:1;accent-color:var(--accent)">
+          <span id="mapa-opacity-val" style="font-family:var(--font-m);font-size:12px;min-width:38px;text-align:right">100%</span>
+        </div>
+      </div>
+    </div>
+
     <!-- ROADMAP -->
     <div class="tpane" id="tp-roadmap">
       <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:12px 14px;margin-bottom:14px">
@@ -746,6 +771,9 @@
   <script src="js/pin-adjust.js" defer></script>
   <script src="js/location.js" defer></script>
   <script src="js/cluster.js" defer></script>
+
+  <!-- 7b. Map settings -->
+  <script src="js/map-settings.js" defer></script>
 
   <!-- 8. Data I/O -->
   <script src="js/data-io.js" defer></script>

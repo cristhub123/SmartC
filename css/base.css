@@ -483,7 +483,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   transform: scale(3.2) translate3d(0,0,0) !important;
   z-index: 1200 !important;
   opacity: 1 !important;
-  /* No filter on expanded — handled by wrapper drop-shadow above */
+  /* filter applied dynamically by applyGlobalOutline() — no hardcoded shadow */
 }
 
 /* Pin genérico (emoji fallback) */
@@ -518,9 +518,9 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   -webkit-user-drag: none; user-select: none;
   will-change: transform;
 }
-/* Shadow on wrapper instead of filter on img */
+/* Shadow on wrapper — controlled by globalSettings.shadowOn via applyShadow() */
 .pin-img-wrap {
-  filter: drop-shadow(0 3px 8px rgba(0,0,0,.35));
+  /* drop-shadow set dynamically by applyShadow() */
   will-change: filter;
 }
 .pin-img-shadow {
@@ -1293,4 +1293,45 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   display: block;
   padding: 14px 18px 0;
   border-radius: var(--r);
+}
+
+/* ── MAP PRESET GRID ── */
+.mapa-preset-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.mapa-preset-card {
+  border: 2px solid var(--border);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+  cursor: pointer;
+  transition: border-color .2s, transform .15s;
+  background: var(--surface);
+}
+.mapa-preset-card:hover { border-color: var(--accent); transform: scale(1.02); }
+.mapa-preset-card.active { border-color: var(--accent); outline: 2px solid var(--accent); outline-offset: 1px; }
+.mapa-preview {
+  height: 56px;
+  position: relative;
+  overflow: hidden;
+}
+.mapa-preview-lines {
+  position: absolute; inset: 0;
+  background-image: repeating-linear-gradient(
+    0deg, transparent, transparent 8px, rgba(128,128,128,0.4) 8px, rgba(128,128,128,0.4) 9px
+  ),
+  repeating-linear-gradient(
+    90deg, transparent, transparent 14px, rgba(128,128,128,0.4) 14px, rgba(128,128,128,0.4) 15px
+  );
+}
+.mapa-card-name {
+  padding: 5px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
