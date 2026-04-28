@@ -89,6 +89,8 @@ function saveEdit() {
     hist:      document.getElementById('e-hist').value.trim() || 'Sin datos históricos.',
     soc:       document.getElementById('e-soc').value.split(',').map(s=>s.trim()).filter(Boolean),
     tags:      document.getElementById('e-tags').value.split(',').map(s=>s.trim()).filter(Boolean),
+    phone:     (document.getElementById('e-phone')||{value:''}).value.trim(),
+    hours:     (document.getElementById('e-hours')||{value:''}).value.trim(),
   };
 
   POIS[idx] = updated;
@@ -141,10 +143,12 @@ function saveNew() {
     imgAlt2: window._addImgAlt2 || null,
     imgAlt3: window._addImgAlt3 || null,
     pinScale: 100, pinOffsetX: 0, pinOffsetY: 0,
-    desc: document.getElementById('a-desc').value.trim(),
-    hist: document.getElementById('a-hist').value.trim() || 'Sin datos históricos.',
-    soc:  document.getElementById('a-soc').value.split(',').map(s=>s.trim()).filter(Boolean),
-    tags: document.getElementById('a-tags').value.split(',').map(s=>s.trim()).filter(Boolean),
+    desc:  document.getElementById('a-desc').value.trim(),
+    hist:  document.getElementById('a-hist').value.trim() || 'Sin datos históricos.',
+    soc:   document.getElementById('a-soc').value.split(',').map(s=>s.trim()).filter(Boolean),
+    tags:  document.getElementById('a-tags').value.split(',').map(s=>s.trim()).filter(Boolean),
+    phone: (document.getElementById('a-phone')||{value:''}).value.trim(),
+    hours: (document.getElementById('a-hours')||{value:''}).value.trim(),
     events: [], iconCyber:'🔵', iconWinter:'❄️', iconZombie:'☣️',
     active: true,
   };
@@ -155,7 +159,7 @@ function saveNew() {
   POIS.push(p);
   makeMarker(p);
 
-  ['a-name','a-desc','a-hist','a-soc','a-lat','a-lng'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+  ['a-name','a-desc','a-hist','a-soc','a-lat','a-lng','a-phone','a-hours','a-tags'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
   const addrEl = document.getElementById('a-address'); if (addrEl) addrEl.value = '';
   document.querySelectorAll('#eg-add .eopt').forEach(e => e.classList.remove('sel'));
   const defE = document.querySelector('#eg-add [data-e="📍"]'); if (defE) defE.classList.add('sel');

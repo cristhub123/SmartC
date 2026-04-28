@@ -80,6 +80,14 @@
     <div class="pp-desc" id="pp-desc" style="margin-top:4px"></div>
     <div id="pp-tags" class="poi-tag-row" style="display:flex;margin-top:4px"></div>
     <div class="pp-coords" id="pp-coords" style="margin-top:4px"></div>
+    <div class="pp-contact" id="pp-phone" style="display:none">
+      <span class="pp-contact-icon">📞</span>
+      <span class="pp-contact-val"></span>
+    </div>
+    <div class="pp-contact" id="pp-hours" style="display:none">
+      <span class="pp-contact-icon">🕐</span>
+      <span class="pp-contact-val"></span>
+    </div>
     <div id="pp-ib" style="display:none"><span id="pp-ico">🏛</span></div>
   </div>
 <!-- modo visual movido al eye-icon junto al nombre -->
@@ -146,6 +154,23 @@
         <label class="fl">Descripción breve</label>
         <textarea class="fta" id="a-desc" placeholder="¿Qué hace especial a este lugar?"></textarea>
       </div>
+
+      <!-- AUTOFILL BUTTON -->
+      <button class="autofill-btn" id="btn-autofill-add" type="button">
+        <span class="af-icon">🌐</span>
+        Buscar info en internet (descripción, horarios, teléfono)
+      </button>
+      <div class="autofill-result" id="autofill-result-add"></div>
+
+      <div class="fg">
+        <label class="fl">📞 Teléfono</label>
+        <input class="fi fi-phone" id="a-phone" type="tel" placeholder="Ej: +54 351 123-4567">
+      </div>
+      <div class="fg">
+        <label class="fl">🕐 Horarios</label>
+        <input class="fi fi-hours" id="a-hours" type="text" placeholder="Ej: Lun–Vie 9–18hs, Sáb 10–14hs">
+      </div>
+
       <div class="fg">
         <label class="fl">Categoría *</label>
         <select class="fs" id="a-cat">
@@ -576,6 +601,23 @@
         <label class="fl">Descripción</label>
         <textarea class="fta" id="e-desc"></textarea>
       </div>
+
+      <!-- AUTOFILL BUTTON -->
+      <button class="autofill-btn" id="btn-autofill-edit" type="button">
+        <span class="af-icon">🌐</span>
+        Buscar info en internet (descripción, horarios, teléfono)
+      </button>
+      <div class="autofill-result" id="autofill-result-edit"></div>
+
+      <div class="fg">
+        <label class="fl">📞 Teléfono</label>
+        <input class="fi fi-phone" id="e-phone" type="tel" placeholder="Ej: +54 351 123-4567">
+      </div>
+      <div class="fg">
+        <label class="fl">🕐 Horarios</label>
+        <input class="fi fi-hours" id="e-hours" type="text" placeholder="Ej: Lun–Vie 9–18hs, Sáb 10–14hs">
+      </div>
+
       <div class="fg">
         <label class="fl">Categoría</label>
         <select class="fs" id="e-cat">
@@ -774,6 +816,9 @@
 
   <!-- 7b. Map settings -->
   <script src="js/map-settings.js" defer></script>
+
+  <!-- 7c. Autofill from OSM -->
+  <script src="js/autofill.js" defer></script>
 
   <!-- 8. Data I/O -->
   <script src="js/data-io.js" defer></script>

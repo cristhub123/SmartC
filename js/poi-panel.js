@@ -31,6 +31,20 @@ function openPoiPanel(poi) {
   document.getElementById('pp-desc').textContent = poi.desc || '';
   document.getElementById('pp-hist').innerHTML   = poi.hist || 'Sin datos históricos.';
   document.getElementById('pp-coords').textContent = `${poi.lat.toFixed(5)}, ${poi.lng.toFixed(5)}`;
+  // Phone
+  const _ppPhone = document.getElementById('pp-phone');
+  if (_ppPhone) {
+    _ppPhone.style.display = poi.phone ? 'flex' : 'none';
+    const pv = _ppPhone.querySelector('.pp-contact-val');
+    if (pv) pv.textContent = poi.phone || '';
+  }
+  // Hours
+  const _ppHours = document.getElementById('pp-hours');
+  if (_ppHours) {
+    _ppHours.style.display = poi.hours ? 'flex' : 'none';
+    const hv = _ppHours.querySelector('.pp-contact-val');
+    if (hv) hv.textContent = poi.hours || '';
+  }
 
   document.getElementById('poi-panel').style.filter = 'none';
 

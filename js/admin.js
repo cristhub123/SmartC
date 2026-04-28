@@ -128,6 +128,8 @@ window.startEdit = function(id) {
   document.getElementById('e-hist').value = p.hist  || '';
   document.getElementById('e-soc').value  = (p.soc||[]).join(', ');
   document.getElementById('e-tags').value = (p.tags||[]).join(', ');
+  const _ePhone = document.getElementById('e-phone'); if (_ePhone) _ePhone.value = p.phone || '';
+  const _eHours = document.getElementById('e-hours'); if (_eHours) _eHours.value = p.hours || '';
 
   // Main image
   const prev = document.getElementById('img-prev-edit');

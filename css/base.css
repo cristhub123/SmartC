@@ -1335,3 +1335,65 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* ── AUTOFILL FROM OSM ── */
+.autofill-btn {
+  display: flex; align-items: center; gap: 7px;
+  width: 100%;
+  background: linear-gradient(135deg, var(--accent-pale), #e8f5e8);
+  border: 1.5px solid var(--accent);
+  border-radius: var(--r-sm);
+  padding: 10px 14px;
+  font-family: var(--font-b);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  cursor: pointer;
+  transition: all .2s;
+  -webkit-tap-highlight-color: transparent;
+  margin-bottom: 12px;
+}
+.autofill-btn:hover {
+  background: var(--accent);
+  color: white;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(212,55,15,.25);
+}
+.autofill-btn:active { transform: translateY(0); }
+.autofill-btn.loading {
+  background: var(--surface2);
+  border-color: var(--border);
+  color: var(--text3);
+  cursor: wait;
+  animation: pulse-border 1.2s ease-in-out infinite;
+}
+@keyframes pulse-border {
+  0%,100% { border-color: var(--border); }
+  50%      { border-color: var(--accent); }
+}
+.autofill-btn .af-icon { font-size: 16px; }
+
+.autofill-result {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  font-size: 12px;
+  color: var(--text2);
+  line-height: 1.5;
+  display: none;
+}
+.autofill-result.show { display: block; }
+.autofill-result strong { color: var(--text); }
+
+/* Phone + hours fields */
+.fi-phone, .fi-hours { width: 100%; }
+
+/* ── CONTACT INFO IN PANEL ── */
+.pp-contact {
+  display: flex; align-items: center; gap: 6px;
+  margin-top: 4px; font-size: 12px; color: var(--text2);
+}
+.pp-contact-icon { font-size: 13px; flex-shrink: 0; }
+.pp-contact-val  { flex: 1; line-height: 1.4; }
