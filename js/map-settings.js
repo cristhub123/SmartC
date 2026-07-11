@@ -197,3 +197,6 @@ function initMapaTab() {
 
 // Register tab plugin
 SC.registerTabPlugin('mapa', initMapaTab);
+
+
+

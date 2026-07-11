@@ -49,3 +49,6 @@ if (btnLocAddr)   btnLocAddr.addEventListener('click',   () => switchLocationMod
 // Location mode wires into geocoder after both scripts load
 SC.registerTabPlugin('add', () => switchLocationMode(_locationMode));
 });
+
+
+

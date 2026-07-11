@@ -138,3 +138,6 @@ setupImgUploader('img-input-alt2-edit','img-prev-alt2-edit','img-lbl-alt2-edit',
 setupImgUploader('img-input-alt3-edit','img-prev-alt3-edit','img-lbl-alt3-edit','img-clear-alt3-edit','iu-alt3-edit','Variante 4', b64=>{ window._editImgAlt3=b64; });
 
 /* ── Patch startEdit: ya integrado en la definición base arriba ── */
+
+
+

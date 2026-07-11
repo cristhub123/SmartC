@@ -114,3 +114,6 @@ SC.registerTabPlugin('groups', renderGroupsAdmin);
 // Agregar groups al mapa de tabs
 const _mapTGroups = {list:'tp-list',add:'tp-add',edit:'tp-edit',global:'tp-global','zonas-admin':'tp-zonas-admin',roadmap:'tp-roadmap',cats:'tp-cats',groups:'tp-groups'};
 SC.registerTabPlugin('groups', renderGroupsAdmin);
+
+
+

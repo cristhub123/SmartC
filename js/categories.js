@@ -198,3 +198,6 @@ document.querySelectorAll('.color-preset').forEach(el => {
     else if (target==='newcat')  { document.getElementById('nc-color').value=c; }
   });
 });
+
+
+

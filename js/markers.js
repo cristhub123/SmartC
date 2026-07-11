@@ -122,3 +122,6 @@ function collapsePin(id) {
   }
   if (expandedId === id) expandedId = null;
 }
+
+
+

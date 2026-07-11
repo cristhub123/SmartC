@@ -74,3 +74,6 @@ function setupGeocoder(inputId, btnId, resultsId, latId, lngId, coordDisplayId, 
 
 setupGeocoder('geo-input-add',  'geo-btn-add',  'geo-results-add',  'a-lat', 'a-lng', 'a-coord-display', syncAddCoordDisplay);
 setupGeocoder('geo-input-edit', 'geo-btn-edit', 'geo-results-edit', 'e-lat', 'e-lng', 'e-coord-display', syncEditCoordDisplay);
+
+
+

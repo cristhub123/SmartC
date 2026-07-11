@@ -43,3 +43,6 @@ El JSON exportado (schema v3.0) contiene:
 3. Firebase Auth para roles (admin / business / visitor)
 4. Dashboard de business owner
 5. Sistema de membresías con Stripe
+
+
+

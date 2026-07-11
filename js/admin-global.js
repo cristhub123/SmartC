@@ -191,3 +191,6 @@ document.getElementById('btn-apply-global').addEventListener('click', () => {
   rebuildAllMarkers();
   toast('✅ Apariencia global aplicada');
 });
+
+
+

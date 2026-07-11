@@ -1,45 +1,106 @@
 
 /* ═══════════════════════════════════════
-   VARIABLES
+   VARIABLES DE DISEÑO (DESIGN TOKENS)
+   ---------------------------------------
+   FUTURO: este bloque completo está pensado
+   para conectarse a un panel de administrador
+   ("Panel de Estilos") donde el admin pueda
+   cambiar estos valores con selectores visuales
+   en vez de editar este archivo a mano.
+   Cuando se construya ese panel, cada variable
+   de acá abajo pasa a ser un control (color
+   picker, slider, dropdown de fuente, etc).
+   No se necesita tocar el resto del CSS: todo
+   el sitio ya "escucha" a estas variables.
 ═══════════════════════════════════════ */
 :root {
+
+  /* ---- FONDOS Y SUPERFICIES ----
+     Colores de fondo general (--bg) y de las
+     tarjetas/paneles que flotan sobre el fondo
+     (--surface, --surface2). */
   --bg:          #f0f4f0;
   --surface:     #ffffff;
   --surface2:    #f7f9f7;
+
+  /* ---- BORDES ----
+     Líneas divisorias sutiles entre elementos. */
   --border:      #e2eae2;
   --border2:     #ccdacc;
+
+  /* ---- TEXTO ----
+     --text = texto principal (más oscuro/legible)
+     --text2 = texto secundario (subtítulos, ayuda)
+     --text3 = texto terciario (el más apagado, ej.
+     placeholders o notas al pie) */
   --text:        #1a2e1a;
   --text2:       #4a6b4a;
   --text3:       #8aaa8a;
+
+  /* ---- COLOR DE MARCA (ACENTO PRINCIPAL) ----
+     --accent = el color "de marca" que se usa en
+     botones principales, links activos, elementos
+     destacados. Es el color más importante para
+     la identidad visual de la app.
+     --accent2 = color secundario de acento (para
+     contrastar con el principal en detalles puntuales)
+     --accent-pale = versión clara del acento, para
+     fondos suaves detrás de elementos activos. */
   --accent:      #3a8c4f;
   --accent2:     #f97316;
   --accent-pale: #edf7ef;
+
+  /* ---- PALETA GENERAL DE COLORES ----
+     Colores base disponibles para usar en distintos
+     elementos de la interfaz (no ligados a una
+     categoría de lugar en particular). */
   --green:       #3a8c4f;
   --green-light: #5aaa68;
   --blue:        #3b7dd8;
   --purple:      #7c5aed;
   --teal:        #0d9488;
   --amber:       #e09000;
+
+  /* ---- SOMBRAS ----
+     De más sutil (--shadow-xs, para elementos chicos)
+     a más marcada (--shadow-lg, para modales/paneles
+     grandes que "flotan" sobre el resto). */
   --shadow-xs:   0 1px 4px rgba(0,0,0,.06);
   --shadow-sm:   0 2px 10px rgba(0,0,0,.08);
   --shadow-md:   0 8px 28px rgba(0,0,0,.10);
   --shadow-lg:   0 20px 50px rgba(0,0,0,.14);
   --shadow-panel: 0 12px 30px rgba(0,0,0,.12);
+
+  /* ---- BORDES REDONDEADOS ----
+     Qué tan "curvas" son las esquinas de tarjetas y
+     botones. --r-sm = esquinas chicas, --r-lg = esquinas
+     bien redondeadas (paneles grandes, modales). */
   --r-sm:        12px;
   --r:           16px;
   --r-lg:        20px;
+
+  /* ---- TIPOGRAFÍAS ----
+     --font-d = fuente de TÍTULOS ("display"): Sora
+     --font-b = fuente de TEXTO GENERAL ("body"): Nunito
+     --font-m = fuente MONOESPACIADA (para datos tipo
+     código o números alineados): JetBrains Mono */
   --font-d:      'Sora', sans-serif;
   --font-b:      'Nunito', sans-serif;
   --font-m:      'JetBrains Mono', monospace;
 
-  /* category colours — softer, more cohesive */
-  --c-food:      #e0603a;
-  --c-culture:   #5a52d8;
-  --c-music:     #c850a8;
-  --c-bar:       #c87020;
-  --c-art:       #0d9488;
-  --c-historic:  #7c4aed;
-  --c-shop:      #3a8c4f;
+  /* ---- COLORES POR CATEGORÍA DE LUGAR ----
+     Cada categoría de pin tiene su propio color de
+     identificación visual en el mapa y en las etiquetas.
+     Si se agrega una categoría nueva a futuro, necesita
+     su propia variable acá siguiendo el mismo patrón
+     "--c-nombrecategoria". */
+  --c-food:      #e0603a;   /* Gastronomía */
+  --c-culture:   #5a52d8;   /* Cultura */
+  --c-music:     #c850a8;   /* Música */
+  --c-bar:       #c87020;   /* Bares */
+  --c-art:       #0d9488;   /* Arte */
+  --c-historic:  #7c4aed;   /* Histórico */
+  --c-shop:      #3a8c4f;   /* Comercios */
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1397,3 +1458,6 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
 }
 .pp-contact-icon { font-size: 13px; flex-shrink: 0; }
 .pp-contact-val  { flex: 1; line-height: 1.4; }
+
+
+
