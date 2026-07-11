@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>SmartCity · Córdoba</title>
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Nunito:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <!-- App CSS -->
+  <link rel="stylesheet" href="css/base.css">
+
+  <!-- Critical inline: prevents white flash -->
+  <style>
+    body { margin:0; overflow:hidden; }
+    #map { width:100vw; height:100dvh; background:#e8e6df; }
+  </style>
+</head>
+<body>
+
+<!-- ── ESTRUCTURA ── -->
+<button onclick="this.parentElement.style.display='none'" style="background:rgba(255,255,255,.15);border:none;color:white;border-radius:6px;padding:4px 10px;cursor:pointer;font-size:12px;flex-shrink:0">✕ Cerrar</button>
+</div>
+
+<div id="map"></div>
+
+<div id="header">
+  <button id="btn-zonas"><span class="zico"></span></button>
+  <div id="search-bar">
+    <span id="search-bar-icon">🔍</span>
+    <input id="search-input" type="text" placeholder="Buscar lugares, eventos...">
+  </div>
+  <button id="btn-admin" title="Administrador">⚙</button>
+</div>
+<div id="search-results"></div>
+
+<div id="zonas-dropdown">
+  <div class="zd-header">Navegá por zona</div>
+  <div id="zonas-list-scroll"><!-- items generados por JS --></div>
+</div>
+
+<div id="zona-panel">
+  <div class="zp-handle"></div>
+  <div class="zp-head">
+    <div class="zp-name" id="zp-name">—</div>
+    <button class="btn-x" id="zp-close">✕</button>
+  </div>
+  <div class="zp-body" id="zp-body"></div>
+</div>
+
+<div id="filter-bar">
+  <div class="filter-row" id="filter-row-inner">
+    <!-- populated by updateFilterBar() on load -->
+  </div>
+</div>
+
+<!-- POI Panel -->
+<div id="poi-panel">
+  <div class="pp-handle"></div>
+  <div class="pp-head">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
+      <div>
+        <div class="pp-cat" id="pp-cat">CULTURA</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button id="pp-eye-btn" title="Cambiar modo visual" style="background:none;border:none;cursor:pointer;padding:0;flex-shrink:0;position:relative;width:22px;height:22px;display:flex;align-items:center;justify-content:center;">
+            <span id="pp-eye-icon" style="font-size:18px;line-height:1;animation:eyeglow 2s ease-in-out infinite;">👁</span>
+          </button>
+          <div class="pp-name" id="pp-name">—</div>
+        </div>
+        <!-- visual mode mini picker (shown on eye tap) -->
+        <div id="pp-vis-picker" style="display:none;flex-wrap:wrap;gap:7px;margin-top:8px;padding:8px;background:rgba(0,0,0,.04);border-radius:10px;"></div>
+      </div>
+      <button class="btn-x" id="pp-close" style="flex-shrink:0;margin-top:2px">✕</button>
+    </div>
+    <div class="pp-desc" id="pp-desc" style="margin-top:4px"></div>
+    <div id="pp-tags" class="poi-tag-row" style="display:flex;margin-top:4px"></div>
+    <div class="pp-coords" id="pp-coords" style="margin-top:4px"></div>
+    <div class="pp-contact" id="pp-phone" style="display:none">
+      <span class="pp-contact-icon">📞</span>
+      <span class="pp-contact-val"></span>
+    </div>
+    <div class="pp-contact" id="pp-hours" style="display:none">
+      <span class="pp-contact-icon">🕐</span>
+      <span class="pp-contact-val"></span>
+    </div>
+    <div id="pp-ib" style="display:none"><span id="pp-ico">🏛</span></div>
+  </div>
+<!-- modo visual movido al eye-icon junto al nombre -->
+  <div class="pp-sec">
+    <div class="sec-lbl">Eventos</div>
+    <div class="ev-scroll" id="pp-evts"></div>
+  </div>
+  <div class="pp-sec">
+    <div class="sec-lbl">Historia & Trivia</div>
+    <div class="trivia-box"><div class="trivia-ico">💡</div><div class="trivia-txt" id="pp-hist"></div></div>
+  </div>
+  <div class="pp-sec">
+    <div class="sec-lbl">Redes & Contacto</div>
+    <div class="soc-row" id="pp-soc"></div>
+  </div>
+</div>
+
+<!-- Admin Overlay -->
+<div id="overlay"></div>
+
+<!-- Admin Panel -->
+<div id="admin">
+  <div class="admin-hd">
+    <div class="admin-title">⚙ Administrador</div>
+    <button class="btn-x" id="admin-close">✕</button>
+  </div>
+  <div class="admin-tabs" style="overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;">
+    <div class="atab on"  data-t="list">📋 Lugares</div>
+    <div class="atab"     data-t="add">➕ Nuevo</div>
+    <div class="atab"     data-t="global">🎨 Global</div>
+    <div class="atab"     data-t="zonas-admin">📍 Zonas</div>
+    <div class="atab"     data-t="mapa">🗺 Mapa</div>
+    <div class="atab"     data-t="roadmap">🗺 Roadmap</div>
+    <div class="atab"     data-t="cats">🏷 Categ.</div>
+    <div class="atab"     data-t="groups">📦 Grupos</div>
+    <div class="atab"     data-t="edit" id="tab-edit-btn" style="display:none">✏️ Editando</div>
+  </div>
+  <div class="admin-body">
+
+    <!-- LIST -->
+    <div class="tpane on" id="tp-list">
+      <div class="data-actions">
+        <button class="btn-export" id="btn-export">⬇ Exportar JSON</button>
+        <div class="btn-import">
+          <input type="file" id="import-file" accept=".json">
+          ⬆ Importar JSON
+        </div>
+      </div>
+      <div class="import-warning" id="import-warning">
+        ⚠️ Esto va a <strong>reemplazar</strong> todos los lugares actuales.<br>
+        <button id="import-confirm" style="margin-top:6px;background:var(--accent);color:white;border:none;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:600;cursor:pointer">Confirmar importación</button>
+        <button id="import-cancel" style="margin-top:6px;margin-left:6px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer">Cancelar</button>
+      </div>
+      <div id="admin-list"></div>
+    </div>
+
+    <!-- ADD -->
+    <div class="tpane" id="tp-add">
+      <div class="fg">
+        <label class="fl">Nombre *</label>
+        <input class="fi" id="a-name" type="text" placeholder="Ej: Mercado Norte">
+      </div>
+      <div class="fg">
+        <label class="fl">Descripción breve</label>
+        <textarea class="fta" id="a-desc" placeholder="¿Qué hace especial a este lugar?"></textarea>
+      </div>
+
+      <!-- AUTOFILL BUTTON -->
+      <button class="autofill-btn" id="btn-autofill-add" type="button">
+        <span class="af-icon">🌐</span>
+        Buscar info en internet (descripción, horarios, teléfono)
+      </button>
+      <div class="autofill-result" id="autofill-result-add"></div>
+
+      <div class="fg">
+        <label class="fl">📞 Teléfono</label>
+        <input class="fi fi-phone" id="a-phone" type="tel" placeholder="Ej: +54 351 123-4567">
+      </div>
+      <div class="fg">
+        <label class="fl">🕐 Horarios</label>
+        <input class="fi fi-hours" id="a-hours" type="text" placeholder="Ej: Lun–Vie 9–18hs, Sáb 10–14hs">
+      </div>
+
+      <div class="fg">
+        <label class="fl">Categoría *</label>
+        <select class="fs" id="a-cat">
+          <option value="">— Elegir categoría —</option>
+          <option value="food">🍜 Gastronomía</option>
+          <option value="culture">🏛 Cultura</option>
+          <option value="music">🎸 Música Live</option>
+          <option value="bar">🍻 Bares</option>
+          <option value="art">🎨 Arte</option>
+          <option value="historic">⛪ Histórico</option>
+          <option value="shop">🛍 Tiendas</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label class="fl">Imagen del Pin</label>
+        <div class="img-uploader" id="iu-add">
+          <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" id="img-input-add">
+          <div class="img-uploader-inner">
+            <div class="img-preview-box" id="img-prev-add">🏙️</div>
+            <div class="img-uploader-text">
+              <strong id="img-lbl-add">Subir / pegar imagen</strong>
+              <span>PNG con transparencia ideal.<br>También JPG, WebP. Máx 5 MB.</span>
+            </div>
+          </div>
+          <button class="img-clear" id="img-clear-add" type="button">✕</button>
+        </div>
+        <div class="url-input-row">
+          <input class="fi url-fi" id="img-url-add" type="url" placeholder="O pegá el link de Dropbox / Drive / URL directa">
+          <button class="url-load-btn" id="img-url-load-add" type="button">Cargar</button>
+        </div>
+      </div>
+      <div class="fg">
+        <label class="fl">Imágenes alternativas (para el ojito 👁)</label>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Cada imagen es una variante visual del edificio. Se activan desde el panel del lugar.</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div class="img-uploader" id="iu-alt1-add">
+            <input type="file" accept="image/*" id="img-input-alt1-add">
+            <div class="img-uploader-inner">
+              <div class="img-preview-box" id="img-prev-alt1-add">2</div>
+              <div class="img-uploader-text"><strong id="img-lbl-alt1-add">Variante 2</strong><span>PNG recomendado</span></div>
+            </div>
+            <button class="img-clear" id="img-clear-alt1-add" type="button">✕</button>
+          </div>
+          <div class="img-uploader" id="iu-alt2-add">
+            <input type="file" accept="image/*" id="img-input-alt2-add">
+            <div class="img-uploader-inner">
+              <div class="img-preview-box" id="img-prev-alt2-add">3</div>
+              <div class="img-uploader-text"><strong id="img-lbl-alt2-add">Variante 3</strong><span>PNG recomendado</span></div>
+            </div>
+            <button class="img-clear" id="img-clear-alt2-add" type="button">✕</button>
+          </div>
+          <div class="img-uploader" id="iu-alt3-add">
+            <input type="file" accept="image/*" id="img-input-alt3-add">
+            <div class="img-uploader-inner">
+              <div class="img-preview-box" id="img-prev-alt3-add">4</div>
+              <div class="img-uploader-text"><strong id="img-lbl-alt3-add">Variante 4</strong><span>PNG recomendado</span></div>
+            </div>
+            <button class="img-clear" id="img-clear-alt3-add" type="button">✕</button>
+          </div>
+        </div>
+      </div>
+      <div class="fg">
+        <label class="fl">Ícono de respaldo (si no hay imagen)</label>
+        <div class="egrid" id="eg-add">
+          <div class="eopt sel" data-e="📍">📍</div><div class="eopt" data-e="🏛">🏛</div>
+          <div class="eopt" data-e="🍜">🍜</div><div class="eopt" data-e="🎸">🎸</div>
+          <div class="eopt" data-e="🍻">🍻</div><div class="eopt" data-e="🎨">🎨</div>
+          <div class="eopt" data-e="⛪">⛪</div><div class="eopt" data-e="🛍">🛍</div>
+          <div class="eopt" data-e="🥩">🥩</div><div class="eopt" data-e="📚">📚</div>
+          <div class="eopt" data-e="🎭">🎭</div><div class="eopt" data-e="🏺">🏺</div>
+          <div class="eopt" data-e="🎪">🎪</div><div class="eopt" data-e="🌮">🌮</div>
+          <div class="eopt" data-e="☕">☕</div><div class="eopt" data-e="🍕">🍕</div>
+          <div class="eopt" data-e="🎡">🎡</div><div class="eopt" data-e="🏋">🏋</div>
+        </div>
+      </div>
+      <div class="fg">
+        <label class="fl">Historia / Trivia</label>
+        <textarea class="fta" id="a-hist" placeholder="Dato histórico o curioso del lugar..."></textarea>
+      </div>
+      <div class="fg">
+        <label class="fl">Redes Sociales (separadas por coma)</label>
+        <input class="fi" id="a-soc" type="text" placeholder="@instagram, Web Oficial, Facebook">
+      </div>
+      <div class="fg">
+        <label class="fl">Tags / Subcategorías (separados por coma)</label>
+        <input class="fi" id="a-tags" type="text" placeholder="Ej: Comida árabe, Sin TACC, Delivery, Vista al río">
+      </div>
+      <div class="divider"><span>UBICACIÓN EN EL MAPA</span></div>
+      <div class="fg">
+        <label class="fl">🔍 Buscar dirección o lugar</label>
+        <div class="geocoder-row">
+          <input class="fi geocoder-input" id="geo-input-add" type="text" placeholder="Ej: Lotería de Córdoba, Teatro del Libertador…">
+          <button class="geocoder-btn" id="geo-btn-add">Buscar</button>
+        </div>
+        <div class="geocoder-results" id="geo-results-add"></div>
+        <div class="coord-display" id="a-coord-display">Sin coordenadas — buscá una dirección o hacé click en el mapa</div>
+        <div class="fg" style="margin-top:8px;margin-bottom:0">
+          <label class="fl">Dirección exacta (calle y número)</label>
+          <input class="fi" id="a-address" type="text" placeholder="Ej: Av. General Paz 123, Córdoba">
+          <div style="font-size:11px;color:var(--text3);margin-top:4px">Se completa al buscar. Sirve como alternativa a coordenadas.</div>
+        </div>
+        <div class="frow" style="margin-bottom:8px;margin-top:8px">
+          <div>
+            <label class="fl">Latitud</label>
+            <input class="fi" id="a-lat" type="number" step="0.000001" placeholder="-31.4167">
+          </div>
+          <div>
+            <label class="fl">Longitud</label>
+            <input class="fi" id="a-lng" type="number" step="0.000001" placeholder="-64.1833">
+          </div>
+        </div>
+        <button class="btn-map-pick" id="btn-pick-add">📍 O hacer clic en el mapa</button>
+      </div>
+      <button class="btn-primary" id="btn-save-add">✓ Guardar Lugar</button>
+    </div>
+
+    <!-- GLOBAL APPEARANCE -->
+    <div class="tpane" id="tp-global">
+
+      <div class="divider"><span>OUTLINE SÓLIDO</span></div>
+      <div class="fg">
+        <label class="fl">Grosor del borde sólido</label>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:6px">
+          <input type="range" id="g-solid-px" min="0" max="8" value="0" style="flex:1;accent-color:var(--accent)">
+          <span id="g-solid-px-val" style="font-family:var(--font-m);font-size:12px;min-width:32px;text-align:right">0px</span>
+        </div>
+      </div>
+      <div class="fg">
+        <label class="fl">Color del borde sólido</label>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <input type="color" id="g-solid-color" value="#ffffff" style="width:40px;height:34px;border:1.5px solid var(--border);border-radius:6px;padding:2px;cursor:pointer">
+          <input class="fi" id="g-solid-hex" type="text" placeholder="#ffffff" maxlength="7" style="width:90px;font-family:var(--font-m);font-size:12px">
+          <div style="display:flex;gap:5px;flex-wrap:wrap">
+            <div class="color-preset" data-target="solid" data-c="#ffffff" style="background:#ffffff">⬜</div>
+            <div class="color-preset" data-target="solid" data-c="#000000" style="background:#000000">⬛</div>
+            <div class="color-preset" data-target="solid" data-c="#d4370f" style="background:#d4370f"></div>
+            <div class="color-preset" data-target="solid" data-c="#fbbf24" style="background:#fbbf24"></div>
+            <div class="color-preset" data-target="solid" data-c="#34d399" style="background:#34d399"></div>
+            <div class="color-preset" data-target="solid" data-c="#60a5fa" style="background:#60a5fa"></div>
+            <div class="color-preset" data-target="solid" data-c="#a78bfa" style="background:#a78bfa"></div>
+            <div class="color-preset" data-target="solid" data-c="#f472b6" style="background:#f472b6"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="divider"><span>GLOW (debajo del borde)</span></div>
+      <div class="fg">
+        <label class="fl">Intensidad del glow</label>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:6px">
+          <input type="range" id="g-glow-px" min="0" max="24" value="0" style="flex:1;accent-color:var(--accent)">
+          <span id="g-glow-px-val" style="font-family:var(--font-m);font-size:12px;min-width:32px;text-align:right">0px</span>
+        </div>
+      </div>
+      <div class="fg">
+        <label class="fl">Color del glow</label>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <input type="color" id="g-glow-color" value="#60a5fa" style="width:40px;height:34px;border:1.5px solid var(--border);border-radius:6px;padding:2px;cursor:pointer">
+          <input class="fi" id="g-glow-hex" type="text" placeholder="#60a5fa" maxlength="7" style="width:90px;font-family:var(--font-m);font-size:12px">
+          <div style="display:flex;gap:5px;flex-wrap:wrap">
+            <div class="color-preset" data-target="glow" data-c="#ffffff" style="background:#ffffff">⬜</div>
+            <div class="color-preset" data-target="glow" data-c="#d4370f" style="background:#d4370f"></div>
+            <div class="color-preset" data-target="glow" data-c="#fbbf24" style="background:#fbbf24"></div>
+            <div class="color-preset" data-target="glow" data-c="#34d399" style="background:#34d399"></div>
+            <div class="color-preset" data-target="glow" data-c="#60a5fa" style="background:#60a5fa"></div>
+            <div class="color-preset" data-target="glow" data-c="#a78bfa" style="background:#a78bfa"></div>
+            <div class="color-preset" data-target="glow" data-c="#f472b6" style="background:#f472b6"></div>
+            <div class="color-preset" data-target="glow" data-c="#00ffff" style="background:#00ffff"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="divider"><span>TAMAÑO & COMPORTAMIENTO</span></div>
+      <div class="fg">
+        <label class="fl">Opacidad al filtrar (pins no activos)</label>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:6px">
+          <input type="range" id="g-dim-opacity" min="0" max="80" value="35" style="flex:1;accent-color:var(--accent)">
+          <span id="g-dim-opacity-val" style="font-family:var(--font-m);font-size:12px;min-width:32px;text-align:right">35%</span>
+        </div>
+      </div>
+      <div class="fg">
+        <label class="fl">Tamaño de pins en el mapa</label>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:6px">
+          <input type="range" id="g-pin-size" min="28" max="72" value="44" style="flex:1;accent-color:var(--accent)">
+          <span id="g-pin-size-val" style="font-family:var(--font-m);font-size:12px;min-width:36px;text-align:right">44px</span>
+        </div>
+      </div>
+      <div class="fg">
+        <label class="fl">Tamaño del edificio maximizado (px base)</label>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Independiente del tamaño del pin en mapa</div>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:4px">
+          <input type="range" id="g-expand-size" min="80" max="400" value="160" style="flex:1;accent-color:var(--accent)">
+          <span id="g-expand-size-val" style="font-family:var(--font-m);font-size:12px;min-width:36px;text-align:right">160px</span>
+        </div>
+      </div>
+      <div class="fg">
+        <label class="fl">Escala al expandir (multiplica el tamaño base)</label>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:6px">
+          <input type="range" id="g-expand-scale" min="15" max="60" value="32" style="flex:1;accent-color:var(--accent)">
+          <span id="g-expand-scale-val" style="font-family:var(--font-m);font-size:12px;min-width:36px;text-align:right">3.2×</span>
+        </div>
+      </div>
+      <div class="fg">
+        <label class="fl">Tamaño del nombre del lugar</label>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:6px">
+          <input type="range" id="g-name-size" min="14" max="42" value="26" style="flex:1;accent-color:var(--accent)">
+          <span id="g-name-size-val" style="font-family:var(--font-m);font-size:12px;min-width:36px;text-align:right">26px</span>
+        </div>
+      </div>
+
+      <div class="divider"><span>SOMBRA DEL PIN</span></div>
+      <div class="fg">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <label class="fl" style="margin:0">Mostrar sombra debajo del edificio</label>
+          <button id="g-shadow-toggle" class="za-toggle on" title="Activar/desactivar sombra"></button>
+        </div>
+        <label class="fl">Color de la sombra</label>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:4px">
+          <input type="color" id="g-shadow-color" value="#000000" style="width:40px;height:34px;border:1.5px solid var(--border);border-radius:6px;padding:2px;cursor:pointer">
+          <div style="display:flex;gap:5px;flex-wrap:wrap">
+            <div class="color-preset" data-target="shadow" data-c="#000000" style="background:#000000">⬛</div>
+            <div class="color-preset" data-target="shadow" data-c="#1c1917" style="background:#1c1917"></div>
+            <div class="color-preset" data-target="shadow" data-c="#d4370f" style="background:#d4370f"></div>
+            <div class="color-preset" data-target="shadow" data-c="#2563eb" style="background:#2563eb"></div>
+            <div class="color-preset" data-target="shadow" data-c="#7c3aed" style="background:#7c3aed"></div>
+            <div class="color-preset" data-target="shadow" data-c="#0d9488" style="background:#0d9488"></div>
+          </div>
+        </div>
+        <label class="fl" style="margin-top:10px">Opacidad de la sombra</label>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:4px">
+          <input type="range" id="g-shadow-opacity" min="5" max="60" value="20" style="flex:1;accent-color:var(--accent)">
+          <span id="g-shadow-opacity-val" style="font-family:var(--font-m);font-size:12px;min-width:32px;text-align:right">20%</span>
+        </div>
+      </div>
+
+      <div class="divider"><span>GLOW DEL OJITO 👁</span></div>
+      <div class="fg">
+        <label class="fl">Intensidad del glow del ojito</label>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:6px">
+          <input type="range" id="g-eye-glow-intensity" min="1" max="5" value="2" style="flex:1;accent-color:var(--accent)">
+          <span id="g-eye-glow-intensity-val" style="font-family:var(--font-m);font-size:12px;min-width:32px;text-align:right">Med</span>
+        </div>
+      </div>
+      <div class="fg">
+        <label class="fl">Color del glow del ojito</label>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <input type="color" id="g-eye-glow-color" value="#60a5fa" style="width:40px;height:34px;border:1.5px solid var(--border);border-radius:6px;padding:2px;cursor:pointer">
+          <div style="display:flex;gap:5px;flex-wrap:wrap">
+            <div class="color-preset" data-target="eyeglow" data-c="#60a5fa" style="background:#60a5fa"></div>
+            <div class="color-preset" data-target="eyeglow" data-c="#f97316" style="background:#f97316"></div>
+            <div class="color-preset" data-target="eyeglow" data-c="#a78bfa" style="background:#a78bfa"></div>
+            <div class="color-preset" data-target="eyeglow" data-c="#34d399" style="background:#34d399"></div>
+            <div class="color-preset" data-target="eyeglow" data-c="#f472b6" style="background:#f472b6"></div>
+            <div class="color-preset" data-target="eyeglow" data-c="#fbbf24" style="background:#fbbf24"></div>
+            <div class="color-preset" data-target="eyeglow" data-c="#ffffff" style="background:#ffffff">⬜</div>
+          </div>
+        </div>
+        <div style="margin-top:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px;display:flex;align-items:center;justify-content:center;gap:10px">
+          <span style="font-size:11px;color:var(--text3)">Preview:</span>
+          <span id="eye-glow-preview" style="font-size:24px;animation:eyeglow 2s ease-in-out infinite;">👁</span>
+        </div>
+      </div>
+
+      <div class="divider"><span>PREVISUALIZACIÓN</span></div>
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:20px;display:flex;align-items:center;justify-content:center;gap:32px;margin-bottom:14px">
+        <div style="text-align:center">
+          <div id="g-preview-pin" style="font-size:44px;display:inline-block;transition:all .3s">🏛</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:6px">Normal</div>
+        </div>
+        <div style="text-align:center">
+          <div id="g-preview-pin-big" style="font-size:44px;display:inline-block;transition:all .3s;transform:scale(1.5)">🏛</div>
+          <div style="font-size:10px;color:var(--text3);margin-top:16px">Expandido</div>
+        </div>
+      </div>
+      <button class="btn-primary" id="btn-apply-global">✓ Aplicar a todos los pins</button>
+    </div>
+
+    <!-- ZONAS ADMIN -->
+    <div class="tpane" id="tp-zonas-admin">
+      <p style="font-size:12px;color:var(--text3);margin-bottom:12px">Activá/desactivá zonas y reordenalas arrastrando ⠿</p>
+      <div id="zonas-admin-list"></div>
+      <div class="divider" style="margin-top:16px"><span>EDITAR ZONA</span></div>
+      <div id="zona-edit-form" style="display:none">
+        <div class="fg"><label class="fl">Nombre</label><input class="fi" id="ze-name" type="text"></div>
+        <div class="fg"><label class="fl">Tags (separados por coma)</label><input class="fi" id="ze-tags" type="text"></div>
+        <div id="ze-attrs-wrap"></div>
+        <button class="btn-primary" id="btn-save-zona" style="margin-top:4px">✓ Guardar cambios</button>
+        <button class="btn-outline" id="btn-cancel-zona" style="margin-top:6px">Cancelar</button>
+      </div>
+    </div>
+
+
+    <!-- MAPA -->
+    <div class="tpane" id="tp-mapa">
+      <div class="sec-lbl">ESTILO DEL MAPA</div>
+      <div class="mapa-preset-grid" id="mapa-preset-grid"></div>
+
+      <div class="divider"><span>URL PERSONALIZADA</span></div>
+      <div class="fg" style="margin-bottom:10px">
+        <label class="fl">URL del tile provider (debe tener {z}/{x}/{y})</label>
+        <div style="display:flex;gap:7px">
+          <input class="fi" id="mapa-url-input" type="text" placeholder="https://..." style="font-size:12px;flex:1">
+          <button class="btn-primary" id="mapa-url-apply" style="width:auto;padding:0 14px;margin-top:0">Aplicar</button>
+        </div>
+      </div>
+
+      <div class="divider"><span>OPACIDAD DEL MAPA</span></div>
+      <div class="fg">
+        <div style="display:flex;gap:10px;align-items:center">
+          <input type="range" id="mapa-opacity" min="10" max="100" value="100" style="flex:1;accent-color:var(--accent)">
+          <span id="mapa-opacity-val" style="font-family:var(--font-m);font-size:12px;min-width:38px;text-align:right">100%</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ROADMAP -->
+    <div class="tpane" id="tp-roadmap">
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-sm);padding:12px 14px;margin-bottom:14px">
+        <div style="font-family:var(--font-m);font-size:9px;letter-spacing:1.5px;color:var(--text3);text-transform:uppercase;margin-bottom:8px">Solo visible para el administrador</div>
+        <div style="font-size:12px;color:var(--text2);line-height:1.5">Ideas y features a implementar a futuro. Este contenido vivirá en un archivo separado en versiones futuras.</div>
+      </div>
+      <div id="roadmap-items"></div>
+      <div style="margin-top:14px">
+        <div class="fg">
+          <label class="fl">Nueva idea / feature</label>
+          <div style="display:flex;gap:7px;margin-bottom:8px">
+            <select class="fs" id="rm-status" style="flex:0 0 130px;font-size:12px">
+              <option value="idea">💡 Idea</option>
+              <option value="planned">📋 Planeado</option>
+              <option value="building">🔨 En desarrollo</option>
+              <option value="done">✅ Hecho</option>
+            </select>
+            <select class="fs" id="rm-priority" style="flex:0 0 110px;font-size:12px">
+              <option value="high">🔴 Alta</option>
+              <option value="mid">🟡 Media</option>
+              <option value="low">🟢 Baja</option>
+            </select>
+          </div>
+          <input class="fi" id="rm-title" type="text" placeholder="Título de la feature" style="margin-bottom:7px">
+          <textarea class="fta" id="rm-desc" placeholder="Descripción, contexto, notas..." style="min-height:60px"></textarea>
+        </div>
+        <button class="btn-primary" id="btn-add-rm">+ Agregar al Roadmap</button>
+      </div>
+    </div>
+
+    <!-- GRUPOS -->
+    <div class="tpane" id="tp-groups">
+      <p style="font-size:12px;color:var(--text3);margin-bottom:12px">Agrupá lugares que comparten info (sucursales, franquicias, etc). Los miembros del grupo pueden heredar campos del grupo.</p>
+      <div id="groups-admin-list"></div>
+      <div class="divider" style="margin-top:16px"><span>NUEVO GRUPO</span></div>
+      <div class="fg">
+        <label class="fl">Nombre del grupo *</label>
+        <input class="fi" id="ng-name" type="text" placeholder="Ej: McDonald's Córdoba">
+      </div>
+      <div class="fg">
+        <label class="fl">Descripción compartida (opcional)</label>
+        <textarea class="fta" id="ng-desc" placeholder="Descripción que heredarán todos los miembros..." style="min-height:60px"></textarea>
+      </div>
+      <div class="fg">
+        <label class="fl">¿Qué campos se comparten con los miembros?</label>
+        <div style="display:flex;flex-direction:column;gap:7px;margin-top:6px">
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+            <input type="checkbox" id="ng-share-img" style="accent-color:var(--accent)"> Imagen principal del pin
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+            <input type="checkbox" id="ng-share-desc" checked style="accent-color:var(--accent)"> Descripción
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+            <input type="checkbox" id="ng-share-hist" style="accent-color:var(--accent)"> Historia/Trivia
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+            <input type="checkbox" id="ng-share-soc" checked style="accent-color:var(--accent)"> Redes sociales
+          </label>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+            <input type="checkbox" id="ng-share-cats" checked style="accent-color:var(--accent)"> Categorías
+          </label>
+        </div>
+      </div>
+      <button class="btn-primary" id="btn-add-group">+ Crear Grupo</button>
+
+      <div class="divider" style="margin-top:16px"><span>MODO DE UBICACIÓN GLOBAL</span></div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:10px;line-height:1.5">Elegí cómo se ubican los pins en el mapa. Si las coordenadas fallan al cambiar de proveedor de mapa, podés cambiar a dirección.</div>
+      <div style="display:flex;gap:8px">
+        <button id="loc-mode-coords" class="btn-primary" style="flex:1;padding:10px;font-size:12px">📍 Coordenadas</button>
+        <button id="loc-mode-address" class="btn-outline" style="flex:1;padding:10px;font-size:12px;margin-top:0">🏠 Dirección</button>
+      </div>
+      <div id="loc-mode-status" style="margin-top:8px;font-size:11px;color:var(--text3);text-align:center">Modo actual: <strong id="loc-mode-label">Coordenadas</strong></div>
+    </div>
+
+    <!-- CATEGORÍAS -->
+    <div class="tpane" id="tp-cats">
+      <p style="font-size:12px;color:var(--text3);margin-bottom:12px">Gestioná las categorías. Desactivar una categoría oculta todos sus lugares del mapa y filtros.</p>
+      <div id="cats-admin-list"></div>
+      <div class="divider" style="margin-top:16px"><span>NUEVA CATEGORÍA</span></div>
+      <div class="fg">
+        <label class="fl">Nombre *</label>
+        <input class="fi" id="nc-name" type="text" placeholder="Ej: Deportes">
+      </div>
+      <div class="fg">
+        <label class="fl">Emoji / Ícono</label>
+        <input class="fi" id="nc-icon" type="text" placeholder="🏃" maxlength="4" style="width:80px;font-size:20px;text-align:center">
+      </div>
+      <div class="fg">
+        <label class="fl">Color</label>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <input type="color" id="nc-color" value="#2563eb" style="width:40px;height:34px;border:1.5px solid var(--border);border-radius:6px;padding:2px;cursor:pointer">
+          <div style="display:flex;gap:5px;flex-wrap:wrap">
+            <div class="color-preset" data-target="newcat" data-c="#e86040" style="background:#e86040"></div>
+            <div class="color-preset" data-target="newcat" data-c="#6055d8" style="background:#6055d8"></div>
+            <div class="color-preset" data-target="newcat" data-c="#d050a0" style="background:#d050a0"></div>
+            <div class="color-preset" data-target="newcat" data-c="#c97d20" style="background:#c97d20"></div>
+            <div class="color-preset" data-target="newcat" data-c="#0d9488" style="background:#0d9488"></div>
+            <div class="color-preset" data-target="newcat" data-c="#7c3aed" style="background:#7c3aed"></div>
+            <div class="color-preset" data-target="newcat" data-c="#16a34a" style="background:#16a34a"></div>
+            <div class="color-preset" data-target="newcat" data-c="#2563eb" style="background:#2563eb"></div>
+          </div>
+        </div>
+      </div>
+      <button class="btn-primary" id="btn-add-cat">+ Agregar Categoría</button>
+    </div>
+
+    <!-- EDIT -->
+    <div class="tpane" id="tp-edit">
+      <div class="fg">
+        <label class="fl">Nombre *</label>
+        <input class="fi" id="e-name" type="text">
+      </div>
+      <div class="fg">
+        <label class="fl">Descripción</label>
+        <textarea class="fta" id="e-desc"></textarea>
+      </div>
+
+      <!-- AUTOFILL BUTTON -->
+      <button class="autofill-btn" id="btn-autofill-edit" type="button">
+        <span class="af-icon">🌐</span>
+        Buscar info en internet (descripción, horarios, teléfono)
+      </button>
+      <div class="autofill-result" id="autofill-result-edit"></div>
+
+      <div class="fg">
+        <label class="fl">📞 Teléfono</label>
+        <input class="fi fi-phone" id="e-phone" type="tel" placeholder="Ej: +54 351 123-4567">
+      </div>
+      <div class="fg">
+        <label class="fl">🕐 Horarios</label>
+        <input class="fi fi-hours" id="e-hours" type="text" placeholder="Ej: Lun–Vie 9–18hs, Sáb 10–14hs">
+      </div>
+
+      <div class="fg">
+        <label class="fl">Categoría</label>
+        <select class="fs" id="e-cat">
+          <option value="food">🍜 Gastronomía</option>
+          <option value="culture">🏛 Cultura</option>
+          <option value="music">🎸 Música Live</option>
+          <option value="bar">🍻 Bares</option>
+          <option value="art">🎨 Arte</option>
+          <option value="historic">⛪ Histórico</option>
+          <option value="shop">🛍 Tiendas</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label class="fl">Imagen del Pin</label>
+        <div class="img-uploader" id="iu-edit">
+          <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" id="img-input-edit">
+          <div class="img-uploader-inner">
+            <div class="img-preview-box" id="img-prev-edit">🏙️</div>
+            <div class="img-uploader-text">
+              <strong id="img-lbl-edit">Subir / pegar imagen</strong>
+              <span>PNG con transparencia ideal.</span>
+            </div>
+          </div>
+          <button class="img-clear" id="img-clear-edit" type="button">✕</button>
+        </div>
+        <div class="url-input-row">
+          <input class="fi url-fi" id="img-url-edit" type="url" placeholder="O pegá el link de Dropbox / Drive / URL directa">
+          <button class="url-load-btn" id="img-url-load-edit" type="button">Cargar</button>
+        </div>
+      </div>
+      <div class="fg">
+        <label class="fl">Imágenes alternativas (ojito 👁)</label>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Podés agregar o cambiar variantes en cualquier momento.</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <div class="img-uploader" id="iu-alt1-edit">
+            <input type="file" accept="image/*" id="img-input-alt1-edit">
+            <div class="img-uploader-inner">
+              <div class="img-preview-box" id="img-prev-alt1-edit">2</div>
+              <div class="img-uploader-text"><strong id="img-lbl-alt1-edit">Variante 2</strong><span>PNG recomendado</span></div>
+            </div>
+            <button class="img-clear" id="img-clear-alt1-edit" type="button">✕</button>
+          </div>
+          <div class="img-uploader" id="iu-alt2-edit">
+            <input type="file" accept="image/*" id="img-input-alt2-edit">
+            <div class="img-uploader-inner">
+              <div class="img-preview-box" id="img-prev-alt2-edit">3</div>
+              <div class="img-uploader-text"><strong id="img-lbl-alt2-edit">Variante 3</strong><span>PNG recomendado</span></div>
+            </div>
+            <button class="img-clear" id="img-clear-alt2-edit" type="button">✕</button>
+          </div>
+          <div class="img-uploader" id="iu-alt3-edit">
+            <input type="file" accept="image/*" id="img-input-alt3-edit">
+            <div class="img-uploader-inner">
+              <div class="img-preview-box" id="img-prev-alt3-edit">4</div>
+              <div class="img-uploader-text"><strong id="img-lbl-alt3-edit">Variante 4</strong><span>PNG recomendado</span></div>
+            </div>
+            <button class="img-clear" id="img-clear-alt3-edit" type="button">✕</button>
+          </div>
+        </div>
+      </div>
+      <div class="fg">
+        <label class="fl">Ícono de respaldo</label>
+        <div class="egrid" id="eg-edit">
+          <div class="eopt" data-e="📍">📍</div><div class="eopt" data-e="🏛">🏛</div>
+          <div class="eopt" data-e="🍜">🍜</div><div class="eopt" data-e="🎸">🎸</div>
+          <div class="eopt" data-e="🍻">🍻</div><div class="eopt" data-e="🎨">🎨</div>
+          <div class="eopt" data-e="⛪">⛪</div><div class="eopt" data-e="🛍">🛍</div>
+          <div class="eopt" data-e="🥩">🥩</div><div class="eopt" data-e="📚">📚</div>
+          <div class="eopt" data-e="🎭">🎭</div><div class="eopt" data-e="🏺">🏺</div>
+          <div class="eopt" data-e="🎪">🎪</div><div class="eopt" data-e="🌮">🌮</div>
+          <div class="eopt" data-e="☕">☕</div><div class="eopt" data-e="🍕">🍕</div>
+          <div class="eopt" data-e="🎡">🎡</div><div class="eopt" data-e="🏋">🏋</div>
+        </div>
+      </div>
+      <div class="fg">
+        <label class="fl">Historia / Trivia</label>
+        <textarea class="fta" id="e-hist"></textarea>
+      </div>
+      <div class="fg">
+        <label class="fl">Redes Sociales</label>
+        <input class="fi" id="e-soc" type="text" placeholder="@instagram, Web Oficial">
+      </div>
+      <div class="fg">
+        <label class="fl">Tags / Subcategorías</label>
+        <input class="fi" id="e-tags" type="text" placeholder="Ej: Comida árabe, Sin TACC, Delivery">
+      </div>
+      <div class="divider"><span>UBICACIÓN</span></div>
+      <div class="fg">
+        <label class="fl">🔍 Buscar nueva dirección</label>
+        <div class="geocoder-row">
+          <input class="fi geocoder-input" id="geo-input-edit" type="text" placeholder="Ej: Av. Colón 40, Córdoba…">
+          <button class="geocoder-btn" id="geo-btn-edit">Buscar</button>
+        </div>
+        <div class="geocoder-results" id="geo-results-edit"></div>
+        <div class="coord-display set" id="e-coord-display">—</div>
+        <div class="fg" style="margin-top:8px;margin-bottom:0">
+          <label class="fl">Dirección exacta (calle y número)</label>
+          <input class="fi" id="e-address" type="text" placeholder="Ej: Av. General Paz 123, Córdoba">
+          <div style="font-size:11px;color:var(--text3);margin-top:4px">Se guarda como alternativa a las coordenadas. Se completa automáticamente al buscar.</div>
+        </div>
+        <div class="frow" style="margin-bottom:8px;margin-top:8px">
+          <div>
+            <label class="fl">Latitud</label>
+            <input class="fi" id="e-lat" type="number" step="0.000001">
+          </div>
+          <div>
+            <label class="fl">Longitud</label>
+            <input class="fi" id="e-lng" type="number" step="0.000001">
+          </div>
+        </div>
+        <button class="btn-map-pick" id="btn-pick-edit">📍 O hacer clic en el mapa</button>
+      </div>
+      <div class="divider"><span>AJUSTE DEL PIN EXPANDIDO</span></div>
+      <div class="fg">
+        <div style="font-size:11px;color:var(--text3);margin-bottom:10px;line-height:1.5">Ajustá posición y escala del edificio maximizado. No afecta el pin en el mapa.</div>
+        <label class="fl">Escala individual (50% a 150% del tamaño global expandido)</label>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:4px">
+          <input type="range" id="e-pin-scale" min="50" max="150" value="100" style="flex:1;accent-color:var(--accent)">
+          <span id="e-pin-scale-val" style="font-family:var(--font-m);font-size:12px;min-width:38px;text-align:right">100%</span>
+        </div>
+        <label class="fl" style="margin-top:10px">Desplazamiento horizontal ←→ (±200px)</label>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:4px">
+          <input type="range" id="e-pin-offset-x" min="-200" max="200" value="0" style="flex:1;accent-color:var(--accent)">
+          <span id="e-pin-offset-x-val" style="font-family:var(--font-m);font-size:12px;min-width:42px;text-align:right">0px</span>
+        </div>
+        <label class="fl" style="margin-top:10px">Desplazamiento vertical ↑↓ (±200px)</label>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:4px">
+          <input type="range" id="e-pin-offset-y" min="-200" max="200" value="0" style="flex:1;accent-color:var(--accent)">
+          <span id="e-pin-offset-y-val" style="font-family:var(--font-m);font-size:12px;min-width:42px;text-align:right">0px</span>
+        </div>
+      </div>
+      <button class="btn-primary" id="btn-save-edit">✓ Guardar Cambios</button>
+      <button class="btn-outline"  id="btn-cancel-edit">Cancelar</button>
+    </div>
+
+  </div><!-- admin-body -->
+</div><!-- #admin -->
+
+<!-- Pick Banner -->
+<div id="pick-banner">
+  📍 Tocá el mapa para ubicar el lugar
+  <button id="pick-banner-cancel">Cancelar</button>
+</div>
+
+<!-- Confirm Modal -->
+<div id="modal-confirm">
+  <div class="modal-box">
+    <div class="modal-icon">🗑️</div>
+    <h3>¿Eliminar lugar?</h3>
+    <p id="modal-msg">Esta acción no se puede deshacer.</p>
+    <div class="modal-btns">
+      <button class="btn-cancel-m" id="mc-cancel">Cancelar</button>
+      <button class="btn-delete-m" id="mc-delete">Eliminar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+  <!--
+    SCRIPT LOAD ORDER — DO NOT CHANGE
+    Each file depends on the ones above it.
+    app.js must always be last.
+  -->
+
+  <!-- 1. Namespace + data constants (no DOM, no functions) -->
+  <script src="js/config.js" defer></script>
+
+  <!-- 2. Map init -->
+  <script src="js/map.js" defer></script>
+
+  <!-- 3. Core marker logic -->
+  <script src="js/markers.js" defer></script>
+  <script src="js/poi-panel.js" defer></script>
+
+  <!-- 4. Admin panel (defines switchTab) -->
+  <script src="js/admin.js" defer></script>
+
+  <!-- 5. Utilities -->
+  <script src="js/utils.js" defer></script>
+  <script src="js/geocoder.js" defer></script>
+
+  <!-- 6. Admin sub-panels (use registerTabPlugin) -->
+  <script src="js/admin-global.js" defer></script>
+  <script src="js/roadmap.js" defer></script>
+  <script src="js/zones.js" defer></script>
+  <script src="js/groups.js" defer></script>
+  <script src="js/categories.js" defer></script>
+  <script src="js/shadow-eye.js" defer></script>
+
+  <!-- 7. Features -->
+  <script src="js/pin-adjust.js" defer></script>
+  <script src="js/location.js" defer></script>
+  <script src="js/cluster.js" defer></script>
+
+  <!-- 7b. Map settings -->
+  <script src="js/map-settings.js" defer></script>
+
+  <!-- 7c. Autofill from OSM -->
+  <script src="js/autofill.js" defer></script>
+
+  <!-- 8. Data I/O -->
+  <script src="js/data-io.js" defer></script>
+
+  <!-- 9. Init orchestrator — ALWAYS LAST -->
+
+  <!-- 9. Init orchestrator — ALWAYS LAST -->
+  <script src="js/app.js" defer></script>
+
+</body>
+</html>
+
+
