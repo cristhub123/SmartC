@@ -1209,7 +1209,31 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
 /* Tpane background */
 .tpane { display: none; padding: 18px 20px; }
 .tpane.on { display: block; }
-.admin-body { flex: 1; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--border) transparent; background: #fafcfa; }
+.admin-body { flex: 1; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--border) transparent; background: #fafcfa; position: relative; }
+
+/* === FLECHAS INDICADORAS DE SCROLL — patrón reutilizable en toda la app ===
+   Se agregan automáticamente por JS (ver scroll-hints.js) a cualquier
+   contenedor marcado con [data-scroll-hint]. Aparecen solo cuando hay
+   más contenido oculto en esa dirección, y desaparecen al llegar al final. */
+.scroll-hint-arrow {
+  position: sticky; left: 0; right: 0; z-index: 5;
+  display: flex; align-items: center; justify-content: center;
+  height: 22px; margin: 0 -20px; pointer-events: none;
+  opacity: 0; transition: opacity .2s ease;
+  background: linear-gradient(var(--dir-from), var(--dir-to));
+  font-size: 11px; color: var(--text3);
+}
+.scroll-hint-arrow.visible { opacity: 1; pointer-events: auto; cursor: pointer; }
+.scroll-hint-arrow.top    { top: 0;    --dir-from: rgba(250,252,250,1); --dir-to: rgba(250,252,250,0); }
+.scroll-hint-arrow.bottom { bottom: 0; --dir-from: rgba(250,252,250,0); --dir-to: rgba(250,252,250,1); }
+
+/* Variante horizontal — para filas de chips/categorías que se desplazan a los lados */
+.scroll-hint-arrow.left, .scroll-hint-arrow.right {
+  top: 0; bottom: 0; height: auto; width: 22px; margin: 0;
+  background: linear-gradient(to var(--h-dir), var(--dir-from), var(--dir-to));
+}
+.scroll-hint-arrow.left  { left: 0;  --h-dir: left;  --dir-from: rgba(250,252,250,1); --dir-to: rgba(250,252,250,0); }
+.scroll-hint-arrow.right { right: 0; --h-dir: right; --dir-from: rgba(250,252,250,0); --dir-to: rgba(250,252,250,1); }
 
 /* Style buttons inside panels */
 .sty-btn {

@@ -60,7 +60,7 @@
 </div>
 
 <!-- POI Panel -->
-<div id="poi-panel">
+<div id="poi-panel" data-scroll-hint>
   <div class="pp-handle"></div>
   <div class="pp-head">
     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
@@ -93,7 +93,7 @@
 <!-- modo visual movido al eye-icon junto al nombre -->
   <div class="pp-sec">
     <div class="sec-lbl">Eventos</div>
-    <div class="ev-scroll" id="pp-evts"></div>
+    <div class="ev-scroll" id="pp-evts" data-scroll-hint="horizontal"></div>
   </div>
   <div class="pp-sec">
     <div class="sec-lbl">Historia & Trivia</div>
@@ -126,7 +126,7 @@
     <div class="atab"     data-t="temas-admin">🎭 Temas</div>
     <div class="atab"     data-t="edit" id="tab-edit-btn" style="display:none">✏️ Editando</div>
   </div>
-  <div class="admin-body">
+  <div class="admin-body" data-scroll-hint>
 
     <!-- LIST -->
     <div class="tpane on" id="tp-list">
@@ -816,6 +816,7 @@
 
   <!-- 1. Namespace + data constants (no DOM, no functions) -->
   <script src="js/config.js" defer></script>
+  <script src="js/scroll-hints.js" defer></script>
 
   <!-- 2. Map init -->
   <script src="js/map.js" defer></script>
