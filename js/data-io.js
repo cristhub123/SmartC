@@ -209,9 +209,8 @@ function confirmImport() {
         categoryLabel: p.categoryLabel || (CAT[p.category]||{label:(p.category||'').toUpperCase()}).label,
       };
       POIS.push(poi); makeMarker(poi);
-      if (p.id > maxId) maxId = p.id;
+      savePoiToFirestore(poi); // el import también persiste en Firestore
     });
-    nextId = maxId + 1;
     applyFilter(); renderList();
     if (POIS.length) {
       const lats = POIS.map(p=>p.lat), lngs = POIS.map(p=>p.lng);

@@ -98,6 +98,7 @@ function saveEdit() {
   makeMarker(updated);
   applyFilter();
   if (currentPoi && currentPoi.id === editingId) openPoiPanel(updated);
+  savePoiToFirestore(updated); // guarda de verdad en la base de datos (async, no bloquea la UI)
 
   toast(`✅ "${name}" actualizado`);
   renderList();
@@ -134,8 +135,13 @@ function saveNew() {
   const allCatsFn = typeof getAllCats === 'function' ? getAllCats() : CAT;
   const cfg = allCatsFn[mainCat] || {label: (mainCat||'').toUpperCase()};
 
+  // El ID del lugar es su slug (lugar-ciudad) — el mismo identificador
+  // que se usa para nombrar las imágenes en Cloudinary. Así todo queda
+  // conectado por un único dato, sin contadores artificiales.
+  const slug = `${slugify(name)}-cordoba`;
+
   const p = {
-    id: nextId++, name,
+    id: slug, name,
     category: mainCat, categories: cats, categoryLabel: cfg.label,
     icon: addEmoji, lat, lng, address,
     imgB64:  window._addImgB64  || null,
@@ -158,6 +164,7 @@ function saveNew() {
 
   POIS.push(p);
   makeMarker(p);
+  savePoiToFirestore(p); // guarda de verdad en la base de datos (async, no bloquea la UI)
 
   ['a-name','a-desc','a-hist','a-soc','a-lat','a-lng','a-phone','a-hours','a-tags'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
   const addrEl = document.getElementById('a-address'); if (addrEl) addrEl.value = '';

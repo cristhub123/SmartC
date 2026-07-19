@@ -13,7 +13,7 @@ function slugify(str) {
     .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 }
 
-function getPoiSlug(poi) { return poi.slug || slugify(poi.name); }
+function getPoiSlug(poi) { return poi.slug || `${slugify(poi.name)}-cordoba`; }
 
 function cloudinaryImageUrl(slug, { suffix = '', w, h } = {}) {
   const transform = (w && h) ? `c_scale,w_${w},h_${h}/` : '';

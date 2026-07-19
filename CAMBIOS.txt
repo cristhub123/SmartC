@@ -1,0 +1,32 @@
+SMARTCITY — REGISTRO DE CAMBIOS
+================================================================
+
+CAMBIO EN ESTA VERSIÓN — PASO 4 DEL PLAN: LOGIN REAL DE ADMIN
+
+Se verificó y se entrega por primera vez el sistema de login real
+de administrador (reemplaza el acceso hoy expuesto, sin login).
+
+Archivos incluidos (algunos ya existían en el proyecto de trabajo,
+pero nunca se te habían entregado para descargar):
+- js/admin-auth.js (login/logout con Firebase Authentication)
+- index.html (formulario de login + botones conectados)
+- css/base.css (estilos del formulario de login)
+- Además: SDK de Firebase Auth agregado en el Paso 3 (ya incluido
+  en la entrega anterior, pero necesario para que esto funcione)
+
+Qué cambia en la práctica:
+- Al tocar el botón ⚙️, si NO hay sesión iniciada, aparece un
+  formulario de login (correo + contraseña) en vez de abrir el
+  panel admin directo.
+- Si el login es correcto, se abre el panel normalmente.
+- Botón "🔓 Salir" arriba del panel para cerrar sesión.
+- El panel YA NO es accesible para nadie que no tenga las
+  credenciales — corrige el problema de seguridad detectado al
+  principio de este proyecto (admin expuesto).
+
+Para poder loguearte, necesitás haber creado tu usuario en:
+Firebase → Authentication → Usuarios → Agregar usuario
+(esto ya lo hiciste, con ossi334@gmail.com)
+
+Próximo paso del plan: PASO 5 — archivo JSON público cacheado
+(para no gastar cuota de lecturas de Firestore con mucho tráfico).

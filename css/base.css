@@ -1016,6 +1016,37 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   transition: opacity .2s;
 }
 #modal-confirm.on { opacity: 1; pointer-events: all; }
+
+/* === LOGIN DE ADMINISTRADOR — mismo patrón visual que modal-confirm === */
+#admin-login-overlay {
+  position: fixed; inset: 0; z-index: 1300;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+  opacity: 0; pointer-events: none;
+  transition: opacity .2s;
+}
+#admin-login-overlay.on { opacity: 1; pointer-events: all; }
+#admin-login-overlay::before {
+  content: ''; position: absolute; inset: 0;
+  background: rgba(0,0,0,.5);
+  backdrop-filter: blur(4px);
+}
+#admin-login-box {
+  position: relative; background: rgba(255,255,255,0.98);
+  border-radius: var(--r-lg); padding: 30px 26px;
+  width: 100%; max-width: 320px;
+  box-shadow: var(--shadow-panel); text-align: center;
+  border: 1px solid rgba(0,0,0,.06);
+  display: flex; flex-direction: column; gap: 12px;
+}
+#admin-login-box h3 { font-family: var(--font-d); font-size: 20px; font-weight: 800; margin-bottom: 4px; }
+#admin-login-box input {
+  padding: 12px 14px; border-radius: var(--r-sm);
+  border: 1px solid var(--border2); font-size: 14px; font-family: var(--font-b);
+  width: 100%;
+}
+#admin-login-box input:focus { outline: none; border-color: var(--accent); }
+#admin-login-error { color: #d9432b; font-size: 13px; min-height: 16px; margin: 0; }
 #modal-confirm::before {
   content: ''; position: absolute; inset: 0;
   background: rgba(0,0,0,.4);

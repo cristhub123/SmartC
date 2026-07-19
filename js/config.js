@@ -32,65 +32,12 @@ const CAT = {
   shop:    {label:'TIENDAS',      color:'#3a8c4f', lucide:'shop'},
 };
 
-let POIS = [
-  {id:1,  name:'Manzana Jesuítica',      category:'historic', icon:'⛪',
-   lat:-31.41394, lng:-64.18259,
-   desc:'Complejo jesuítico declarado Patrimonio de la Humanidad por la UNESCO.',
-   hist:'Construida en el siglo XVII, la <strong>Manzana Jesuítica</strong> es uno de los centros educativos y religiosos más importantes de América del Sur.',
-   events:[{t:'Visita Nocturna Guiada',d:'SÁB 19 ABR',ty:'Tour Cultural'},{t:'Concierto de Órgano',d:'DOM 20 ABR',ty:'Música Clásica'}],
-   soc:['@manzanajesuitica','Web Oficial'],
-   iconCyber:'🔵', iconWinter:'🏔️', iconZombie:'💀'},
+/* POIS ahora se carga desde Firestore al iniciar la app (ver
+   js/firestore-sync.js → loadPOISFromFirestore(), llamado desde
+   js/app.js). Empieza vacío — se llena solo, no hace falta
+   semilla de datos de ejemplo acá. */
+let POIS = [];
 
-  {id:2,  name:'Mercado Norte',           category:'food',    icon:'🏪',
-   lat:-31.41024, lng:-64.18987,
-   desc:'El mercado más emblemático de la ciudad. Gastronomía local y cultura popular.',
-   hist:'Inaugurado en <strong>1928</strong>, el Mercado Norte es el corazón gastronómico de Córdoba con más de 200 puestos.',
-   events:[{t:'Feria de Productores',d:'SÁB 19 ABR',ty:'Gastronomía'},{t:'Festival Empanadas',d:'VIE 25 ABR',ty:'Competencia'}],
-   soc:['@mercadonortecba','Instagram'],
-   iconCyber:'🌆', iconWinter:'🏠', iconZombie:'🧟'},
-
-  {id:3,  name:'Paseo del Buen Pastor',   category:'culture', icon:'🎨',
-   lat:-31.41757, lng:-64.18717,
-   desc:'Centro cultural en la ex‑cárcel femenina del siglo XX.',
-   hist:'La <strong>ex Cárcel del Buen Pastor</strong> (1906) fue reconvertida en 2007 en faro cultural. Arquitectura neogótica + arte contemporáneo.',
-   events:[{t:'Arte Digital ARG',d:'TODO EL MES',ty:'Exposición'},{t:'Open Air Cinema',d:'SÁB',ty:'Cine'}],
-   soc:['@buenpastorcba','Web'],
-   iconCyber:'💻', iconWinter:'⛄', iconZombie:'🧠'},
-
-  {id:4,  name:'La Piojera',              category:'bar',     icon:'🍻',
-   lat:-31.41654, lng:-64.19118,
-   desc:'Bar legendario del centro. Tangos, fernet y charla hasta el amanecer.',
-   hist:'Con <strong>más de 80 años</strong> de historia, La Piojera es un ícono nocturno. Se dice que aquí nacieron los mejores grupos literarios de la ciudad.',
-   events:[{t:'Noche de Tango',d:'VIE 18 ABR',ty:'Música Live'},{t:'Open Mic Poesía',d:'LUN',ty:'Literatura'}],
-   soc:['@lapiojera_cba','Facebook'],
-   iconCyber:'🔮', iconWinter:'🫖', iconZombie:'🍷'},
-
-  {id:5,  name:'Teatro del Libertador',   category:'culture', icon:'🎭',
-   lat:-31.41312, lng:-64.18467,
-   desc:'El teatro más importante de la región. Ópera, ballet y teatro contemporáneo.',
-   hist:'Inaugurado en <strong>1891</strong>, el Teatro Libertador General San Martín es la sala más importante del interior argentino.',
-   events:[{t:'Ópera: La Traviata',d:'SÁB 19 ABR',ty:'Ópera'},{t:'Ballet: Lago de los Cisnes',d:'DOM',ty:'Ballet'}],
-   soc:['@teatrolibertadorcba','Web Oficial'],
-   iconCyber:'🤖', iconWinter:'🎿', iconZombie:'👁️'},
-
-  {id:6,  name:'Barrio Güemes',           category:'art',     icon:'🎪',
-   lat:-31.42275, lng:-64.18843,
-   desc:'El barrio más bohemio. Ferias de diseño, murales y gastronomía alternativa.',
-   hist:'El <strong>Barrio Güemes</strong> se transformó en los 90s en epicentro del arte underground cordobés.',
-   events:[{t:'Feria Artesanal',d:'SÁB Y DOM',ty:'Feria'},{t:'Festival de Murales',d:'ABR 26-27',ty:'Arte Urbano'}],
-   soc:['@guemescba','Instagram','TikTok'],
-   iconCyber:'🌐', iconWinter:'🌨️', iconZombie:'🎃'},
-
-  {id:7,  name:'La Sala de las Guitarras', category:'music',  icon:'🎸',
-   lat:-31.41892, lng:-64.18558,
-   desc:'El venue más famoso del rock cordobés. Shows todas las noches.',
-   hist:'Fundada en <strong>1995</strong> por músicos locales, cuna del rock cordobés.',
-   events:[{t:'Rock Sinfónico',d:'VIE 18 ABR',ty:'Rock'},{t:'Flamenco Fusion',d:'SÁB 19 ABR',ty:'Música Live'}],
-   soc:['@lasalaguitarras','Spotify','Instagram'],
-   iconCyber:'🎧', iconWinter:'🎶', iconZombie:'🎵'},
-];
-
-let nextId       = 100;
 let markers      = {};          // id → { leafletMarker, poi }
 let activeFilter = 'all';
 let expandedId   = null;

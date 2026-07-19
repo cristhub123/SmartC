@@ -109,9 +109,22 @@
 <div id="overlay"></div>
 
 <!-- Admin Panel -->
+<!-- LOGIN DE ADMINISTRADOR — se muestra antes de dar acceso al panel -->
+<div id="admin-login-overlay">
+  <div id="admin-login-box">
+    <h3>⚙ Acceso de administrador</h3>
+    <input id="admin-login-email" type="email" placeholder="Correo electrónico" autocomplete="username">
+    <input id="admin-login-pass"  type="password" placeholder="Contraseña" autocomplete="current-password">
+    <button id="admin-login-btn" class="btn-primary">Ingresar</button>
+    <p id="admin-login-error"></p>
+  </div>
+</div>
+
 <div id="admin">
+
   <div class="admin-hd">
     <div class="admin-title">⚙ Administrador</div>
+    <button class="btn-x" id="admin-logout" title="Cerrar sesión" style="margin-right:6px;font-size:12px;">🔓 Salir</button>
     <button class="btn-x" id="admin-close">✕</button>
   </div>
   <div class="admin-tabs" style="overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;">
@@ -815,6 +828,12 @@
   -->
 
   <!-- 1. Namespace + data constants (no DOM, no functions) -->
+  <!-- Firebase SDK (compat — funciona con scripts sueltos, sin build) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="js/firebase-init.js" defer></script>
+  <script src="js/firestore-sync.js" defer></script>
   <script src="js/config.js" defer></script>
   <script src="js/scroll-hints.js" defer></script>
 
@@ -827,6 +846,7 @@
 
   <!-- 4. Admin panel (defines switchTab) -->
   <script src="js/admin.js" defer></script>
+  <script src="js/admin-auth.js" defer></script>
 
   <!-- 5. Utilities -->
   <script src="js/utils.js" defer></script>

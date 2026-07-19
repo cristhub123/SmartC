@@ -30,6 +30,20 @@ function openPoiPanel(poi) {
   document.getElementById('pp-cat').textContent  = poi.categoryLabel || cfg.label;
   document.getElementById('pp-cat').style.color  = cfg.color;
   document.getElementById('pp-name').textContent = poi.name;
+  // Conteo de clicks público — solo si el admin activó el interruptor
+  let clicksEl = document.getElementById('pp-clicks-public');
+  if (!clicksEl) {
+    clicksEl = document.createElement('div');
+    clicksEl.id = 'pp-clicks-public';
+    clicksEl.style.cssText = 'font-size:11px;color:var(--text3);margin-top:2px';
+    document.getElementById('pp-name').insertAdjacentElement('afterend', clicksEl);
+  }
+  if (poi.clicksPublicVisible) {
+    clicksEl.textContent = `👁 ${poi.clicks || 0} visitas`;
+    clicksEl.style.display = '';
+  } else {
+    clicksEl.style.display = 'none';
+  }
   // Tags/subcategories
   const tagsEl = document.getElementById('pp-tags');
   if (tagsEl) {

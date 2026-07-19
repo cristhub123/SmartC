@@ -2,7 +2,10 @@
 /* ═══════════════════════════════════════════
    ADMIN PANEL
 ═══════════════════════════════════════════ */
-document.getElementById('btn-admin').addEventListener('click', openAdmin);
+document.getElementById('btn-admin').addEventListener('click', () => {
+  if (_adminUser) openAdmin();
+  else showAdminLogin();
+});
 document.getElementById('admin-close').addEventListener('click', closeAdmin);
 document.getElementById('overlay').addEventListener('click', closeAdmin);
 
@@ -26,7 +29,7 @@ function switchTab(t) {
   document.querySelectorAll('.atab').forEach(a => a.classList.toggle('on', a.dataset.t === t));
   document.querySelectorAll('.tpane').forEach(p => p.classList.remove('on'));
   const targets = {list:'tp-list', add:'tp-add', edit:'tp-edit', global:'tp-global',
-    'zonas-admin':'tp-zonas-admin', roadmap:'tp-roadmap', groups:'tp-groups', cats:'tp-cats', mapa:'tp-mapa'};
+    'zonas-admin':'tp-zonas-admin', 'temas-admin':'tp-temas-admin', roadmap:'tp-roadmap', groups:'tp-groups', cats:'tp-cats', mapa:'tp-mapa'};
   const el = document.getElementById(targets[t]);
   if (el) el.classList.add('on');
   // Fire registered tab plugins (replaces all monkey-patching)
@@ -49,20 +52,36 @@ function renderList() {
       : [CAT[p.category] || {label: p.category||'—', color:'#6055d8'}];
     const mainCat = cats[0] || {label:'—', color:'#6055d8'};
     const isOn = p.active !== false;
+    const clicksPublicOn = !!p.clicksPublicVisible;
     return `<div class="poi-row" style="${isOn?'':'opacity:.5'}">
       <div class="poi-row-ico" style="background:${mainCat.color}20">${p.icon}</div>
       <div class="poi-row-info">
         <div class="poi-row-name">${p.name}</div>
         <div class="poi-row-cat" style="color:${mainCat.color}">${cats.map(c=>c.label).join(' · ')}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px;display:flex;align-items:center;gap:8px">
+          👁 ${p.clicks || 0} clicks
+          <label style="display:flex;align-items:center;gap:4px;cursor:pointer">
+            <input type="checkbox" ${clicksPublicOn?'checked':''} onchange="togglePublicClicks('${p.id}',this.checked)" style="margin:0">
+            visible al público
+          </label>
+        </div>
       </div>
       <div class="poi-row-btns">
-        <button class="za-toggle ${isOn?'on':''}" onclick="togglePoi(${p.id},this)" title="${isOn?'Desactivar':'Activar'}"></button>
-        <button class="ibtn" onclick="startEdit(${p.id})" title="Editar">✏️</button>
-        <button class="ibtn del" onclick="askDelete(${p.id})" title="Eliminar">🗑️</button>
+        <button class="za-toggle ${isOn?'on':''}" onclick="togglePoi('${p.id}',this)" title="${isOn?'Desactivar':'Activar'}"></button>
+        <button class="ibtn" onclick="startEdit('${p.id}')" title="Editar">✏️</button>
+        <button class="ibtn del" onclick="askDelete('${p.id}')" title="Eliminar">🗑️</button>
       </div>
     </div>`;
   }).join('');
 }
+
+window.togglePublicClicks = function(id, checked) {
+  const p = POIS.find(x => x.id === id);
+  if (!p) return;
+  p.clicksPublicVisible = checked;
+  savePoiToFirestore(p);
+  toast(checked ? '✅ El conteo ahora es visible al público' : '⭕ El conteo ya no es visible al público');
+};
 
 window.togglePoi = function(id, btn) {
   const p = POIS.find(x => x.id === id);
@@ -80,6 +99,7 @@ window.togglePoi = function(id, btn) {
     if (markerEl) markerEl.style.visibility = p.active ? '' : 'hidden';
   }
   if (!p.active && expandedId === id) { collapsePin(id); closePoiPanel(); }
+  savePoiToFirestore(p); // sincroniza el estado activo/inactivo con la base de datos
   toast(p.active ? `✅ "${p.name}" activado` : `⭕ "${p.name}" desactivado`);
 };
 
@@ -238,6 +258,7 @@ document.getElementById('mc-delete').addEventListener('click', () => {
   const p = POIS.find(x => x.id === pendingDelId);
   POIS = POIS.filter(x => x.id !== pendingDelId);
   removeMarker(pendingDelId);
+  deletePoiFromFirestore(pendingDelId); // borra de verdad en la base de datos
   if (expandedId === pendingDelId) { closePoiPanel(); expandedId = null; }
   document.getElementById('modal-confirm').classList.remove('on');
   toast(`🗑️ "${p?.name}" eliminado`);

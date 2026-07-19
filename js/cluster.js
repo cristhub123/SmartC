@@ -93,6 +93,7 @@ function pinClick(id) {
     if (expandedId !== null) collapsePin(expandedId);
     expandPin(id);
     openPoiPanel(markers[id].poi);
+    incrementPinClicks(id);
     const poi = markers[id].poi;
     const vw=window.innerWidth, vh=window.innerHeight, hdr=44, panelH=vh*.62;
     const targetY = hdr + (vh-panelH-hdr)*.5, targetX = vw*.5;
@@ -119,6 +120,7 @@ function pinClick(id) {
   if (expandedId !== null) collapsePin(expandedId);
   expandPin(id);
   openPoiPanel(poi);
+  incrementPinClicks(id);
   const vw=window.innerWidth, vh=window.innerHeight, hdr=44, panelH=vh*.62;
   const targetY=hdr+(vh-panelH-hdr)*.5, targetX=vw*.5;
   const rect=map.getContainer().getBoundingClientRect();

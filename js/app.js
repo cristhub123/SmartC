@@ -4,7 +4,7 @@
    This is the ONLY place that calls init code.
    ═══════════════════════════════════════════ */
 
-function init() {
+async function init() {
   // 0. Load default tile style
   if (typeof applyTileUrl === 'function') {
     applyTileUrl(_mapaSettings ? _mapaSettings.tileUrl : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png');
@@ -13,7 +13,12 @@ function init() {
     L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {subdomains:'abcd',maxZoom:19}).addTo(map);
   }
 
-  // 1. Tile fallback (legacy)
+  // 1. Cargar los lugares reales desde Firestore (reemplaza el
+  //    array hardcodeado que había antes) — se espera a que
+  //    termine antes de dibujar los pines en el mapa.
+  toast('⏳ Cargando lugares...');
+  await loadPOISFromFirestore();
+
   // 2. Build all markers
   POIS.forEach(makeMarker);
 
@@ -83,7 +88,7 @@ function init() {
       res.classList.add('show');
       res.querySelectorAll('.sr-item').forEach(el => {
         el.addEventListener('click', () => {
-          const id = parseInt(el.dataset.id);
+          const id = el.dataset.id;
           res.classList.remove('show');
           inp.value = ''; inp.blur();
           pinClick(id);
