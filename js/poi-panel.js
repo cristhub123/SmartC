@@ -1,9 +1,125 @@
 /* poi-panel.js — openPoiPanel, closePoiPanel, applyFilter */
+
+/* ═══════════════════════════════════════════
+   PANEL EXPANDIBLE — 2 posiciones (mitad de pantalla / casi completo)
+   ---------------------------------------------
+   Arrastrar la barrita (.pp-handle) hacia arriba expande el panel
+   para lectura cómoda cuando hay muchos bloques de texto; un toque
+   simple también alterna entre los 2 estados como atajo rápido.
+   El mapa y la miniatura quedan centrados detrás tal como están —
+   el panel solo sube y los cubre más.
+═══════════════════════════════════════════ */
+(function setupPanelExpand() {
+  const panel  = document.getElementById('poi-panel');
+  const handle = document.querySelector('.pp-handle');
+  if (!panel || !handle) return;
+
+  let startY = 0, startHeight = 0, dragging = false, moved = false;
+  const HALF = 62, FULL = 94; // dvh
+
+  function currentHeightVh() {
+    return panel.classList.contains('expanded') ? FULL : HALF;
+  }
+
+  handle.addEventListener('pointerdown', e => {
+    dragging = true; moved = false;
+    startY = e.clientY;
+    startHeight = currentHeightVh();
+    panel.classList.add('dragging');
+    handle.setPointerCapture(e.pointerId);
+  });
+
+  handle.addEventListener('pointermove', e => {
+    if (!dragging) return;
+    const dy = startY - e.clientY; // positivo = arrastre hacia arriba
+    if (Math.abs(dy) > 6) moved = true;
+    const vh = window.innerHeight / 100;
+    let newHeight = startHeight + (dy / vh);
+    newHeight = Math.max(30, Math.min(FULL, newHeight)); // no bajar de 30dvh ni pasar el máximo
+    panel.style.maxHeight = newHeight + 'dvh';
+  });
+
+  handle.addEventListener('pointerup', e => {
+    if (!dragging) return;
+    dragging = false;
+    panel.classList.remove('dragging');
+    panel.style.maxHeight = ''; // vuelve a depender de la clase CSS
+
+    if (!moved) {
+      // Toque simple, sin arrastre real → alterna entre los 2 estados
+      panel.classList.toggle('expanded');
+      return;
+    }
+    // Arrastre real: decide a cuál de los 2 estados "engancha" según
+    // qué tan cerca quedó de cada uno (umbral en el medio)
+    const dy = startY - e.clientY;
+    const vh = window.innerHeight / 100;
+    const finalHeight = Math.max(30, Math.min(FULL, startHeight + dy / vh));
+    const mid = (HALF + FULL) / 2;
+    panel.classList.toggle('expanded', finalHeight > mid);
+  });
+
+  // Al abrir un lugar nuevo, siempre arranca en el estado "mitad"
+  // (no expandido), para consistencia — se agrega en openPoiPanel.
+  window._resetPanelExpand = () => panel.classList.remove('expanded');
+})();
+
+/* ═══════════════════════════════════════════
+   BOTÓN "COMER CERCA" — destaca los lugares gastronómicos más
+   cercanos al lugar que se está mirando. Gateado por el interruptor
+   del panel admin (Funciones → 🍴 Comer cerca).
+═══════════════════════════════════════════ */
+function comerCercaHabilitado() {
+  return typeof FEATURES !== 'undefined' && FEATURES.comerCerca && FEATURES.comerCerca.on;
+}
+
+function activarComerCerca(origen) {
+  const candidatos = POIS
+    .filter(p => p.id !== origen.id && p.active !== false &&
+                 (p.category === 'food' || (p.categories||[]).includes('food')))
+    .map(p => ({ poi: p, dist: distanceMeters(origen.lat, origen.lng, p.lat, p.lng) }))
+    .sort((a, b) => a.dist - b.dist)
+    .slice(0, 6);
+
+  if (!candidatos.length) { toast('😅 No hay lugares gastronómicos cargados todavía'); return; }
+
+  // Atenuar todos los pines salvo el origen y los candidatos encontrados
+  const idsAMostrar = new Set([origen.id, ...candidatos.map(c => c.poi.id)]);
+  Object.keys(markers).forEach(id => {
+    const el = document.getElementById('pw-' + id);
+    if (el) el.classList.toggle('dim', !idsAMostrar.has(id));
+  });
+
+  // Centrar el mapa para que se vean todos los resultados + el origen
+  const bounds = L.latLngBounds(candidatos.map(c => [c.poi.lat, c.poi.lng]).concat([[origen.lat, origen.lng]]));
+  map.fitBounds(bounds, { padding: [60, 60], maxZoom: 17 });
+
+  closePoiPanel();
+  mostrarBannerComerCerca(candidatos.length);
+}
+
+function mostrarBannerComerCerca(cantidad) {
+  let banner = document.getElementById('comer-cerca-banner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'comer-cerca-banner';
+    banner.style.cssText = 'position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:900;background:var(--surface);border-radius:999px;box-shadow:var(--shadow-md);padding:9px 16px;font-size:13px;display:flex;align-items:center;gap:10px;font-family:var(--font-b)';
+    document.body.appendChild(banner);
+  }
+  banner.innerHTML = `<span>🍴 ${cantidad} lugar${cantidad===1?'':'es'} cerca</span>
+    <button id="comer-cerca-salir" style="border:none;background:var(--accent-pale);color:var(--accent);border-radius:999px;padding:4px 12px;font-size:12px;font-weight:700;cursor:pointer">Ver todos</button>`;
+  document.getElementById('comer-cerca-salir').addEventListener('click', () => {
+    banner.remove();
+    applyFilter(); // restaura el estado normal (según el filtro de categoría activo)
+  });
+}
+
 /* ═══════════════════════════════════════════
    POI PANEL
 ═══════════════════════════════════════════ */
 function openPoiPanel(poi) {
   currentPoi = poi;
+  if (typeof window._resetPanelExpand === 'function') window._resetPanelExpand();
   const cfg = CAT[poi.category] || {label:'—', color:'#6055d8'};
 
   // Image or emoji in panel header
@@ -80,6 +196,24 @@ function openPoiPanel(poi) {
   sEl.innerHTML = (poi.soc && poi.soc.length)
     ? poi.soc.map(s => `<a href="#" class="soc-chip">🔗 ${s}</a>`).join('')
     : '<span style="color:var(--text3);font-size:13px">Sin redes registradas.</span>';
+
+  // Botón "Comer cerca" — solo en lugares NO gastronómicos, y solo
+  // si el admin no lo desactivó desde el panel de Funciones
+  let comerCercaBtn = document.getElementById('pp-comer-cerca-btn');
+  const esGastronomico = poi.category === 'food' || (poi.categories||[]).includes('food');
+  if (comerCercaHabilitado() && !esGastronomico) {
+    if (!comerCercaBtn) {
+      comerCercaBtn = document.createElement('button');
+      comerCercaBtn.id = 'pp-comer-cerca-btn';
+      comerCercaBtn.style.cssText = 'width:100%;margin-top:10px;border:none;background:var(--accent-pale);color:var(--accent);border-radius:12px;padding:11px;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--font-b)';
+      sEl.insertAdjacentElement('afterend', comerCercaBtn);
+    }
+    comerCercaBtn.innerHTML = '🍴 Comer cerca';
+    comerCercaBtn.style.display = '';
+    comerCercaBtn.onclick = () => activarComerCerca(poi);
+  } else if (comerCercaBtn) {
+    comerCercaBtn.style.display = 'none';
+  }
 
   document.getElementById('poi-panel').classList.add('open');
   // Build visual picker

@@ -18,6 +18,7 @@ async function init() {
   //    termine antes de dibujar los pines en el mapa.
   toast('⏳ Cargando lugares...');
   await loadPOISFromFirestore();
+  await loadFeaturesFromFirestore();
 
   // 2. Build all markers
   POIS.forEach(makeMarker);

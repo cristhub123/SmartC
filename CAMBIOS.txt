@@ -1,32 +1,35 @@
 SMARTCITY — REGISTRO DE CAMBIOS
 ================================================================
 
-CAMBIO EN ESTA VERSIÓN — PASO 4 DEL PLAN: LOGIN REAL DE ADMIN
+CAMBIO EN ESTA VERSIÓN — Corrección de aviso falso de guardado
 
-Se verificó y se entrega por primera vez el sistema de login real
-de administrador (reemplaza el acceso hoy expuesto, sin login).
+Archivo modificado: js/pin-adjust.js
 
-Archivos incluidos (algunos ya existían en el proyecto de trabajo,
-pero nunca se te habían entregado para descargar):
-- js/admin-auth.js (login/logout con Firebase Authentication)
-- index.html (formulario de login + botones conectados)
-- css/base.css (estilos del formulario de login)
-- Además: SDK de Firebase Auth agregado en el Paso 3 (ya incluido
-  en la entrega anterior, pero necesario para que esto funcione)
+PROBLEMA DETECTADO: al crear o editar un lugar, aparecía el aviso
+"✅ agregado al mapa" SIEMPRE, incluso si el guardado real en
+Firestore fallaba por detrás (por ejemplo, por sesión no iniciada).
+Esto explicaría por qué un lugar podía desaparecer al recargar la
+página, sin que quedara claro que en realidad nunca se había
+guardado de verdad.
 
-Qué cambia en la práctica:
-- Al tocar el botón ⚙️, si NO hay sesión iniciada, aparece un
-  formulario de login (correo + contraseña) en vez de abrir el
-  panel admin directo.
-- Si el login es correcto, se abre el panel normalmente.
-- Botón "🔓 Salir" arriba del panel para cerrar sesión.
-- El panel YA NO es accesible para nadie que no tenga las
-  credenciales — corrige el problema de seguridad detectado al
-  principio de este proyecto (admin expuesto).
+QUÉ CAMBIA:
+- Ahora se espera la confirmación real de Firestore antes de dar
+  el lugar por guardado. Aparece "⏳ Guardando..." primero, y recién
+  después "✅ agregado al mapa" / "✅ actualizado" — solo si la base
+  de datos confirmó que se guardó.
+- Si falla, aparece el aviso de error correspondiente y el lugar
+  NO se agrega a la lista ni al mapa (antes podía quedar visible en
+  pantalla aunque no se hubiera guardado nada real).
 
-Para poder loguearte, necesitás haber creado tu usuario en:
-Firebase → Authentication → Usuarios → Agregar usuario
-(esto ya lo hiciste, con ossi334@gmail.com)
+SOBRE EL TEMA DE IMÁGENES DUPLICADAS EN CLOUDINARY (sin cambio de
+código, aclaración de uso):
+Si ya subiste una imagen en carga masiva directo a Cloudinary con
+el nombre correcto (slug del lugar), NO hace falta volver a
+subirla desde el formulario del admin — dejando el campo de imagen
+vacío al crear el lugar, el sistema la encuentra sola por el
+nombre (esto ya lo resuelve el Paso 2, sin necesidad de tocar
+nada más). Usar el botón de "subir imagen" del admin solo tiene
+sentido para lugares que TODAVÍA no tienen su imagen en Cloudinary.
 
-Próximo paso del plan: PASO 5 — archivo JSON público cacheado
-(para no gastar cuota de lecturas de Firestore con mucho tráfico).
+Próximo paso: confirmar que el guardado ahora persiste bien tras
+recargar la página, antes de seguir con Ruleta o Paso 8 (Temas).

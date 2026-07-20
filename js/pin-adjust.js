@@ -54,7 +54,7 @@ window.startEdit = function(id) {
 };
 
 // ÚNICA definición final de saveEdit — incluye todos los campos
-function saveEdit() {
+async function saveEdit() {
   if (editingId === null) return;
   const idx = POIS.findIndex(x => x.id === editingId);
   if (idx === -1) return;
@@ -93,12 +93,15 @@ function saveEdit() {
     hours:     (document.getElementById('e-hours')||{value:''}).value.trim(),
   };
 
+  toast('⏳ Guardando...');
+  const guardadoOk = await savePoiToFirestore(updated);
+  if (!guardadoOk) return; // el propio savePoiToFirestore ya avisó el error, no seguimos
+
   POIS[idx] = updated;
   removeMarker(editingId);
   makeMarker(updated);
   applyFilter();
   if (currentPoi && currentPoi.id === editingId) openPoiPanel(updated);
-  savePoiToFirestore(updated); // guarda de verdad en la base de datos (async, no bloquea la UI)
 
   toast(`✅ "${name}" actualizado`);
   renderList();
@@ -120,7 +123,7 @@ function saveEdit() {
 
 // Patch saveNew para guardar address
 const _saveNewPrev = saveNew;
-function saveNew() {
+async function saveNew() {
   const name = document.getElementById('a-name').value.trim();
   const cats = (typeof getSelectedCats === 'function') ? getSelectedCats('cat-chips-add') : [];
   const lat  = parseFloat(document.getElementById('a-lat').value);
@@ -162,9 +165,12 @@ function saveNew() {
   // Aplicar campos compartidos del grupo si aplica
   if (p.groupId) applyGroupFields(p);
 
+  toast('⏳ Guardando...');
+  const guardadoOk = await savePoiToFirestore(p);
+  if (!guardadoOk) return; // el propio savePoiToFirestore ya avisó el error, no seguimos
+
   POIS.push(p);
   makeMarker(p);
-  savePoiToFirestore(p); // guarda de verdad en la base de datos (async, no bloquea la UI)
 
   ['a-name','a-desc','a-hist','a-soc','a-lat','a-lng','a-phone','a-hours','a-tags'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
   const addrEl = document.getElementById('a-address'); if (addrEl) addrEl.value = '';

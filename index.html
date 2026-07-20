@@ -137,6 +137,7 @@
     <div class="atab"     data-t="cats">🏷 Categ.</div>
     <div class="atab"     data-t="groups">📦 Grupos</div>
     <div class="atab"     data-t="temas-admin">🎭 Temas</div>
+    <div class="atab"     data-t="funciones-admin">🔧 Funciones</div>
     <div class="atab"     data-t="edit" id="tab-edit-btn" style="display:none">✏️ Editando</div>
   </div>
   <div class="admin-body" data-scroll-hint>
@@ -505,6 +506,15 @@
       <button class="btn-primary" id="btn-save-nightmode" style="margin-top:6px">✓ Guardar configuración día/noche</button>
     </div>
 
+    <!-- FUNCIONES — interruptores on/off por feature -->
+    <div class="tpane" id="tp-funciones-admin">
+      <p style="font-size:12px;color:var(--text3);margin-bottom:12px">
+        Activá o desactivá cada función de la app. Al desactivar una,
+        deja de estar disponible para el público al instante.
+      </p>
+      <div id="funciones-admin-list"></div>
+    </div>
+
     <!-- MAPA -->
     <div class="tpane" id="tp-mapa">
       <div class="sec-lbl">ESTILO DEL MAPA</div>
@@ -855,6 +865,7 @@
   <!-- 6. Admin sub-panels (use registerTabPlugin) -->
   <script src="js/admin-global.js" defer></script>
   <script src="js/themes.js" defer></script>
+  <script src="js/features.js" defer></script>
   <script src="js/roadmap.js" defer></script>
   <script src="js/zones.js" defer></script>
   <script src="js/groups.js" defer></script>
