@@ -184,7 +184,7 @@ function confirmImport() {
 
   // POIs
   if (sel('pois') && _importData.pois?.length) {
-    Object.keys(markers).forEach(id => removeMarker(parseInt(id)));
+    Object.keys(markers).forEach(id => removeMarker(id));
     markers = {}; POIS.length = 0;
     let maxId = 99;
     _importData.pois.forEach(p => {

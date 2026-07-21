@@ -1,37 +1,31 @@
 SMARTCITY — REGISTRO DE CAMBIOS
 ================================================================
 
-CAMBIO EN ESTA VERSIÓN — Persistencia real de Apariencia Global
-y Estilo del Mapa (antes se perdía todo al recargar)
+CAMBIO EN ESTA VERSIÓN — BUG CRÍTICO: la apariencia global nunca
+se guardaba (causa raíz encontrada con tu captura de consola)
 
-Archivo nuevo: js/settings-sync.js
-Archivos modificados: index.html, js/app.js, js/admin-global.js,
-  js/map-settings.js
+Archivos modificados: js/admin-global.js, js/data-io.js
 
-PROBLEMA DETECTADO (tal como lo describiste): los sliders de
-tamaño de pin, glow, colores, y el estilo/opacidad del mapa vivían
-SOLO en la memoria del navegador — nunca se guardaban en ningún
-lado, exactamente el mismo problema que tenían los lugares antes
-de conectar Firestore.
+CAUSA REAL: la función rebuildAllMarkers() todavía tenía
+"parseInt(idStr)" para convertir el ID del lugar a número — un
+resto de ANTES de que migráramos los IDs a texto (slugs) en el
+Paso 3. Como un slug como "patio-olmos-cordoba" no es un número,
+parseInt() devolvía NaN, y el código se rompía ahí mismo con un
+error real ("Cannot read properties of undefined").
 
-QUÉ CAMBIA:
-- Pestaña "Global": al tocar "Aplicar", ahora también se GUARDA
-  de verdad en Firestore (colección settings, doc "appearance").
-- Pestaña "Mapa": al elegir un estilo, tocar "Aplicar" en la URL
-  personalizada, o soltar el slider de opacidad, también se guarda
-  (doc "mapstyle").
-- Al abrir la app (cualquier persona, no solo el admin), esas
-  configuraciones se cargan y aplican ANTES de dibujar el mapa y
-  los pines — para que todos vean lo mismo que dejaste configurado,
-  sin parpadeos.
-- Extra: al abrir la pestaña "Global" del admin, los sliders ahora
-  muestran los valores REALES guardados (antes mostraban siempre
-  la posición por defecto del HTML, aunque hubiera otros valores
-  aplicados — esto podía confundir pensando que "no se guardó nada").
+Como esa función se ejecuta ANTES de guardar en Firestore dentro
+del mismo botón "Aplicar", el guardado nunca llegaba a ejecutarse
+— por eso, aunque cambiaras el tamaño del pin o el color, al
+recargar la página todo volvía al valor por defecto.
 
-Nota de diseño: el guardado de la opacidad del mapa se hace recién
-al SOLTAR el slider (no en cada pixel de arrastre), para no generar
-escrituras innecesarias a Firestore.
+Se corrigió también el mismo problema en js/data-io.js (función
+de importar datos), que tenía el mismo resabio.
 
-Próximo paso: probar que, tras cambiar un tamaño de pin o el estilo
-del mapa y recargar la página, los cambios sigan ahí.
+TEMA APARTE (no crítico, pero real): el conteo de clicks de
+visitantes sin sesión iniciada fallaba por permisos de Firestore.
+Se le pasaron al usuario las reglas de seguridad actualizadas para
+pegar en Firebase, que permiten sumar clicks sin login, sin abrir
+ninguna otra puerta de seguridad.
+
+Próximo paso: confirmar que ahora sí persiste el tamaño de pin y
+el color al recargar la página.

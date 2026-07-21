@@ -72,7 +72,7 @@ function rebuildAllMarkers() {
   if (expandedId !== null) { collapsePin(expandedId); closePoiPanel(); }
 
   Object.keys(markers).forEach(idStr => {
-    const id  = parseInt(idStr);
+    const id  = idStr; // el id es el slug (texto), no un número — nada de parseInt
     const poi = markers[id].poi;
     markers[id].m.remove();
     delete markers[id];
