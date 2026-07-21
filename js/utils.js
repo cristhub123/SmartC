@@ -174,6 +174,18 @@ function setupUrlLoader(urlInputId, loadBtnId, prevId, lblId, wrapperId, onLoad)
     let url = rawUrl.trim();
     if (!url) { toast('⚠️ Pegá un URL primero'); return; }
 
+    // === CLAVE: si el link ya es de Cloudinary, se usa TAL CUAL ===
+    // No hay que descargarlo ni volver a subirlo — eso es lo que
+    // generaba copias duplicadas con nombre random. Se guarda el
+    // link directo y listo.
+    if (url.includes('res.cloudinary.com')) {
+      const filename = url.split('/').pop().split('?')[0] || 'imagen';
+      applyImgB64(url, prevId, lblId, wrapperId, filename, onLoad);
+      inp.value = '';
+      toast('✅ Imagen enlazada (ya estaba en Cloudinary, no se duplicó)');
+      return;
+    }
+
     // Dropbox: convert share link to direct download
     url = url.replace('www.dropbox.com', 'dl.dropboxusercontent.com')
              .replace('?dl=0', '').replace('?dl=1', '');
@@ -223,12 +235,18 @@ window._addImgAlt1 = null; window._addImgAlt2 = null; window._addImgAlt3 = null;
 setupImgUploader('img-input-alt1-add','img-prev-alt1-add','img-lbl-alt1-add','img-clear-alt1-add','iu-alt1-add','Variante 2', b64=>{ window._addImgAlt1=b64; });
 setupImgUploader('img-input-alt2-add','img-prev-alt2-add','img-lbl-alt2-add','img-clear-alt2-add','iu-alt2-add','Variante 3', b64=>{ window._addImgAlt2=b64; });
 setupImgUploader('img-input-alt3-add','img-prev-alt3-add','img-lbl-alt3-add','img-clear-alt3-add','iu-alt3-add','Variante 4', b64=>{ window._addImgAlt3=b64; });
+setupUrlLoader('img-url-alt1-add', 'img-url-load-alt1-add', 'img-prev-alt1-add', 'img-lbl-alt1-add', 'iu-alt1-add', b64 => { window._addImgAlt1 = b64; });
+setupUrlLoader('img-url-alt2-add', 'img-url-load-alt2-add', 'img-prev-alt2-add', 'img-lbl-alt2-add', 'iu-alt2-add', b64 => { window._addImgAlt2 = b64; });
+setupUrlLoader('img-url-alt3-add', 'img-url-load-alt3-add', 'img-prev-alt3-add', 'img-lbl-alt3-add', 'iu-alt3-add', b64 => { window._addImgAlt3 = b64; });
 
 // Alt images for edit form
 window._editImgAlt1 = undefined; window._editImgAlt2 = undefined; window._editImgAlt3 = undefined;
 setupImgUploader('img-input-alt1-edit','img-prev-alt1-edit','img-lbl-alt1-edit','img-clear-alt1-edit','iu-alt1-edit','Variante 2', b64=>{ window._editImgAlt1=b64; });
 setupImgUploader('img-input-alt2-edit','img-prev-alt2-edit','img-lbl-alt2-edit','img-clear-alt2-edit','iu-alt2-edit','Variante 3', b64=>{ window._editImgAlt2=b64; });
 setupImgUploader('img-input-alt3-edit','img-prev-alt3-edit','img-lbl-alt3-edit','img-clear-alt3-edit','iu-alt3-edit','Variante 4', b64=>{ window._editImgAlt3=b64; });
+setupUrlLoader('img-url-alt1-edit', 'img-url-load-alt1-edit', 'img-prev-alt1-edit', 'img-lbl-alt1-edit', 'iu-alt1-edit', b64 => { window._editImgAlt1 = b64; });
+setupUrlLoader('img-url-alt2-edit', 'img-url-load-alt2-edit', 'img-prev-alt2-edit', 'img-lbl-alt2-edit', 'iu-alt2-edit', b64 => { window._editImgAlt2 = b64; });
+setupUrlLoader('img-url-alt3-edit', 'img-url-load-alt3-edit', 'img-prev-alt3-edit', 'img-lbl-alt3-edit', 'iu-alt3-edit', b64 => { window._editImgAlt3 = b64; });
 
 /* ── Patch startEdit: ya integrado en la definición base arriba ── */
 
