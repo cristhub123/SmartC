@@ -1,32 +1,37 @@
 SMARTCITY — REGISTRO DE CAMBIOS
 ================================================================
 
-CAMBIO EN ESTA VERSIÓN — Entrega A: arreglos del formulario de imágenes
+CAMBIO EN ESTA VERSIÓN — Persistencia real de Apariencia Global
+y Estilo del Mapa (antes se perdía todo al recargar)
 
-Archivos modificados: index.html, js/utils.js
+Archivo nuevo: js/settings-sync.js
+Archivos modificados: index.html, js/app.js, js/admin-global.js,
+  js/map-settings.js
 
-1. Las 3 imágenes alternativas (Variante 2, 3, 4) ahora tienen la
-   misma opción de "pegar link" que ya tenía la imagen principal —
-   antes solo la principal la tenía.
+PROBLEMA DETECTADO (tal como lo describiste): los sliders de
+tamaño de pin, glow, colores, y el estilo/opacidad del mapa vivían
+SOLO en la memoria del navegador — nunca se guardaban en ningún
+lado, exactamente el mismo problema que tenían los lugares antes
+de conectar Firestore.
 
-2. ARREGLADO EL BUG DE DUPLICADOS: si pegás un link que ya es de
-   Cloudinary (contiene "res.cloudinary.com"), el sistema lo usa
-   directo, sin descargarlo ni volver a subirlo. Ya no se generan
-   copias con nombre random. Aparece el aviso "✅ Imagen enlazada
-   (ya estaba en Cloudinary, no se duplicó)" para confirmarlo.
+QUÉ CAMBIA:
+- Pestaña "Global": al tocar "Aplicar", ahora también se GUARDA
+  de verdad en Firestore (colección settings, doc "appearance").
+- Pestaña "Mapa": al elegir un estilo, tocar "Aplicar" en la URL
+  personalizada, o soltar el slider de opacidad, también se guarda
+  (doc "mapstyle").
+- Al abrir la app (cualquier persona, no solo el admin), esas
+  configuraciones se cargan y aplican ANTES de dibujar el mapa y
+  los pines — para que todos vean lo mismo que dejaste configurado,
+  sin parpadeos.
+- Extra: al abrir la pestaña "Global" del admin, los sliders ahora
+  muestran los valores REALES guardados (antes mostraban siempre
+  la posición por defecto del HTML, aunque hubiera otros valores
+  aplicados — esto podía confundir pensando que "no se guardó nada").
 
-QUÉ QUEDA PENDIENTE (Entrega B, más grande, sin tocar todavía):
-- Sacar el límite de 4 imágenes por lugar (variantes ilimitadas)
-- Detección 100% automática por nombre de archivo, sin tocar el
-  panel admin para nada
-- Los 3 interruptores por imagen (visible en ojito / default de
-  la ficha / default global en el mapa)
-- Activación masiva por evento (ej: 9 de julio, todos los edificios
-  con la temática "_patrio" a la vez)
+Nota de diseño: el guardado de la opacidad del mapa se hace recién
+al SOLTAR el slider (no en cada pixel de arrastre), para no generar
+escrituras innecesarias a Firestore.
 
-Esto requiere una pieza nueva (función de servidor en Vercel) y un
-cambio de cómo se guarda cada lugar en Firestore — está bien
-especificado en el plan maestro, pendiente de encarar aparte.
-
-Próximo paso: probar que los links de Cloudinary ya no dupliquen,
-y decidir cuándo encarar la Entrega B.
+Próximo paso: probar que, tras cambiar un tamaño de pin o el estilo
+del mapa y recargar la página, los cambios sigan ahí.

@@ -5,22 +5,37 @@
    ═══════════════════════════════════════════ */
 
 async function init() {
-  // 0. Load default tile style
+  // 0. Cargar configuraciones guardadas (apariencia global + estilo
+  //    de mapa) ANTES de aplicar nada — así se ve correcto desde el
+  //    primer instante, sin parpadeo, para cualquier persona que
+  //    abra la app, no solo para vos.
+  await loadGlobalSettings();
+  await loadMapSettings();
+
+  // 1. Aplicar el estilo de mapa ya cargado (o el default si es la
+  //    primera vez que se usa la app y todavía no hay nada guardado)
   if (typeof applyTileUrl === 'function') {
-    applyTileUrl(_mapaSettings ? _mapaSettings.tileUrl : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png');
+    applyTileUrl(_mapaSettings.tileUrl);
+    if (typeof applyTint === 'function') applyTint();
   } else {
-    // Fallback if map-settings not loaded
+    // Fallback si map-settings no cargó por algún motivo
     L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {subdomains:'abcd',maxZoom:19}).addTo(map);
   }
 
-  // 1. Cargar los lugares reales desde Firestore (reemplaza el
+  // 2. Aplicar apariencia global (tamaño de pin, glow, etc.) antes
+  //    de crear los marcadores, para que nazcan ya con el tamaño
+  //    correcto en vez de "saltar" después.
+  if (typeof applyGlobalDim === 'function') applyGlobalDim();
+  if (typeof applyGlobalOutline === 'function') applyGlobalOutline();
+
+  // 3. Cargar los lugares reales desde Firestore (reemplaza el
   //    array hardcodeado que había antes) — se espera a que
   //    termine antes de dibujar los pines en el mapa.
   toast('⏳ Cargando lugares...');
   await loadPOISFromFirestore();
   await loadFeaturesFromFirestore();
 
-  // 2. Build all markers
+  // 4. Build all markers
   POIS.forEach(makeMarker);
 
   // 3. Build category filter bar

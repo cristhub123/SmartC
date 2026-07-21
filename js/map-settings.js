@@ -162,6 +162,7 @@ function initMapaTab() {
       const urlInp = document.getElementById('mapa-url-input');
       if (urlInp) urlInp.value = p.url;
       applyTileUrl(p.url);
+      saveMapSettings(); // queda guardado para todos los que abran la app
       toast('🗺 Mapa: ' + p.name);
     });
     grid.appendChild(card);
@@ -177,6 +178,10 @@ function initMapaTab() {
       if (opVal) opVal.textContent = opSlider.value + '%';
       applyMapaOpacity(v);
     });
+    // Guardar recién al SOLTAR el slider (evento 'change'), no en cada
+    // pixel de arrastre — si guardáramos en 'input' serían decenas de
+    // escrituras innecesarias a Firestore por cada ajuste.
+    opSlider.addEventListener('change', () => saveMapSettings());
   }
 
   // Custom URL
@@ -190,7 +195,8 @@ function initMapaTab() {
       _mapaSettings.presetId = 'custom';
       document.querySelectorAll('.mapa-preset-card').forEach(c => c.classList.remove('active'));
       applyTileUrl(url);
-      toast('🗺 Mapa personalizado aplicado');
+      saveMapSettings();
+      toast('🗺 Mapa personalizado aplicado y guardado');
     });
   }
 }

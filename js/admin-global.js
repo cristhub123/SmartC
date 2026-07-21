@@ -189,8 +189,43 @@ function updateGPreview() {
 document.getElementById('btn-apply-global').addEventListener('click', () => {
   applyGlobalDim();
   rebuildAllMarkers();
-  toast('✅ Apariencia global aplicada');
+  saveGlobalSettings(); // ahora sí queda guardado de verdad, no solo en memoria
+  toast('✅ Apariencia global aplicada y guardada');
 });
+
+/* === Sincronizar los sliders con los valores REALES ya cargados
+   (desde Firestore) cada vez que se abre la pestaña "Global" —
+   sin esto, el admin vería siempre la posición por defecto del
+   HTML aunque los valores guardados fueran otros. === */
+function initGlobalTab() {
+  const setSlider = (id, valId, val, suffix) => {
+    const el = document.getElementById(id);
+    const lbl = document.getElementById(valId);
+    if (el) el.value = val;
+    if (lbl) lbl.textContent = val + suffix;
+  };
+  setSlider('g-solid-px',     'g-solid-px-val',     globalSettings.solidPx,               'px');
+  setSlider('g-glow-px',      'g-glow-px-val',      globalSettings.glowPx,                'px');
+  setSlider('g-dim-opacity',  'g-dim-opacity-val',  Math.round(globalSettings.dimOpacity*100), '%');
+  setSlider('g-pin-size',     'g-pin-size-val',     globalSettings.pinSize,               'px');
+  setSlider('g-expand-scale', 'g-expand-scale-val', Math.round(globalSettings.expandScale*10), '×'); // se corrige abajo
+  setSlider('g-name-size',    'g-name-size-val',    globalSettings.nameSize,              'px');
+  const esEl = document.getElementById('g-expand-scale-val');
+  if (esEl) esEl.textContent = globalSettings.expandScale.toFixed(1) + '×';
+
+  const solidColor = document.getElementById('g-solid-color');
+  const solidHex   = document.getElementById('g-solid-hex');
+  if (solidColor) solidColor.value = globalSettings.solidColor;
+  if (solidHex)   solidHex.value   = globalSettings.solidColor;
+
+  const glowColor = document.getElementById('g-glow-color');
+  const glowHex   = document.getElementById('g-glow-hex');
+  if (glowColor) glowColor.value = globalSettings.glowColor;
+  if (glowHex)   glowHex.value   = globalSettings.glowColor;
+
+  updateGPreview();
+}
+SC.registerTabPlugin('global', initGlobalTab);
 
 
 
