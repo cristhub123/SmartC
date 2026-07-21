@@ -2,6 +2,21 @@
 /* ═══════════════════════════════════════════
    ADMIN PANEL
 ═══════════════════════════════════════════ */
+
+/* === TOAST — avisos chicos flotantes (RECONSTRUIDA: se había
+   perdido en algún momento, aunque se seguía llamando 63 veces
+   en todo el proyecto — por eso nada guardaba correctamente,
+   cualquier función que llamara a toast() se cortaba con error). === */
+let _toastTimer = null;
+function toast(msg, ms = 2600) {
+  const el = document.getElementById('toast');
+  if (!el) { console.warn('toast() sin contenedor #toast en el HTML:', msg); return; }
+  el.textContent = msg;
+  el.classList.add('on');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => el.classList.remove('on'), ms);
+}
+
 document.getElementById('btn-admin').addEventListener('click', () => {
   if (_adminUser) openAdmin();
   else showAdminLogin();

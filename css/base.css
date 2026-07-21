@@ -1252,7 +1252,12 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
 /* === FLECHAS INDICADORAS DE SCROLL — patrón reutilizable en toda la app ===
    Se agregan automáticamente por JS (ver scroll-hints.js) a cualquier
    contenedor marcado con [data-scroll-hint]. Aparecen solo cuando hay
-   más contenido oculto en esa dirección, y desaparecen al llegar al final. */
+   más contenido oculto en esa dirección, y desaparecen al llegar al final.
+   IMPORTANTE: pointer-events queda SIEMPRE en 'none' (nunca reciben
+   clicks) — se detectó que, al ser "sticky" en la parte de abajo,
+   podían quedar tapando botones reales (ej. "Guardar Lugar") e
+   interceptar el toque en vez de dejarlo pasar. Quedan solo como
+   indicador visual, sin la comodidad de "tocar para scrollear". */
 .scroll-hint-arrow {
   position: sticky; left: 0; right: 0; z-index: 5;
   display: flex; align-items: center; justify-content: center;
@@ -1261,7 +1266,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   background: linear-gradient(var(--dir-from), var(--dir-to));
   font-size: 11px; color: var(--text3);
 }
-.scroll-hint-arrow.visible { opacity: 1; pointer-events: auto; cursor: pointer; }
+.scroll-hint-arrow.visible { opacity: 1; } /* pointer-events queda siempre en 'none' — ver nota arriba */
 .scroll-hint-arrow.top    { top: 0;    --dir-from: rgba(250,252,250,1); --dir-to: rgba(250,252,250,0); }
 .scroll-hint-arrow.bottom { bottom: 0; --dir-from: rgba(250,252,250,0); --dir-to: rgba(250,252,250,1); }
 

@@ -1,35 +1,38 @@
 SMARTCITY — REGISTRO DE CAMBIOS
 ================================================================
 
-CAMBIO EN ESTA VERSIÓN — Corrección de aviso falso de guardado
+CAMBIO EN ESTA VERSIÓN — BUG CRÍTICO: función toast() no existía
 
-Archivo modificado: js/pin-adjust.js
+Archivo modificado: js/admin.js
 
-PROBLEMA DETECTADO: al crear o editar un lugar, aparecía el aviso
-"✅ agregado al mapa" SIEMPRE, incluso si el guardado real en
-Firestore fallaba por detrás (por ejemplo, por sesión no iniciada).
-Esto explicaría por qué un lugar podía desaparecer al recargar la
-página, sin que quedara claro que en realidad nunca se había
-guardado de verdad.
+CAUSA REAL (confirmada con la consola real del navegador, no con
+suposiciones): la función toast() — que muestra los avisitos
+flotantes ("✅ agregado", "⚠️ falta algo", etc.) — NO estaba
+definida en NINGÚN archivo del proyecto, a pesar de usarse 63
+veces en el código. Esto explica de raíz varios de los problemas
+de esta sesión:
+- Por qué nunca se veía ningún aviso al guardar
+- Por qué la carga de lugares desde Firestore fallaba en seco
+  (app.js llama a toast() como primer paso de init())
+- Por qué el buscador de direcciones (geocoder.js) tiraba error
 
-QUÉ CAMBIA:
-- Ahora se espera la confirmación real de Firestore antes de dar
-  el lugar por guardado. Aparece "⏳ Guardando..." primero, y recién
-  después "✅ agregado al mapa" / "✅ actualizado" — solo si la base
-  de datos confirmó que se guardó.
-- Si falla, aparece el aviso de error correspondiente y el lugar
-  NO se agrega a la lista ni al mapa (antes podía quedar visible en
-  pantalla aunque no se hubiera guardado nada real).
+Esto casi seguro se perdió cuando se borraron los archivos
+"huérfanos" admin-core.js / admin-forms.js hace varias versiones
+— probablemente toast() vivía originalmente en uno de esos dos
+(el propio encabezado de admin.js decía "admin.js — ...toast...",
+como si se esperara que estuviera ahí, pero nunca se migró).
 
-SOBRE EL TEMA DE IMÁGENES DUPLICADAS EN CLOUDINARY (sin cambio de
-código, aclaración de uso):
-Si ya subiste una imagen en carga masiva directo a Cloudinary con
-el nombre correcto (slug del lugar), NO hace falta volver a
-subirla desde el formulario del admin — dejando el campo de imagen
-vacío al crear el lugar, el sistema la encuentra sola por el
-nombre (esto ya lo resuelve el Paso 2, sin necesidad de tocar
-nada más). Usar el botón de "subir imagen" del admin solo tiene
-sentido para lugares que TODAVÍA no tienen su imagen en Cloudinary.
+SOLUCIÓN: se reconstruyó la función toast() en admin.js,
+conectada al contenedor HTML #toast que sí existía (pero sin
+función ni JS que lo controlara).
 
-Próximo paso: confirmar que el guardado ahora persiste bien tras
-recargar la página, antes de seguir con Ruleta o Paso 8 (Temas).
+ACLARACIÓN IMPORTANTE sobre un mensaje de otra IA que se recibió:
+Se mencionó un supuesto error de sintaxis en js/location.js:51 —
+se verificó y ESE archivo está bien, no tiene ningún error. Ese
+mensaje describía un problema que no coincide con la consola real
+del navegador. Recomendación: para diagnósticos futuros, la
+consola real (F12 → Console) del navegador es la fuente de verdad,
+no una sugerencia de otra IA sin ver la consola real.
+
+Próximo paso: confirmar que ahora sí aparecen los avisos y que
+crear un lugar guarda de verdad de punta a punta.
