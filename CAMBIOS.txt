@@ -1,23 +1,39 @@
 SMARTCITY — REGISTRO DE CAMBIOS
 ================================================================
 
-REENTREGA — el ZIP anterior (con el arreglo del bug de parseInt
-en admin-global.js) no había llegado a desplegarse en el sitio en
-vivo. Este es el mismo contenido, regenerado y confirmado.
+CAMBIO EN ESTA VERSIÓN — Importador de contenido masivo (Paso 6)
 
-CONFIRMACIÓN TÉCNICA: buscá el texto "el id es el slug" dentro de
-js/admin-global.js — si está ahí, es esta versión.
+Archivo nuevo: js/content-import.js
+Archivos modificados: index.html, js/admin.js
 
-Incluye: corrección del bug de parseInt (guardado de Apariencia
-Global y Estilo de Mapa), persistencia real en Firestore, y todo
-lo acumulado de versiones anteriores.
+Nueva pestaña en el admin: 📥 Importar
 
-PASOS PARA SUBIR (importante, para no repetir la confusión):
-1. Andá a https://github.com/cristhub123/SmartC/upload/main
-2. Arrastrá TODO el contenido de este ZIP (descomprimido)
-3. Confirmá el commit
-4. Esperá 2-3 minutos
-5. Verificá ANTES de probar nada: abrí en una pestaña nueva
-   https://smart-c-eta.vercel.app/js/admin-global.js
-   y buscá (Ctrl+F) el texto "el id es el slug" — recién cuando
-   ESO aparezca, probá los sliders de la pestaña Global.
+QUÉ HACE:
+- Pegás el JSON de contenido (el formato de tu archivo real:
+  nombre, categoria, gancho, propuesta, dato_curioso, imperdible,
+  horario_estimado) y tocás "Importar contenido".
+- Crea (o actualiza, si ya existe un lugar con ese nombre) cada
+  lugar en Firestore de una sola vez — sin tener que cargar uno
+  por uno a mano.
+- Mapea "categoria" (texto libre en español) a nuestras categorías
+  fijas (Centro Cultural→Cultura, Restaurante→Gastronomía, etc.).
+  Si no reconoce la categoría, la deja en "Histórico" por defecto
+  y te avisa cuáles hay que revisar.
+- gancho + propuesta → van al campo de descripción del panel
+- dato_curioso + imperdible → van al campo de historia/trivia
+
+IMPORTANTE: los lugares importados NO tienen coordenadas (tu
+archivo no las trae) — quedan creados pero sin pin en el mapa
+todavía. En la lista de "Lugares" vas a verlos marcados con
+"📍 Falta ubicación" — hay que entrar a "Editar" cada uno y
+ubicarlo (buscando la dirección o tocando el mapa) para que
+aparezca visible.
+
+Nota: esto usa los campos que YA existen (desc/hist/hours), no
+el sistema de "bloques dinámicos" ilimitados que quedó diseñado
+para más adelante — así podés usar tu contenido real hoy mismo,
+sin esperar esa función más grande.
+
+Pendiente sin resolver todavía: el bug de "algunos lugares no
+guardan los cambios al editar" — sigue en investigación, falta
+la prueba puntual con consola abierta que se pidió antes.

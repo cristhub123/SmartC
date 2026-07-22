@@ -138,6 +138,7 @@
     <div class="atab"     data-t="groups">📦 Grupos</div>
     <div class="atab"     data-t="temas-admin">🎭 Temas</div>
     <div class="atab"     data-t="funciones-admin">🔧 Funciones</div>
+    <div class="atab"     data-t="import-content">📥 Importar</div>
     <div class="atab"     data-t="edit" id="tab-edit-btn" style="display:none">✏️ Editando</div>
   </div>
   <div class="admin-body" data-scroll-hint>
@@ -527,6 +528,33 @@
       <div id="funciones-admin-list"></div>
     </div>
 
+    <!-- IMPORTAR CONTENIDO — carga masiva desde JSON de texto (sin coordenadas) -->
+    <div class="tpane" id="tp-import-content">
+      <p style="font-size:12px;color:var(--text3);margin-bottom:12px">
+        Pegá acá el JSON de contenido (nombre, categoría, descripciones)
+        generado con tu proceso de IA externo. Se crean o actualizan los
+        lugares automáticamente — <strong>sin coordenadas todavía</strong>,
+        vas a tener que ubicarlos en el mapa manualmente desde "Editar"
+        después de importar (van a aparecer marcados como
+        "📍 Falta ubicación" en la lista de Lugares).
+      </p>
+      <textarea class="fi" id="import-content-textarea" rows="10"
+        style="font-family:var(--font-m);font-size:12px;resize:vertical"
+        placeholder='[
+  {
+    "nombre": "Paseo del Buen Pastor",
+    "categoria": "Centro Cultural",
+    "gancho": "...",
+    "propuesta": "...",
+    "dato_curioso": "...",
+    "imperdible": "...",
+    "horario_estimado": "..."
+  }
+]'></textarea>
+      <button class="btn-primary" id="btn-import-content" style="margin-top:10px">📥 Importar contenido</button>
+      <div id="import-content-result" style="margin-top:12px;font-size:13px"></div>
+    </div>
+
     <!-- MAPA -->
     <div class="tpane" id="tp-mapa">
       <div class="sec-lbl">ESTILO DEL MAPA</div>
@@ -891,6 +919,7 @@
   <script src="js/admin-global.js" defer></script>
   <script src="js/themes.js" defer></script>
   <script src="js/features.js" defer></script>
+  <script src="js/content-import.js" defer></script>
   <script src="js/roadmap.js" defer></script>
   <script src="js/zones.js" defer></script>
   <script src="js/groups.js" defer></script>
