@@ -25,7 +25,7 @@ function cloudinaryImageUrl(slug, { suffix = '', w, h } = {}) {
    2) si no, se arma la cadena completa de respaldo (ver utils.js) */
 function resolvePinImageUrl(poi) {
   if (poi.imgB64) return [poi.imgB64];
-  return buildImageFallbackChain(poi).map(url =>
+  return buildImageFallbackChain(poi, { forMap: true }).map(url =>
     // La cadena base de utils.js no trae tamaño — acá se agrega
     // el recorte de 200x200 solo a las URLs calculadas por fórmula.
     url.replace('/image/upload/', '/image/upload/c_scale,w_200,h_200/')

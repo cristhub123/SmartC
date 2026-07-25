@@ -22,16 +22,57 @@ function distanceMeters(lat1, lng1, lat2, lng2) {
    una alternativa a propósito. Orden: principal → noche → alt1 →
    alt2 → alt3 → pin genérico de la categoría → emoji (último recurso).
 ═══════════════════════════════════════════ */
-function buildImageFallbackChain(poi) {
+/* === MODO NOCHE AUTOMÁTICO ===
+   Si está configurado (panel de Temas → hora + tema de noche),
+   se activa solo entre esa hora y las 6am, sin que el admin tenga
+   que tocar nada. Se suma a los temas con interruptor manual. */
+function isNightModeActive() {
+  if (typeof globalSettings === 'undefined') return false;
+  if (globalSettings.nightHour === null || globalSettings.nightHour === undefined || !globalSettings.nightTheme) return false;
+  const hour = new Date().getHours();
+  return hour >= globalSettings.nightHour || hour < 6;
+}
+
+/* Temas activos para decidir la imagen PRINCIPAL DEL PIN EN EL MAPA
+   — combina los que el admin activó manualmente (mapDefault) + el
+   de modo noche automático si corresponde. */
+function getActiveMapThemeIds() {
+  if (typeof TEMAS === 'undefined') return [];
+  const ids = TEMAS.filter(t => t.mapDefault).map(t => t.id);
+  if (isNightModeActive() && !ids.includes(globalSettings.nightTheme)) ids.push(globalSettings.nightTheme);
+  return ids;
+}
+
+/* Mismo concepto, para la imagen por defecto AL ABRIR EL PANEL. */
+function getActivePanelThemeIds() {
+  if (typeof TEMAS === 'undefined') return [];
+  const ids = TEMAS.filter(t => t.panelDefault).map(t => t.id);
+  if (isNightModeActive() && !ids.includes(globalSettings.nightTheme)) ids.push(globalSettings.nightTheme);
+  return ids;
+}
+
+/* === CADENA DE RESPALDO — ahora con temas globales al frente ===
+   Si hay una temática activa (evento del día, o modo noche), se
+   intenta ESA imagen primero; si este lugar puntual no la tiene
+   cargada, cae solo al resto de la cadena de siempre, sin romper
+   nada. Mismo mecanismo para cualquier temática futura, sin tener
+   que programar casos especiales por cada una. */
+function buildImageFallbackChain(poi, { forMap = false, forPanel = false } = {}) {
   const slug = getPoiSlug(poi);
-  return [
+  const chain = [];
+
+  if (forMap)   getActiveMapThemeIds().forEach(id   => chain.push(cloudinaryImageUrl(slug, { suffix: `_${id}` })));
+  if (forPanel) getActivePanelThemeIds().forEach(id => chain.push(cloudinaryImageUrl(slug, { suffix: `_${id}` })));
+
+  chain.push(
     cloudinaryImageUrl(slug, {}),                    // principal ("-cordoba")
-    cloudinaryImageUrl(slug, { suffix: '_noche' }),   // variante noche
+    cloudinaryImageUrl(slug, { suffix: '_noche' }),   // variante noche (si no hay tema de noche configurado)
     cloudinaryImageUrl(slug, { suffix: '-alt1' }),
     cloudinaryImageUrl(slug, { suffix: '-alt2' }),
     cloudinaryImageUrl(slug, { suffix: '-alt3' }),
     cloudinaryImageUrl(`fallback-${poi.category || 'generico'}`, {}), // pin genérico de la categoría
-  ];
+  );
+  return chain;
 }
 
 /* Engancha un <img> a la cadena de respaldo: si falla, prueba la

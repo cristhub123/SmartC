@@ -129,7 +129,7 @@ function openPoiPanel(poi) {
     ppIb.style.background = 'transparent';
     ppIb.style.padding = '0';
   } else {
-    const candidates = buildImageFallbackChain(poi);
+    const candidates = buildImageFallbackChain(poi, { forPanel: true });
     ppIb.innerHTML = `<img class="pp-header-img" src="${candidates[0]}" style="width:100%;height:100%;object-fit:contain;border-radius:10px;display:block" alt="${poi.name}">
       <span id="pp-ico" style="display:none">${poi.icon || '📍'}</span>`;
     ppIb.style.background = 'transparent';
@@ -242,6 +242,17 @@ function buildVisPicker(poi) {
     variants.push({src: cloudinaryImageUrl(slug, {suffix:'-alt1'}), label:'Alt 1', key:'alt1', mayNotExist:true});
     variants.push({src: cloudinaryImageUrl(slug, {suffix:'-alt2'}), label:'Alt 2', key:'alt2', mayNotExist:true});
     variants.push({src: cloudinaryImageUrl(slug, {suffix:'-alt3'}), label:'Alt 3', key:'alt3', mayNotExist:true});
+  }
+  // Temáticas con el interruptor "visible en el ojito" activado (panel
+  // de Temas) — se suman al carrusel de CUALQUIER lugar; si este lugar
+  // puntual no tiene esa imagen cargada, se saca sola con onerror.
+  if (typeof TEMAS !== 'undefined') {
+    TEMAS.filter(t => t.altEnabled).forEach(t => {
+      variants.push({
+        src: cloudinaryImageUrl(slug, {suffix: `_${t.id}`}),
+        label: t.name, key: `theme-${t.id}`, mayNotExist: true,
+      });
+    });
   }
   // emoji fallbacks (si no hay ninguna imagen manual cargada como respaldo)
   if (variants.length <= 1) {
