@@ -115,16 +115,23 @@ async function init() {
     inp.addEventListener('focus', () => { if (inp.value.trim()) inp.dispatchEvent(new Event('input')); });
   })();
 
-  // 9. Pan helper used by cluster + poi panel
+  // 9. Pan helper used by cluster + poi panel — centra el pin
+  //    horizontalmente al 50% de la pantalla, y verticalmente en el
+  //    centro exacto de la zona libre de arriba (el panel ocupa el
+  //    62% inferior, así que la zona libre es el 38% superior — el
+  //    pin queda en el centro de ESA franja, no del panel ni de la
+  //    pantalla completa).
   window.panToPoiCenter = function(poi) {
     const vw = window.innerWidth, vh = window.innerHeight;
-    const hdr = 56, panelH = vh * 0.62;
-    const targetY = hdr + (vh - panelH - hdr) * 0.5, targetX = vw * 0.5;
-    const rect = map.getContainer().getBoundingClientRect();
+    const PANEL_FRAC = 0.62;           // el panel ocupa el 62% inferior
+    const targetX = vw * 0.5;
+    const targetY = vh * ((1 - PANEL_FRAC) / 2); // centro del 38% libre de arriba
+
+    const rect  = map.getContainer().getBoundingClientRect();
     const pinPx = map.latLngToContainerPoint([poi.lat, poi.lng]);
-    requestAnimationFrame(() => setTimeout(() =>
-      map.panBy([pinPx.x - (targetX - rect.left), pinPx.y - (targetY - rect.top)],
-        {animate:true, duration:.4, noMoveStart:true}), 50));
+    const dx = pinPx.x - (targetX - rect.left);
+    const dy = pinPx.y - (targetY - rect.top);
+    map.panBy([dx, dy], { animate: true, duration: .4, noMoveStart: true });
   };
 }
 

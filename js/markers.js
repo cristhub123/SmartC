@@ -104,30 +104,10 @@ function pinClick(id) {
   if (expandedId !== null) collapsePin(expandedId);
   expandPin(id);
   openPoiPanel(markers[id].poi);
-  // Centrar pin: horizontalmente en pantalla, verticalmente en zona libre
-  const _poi    = markers[id].poi;
-  // Centro real del viewport (window, no mapa) para ignorar controles
-  const _vw      = window.innerWidth;
-  const _vh      = window.innerHeight;
-  const _hdr     = 44;                         // header height px (reducido)
-  const _filterH = 58;                         // filter bar height px
-  const _freeH   = _vh - _hdr - _filterH;     // zona totalmente libre
-  const _panelH  = _vh * 0.62;                // panel glass
-  const _freeTop = _vh - _panelH;             // donde empieza el panel
-  const _targetY = _hdr + (_freeTop - _hdr) * 0.5; // centro zona libre
-  const _targetX = _vw * 0.5;                 // centro horizontal del viewport
-  // Convertir targetX/Y a coordenadas de contenedor Leaflet
-  const _mapContainer = map.getContainer().getBoundingClientRect();
-  const _cTargetX = _targetX - _mapContainer.left;
-  const _cTargetY = _targetY - _mapContainer.top;
-  const _pinPx    = map.latLngToContainerPoint([_poi.lat, _poi.lng]);
-  const _dx = _pinPx.x - _cTargetX;
-  const _dy = _pinPx.y - _cTargetY;
-  // Delay pan until after expand animation — prevents layout recalc during transition
+  // Centrado simple y directo en las coordenadas exactas del pin —
+  // sin cálculos de "zona libre" (ver nota en app.js/panToPoiCenter).
   requestAnimationFrame(() => {
-    setTimeout(() => {
-      map.panBy([_dx, _dy], {animate: true, duration: .38, noMoveStart: true});
-    }, 50);
+    setTimeout(() => panToPoiCenter(markers[id].poi), 50);
   });
 }
 function expandPin(id) {

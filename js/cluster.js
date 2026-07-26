@@ -94,12 +94,7 @@ function pinClick(id) {
     expandPin(id);
     openPoiPanel(markers[id].poi);
     incrementPinClicks(id);
-    const poi = markers[id].poi;
-    const vw=window.innerWidth, vh=window.innerHeight, hdr=44, panelH=vh*.62;
-    const targetY = hdr + (vh-panelH-hdr)*.5, targetX = vw*.5;
-    const rect = map.getContainer().getBoundingClientRect();
-    const pinPx = map.latLngToContainerPoint([poi.lat, poi.lng]);
-    map.panBy([pinPx.x-(targetX-rect.left), pinPx.y-(targetY-rect.top)], {animate:true,duration:.38,noMoveStart:true});
+    panToPoiCenter(markers[id].poi);
     return;
   }
 
@@ -121,11 +116,9 @@ function pinClick(id) {
   expandPin(id);
   openPoiPanel(poi);
   incrementPinClicks(id);
-  const vw=window.innerWidth, vh=window.innerHeight, hdr=44, panelH=vh*.62;
-  const targetY=hdr+(vh-panelH-hdr)*.5, targetX=vw*.5;
-  const rect=map.getContainer().getBoundingClientRect();
-  const pinPx=map.latLngToContainerPoint([poi.lat,poi.lng]);
-  requestAnimationFrame(()=>setTimeout(()=>map.panBy([pinPx.x-(targetX-rect.left),pinPx.y-(targetY-rect.top)],{animate:true,duration:.38,noMoveStart:true}),50));
+  // Centrado simple y directo en las coordenadas exactas del pin —
+  // sin cálculos de "zona libre" (ver nota en app.js/panToPoiCenter).
+  requestAnimationFrame(() => setTimeout(() => panToPoiCenter(poi), 50));
 }
 
 map.on('movestart zoomstart', () => {
