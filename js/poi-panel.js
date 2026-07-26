@@ -15,7 +15,7 @@
   if (!panel || !handle) return;
 
   let startY = 0, startHeight = 0, dragging = false, moved = false;
-  const HALF = 62, FULL = 94; // dvh
+  const HALF = 50, FULL = 94; // dvh — HALF coincide con el CSS base de #poi-panel
 
   function currentHeightVh() {
     return panel.classList.contains('expanded') ? FULL : HALF;

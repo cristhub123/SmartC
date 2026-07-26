@@ -123,7 +123,7 @@ async function init() {
   //    pantalla completa).
   window.panToPoiCenter = function(poi) {
     const vw = window.innerWidth, vh = window.innerHeight;
-    const PANEL_FRAC = 0.62;           // el panel ocupa el 62% inferior
+    const PANEL_FRAC = 0.50;           // el panel ocupa el 50% inferior
     const targetX = vw * 0.5;
     const targetY = vh * ((1 - PANEL_FRAC) / 2); // centro del 38% libre de arriba
 
