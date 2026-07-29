@@ -45,6 +45,9 @@ const AppState = (function () {
   /** Idioma de fallback obligatorio cuando no existe traducción */
   const FALLBACK_LANG = 'es';
 
+  /** Idioma activo actual de toda la app (selector ES/EN/PT del panel) */
+  let _currentLang = FALLBACK_LANG;
+
   /** Skin de fallback obligatorio cuando un POI no tiene activo el skin global */
   const FALLBACK_SKIN = 'main';
 
@@ -118,6 +121,7 @@ const AppState = (function () {
     ZONES_LOADED: 'state:zonesLoaded',
     ROADMAP_LOADED: 'state:roadmapLoaded',
     ROADMAP_UPDATED: 'state:roadmapUpdated',
+    LANGUAGE_CHANGED: 'state:languageChanged',
     ERROR: 'state:error',
   });
 
@@ -363,7 +367,7 @@ const AppState = (function () {
       return legacy;
     }
 
-    console.warn(`[AppState] No se encontró el POI. Buscado: "${rawId}" (normalizado: "${cleanId}")`);
+    console.debug(`[AppState] POI no encontrado en la lista maestra actual. Buscado: "${rawId}" (normalizado: "${cleanId}")`);
     return null;
   }
 
@@ -391,9 +395,27 @@ const AppState = (function () {
    * @param {'es'|'en'|'pt'|string} lang
    * @returns {Object|null} objeto de contenido (name, gancho, description, custom_fields)
    */
+  /**
+   * Cambia el idioma activo de toda la app (selector ES/EN/PT) y avisa
+   * a quien esté suscripto (ej. poi-panel.js) para que refresque la
+   * vista con el nuevo idioma.
+   * @param {'es'|'en'|'pt'|string} lang
+   */
+  function setLanguage(lang) {
+    if (!lang || lang === _currentLang) return;
+    _currentLang = lang;
+    _emit(EVENTS.LANGUAGE_CHANGED, { lang });
+  }
+
+  /** @returns {string} idioma activo actual */
+  function getLanguage() {
+    return _currentLang;
+  }
+
   function getContent(poiId, lang) {
     _autoHydrateFromLegacyGlobal();
 
+    const resolvedLang = lang || _currentLang;
     const rawId = String(poiId || '').trim();
     const cleanId = _normalizeId(rawId);
 
@@ -405,7 +427,7 @@ const AppState = (function () {
     // propio fallback a los campos planos legados (name, desc, hist, hours).
     if (!poi || !poi.content) return null;
 
-    const requested = poi.content[lang];
+    const requested = poi.content[resolvedLang];
     const fallback = poi.content[FALLBACK_LANG];
 
     // Si no existe el idioma pedido directamente, fallback completo a 'es'.
@@ -660,6 +682,8 @@ const AppState = (function () {
     toggleSkinStatus,
     setGlobalSkin,
     addRoadmapEntry,
+    setLanguage,
+    getLanguage,
   };
 })();
 

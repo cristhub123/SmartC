@@ -103,6 +103,11 @@ const PoiPanel = (function () {
       <div class="poi-panel__handle-zone" data-role="handle-zone">
         <div class="poi-panel__handle"></div>
       </div>
+      <div data-role="lang-row" style="display:flex;justify-content:flex-end;gap:4px;padding:0 1.5rem 0.25rem;">
+        <button type="button" data-role="lang-btn" data-lang="es" style="border:none;background:transparent;font-size:0.75rem;font-weight:700;letter-spacing:0.04em;padding:2px 6px;border-radius:6px;cursor:pointer;color:#94a3b8;">ES</button>
+        <button type="button" data-role="lang-btn" data-lang="en" style="border:none;background:transparent;font-size:0.75rem;font-weight:700;letter-spacing:0.04em;padding:2px 6px;border-radius:6px;cursor:pointer;color:#94a3b8;">EN</button>
+        <button type="button" data-role="lang-btn" data-lang="pt" style="border:none;background:transparent;font-size:0.75rem;font-weight:700;letter-spacing:0.04em;padding:2px 6px;border-radius:6px;cursor:pointer;color:#94a3b8;">PT</button>
+      </div>
       <div class="poi-panel__hero" data-role="hero">
         <img class="poi-panel__hero-image" data-role="hero-image" alt="">
       </div>
@@ -137,6 +142,7 @@ const PoiPanel = (function () {
     _els = {
       panel,
       handleZone: panel.querySelector('[data-role="handle-zone"]'),
+      langBtns: Array.from(panel.querySelectorAll('[data-role="lang-btn"]')),
       hero: panel.querySelector('[data-role="hero"]'),
       heroImage: panel.querySelector('[data-role="hero-image"]'),
       category: panel.querySelector('[data-role="category"]'),
@@ -167,12 +173,24 @@ const PoiPanel = (function () {
 
     const poi = AppState.getPoi(_currentPoiId);
     if (!poi) {
-      console.warn(`[PoiPanel] POI "${_currentPoiId}" no encontrado en AppState.`);
+      // Caso esperado durante la migración a pois_cordoba.json: un pin
+      // viejo (de una fuente anterior — Firestore, ingesta manual, etc.)
+      // que ya no forma parte de la lista maestra actual. No es un error
+      // de la app, así que no se grita en consola como tal — solo un
+      // console.debug para quien esté depurando con verbose activado.
+      console.debug(`[PoiPanel] POI "${_currentPoiId}" no está en la lista maestra actual — se ignora.`);
       close();
       return;
     }
 
     const rawContent = AppState.getContent(_currentPoiId, _currentLang);
+
+    // --- Selector de idioma: resalta el botón activo ---
+    els.langBtns.forEach((btn) => {
+      const isActive = btn.dataset.lang === _currentLang;
+      btn.style.color = isActive ? '#0d9488' : '#94a3b8';
+      btn.style.background = isActive ? 'rgba(13,148,136,0.08)' : 'transparent';
+    });
 
     // ------------------------------------------------------------
     // FALLBACK A CAMPOS LEGADOS: si el POI todavía no migró al
@@ -183,7 +201,7 @@ const PoiPanel = (function () {
     const finalName = (rawContent && rawContent.name) || poi.name || poi.titulo || '';
     const finalGancho = (rawContent && rawContent.gancho) || '';
     const finalDescription = (rawContent && rawContent.description)
-      || poi.desc || poi.descripcion
+      || poi.desc || poi.descripcion || poi.description
       || poi.hist || poi.historia
       || '';
     const finalCustomFields = { ...((rawContent && rawContent.custom_fields) || {}) };
@@ -484,6 +502,14 @@ const PoiPanel = (function () {
       }
     });
 
+    els.langBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        AppState.setLanguage(btn.dataset.lang);
+        // El re-render llega solo vía AppState.EVENTS.LANGUAGE_CHANGED
+        // (ver _bindAppStateEvents), así que acá no hace falta nada más.
+      });
+    });
+
     document.addEventListener('app:languageChanged', (e) => {
       if (e.detail && e.detail.lang) {
         setLang(e.detail.lang);
@@ -613,6 +639,13 @@ const PoiPanel = (function () {
     _unsubscribers.push(
       AppState.on(AppState.EVENTS.SKIN_TOGGLED, ({ poiId }) => {
         if (poiId === _currentPoiId) _render();
+      })
+    );
+
+    _unsubscribers.push(
+      AppState.on(AppState.EVENTS.LANGUAGE_CHANGED, ({ lang }) => {
+        _currentLang = lang;
+        if (_currentPoiId) _render();
       })
     );
 
