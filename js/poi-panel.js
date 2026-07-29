@@ -13,9 +13,9 @@
  *      directamente ni mantiene su propia copia autoritativa de los datos.
  *
  * INTEGRACIÓN REQUERIDA (no toca tu HTML existente):
- *   - Este módulo inyecta su propio DOM (overlay + panel) al final de
- *     <body> la primera vez que se usa. No hace falta agregar markup a
- *     mano en el HTML — solo enlazar este script y css/poi-panel.css.
+ *   - Este módulo inyecta su propio DOM (el panel) al final de <body>
+ *     la primera vez que se usa. No hace falta agregar markup a mano
+ *     en el HTML — solo enlazar este script y css/poi-panel.css.
  *   - Para abrir el panel desde donde hoy dispares el click sobre un pin:
  *         PoiPanel.open(poiId);
  *   - Si tu app maneja el idioma activo con una variable/función propia,
@@ -24,7 +24,19 @@
  *         document.dispatchEvent(new CustomEvent('app:languageChanged',
  *           { detail: { lang: 'en' } }));                  // reactivo
  *   - Este archivo asume que AppState ya fue hidratado (loadPois) antes
- *     de llamar a PoiPanel.open().
+ *     de llamar a PoiPanel.open() — aunque AppState ahora también se
+ *     auto-hidrata desde `window.POIS` como red de seguridad.
+ *
+ * NOTAS DE ESTA REVISIÓN:
+ *   - Se eliminó por completo el overlay de fondo: el mapa ya no se
+ *     oscurece cuando el panel está abierto.
+ *   - En desktop (>=1024px) el panel se comporta como sidebar fijo a
+ *     la izquierda (sin drag); en mobile sigue siendo bottom sheet.
+ *   - El botón "Editar" del footer solo se muestra si hay una sesión
+ *     de administrador activa (`window.isAdminActive`).
+ *   - `_render()` hace fallback a los campos legados del POI
+ *     (`poi.name`, `poi.desc`, `poi.hist`, `poi.hours`) cuando el
+ *     contenido multiidioma nuevo está vacío o no existe.
  * ============================================================================
  */
 
@@ -41,6 +53,18 @@ const PoiPanel = (function () {
   let _panelState = 'closed'; // 'closed' | 'peek' | 'full'
   let _unsubscribers = [];
 
+  // Breakpoint desktop: por encima de esto el panel es sidebar fijo
+  // (sin drag); por debajo, bottom sheet arrastrable. Debe coincidir
+  // con el media query usado en css/poi-panel.css.
+  const DESKTOP_MEDIA_QUERY = '(min-width: 1024px)';
+  const _desktopMql = (typeof window !== 'undefined' && window.matchMedia)
+    ? window.matchMedia(DESKTOP_MEDIA_QUERY)
+    : { matches: false, addEventListener: () => {}, addListener: () => {} };
+
+  function _isDesktop() {
+    return _desktopMql.matches;
+  }
+
   // Referencias DOM (se crean una sola vez, ver _ensureDom)
   let _els = null;
 
@@ -50,9 +74,6 @@ const PoiPanel = (function () {
 
   function _ensureDom() {
     if (_els) return _els;
-
-    const overlay = document.createElement('div');
-    overlay.className = 'poi-panel-overlay';
 
     const panel = document.createElement('div');
     panel.className = 'poi-panel';
@@ -90,11 +111,9 @@ const PoiPanel = (function () {
       </div>
     `;
 
-    document.body.appendChild(overlay);
     document.body.appendChild(panel);
 
     _els = {
-      overlay,
       panel,
       handleZone: panel.querySelector('[data-role="handle-zone"]'),
       category: panel.querySelector('[data-role="category"]'),
@@ -130,33 +149,70 @@ const PoiPanel = (function () {
       return;
     }
 
-    const content = AppState.getContent(_currentPoiId, _currentLang) || {
-      name: '', gancho: '', description: '', custom_fields: {},
-    };
+    const rawContent = AppState.getContent(_currentPoiId, _currentLang);
+
+    // ------------------------------------------------------------
+    // FALLBACK A CAMPOS LEGADOS: si el POI todavía no migró al
+    // esquema `content` multiidioma (o vino resuelto desde
+    // `window.POIS` crudo), completamos con sus campos planos
+    // tradicionales para que el panel nunca se vea en blanco.
+    // ------------------------------------------------------------
+    const finalName = (rawContent && rawContent.name) || poi.name || '';
+    const finalGancho = (rawContent && rawContent.gancho) || '';
+    const finalDescription = (rawContent && rawContent.description) || poi.desc || poi.hist || '';
+    const finalCustomFields = { ...((rawContent && rawContent.custom_fields) || {}) };
+    if (!finalCustomFields.horario && poi.hours) {
+      finalCustomFields.horario = poi.hours;
+    }
 
     // --- Encabezado ---
     els.category.textContent = poi.category || '';
     els.subtitle.textContent = _formatSubtitle(poi);
 
     if (_isEditMode) {
-      els.title.innerHTML = `<input type="text" class="poi-panel__input poi-panel__title-input" data-role="title-input" value="${_escapeAttr(content.name)}">`;
-      els.gancho.innerHTML = `<input type="text" class="poi-panel__input" data-role="gancho-input" value="${_escapeAttr(content.gancho)}" placeholder="Gancho / bajada">`;
-      els.description.innerHTML = `<textarea class="poi-panel__textarea" data-role="description-input" placeholder="Descripción">${_escapeHtml(content.description)}</textarea>`;
+      els.title.innerHTML = `<input type="text" class="poi-panel__input poi-panel__title-input" data-role="title-input" value="${_escapeAttr(finalName)}">`;
+      els.gancho.innerHTML = `<input type="text" class="poi-panel__input" data-role="gancho-input" value="${_escapeAttr(finalGancho)}" placeholder="Gancho / bajada">`;
+      els.description.innerHTML = `<textarea class="poi-panel__textarea" data-role="description-input" placeholder="Descripción">${_escapeHtml(finalDescription)}</textarea>`;
     } else {
-      els.title.textContent = content.name;
-      els.gancho.textContent = content.gancho || '';
-      els.gancho.hidden = !content.gancho;
-      els.description.textContent = content.description || '';
+      els.title.textContent = finalName;
+      els.gancho.textContent = finalGancho;
+      els.gancho.hidden = !finalGancho;
+      els.description.textContent = finalDescription;
     }
 
-    // --- Metadatos (custom_fields no vacíos) ---
-    _renderMeta(content.custom_fields || {});
+    // --- Metadatos (custom_fields no vacíos, con fallback a poi.hours) ---
+    _renderMeta(finalCustomFields);
 
     // --- Skins ---
     _renderSkins(poi);
 
-    // --- Botón de acción ---
-    els.actionBtn.textContent = _isEditMode ? 'Guardar cambios' : 'Editar';
+    // --- Botón de acción (solo visible/habilitado para admin) ---
+    const isAdmin = _isAdminActive();
+    els.actionBtn.hidden = !isAdmin;
+    if (isAdmin) {
+      els.actionBtn.textContent = _isEditMode ? 'Guardar cambios' : 'Editar';
+    }
+  }
+
+  /**
+   * Determina si hay una sesión de administrador activa. Soporta tanto
+   * una función (`window.isAdminActive()`) como un valor plano
+   * (`window.isAdminActive` booleano), según cómo lo exponga el resto
+   * de la app.
+   * @returns {boolean}
+   */
+  function _isAdminActive() {
+    if (typeof window === 'undefined') return false;
+    const flag = window.isAdminActive;
+    if (typeof flag === 'function') {
+      try {
+        return !!flag();
+      } catch (err) {
+        console.error('[PoiPanel] Error al evaluar window.isAdminActive():', err);
+        return false;
+      }
+    }
+    return !!flag;
   }
 
   function _formatSubtitle(poi) {
@@ -314,9 +370,9 @@ const PoiPanel = (function () {
     const els = _els;
 
     els.handleZone.addEventListener('pointerdown', _onPointerDown);
-    els.overlay.addEventListener('click', close);
 
     els.actionBtn.addEventListener('click', () => {
+      if (!_isAdminActive()) return; // defensa extra: el botón ya está oculto para no-admins
       if (_isEditMode) {
         _saveChanges();
       } else {
@@ -340,6 +396,8 @@ const PoiPanel = (function () {
   }
 
   function _onPointerDown(e) {
+    if (_isDesktop()) return; // en desktop el panel es sidebar fijo, no se arrastra
+
     const els = _els;
     const height = els.panel.getBoundingClientRect().height;
 
@@ -370,10 +428,6 @@ const PoiPanel = (function () {
     );
 
     els.panel.style.transform = `translate(-50%, ${nextTranslate}px)`;
-
-    // Overlay se atenúa proporcionalmente al progreso hacia "full".
-    const progress = 1 - Math.min(nextTranslate / _dragState.panelHeight, 1);
-    els.overlay.style.background = `rgba(15, 23, 42, ${0.25 * progress})`;
   }
 
   function _onPointerUp(e) {
@@ -416,8 +470,6 @@ const PoiPanel = (function () {
     // Se limpia el transform inline del arrastre: las reglas CSS por
     // atributo [data-state] retoman el control con su transición.
     els.panel.style.transform = '';
-    els.overlay.style.background = '';
-    els.overlay.classList.toggle('is-visible', state !== SNAP.CLOSED);
   }
 
   // --------------------------------------------------------------------

@@ -30,25 +30,12 @@
 }
 
 /* --------------------------------------------------------------------
-   OVERLAY (fondo semitransparente detrás del panel, opcional pero
-   recomendado para separar visualmente el mapa del panel en "full")
+   Sin overlay: por decisión de producto, el mapa de fondo mantiene su
+   brillo normal siempre, incluso con el panel abierto en "full".
    -------------------------------------------------------------------- */
-.poi-panel-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(15, 23, 42, 0);
-  pointer-events: none;
-  transition: background 0.35s ease;
-  z-index: 998;
-}
-
-.poi-panel-overlay.is-visible {
-  background: rgba(15, 23, 42, 0.25);
-  pointer-events: auto;
-}
 
 /* --------------------------------------------------------------------
-   CONTENEDOR PRINCIPAL
+   CONTENEDOR PRINCIPAL (mobile-first: Bottom Sheet)
    -------------------------------------------------------------------- */
 .poi-panel {
   position: fixed;
@@ -347,10 +334,49 @@
 }
 
 /* --------------------------------------------------------------------
-   RESPONSIVE — en pantallas angostas, el panel ocupa el 100% del ancho
+   RESPONSIVE (mobile) — en pantallas angostas, el panel ocupa el 100%
+   del ancho
    -------------------------------------------------------------------- */
 @media (max-width: 480px) {
   .poi-panel {
     max-width: 100%;
+  }
+}
+
+/* --------------------------------------------------------------------
+   DESKTOP / LAPTOP — el panel deja de ser Bottom Sheet y se convierte
+   en una barra lateral fija anclada a la izquierda. Debe coincidir
+   con DESKTOP_MEDIA_QUERY en js/poi-panel.js.
+   -------------------------------------------------------------------- */
+@media (min-width: 1024px) {
+  .poi-panel {
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 380px;
+    max-width: 380px;
+    height: 100vh;
+    border-radius: 0 var(--poi-panel-radius) var(--poi-panel-radius) 0;
+    box-shadow: 8px 0 30px rgba(15, 23, 42, 0.12);
+
+    /* En desktop no hay drag: el panel entra/sale con un slide
+       horizontal simple en vez de translateY. */
+    transform: translateX(-100%);
+  }
+
+  /* "full" y "peek" se tratan igual en desktop: el sidebar está
+     simplemente abierto. Solo "closed" lo oculta. */
+  .poi-panel[data-state="full"],
+  .poi-panel[data-state="peek"] {
+    transform: translateX(0);
+  }
+
+  .poi-panel[data-state="closed"] {
+    transform: translateX(-100%);
+  }
+
+  /* El drag handle no tiene sentido en un sidebar fijo. */
+  .poi-panel__handle-zone {
+    display: none;
   }
 }

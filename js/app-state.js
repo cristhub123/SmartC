@@ -98,11 +98,53 @@ const AppState = (function () {
 
   /**
    * Busca el índice de un POI por id dentro del arreglo interno.
+   * Acepta también coincidencia por `slug`, ya que buena parte del
+   * código legado (cluster.js, pines, etc.) identifica POIs por slug
+   * en vez de por el id autogenerado de Firestore.
    * @param {string} poiId
    * @returns {number} índice, o -1 si no existe
    */
   function _findPoiIndex(poiId) {
-    return _pois.findIndex((p) => p.id === poiId);
+    return _pois.findIndex((p) => p.id === poiId || p.slug === poiId);
+  }
+
+  /**
+   * COMPATIBILIDAD CON DATOS LEGADOS
+   * ----------------------------------------------------------------
+   * El proyecto viene de una etapa previa a AppState donde los POIs
+   * vivían en una variable global `window.POIS` (arreglo plano, con
+   * campos como `name`, `desc`, `hist`, `hours` en vez del esquema
+   * multiidioma de Firestore). Mientras la migración de datos no esté
+   * terminada, AppState debe poder:
+   *   1. Auto-hidratarse desde `window.POIS` al arrancar, si nadie
+   *      llamó a `loadPois()` todavía.
+   *   2. Si un id/slug puntual no está en `_pois` (por ejemplo porque
+   *      se cargó parcialmente), caer a buscarlo directo en
+   *      `window.POIS` como último recurso, en vez de devolver null.
+   * Esto es un puente temporal: el objetivo final sigue siendo que
+   * todo pase por `_pois` con el esquema nuevo.
+   */
+  function _autoHydrateFromLegacyGlobal() {
+    if (_pois.length > 0) return;
+    if (typeof window === 'undefined') return;
+    if (Array.isArray(window.POIS) && window.POIS.length > 0) {
+      loadPois(window.POIS);
+    }
+  }
+
+  /**
+   * Busca un POI directamente en `window.POIS` (dato legado crudo),
+   * sin pasar por `_pois`. Devuelve el objeto tal cual está en el
+   * arreglo global, sin normalizar al esquema nuevo — quien consuma
+   * esto (ej. poi-panel.js) es responsable de aplicar sus propios
+   * fallbacks a campos legados (`name`, `desc`, `hist`, `hours`).
+   * @param {string} poiId
+   * @returns {Object|null}
+   */
+  function _findInLegacyGlobal(poiId) {
+    if (typeof window === 'undefined' || !Array.isArray(window.POIS)) return null;
+    const found = window.POIS.find((p) => p.id === poiId || p.slug === poiId);
+    return found ? { ...found } : null;
   }
 
   /**
@@ -175,17 +217,35 @@ const AppState = (function () {
 
   /** @returns {Array<Object>} copia del arreglo completo de POIs */
   function getPois() {
+    _autoHydrateFromLegacyGlobal();
     return _cloneShallow(_pois);
   }
 
   /**
-   * Devuelve un único POI por id.
+   * Devuelve un único POI por id (o por slug, ver `_findPoiIndex`).
+   * Orden de búsqueda:
+   *   1. Arreglo interno `_pois` (fuente de verdad normal).
+   *   2. Si `_pois` está vacío, se auto-hidrata desde `window.POIS`
+   *      antes de buscar (cubre el caso "arrancó sin loadPois()").
+   *   3. Si igual no aparece, se busca como último recurso directo en
+   *      `window.POIS` (cubre hidratación parcial / datos legados que
+   *      todavía no migraron al esquema nuevo).
    * @param {string} poiId
    * @returns {Object|null}
    */
   function getPoi(poiId) {
-    const poi = _pois.find((p) => p.id === poiId);
-    return poi ? { ...poi } : null;
+    _autoHydrateFromLegacyGlobal();
+
+    const poi = _pois.find((p) => p.id === poiId || p.slug === poiId);
+    if (poi) return { ...poi };
+
+    const legacy = _findInLegacyGlobal(poiId);
+    if (legacy) {
+      console.warn(`[AppState] POI "${poiId}" resuelto desde window.POIS (dato legado), no desde _pois.`);
+      return legacy;
+    }
+
+    return null;
   }
 
   /** @returns {Array<Object>} copia del arreglo completo de zonas */
@@ -213,7 +273,14 @@ const AppState = (function () {
    * @returns {Object|null} objeto de contenido (name, gancho, description, custom_fields)
    */
   function getContent(poiId, lang) {
-    const poi = _pois.find((p) => p.id === poiId);
+    _autoHydrateFromLegacyGlobal();
+
+    let poi = _pois.find((p) => p.id === poiId || p.slug === poiId);
+    if (!poi) poi = _findInLegacyGlobal(poiId);
+
+    // POI legado sin esquema `content` multiidioma: se devuelve null y
+    // es responsabilidad del consumidor (ej. poi-panel.js) aplicar su
+    // propio fallback a los campos planos legados (name, desc, hist, hours).
     if (!poi || !poi.content) return null;
 
     const requested = poi.content[lang];
@@ -425,6 +492,19 @@ const AppState = (function () {
       console.error('[AppState] Error al sincronizar entrada de roadmap:', err);
       _emit(EVENTS.ERROR, { message: 'Error al guardar roadmap en Firestore', error: err });
     }
+  }
+
+  // --------------------------------------------------------------------
+  // 6.1 AUTO-HIDRATACIÓN AL ARRANCAR
+  // --------------------------------------------------------------------
+  // Intento inmediato (por si `window.POIS` ya existe cuando este script
+  // se evalúa) y un reintento en DOMContentLoaded (por si `POIS` se
+  // define en un <script> que carga después de este archivo).
+
+  _autoHydrateFromLegacyGlobal();
+
+  if (typeof document !== 'undefined' && document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _autoHydrateFromLegacyGlobal, { once: true });
   }
 
   // --------------------------------------------------------------------
