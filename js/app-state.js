@@ -52,6 +52,50 @@ const AppState = (function () {
   let _globalSkin = FALLBACK_SKIN;
 
   // --------------------------------------------------------------------
+  // 1.1 CONFIGURACIÓN DE IMÁGENES (CLOUDINARY)
+  // --------------------------------------------------------------------
+  // Estructura real en el dashboard:
+  //   smartcity/media/arg/p_cba/c_cba/images/{slug}_{skin}.webp
+  //   (con hermanas audio/, video/, gifs/ para más adelante)
+  //
+  // Solo existen 2 tamaños reales en toda la interfaz:
+  //   - "thumb": pines del mapa, ~256px, vía transformación w_256,c_limit
+  //   - "full": versión máster 1024px, sin resize (solo f_auto,q_auto)
+
+  /** Nombre de cloud de Cloudinary. Ajustar acá o sobreescribir con
+   *  `window.CLOUDINARY_CLOUD_NAME` antes de que cargue este script. */
+  const CLOUD_NAME = (typeof window !== 'undefined' && window.CLOUDINARY_CLOUD_NAME)
+    || 'TU_CLOUD_NAME';
+
+  /** Carpeta base fija donde viven las imágenes de POIs en Cloudinary */
+  const CLOUDINARY_IMAGES_PATH = 'smartcity/media/arg/p_cba/c_cba/images';
+
+  /** Transformaciones válidas por tamaño — únicas 2 variantes soportadas */
+  const IMAGE_TRANSFORMS = Object.freeze({
+    thumb: 'f_auto,q_auto,w_256,c_limit',
+    full: 'f_auto,q_auto',
+  });
+
+  /**
+   * Helper centralizado para construir URLs de imagen de Cloudinary.
+   * Única vía autorizada para armar estas URLs — así, si el día de
+   * mañana cambia la estructura de carpetas o el cloud name, se toca
+   * en un solo lugar.
+   *
+   * @param {string} slug - Slug del POI (ej. "patio-olmos").
+   * @param {string} [skin='main'] - Variante de skin (ej. "main", "enanos").
+   * @param {'thumb'|'full'} [size='full'] - Tamaño: "thumb" (~256px, pines) o "full" (1024px, vista maximizada).
+   * @returns {string} URL completa lista para usar en un <img src>.
+   */
+  function getImageUrl(slug, skin, size) {
+    const resolvedSkin = skin || FALLBACK_SKIN;
+    const resolvedSize = size === 'thumb' ? 'thumb' : 'full';
+    const transform = IMAGE_TRANSFORMS[resolvedSize];
+
+    return `https://res.cloudinary.com/${CLOUD_NAME}/image/upload/${transform}/${CLOUDINARY_IMAGES_PATH}/${slug}_${resolvedSkin}.webp`;
+  }
+
+  // --------------------------------------------------------------------
   // 2. SISTEMA DE EVENTOS INTERNO
   // --------------------------------------------------------------------
   // Se usa un EventTarget nativo para no depender de librerías externas.
@@ -529,6 +573,7 @@ const AppState = (function () {
     getGlobalSkin,
     getContent,
     getEffectiveSkin,
+    getImageUrl,
 
     // Mutadores
     updatePoi,

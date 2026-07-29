@@ -37,6 +37,10 @@
  *   - `_render()` hace fallback a los campos legados del POI
  *     (`poi.name`, `poi.desc`, `poi.hist`, `poi.hours`) cuando el
  *     contenido multiidioma nuevo está vacío o no existe.
+ *   - Al abrir un POI se carga su imagen "full" (1024px) vía
+ *     `AppState.getImageUrl(slug, skin, 'full')` y se centra el mapa
+ *     suavemente en sus coordenadas (`_centerMapOn`, con 3 vías de
+ *     integración posibles — ver comentario de esa función).
  * ============================================================================
  */
 
@@ -85,6 +89,9 @@ const PoiPanel = (function () {
       <div class="poi-panel__handle-zone" data-role="handle-zone">
         <div class="poi-panel__handle"></div>
       </div>
+      <div class="poi-panel__hero" data-role="hero">
+        <img class="poi-panel__hero-image" data-role="hero-image" alt="">
+      </div>
       <div class="poi-panel__header" data-role="header">
         <p class="poi-panel__category" data-role="category"></p>
         <h2 class="poi-panel__title" data-role="title"></h2>
@@ -116,6 +123,8 @@ const PoiPanel = (function () {
     _els = {
       panel,
       handleZone: panel.querySelector('[data-role="handle-zone"]'),
+      hero: panel.querySelector('[data-role="hero"]'),
+      heroImage: panel.querySelector('[data-role="hero-image"]'),
       category: panel.querySelector('[data-role="category"]'),
       title: panel.querySelector('[data-role="title"]'),
       subtitle: panel.querySelector('[data-role="subtitle"]'),
@@ -165,6 +174,9 @@ const PoiPanel = (function () {
       finalCustomFields.horario = poi.hours;
     }
 
+    // --- Imagen principal (versión "full", 1024px, skin activo del POI) ---
+    _renderHeroImage(poi);
+
     // --- Encabezado ---
     els.category.textContent = poi.category || '';
     els.subtitle.textContent = _formatSubtitle(poi);
@@ -195,6 +207,60 @@ const PoiPanel = (function () {
   }
 
   /**
+   * Carga la imagen principal/maximizada del POI (tamaño "full", 1024px)
+   * usando el helper centralizado `AppState.getImageUrl`. Usa el skin
+   * activo del POI (`poi.active_skin`), con fallback a "main".
+   * @param {Object} poi
+   */
+  function _renderHeroImage(poi) {
+    const els = _els;
+    const slug = poi.slug || poi.id;
+
+    if (!slug || typeof AppState.getImageUrl !== 'function') {
+      els.hero.hidden = true;
+      return;
+    }
+
+    const skin = poi.active_skin || 'main';
+    const url = AppState.getImageUrl(slug, skin, 'full');
+
+    els.hero.hidden = false;
+    els.heroImage.src = url;
+    els.heroImage.alt = (poi.content && poi.content[_currentLang] && poi.content[_currentLang].name) || poi.name || '';
+  }
+
+  /**
+   * Centra suavemente el mapa en las coordenadas del POI al abrir el
+   * panel. Como este archivo no conoce la implementación concreta del
+   * mapa (Leaflet u otra), prueba, en orden, los puntos de integración
+   * más probables del proyecto y usa el primero disponible:
+   *   1. `window.SmartCityMap.centerOn(lat, lng)`  — API propia del proyecto, si existe.
+   *   2. `window.map.flyTo([lat, lng], zoom)`      — instancia Leaflet expuesta globalmente.
+   *   3. Evento genérico `poi:centerMap`           — por si el mapa prefiere suscribirse en vez de ser llamado directo.
+   * Si ninguno de los tres existe, no hace nada (no rompe si el mapa
+   * todavía no expone ninguna de estas vías).
+   * @param {{lat: number, lng: number}} coords
+   */
+  function _centerMapOn(coords) {
+    if (!coords) return;
+    const { lat, lng } = coords;
+
+    if (typeof window === 'undefined') return;
+
+    if (window.SmartCityMap && typeof window.SmartCityMap.centerOn === 'function') {
+      window.SmartCityMap.centerOn(lat, lng);
+      return;
+    }
+
+    if (window.map && typeof window.map.flyTo === 'function') {
+      window.map.flyTo([lat, lng], window.map.getZoom ? window.map.getZoom() : undefined);
+      return;
+    }
+
+    document.dispatchEvent(new CustomEvent('poi:centerMap', { detail: { lat, lng } }));
+  }
+
+  /**
    * Determina si hay una sesión de administrador activa. Soporta tanto
    * una función (`window.isAdminActive()`) como un valor plano
    * (`window.isAdminActive` booleano), según cómo lo exponga el resto
@@ -215,11 +281,27 @@ const PoiPanel = (function () {
     return !!flag;
   }
 
+  /**
+   * Extrae { lat, lng } de un POI soportando tanto el esquema nuevo
+   * (`poi.coordinates.lat/lng`) como el legado (`poi.lat`/`poi.lng`
+   * planos, tal como vienen en `window.POIS`).
+   * @param {Object} poi
+   * @returns {{lat: number, lng: number}|null}
+   */
+  function _getPoiCoords(poi) {
+    if (poi.coordinates && typeof poi.coordinates.lat === 'number' && typeof poi.coordinates.lng === 'number') {
+      return { lat: poi.coordinates.lat, lng: poi.coordinates.lng };
+    }
+    if (typeof poi.lat === 'number' && typeof poi.lng === 'number') {
+      return { lat: poi.lat, lng: poi.lng };
+    }
+    return null;
+  }
+
   function _formatSubtitle(poi) {
     const parts = [];
-    if (poi.coordinates && typeof poi.coordinates.lat === 'number') {
-      parts.push(`${poi.coordinates.lat.toFixed(4)}, ${poi.coordinates.lng.toFixed(4)}`);
-    }
+    const coords = _getPoiCoords(poi);
+    if (coords) parts.push(`${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`);
     if (poi.location_code) parts.push(poi.location_code);
     return parts.join(' · ');
   }
@@ -517,6 +599,10 @@ const PoiPanel = (function () {
     _isEditMode = false;
     _render();
     _snapTo(initialState === SNAP.FULL ? SNAP.FULL : SNAP.PEEK);
+
+    // Centrado suave del mapa en las coordenadas del POI recién abierto.
+    const poi = AppState.getPoi(poiId);
+    if (poi) _centerMapOn(_getPoiCoords(poi));
   }
 
   /** Cierra el panel y limpia el estado de edición. */
