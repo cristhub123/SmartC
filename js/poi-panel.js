@@ -1,372 +1,500 @@
-/* poi-panel.js — openPoiPanel, closePoiPanel, applyFilter */
+/**
+ * ============================================================================
+ * js/poi-panel.js
+ * ----------------------------------------------------------------------------
+ * PANEL DE POI — BOTTOM SHEET MINIMALISTA, CONECTADO A AppState
+ * ----------------------------------------------------------------------------
+ * Responsabilidades:
+ *   1. Renderizar el panel flotante (bottom sheet) para un POI.
+ *   2. Manejar arrastre (Pointer Events) con snap a "full" (92%) / "peek" (300px).
+ *   3. Leer datos EXCLUSIVAMENTE vía AppState.getPoi() / AppState.getContent().
+ *   4. Escribir cambios EXCLUSIVAMENTE vía AppState.updatePoi() /
+ *      AppState.toggleSkinStatus(). Este archivo NUNCA llama a FirestoreSync
+ *      directamente ni mantiene su propia copia autoritativa de los datos.
+ *
+ * INTEGRACIÓN REQUERIDA (no toca tu HTML existente):
+ *   - Este módulo inyecta su propio DOM (overlay + panel) al final de
+ *     <body> la primera vez que se usa. No hace falta agregar markup a
+ *     mano en el HTML — solo enlazar este script y css/poi-panel.css.
+ *   - Para abrir el panel desde donde hoy dispares el click sobre un pin:
+ *         PoiPanel.open(poiId);
+ *   - Si tu app maneja el idioma activo con una variable/función propia,
+ *     conectala así (elegí la que aplique, o ambas):
+ *         PoiPanel.setLang('en');                         // manual
+ *         document.dispatchEvent(new CustomEvent('app:languageChanged',
+ *           { detail: { lang: 'en' } }));                  // reactivo
+ *   - Este archivo asume que AppState ya fue hidratado (loadPois) antes
+ *     de llamar a PoiPanel.open().
+ * ============================================================================
+ */
 
-/* ═══════════════════════════════════════════
-   PANEL EXPANDIBLE — 2 posiciones (mitad de pantalla / casi completo)
-   ---------------------------------------------
-   Arrastrar la barrita (.pp-handle) hacia arriba expande el panel
-   para lectura cómoda cuando hay muchos bloques de texto; un toque
-   simple también alterna entre los 2 estados como atajo rápido.
-   El mapa y la miniatura quedan centrados detrás tal como están —
-   el panel solo sube y los cubre más.
-═══════════════════════════════════════════ */
-(function setupPanelExpand() {
-  const panel  = document.getElementById('poi-panel');
-  const handle = document.querySelector('.pp-handle');
-  if (!panel || !handle) return;
+const PoiPanel = (function () {
+  'use strict';
 
-  let startY = 0, startHeight = 0, dragging = false, moved = false;
-  const HALF = 50, FULL = 94; // dvh — HALF coincide con el CSS base de #poi-panel
+  // --------------------------------------------------------------------
+  // 1. ESTADO INTERNO DEL PANEL (UI, no de datos — los datos viven en AppState)
+  // --------------------------------------------------------------------
 
-  function currentHeightVh() {
-    return panel.classList.contains('expanded') ? FULL : HALF;
+  let _currentPoiId = null;
+  let _currentLang = 'es';
+  let _isEditMode = false;
+  let _panelState = 'closed'; // 'closed' | 'peek' | 'full'
+  let _unsubscribers = [];
+
+  // Referencias DOM (se crean una sola vez, ver _ensureDom)
+  let _els = null;
+
+  // --------------------------------------------------------------------
+  // 2. CONSTRUCCIÓN DEL DOM (una sola vez, inyectado en <body>)
+  // --------------------------------------------------------------------
+
+  function _ensureDom() {
+    if (_els) return _els;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'poi-panel-overlay';
+
+    const panel = document.createElement('div');
+    panel.className = 'poi-panel';
+    panel.setAttribute('data-state', 'closed');
+    panel.setAttribute('role', 'dialog');
+    panel.setAttribute('aria-modal', 'true');
+
+    panel.innerHTML = `
+      <div class="poi-panel__handle-zone" data-role="handle-zone">
+        <div class="poi-panel__handle"></div>
+      </div>
+      <div class="poi-panel__header" data-role="header">
+        <p class="poi-panel__category" data-role="category"></p>
+        <h2 class="poi-panel__title" data-role="title"></h2>
+        <p class="poi-panel__subtitle" data-role="subtitle"></p>
+      </div>
+      <div class="poi-panel__scroll" data-role="scroll">
+        <div data-role="body-section">
+          <p class="poi-panel__gancho" data-role="gancho"></p>
+          <p class="poi-panel__body" data-role="description"></p>
+        </div>
+        <div data-role="meta-section" hidden>
+          <p class="poi-panel__section-title">Datos</p>
+          <div class="poi-panel__meta-row" data-role="meta-row"></div>
+        </div>
+        <div data-role="skins-section" hidden>
+          <p class="poi-panel__section-title">Skins disponibles</p>
+          <div class="poi-panel__skins-grid" data-role="skins-grid"></div>
+        </div>
+      </div>
+      <div class="poi-panel__footer">
+        <button type="button" class="poi-panel__action-btn" data-role="action-btn">
+          Editar
+        </button>
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+    document.body.appendChild(panel);
+
+    _els = {
+      overlay,
+      panel,
+      handleZone: panel.querySelector('[data-role="handle-zone"]'),
+      category: panel.querySelector('[data-role="category"]'),
+      title: panel.querySelector('[data-role="title"]'),
+      subtitle: panel.querySelector('[data-role="subtitle"]'),
+      scroll: panel.querySelector('[data-role="scroll"]'),
+      bodySection: panel.querySelector('[data-role="body-section"]'),
+      gancho: panel.querySelector('[data-role="gancho"]'),
+      description: panel.querySelector('[data-role="description"]'),
+      metaSection: panel.querySelector('[data-role="meta-section"]'),
+      metaRow: panel.querySelector('[data-role="meta-row"]'),
+      skinsSection: panel.querySelector('[data-role="skins-section"]'),
+      skinsGrid: panel.querySelector('[data-role="skins-grid"]'),
+      actionBtn: panel.querySelector('[data-role="action-btn"]'),
+    };
+
+    _bindStaticEvents();
+    return _els;
   }
 
-  handle.addEventListener('pointerdown', e => {
-    dragging = true; moved = false;
-    startY = e.clientY;
-    startHeight = currentHeightVh();
-    panel.classList.add('dragging');
-    handle.setPointerCapture(e.pointerId);
-  });
+  // --------------------------------------------------------------------
+  // 3. RENDER — pinta el panel a partir del estado actual de AppState
+  // --------------------------------------------------------------------
 
-  handle.addEventListener('pointermove', e => {
-    if (!dragging) return;
-    const dy = startY - e.clientY; // positivo = arrastre hacia arriba
-    if (Math.abs(dy) > 6) moved = true;
-    const vh = window.innerHeight / 100;
-    let newHeight = startHeight + (dy / vh);
-    newHeight = Math.max(30, Math.min(FULL, newHeight)); // no bajar de 30dvh ni pasar el máximo
-    panel.style.maxHeight = newHeight + 'dvh';
-  });
+  function _render() {
+    if (!_currentPoiId) return;
+    const els = _ensureDom();
 
-  handle.addEventListener('pointerup', e => {
-    if (!dragging) return;
-    dragging = false;
-    panel.classList.remove('dragging');
-    panel.style.maxHeight = ''; // vuelve a depender de la clase CSS
-
-    if (!moved) {
-      // Toque simple, sin arrastre real → alterna entre los 2 estados
-      panel.classList.toggle('expanded');
+    const poi = AppState.getPoi(_currentPoiId);
+    if (!poi) {
+      console.warn(`[PoiPanel] POI "${_currentPoiId}" no encontrado en AppState.`);
+      close();
       return;
     }
-    // Arrastre real: decide a cuál de los 2 estados "engancha" según
-    // qué tan cerca quedó de cada uno (umbral en el medio)
-    const dy = startY - e.clientY;
-    const vh = window.innerHeight / 100;
-    const finalHeight = Math.max(30, Math.min(FULL, startHeight + dy / vh));
-    const mid = (HALF + FULL) / 2;
-    panel.classList.toggle('expanded', finalHeight > mid);
-  });
 
-  // Al abrir un lugar nuevo, siempre arranca en el estado "mitad"
-  // (no expandido), para consistencia — se agrega en openPoiPanel.
-  window._resetPanelExpand = () => panel.classList.remove('expanded');
+    const content = AppState.getContent(_currentPoiId, _currentLang) || {
+      name: '', gancho: '', description: '', custom_fields: {},
+    };
+
+    // --- Encabezado ---
+    els.category.textContent = poi.category || '';
+    els.subtitle.textContent = _formatSubtitle(poi);
+
+    if (_isEditMode) {
+      els.title.innerHTML = `<input type="text" class="poi-panel__input poi-panel__title-input" data-role="title-input" value="${_escapeAttr(content.name)}">`;
+      els.gancho.innerHTML = `<input type="text" class="poi-panel__input" data-role="gancho-input" value="${_escapeAttr(content.gancho)}" placeholder="Gancho / bajada">`;
+      els.description.innerHTML = `<textarea class="poi-panel__textarea" data-role="description-input" placeholder="Descripción">${_escapeHtml(content.description)}</textarea>`;
+    } else {
+      els.title.textContent = content.name;
+      els.gancho.textContent = content.gancho || '';
+      els.gancho.hidden = !content.gancho;
+      els.description.textContent = content.description || '';
+    }
+
+    // --- Metadatos (custom_fields no vacíos) ---
+    _renderMeta(content.custom_fields || {});
+
+    // --- Skins ---
+    _renderSkins(poi);
+
+    // --- Botón de acción ---
+    els.actionBtn.textContent = _isEditMode ? 'Guardar cambios' : 'Editar';
+  }
+
+  function _formatSubtitle(poi) {
+    const parts = [];
+    if (poi.coordinates && typeof poi.coordinates.lat === 'number') {
+      parts.push(`${poi.coordinates.lat.toFixed(4)}, ${poi.coordinates.lng.toFixed(4)}`);
+    }
+    if (poi.location_code) parts.push(poi.location_code);
+    return parts.join(' · ');
+  }
+
+  function _renderMeta(customFields) {
+    const els = _els;
+    const entries = Object.entries(customFields || {}).filter(([, v]) => v && String(v).trim() !== '');
+
+    els.metaRow.innerHTML = '';
+    if (entries.length === 0) {
+      els.metaSection.hidden = true;
+      return;
+    }
+
+    els.metaSection.hidden = false;
+    entries.forEach(([key, value]) => {
+      const span = document.createElement('span');
+      span.className = 'poi-panel__meta-item';
+      span.textContent = value;
+      span.title = key;
+      els.metaRow.appendChild(span);
+    });
+  }
+
+  function _renderSkins(poi) {
+    const els = _els;
+    const skins = poi.skins || {};
+    const skinNames = Object.keys(skins);
+
+    els.skinsGrid.innerHTML = '';
+    if (skinNames.length === 0) {
+      els.skinsSection.hidden = true;
+      return;
+    }
+
+    els.skinsSection.hidden = false;
+
+    skinNames.forEach((skinName) => {
+      const skin = skins[skinName];
+      const row = document.createElement('div');
+      row.className = 'poi-panel__skin-row';
+
+      const thumb = document.createElement('img');
+      thumb.className = 'poi-panel__skin-thumb';
+      thumb.src = skin.url || '';
+      thumb.alt = skinName;
+      thumb.loading = 'lazy';
+
+      const name = document.createElement('span');
+      name.className = 'poi-panel__skin-name';
+      name.textContent = skinName;
+
+      const toggle = document.createElement('button');
+      toggle.type = 'button';
+      toggle.className = 'poi-panel__switch' + (skin.active ? ' is-active' : '');
+      toggle.setAttribute('aria-pressed', String(!!skin.active));
+      toggle.setAttribute('aria-label', `Activar/desactivar skin ${skinName}`);
+
+      // Regla de negocio: 'main' es el fallback obligatorio y no se desactiva
+      // (coincide con la guarda ya implementada en AppState.toggleSkinStatus).
+      if (skinName === 'main') {
+        toggle.disabled = true;
+        toggle.title = "El skin 'main' no se puede desactivar (es el fallback).";
+      }
+
+      toggle.addEventListener('click', () => {
+        const nextActive = !skin.active;
+        AppState.toggleSkinStatus(_currentPoiId, skinName, nextActive);
+        // No se re-renderiza acá manualmente: el listener de
+        // AppState.EVENTS.SKIN_TOGGLED (ver _bindAppStateEvents) se
+        // encarga de refrescar el panel cuando el estado cambia.
+      });
+
+      row.appendChild(thumb);
+      row.appendChild(name);
+      row.appendChild(toggle);
+      els.skinsGrid.appendChild(row);
+    });
+  }
+
+  function _escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str == null ? '' : String(str);
+    return div.innerHTML;
+  }
+
+  function _escapeAttr(str) {
+    return _escapeHtml(str).replace(/"/g, '&quot;');
+  }
+
+  // --------------------------------------------------------------------
+  // 4. EDICIÓN Y GUARDADO
+  // --------------------------------------------------------------------
+
+  function _enterEditMode() {
+    _isEditMode = true;
+    _render();
+    // Al entrar en modo edición, forzamos snap a "full" para que el
+    // usuario tenga espacio cómodo para escribir.
+    _snapTo('full');
+  }
+
+  function _saveChanges() {
+    const els = _els;
+    const titleInput = els.title.querySelector('[data-role="title-input"]');
+    const ganchoInput = els.gancho.querySelector('[data-role="gancho-input"]');
+    const descInput = els.description.querySelector('[data-role="description-input"]');
+
+    const poi = AppState.getPoi(_currentPoiId);
+    if (!poi) return;
+
+    const currentContent = poi.content && poi.content[_currentLang]
+      ? poi.content[_currentLang]
+      : {};
+
+    const updatedContent = {
+      ...poi.content,
+      [_currentLang]: {
+        ...currentContent,
+        name: titleInput ? titleInput.value.trim() : currentContent.name,
+        gancho: ganchoInput ? ganchoInput.value.trim() : currentContent.gancho,
+        description: descInput ? descInput.value.trim() : currentContent.description,
+      },
+    };
+
+    els.actionBtn.disabled = true;
+    els.actionBtn.textContent = 'Guardando...';
+
+    Promise.resolve(AppState.updatePoi({ id: _currentPoiId, content: updatedContent }))
+      .finally(() => {
+        _isEditMode = false;
+        els.actionBtn.disabled = false;
+        _render();
+      });
+  }
+
+  // --------------------------------------------------------------------
+  // 5. DRAG & SNAP (Pointer Events)
+  // --------------------------------------------------------------------
+
+  const SNAP = Object.freeze({ FULL: 'full', PEEK: 'peek', CLOSED: 'closed' });
+  const PEEK_VISIBLE_PX = 300;
+  const CLOSE_DRAG_THRESHOLD_PX = 120; // arrastre extra más allá de "peek" que dispara el cierre
+
+  let _dragState = null; // { startY, startTranslate, panelHeight, pointerId }
+
+  function _bindStaticEvents() {
+    const els = _els;
+
+    els.handleZone.addEventListener('pointerdown', _onPointerDown);
+    els.overlay.addEventListener('click', close);
+
+    els.actionBtn.addEventListener('click', () => {
+      if (_isEditMode) {
+        _saveChanges();
+      } else {
+        _enterEditMode();
+      }
+    });
+
+    document.addEventListener('app:languageChanged', (e) => {
+      if (e.detail && e.detail.lang) {
+        setLang(e.detail.lang);
+      }
+    });
+  }
+
+  function _currentTranslateY() {
+    const els = _els;
+    const height = els.panel.getBoundingClientRect().height;
+    if (_panelState === SNAP.FULL) return 0;
+    if (_panelState === SNAP.PEEK) return height - PEEK_VISIBLE_PX;
+    return height; // closed
+  }
+
+  function _onPointerDown(e) {
+    const els = _els;
+    const height = els.panel.getBoundingClientRect().height;
+
+    _dragState = {
+      startY: e.clientY,
+      startTranslate: _currentTranslateY(),
+      panelHeight: height,
+      pointerId: e.pointerId,
+    };
+
+    els.handleZone.setPointerCapture(e.pointerId);
+    els.panel.classList.add('is-dragging');
+
+    els.handleZone.addEventListener('pointermove', _onPointerMove);
+    els.handleZone.addEventListener('pointerup', _onPointerUp);
+    els.handleZone.addEventListener('pointercancel', _onPointerUp);
+  }
+
+  function _onPointerMove(e) {
+    if (!_dragState) return;
+    const els = _els;
+
+    const delta = e.clientY - _dragState.startY;
+    const maxTranslate = _dragState.panelHeight; // límite inferior (cerrado)
+    const nextTranslate = Math.min(
+      Math.max(_dragState.startTranslate + delta, 0),
+      maxTranslate + CLOSE_DRAG_THRESHOLD_PX
+    );
+
+    els.panel.style.transform = `translate(-50%, ${nextTranslate}px)`;
+
+    // Overlay se atenúa proporcionalmente al progreso hacia "full".
+    const progress = 1 - Math.min(nextTranslate / _dragState.panelHeight, 1);
+    els.overlay.style.background = `rgba(15, 23, 42, ${0.25 * progress})`;
+  }
+
+  function _onPointerUp(e) {
+    if (!_dragState) return;
+    const els = _els;
+
+    const delta = e.clientY - _dragState.startY;
+    const finalTranslate = Math.max(_dragState.startTranslate + delta, 0);
+
+    els.handleZone.releasePointerCapture(_dragState.pointerId);
+    els.panel.classList.remove('is-dragging');
+    els.handleZone.removeEventListener('pointermove', _onPointerMove);
+    els.handleZone.removeEventListener('pointerup', _onPointerUp);
+    els.handleZone.removeEventListener('pointercancel', _onPointerUp);
+
+    const peekTranslate = _dragState.panelHeight - PEEK_VISIBLE_PX;
+    const closeTranslate = _dragState.panelHeight + CLOSE_DRAG_THRESHOLD_PX * 0.6;
+
+    _dragState = null;
+
+    // Decide el snap más cercano: full / peek / cerrado.
+    if (finalTranslate >= closeTranslate) {
+      close();
+      return;
+    }
+
+    // Punto medio entre full y peek decide a cuál de los dos snapea.
+    const midPoint = peekTranslate / 2;
+    if (finalTranslate <= midPoint) {
+      _snapTo(SNAP.FULL);
+    } else {
+      _snapTo(SNAP.PEEK);
+    }
+  }
+
+  function _snapTo(state) {
+    const els = _ensureDom();
+    _panelState = state;
+    els.panel.setAttribute('data-state', state);
+    // Se limpia el transform inline del arrastre: las reglas CSS por
+    // atributo [data-state] retoman el control con su transición.
+    els.panel.style.transform = '';
+    els.overlay.style.background = '';
+    els.overlay.classList.toggle('is-visible', state !== SNAP.CLOSED);
+  }
+
+  // --------------------------------------------------------------------
+  // 6. SUSCRIPCIÓN A AppState — el panel se re-renderiza solo cuando
+  //    los datos cambian, sin que ninguna otra parte de la app tenga
+  //    que acordarse de "avisarle" al panel.
+  // --------------------------------------------------------------------
+
+  function _bindAppStateEvents() {
+    if (_unsubscribers.length > 0) return; // ya suscripto
+
+    _unsubscribers.push(
+      AppState.on(AppState.EVENTS.POI_UPDATED, ({ poi }) => {
+        if (poi && poi.id === _currentPoiId) _render();
+      })
+    );
+
+    _unsubscribers.push(
+      AppState.on(AppState.EVENTS.SKIN_TOGGLED, ({ poiId }) => {
+        if (poiId === _currentPoiId) _render();
+      })
+    );
+
+    _unsubscribers.push(
+      AppState.on(AppState.EVENTS.ERROR, ({ message }) => {
+        console.error('[PoiPanel] Error recibido desde AppState:', message);
+      })
+    );
+  }
+
+  // --------------------------------------------------------------------
+  // 7. API PÚBLICA
+  // --------------------------------------------------------------------
+
+  /**
+   * Abre el panel para un POI determinado, en estado "peek" por defecto.
+   * @param {string} poiId
+   * @param {'peek'|'full'} [initialState='peek']
+   */
+  function open(poiId, initialState) {
+    _ensureDom();
+    _bindAppStateEvents();
+
+    _currentPoiId = poiId;
+    _isEditMode = false;
+    _render();
+    _snapTo(initialState === SNAP.FULL ? SNAP.FULL : SNAP.PEEK);
+  }
+
+  /** Cierra el panel y limpia el estado de edición. */
+  function close() {
+    _isEditMode = false;
+    _snapTo(SNAP.CLOSED);
+    // Se retrasa el clear del id hasta terminar la transición de salida,
+    // para que un cierre accidental no borre datos a mitad de animación.
+    window.setTimeout(() => {
+      if (_panelState === SNAP.CLOSED) _currentPoiId = null;
+    }, 350);
+  }
+
+  /** Cambia el idioma activo del contenido mostrado y re-renderiza. */
+  function setLang(lang) {
+    _currentLang = lang;
+    if (_currentPoiId) _render();
+  }
+
+  /** @returns {string|null} id del POI actualmente abierto, o null */
+  function getCurrentPoiId() {
+    return _currentPoiId;
+  }
+
+  return {
+    open,
+    close,
+    setLang,
+    getCurrentPoiId,
+  };
 })();
 
-/* ═══════════════════════════════════════════
-   BOTÓN "COMER CERCA" — destaca los lugares gastronómicos más
-   cercanos al lugar que se está mirando. Gateado por el interruptor
-   del panel admin (Funciones → 🍴 Comer cerca).
-═══════════════════════════════════════════ */
-function comerCercaHabilitado() {
-  return typeof FEATURES !== 'undefined' && FEATURES.comerCerca && FEATURES.comerCerca.on;
-}
-
-function activarComerCerca(origen) {
-  const candidatos = POIS
-    .filter(p => p.id !== origen.id && p.active !== false &&
-                 (p.category === 'food' || (p.categories||[]).includes('food')))
-    .map(p => ({ poi: p, dist: distanceMeters(origen.lat, origen.lng, p.lat, p.lng) }))
-    .sort((a, b) => a.dist - b.dist)
-    .slice(0, 6);
-
-  if (!candidatos.length) { toast('😅 No hay lugares gastronómicos cargados todavía'); return; }
-
-  // Atenuar todos los pines salvo el origen y los candidatos encontrados
-  const idsAMostrar = new Set([origen.id, ...candidatos.map(c => c.poi.id)]);
-  Object.keys(markers).forEach(id => {
-    const el = document.getElementById('pw-' + id);
-    if (el) el.classList.toggle('dim', !idsAMostrar.has(id));
-  });
-
-  // Centrar el mapa para que se vean todos los resultados + el origen
-  const bounds = L.latLngBounds(candidatos.map(c => [c.poi.lat, c.poi.lng]).concat([[origen.lat, origen.lng]]));
-  map.fitBounds(bounds, { padding: [60, 60], maxZoom: 17 });
-
-  closePoiPanel();
-  mostrarBannerComerCerca(candidatos.length);
-}
-
-function mostrarBannerComerCerca(cantidad) {
-  let banner = document.getElementById('comer-cerca-banner');
-  if (!banner) {
-    banner = document.createElement('div');
-    banner.id = 'comer-cerca-banner';
-    banner.style.cssText = 'position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:900;background:var(--surface);border-radius:999px;box-shadow:var(--shadow-md);padding:9px 16px;font-size:13px;display:flex;align-items:center;gap:10px;font-family:var(--font-b)';
-    document.body.appendChild(banner);
-  }
-  banner.innerHTML = `<span>🍴 ${cantidad} lugar${cantidad===1?'':'es'} cerca</span>
-    <button id="comer-cerca-salir" style="border:none;background:var(--accent-pale);color:var(--accent);border-radius:999px;padding:4px 12px;font-size:12px;font-weight:700;cursor:pointer">Ver todos</button>`;
-  document.getElementById('comer-cerca-salir').addEventListener('click', () => {
-    banner.remove();
-    applyFilter(); // restaura el estado normal (según el filtro de categoría activo)
-  });
-}
-
-/* ═══════════════════════════════════════════
-   POI PANEL
-═══════════════════════════════════════════ */
-function openPoiPanel(poi) {
-  currentPoi = poi;
-  if (typeof window._resetPanelExpand === 'function') window._resetPanelExpand();
-  const cfg = CAT[poi.category] || {label:'—', color:'#6055d8'};
-
-  // Image or emoji in panel header
-  const ppIb = document.getElementById('pp-ib');
-  if (poi.imgB64) {
-    ppIb.innerHTML = `<img src="${poi.imgB64}" style="width:100%;height:100%;object-fit:contain;border-radius:10px;" alt="${poi.name}">`;
-    ppIb.style.background = 'transparent';
-    ppIb.style.padding = '0';
-  } else {
-    const candidates = buildImageFallbackChain(poi, { forPanel: true });
-    ppIb.innerHTML = `<img class="pp-header-img" src="${candidates[0]}" style="width:100%;height:100%;object-fit:contain;border-radius:10px;display:block" alt="${poi.name}">
-      <span id="pp-ico" style="display:none">${poi.icon || '📍'}</span>`;
-    ppIb.style.background = 'transparent';
-    ppIb.style.padding = '0';
-    const imgEl = ppIb.querySelector('.pp-header-img');
-    const emojiEl = ppIb.querySelector('#pp-ico');
-    attachImageFallbackChain(imgEl, candidates, emojiEl);
-    // Si termina en el emoji de respaldo, restaurar el color de fondo original
-    imgEl.addEventListener('error', () => {
-      if (imgEl.style.display === 'none') { ppIb.style.background = cfg.color; ppIb.style.padding = ''; }
-    });
-  }
-  // pp-ico is inside pp-ib which is hidden; visual handled by eye icon
-  document.getElementById('pp-cat').textContent  = poi.categoryLabel || cfg.label;
-  document.getElementById('pp-cat').style.color  = cfg.color;
-  document.getElementById('pp-name').textContent = poi.name;
-  // Conteo de clicks público — solo si el admin activó el interruptor
-  let clicksEl = document.getElementById('pp-clicks-public');
-  if (!clicksEl) {
-    clicksEl = document.createElement('div');
-    clicksEl.id = 'pp-clicks-public';
-    clicksEl.style.cssText = 'font-size:11px;color:var(--text3);margin-top:2px';
-    document.getElementById('pp-name').insertAdjacentElement('afterend', clicksEl);
-  }
-  if (poi.clicksPublicVisible) {
-    clicksEl.textContent = `👁 ${poi.clicks || 0} visitas`;
-    clicksEl.style.display = '';
-  } else {
-    clicksEl.style.display = 'none';
-  }
-  // Tags/subcategories
-  const tagsEl = document.getElementById('pp-tags');
-  if (tagsEl) {
-    const tags = poi.tags || [];
-    tagsEl.innerHTML = tags.map(t => `<span class="poi-tag">${t}</span>`).join('');
-    tagsEl.style.display = tags.length ? 'flex' : 'none';
-  }
-  document.getElementById('pp-desc').textContent = poi.desc || '';
-  document.getElementById('pp-hist').innerHTML   = poi.hist || 'Sin datos históricos.';
-  document.getElementById('pp-coords').textContent = `${poi.lat.toFixed(5)}, ${poi.lng.toFixed(5)}`;
-  // Phone
-  const _ppPhone = document.getElementById('pp-phone');
-  if (_ppPhone) {
-    _ppPhone.style.display = poi.phone ? 'flex' : 'none';
-    const pv = _ppPhone.querySelector('.pp-contact-val');
-    if (pv) pv.textContent = poi.phone || '';
-  }
-  // Hours
-  const _ppHours = document.getElementById('pp-hours');
-  if (_ppHours) {
-    _ppHours.style.display = poi.hours ? 'flex' : 'none';
-    const hv = _ppHours.querySelector('.pp-contact-val');
-    if (hv) hv.textContent = poi.hours || '';
-  }
-
-  document.getElementById('poi-panel').style.filter = 'none';
-
-  const evEl = document.getElementById('pp-evts');
-  evEl.innerHTML = (poi.events && poi.events.length)
-    ? poi.events.map(e => `<div class="ev-card"><div class="ev-date">${e.d}</div><div class="ev-title">${e.t}</div><div class="ev-type">${e.ty}</div></div>`).join('')
-    : '<p style="color:var(--text3);font-size:13px;padding:4px 0">Sin eventos próximos.</p>';
-
-  const sEl = document.getElementById('pp-soc');
-  sEl.innerHTML = (poi.soc && poi.soc.length)
-    ? poi.soc.map(s => `<a href="#" class="soc-chip">🔗 ${s}</a>`).join('')
-    : '<span style="color:var(--text3);font-size:13px">Sin redes registradas.</span>';
-
-  // Botón "Comer cerca" — solo en lugares NO gastronómicos, y solo
-  // si el admin no lo desactivó desde el panel de Funciones
-  let comerCercaBtn = document.getElementById('pp-comer-cerca-btn');
-  const esGastronomico = poi.category === 'food' || (poi.categories||[]).includes('food');
-  if (comerCercaHabilitado() && !esGastronomico) {
-    if (!comerCercaBtn) {
-      comerCercaBtn = document.createElement('button');
-      comerCercaBtn.id = 'pp-comer-cerca-btn';
-      comerCercaBtn.style.cssText = 'width:100%;margin-top:10px;border:none;background:var(--accent-pale);color:var(--accent);border-radius:12px;padding:11px;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--font-b)';
-      sEl.insertAdjacentElement('afterend', comerCercaBtn);
-    }
-    comerCercaBtn.innerHTML = '🍴 Comer cerca';
-    comerCercaBtn.style.display = '';
-    comerCercaBtn.onclick = () => activarComerCerca(poi);
-  } else if (comerCercaBtn) {
-    comerCercaBtn.style.display = 'none';
-  }
-
-  document.getElementById('poi-panel').classList.add('open');
-  // Build visual picker
-  buildVisPicker(poi);
-}
-
-function buildVisPicker(poi) {
-  const picker = document.getElementById('pp-vis-picker');
-  picker.innerHTML = '';
-  picker.style.display = 'none';
-  // Collect all visual variants: base + extras
-  const variants = [];
-  const slug = getPoiSlug(poi);
-  const hasManualImgs = poi.imgB64 || poi.imgAlt1 || poi.imgAlt2 || poi.imgAlt3;
-
-  if (hasManualImgs) {
-    // Lugar cargado a mano desde el admin — se respetan los campos guardados
-    if (poi.imgB64)  variants.push({src: poi.imgB64, label:'Real', key:'base'});
-    if (poi.imgAlt1) variants.push({src: poi.imgAlt1, label:'Alt 1', key:'alt1'});
-    if (poi.imgAlt2) variants.push({src: poi.imgAlt2, label:'Alt 2', key:'alt2'});
-    if (poi.imgAlt3) variants.push({src: poi.imgAlt3, label:'Alt 3', key:'alt3'});
-  } else {
-    // Lugar cargado por carga masiva en Cloudinary — variantes calculadas
-    // por fórmula. Las que no existan se sacan solas con onerror (abajo).
-    variants.push({src: cloudinaryImageUrl(slug, {}), label:'Real', key:'base'});
-    variants.push({src: cloudinaryImageUrl(slug, {suffix:'-alt1'}), label:'Alt 1', key:'alt1', mayNotExist:true});
-    variants.push({src: cloudinaryImageUrl(slug, {suffix:'-alt2'}), label:'Alt 2', key:'alt2', mayNotExist:true});
-    variants.push({src: cloudinaryImageUrl(slug, {suffix:'-alt3'}), label:'Alt 3', key:'alt3', mayNotExist:true});
-  }
-  // Temáticas con el interruptor "visible en el ojito" activado (panel
-  // de Temas) — se suman al carrusel de CUALQUIER lugar; si este lugar
-  // puntual no tiene esa imagen cargada, se saca sola con onerror.
-  if (typeof TEMAS !== 'undefined') {
-    TEMAS.filter(t => t.altEnabled).forEach(t => {
-      variants.push({
-        src: cloudinaryImageUrl(slug, {suffix: `_${t.id}`}),
-        label: t.name, key: `theme-${t.id}`, mayNotExist: true,
-      });
-    });
-  }
-  // emoji fallbacks (si no hay ninguna imagen manual cargada como respaldo)
-  if (variants.length <= 1) {
-    variants.push({emoji: poi.icon,          label:'Real',    key:'base'});
-    variants.push({emoji: poi.iconCyber||'🔵', label:'Cyber',  key:'cyber'});
-    variants.push({emoji: poi.iconWinter||'❄️', label:'Invierno', key:'winter'});
-    variants.push({emoji: poi.iconZombie||'☣️', label:'Zombie', key:'zombie'});
-  }
-  document.getElementById('pp-eye-btn').style.opacity = '1';
-  document.getElementById('pp-eye-btn').style.pointerEvents = 'auto';
-  picker._variants = variants;
-  picker._current  = 0;
-  variants.forEach((v, i) => {
-    let el;
-    if (v.src) {
-      el = document.createElement('img');
-      el.src = v.src; el.className = 'pp-vis-thumb';
-      if (i === 0) el.classList.add('active');
-      // Si la variante fue calculada por fórmula y no existe en Cloudinary
-      // todavía, se saca sola de la lista sin romper nada visualmente.
-      if (v.mayNotExist) {
-        el.addEventListener('error', () => {
-          const idx = picker._variants.indexOf(v);
-          if (idx > -1) picker._variants.splice(idx, 1);
-          el.remove();
-        });
-      }
-    } else {
-      el = document.createElement('div');
-      el.className = 'pp-vis-thumb-emoji';
-      el.textContent = v.emoji;
-      if (i === 0) el.classList.add('active');
-    }
-    el.title = v.label;
-    el.addEventListener('click', () => {
-      applyVisVariant(poi, v, i);
-      picker.style.display = 'none';
-    });
-    picker.appendChild(el);
-  });
-}
-
-function applyVisVariant(poi, v, idx) {
-  const picker = document.getElementById('pp-vis-picker');
-  picker._current = idx;
-  picker.querySelectorAll('.pp-vis-thumb,.pp-vis-thumb-emoji').forEach((el,i) => el.classList.toggle('active', i===idx));
-  // Update expanded pin
-  if (expandedId !== null) {
-    const pinEl = document.querySelector(`#pw-${expandedId} .pin-img, #pw-${expandedId} .pin-emoji`);
-    if (pinEl && v.src) { pinEl.src = v.src; }
-    else if (pinEl && v.emoji) { pinEl.textContent = v.emoji; }
-  }
-}
-
-// Eye button: tap → cycle, hold → open picker
-let _eyeHold = null;
-document.getElementById('pp-eye-btn').addEventListener('click', () => {
-  const picker = document.getElementById('pp-vis-picker');
-  if (!picker._variants || picker._variants.length <= 1) return;
-  const next = ((picker._current || 0) + 1) % picker._variants.length;
-  const v = picker._variants[next];
-  applyVisVariant(currentPoi, v, next);
-});
-document.getElementById('pp-eye-btn').addEventListener('pointerdown', () => {
-  _eyeHold = setTimeout(() => {
-    const picker = document.getElementById('pp-vis-picker');
-    picker.style.display = picker.style.display === 'flex' ? 'none' : 'flex';
-  }, 500);
-});
-document.getElementById('pp-eye-btn').addEventListener('pointerup', () => clearTimeout(_eyeHold));
-
-function closePoiPanel() {
-  document.getElementById('poi-panel').classList.remove('open');
-  document.getElementById('poi-panel').style.filter = 'none';
-  currentPoi = null;
-}
-
-document.getElementById('pp-close').addEventListener('click', () => {
-  if (expandedId !== null) collapsePin(expandedId);
-  closePoiPanel();
-});
-
-// Style switcher
-// Style switcher now handled by eye icon (buildVisPicker / applyVisVariant)
-
-// Close panel on map click (only when not in pick mode)
-map.on('click', e => {
-  if (pickCtx) return; // pick mode handler takes over
-  if (expandedId !== null) collapsePin(expandedId);
-  closePoiPanel();
-});
-
-/* ═══════════════════════════════════════════
-   FILTERS
-═══════════════════════════════════════════ */
-function applyFilter() {
-  Object.values(markers).forEach(({poi}) => {
-    const el = document.getElementById(`pw-${poi.id}`);
-    if (!el) return;
-    // Respect poi.active
-    if (poi.active === false) {
-      el.parentElement && (el.parentElement.style.visibility = 'hidden');
-      return;
-    }
-    el.parentElement && (el.parentElement.style.visibility = '');
-    // Multi-category support
-    const cats = Array.isArray(poi.categories) && poi.categories.length ? poi.categories : [poi.category];
-    const match = activeFilter === 'all' || cats.includes(activeFilter);
-    el.classList.toggle('dim', !match);
-    if (!match && expandedId === poi.id) {
-      collapsePin(poi.id);
-      closePoiPanel();
-    }
-  });
-}
-
-
+window.PoiPanel = PoiPanel;
