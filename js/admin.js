@@ -209,6 +209,14 @@ window.startEdit = function(id) {
   document.getElementById('e-lng').value  = p.lng;
   syncEditCoordDisplay();
 
+  // Campos de ubicación para la carpeta dinámica de Cloudinary (ver
+  // js/cloudinary-admin.js). Defensivo: si el HTML todavía no tiene
+  // estos inputs, no rompe nada (mismo patrón que e-phone/e-hours).
+  // Default Córdoba si el POI no trae estos campos (dato legado).
+  const _eCountry = document.getElementById('e-country'); if (_eCountry) _eCountry.value = p.country || 'arg';
+  const _eState   = document.getElementById('e-state');   if (_eState)   _eState.value   = p.state   || 'p_cba';
+  const _eCity    = document.getElementById('e-city');    if (_eCity)    _eCity.value    = p.city    || 'c_cba';
+
   editEmoji = p.icon;
   document.querySelectorAll('#eg-edit .eopt').forEach(e => e.classList.toggle('sel', e.dataset.e === p.icon));
 
