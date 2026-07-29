@@ -59,8 +59,14 @@ const AppState = (function () {
   //   (con hermanas audio/, video/, gifs/ para más adelante)
   //
   // Solo existen 2 tamaños reales en toda la interfaz:
-  //   - "thumb": pines del mapa, ~256px, vía transformación w_256,c_limit
+  //   - "thumb": pines del mapa, ~160px, vía transformación w_160,c_limit
   //   - "full": versión máster 1024px, sin resize (solo f_auto,q_auto)
+  //
+  // FUENTE DE VERDAD ÚNICA: el `slug` limpio (ej. "alto-paz-tower",
+  // "patio-olmos") es el mismo ID que se usa en el mapa, en Firestore
+  // (`poi.id`) y en el nombre de archivo de Cloudinary. Ya no hay un id
+  // autogenerado de Firestore por un lado y un slug "de exhibición" por
+  // otro: son el mismo valor.
 
   /** Nombre de cloud de Cloudinary. Ajustar acá o sobreescribir con
    *  `window.CLOUDINARY_CLOUD_NAME` antes de que cargue este script. */
@@ -72,7 +78,7 @@ const AppState = (function () {
 
   /** Transformaciones válidas por tamaño — únicas 2 variantes soportadas */
   const IMAGE_TRANSFORMS = Object.freeze({
-    thumb: 'f_auto,q_auto,w_256,c_limit',
+    thumb: 'f_auto,q_auto,w_160,c_limit',
     full: 'f_auto,q_auto',
   });
 
@@ -142,9 +148,12 @@ const AppState = (function () {
 
   /**
    * Busca el índice de un POI por id dentro del arreglo interno.
-   * Acepta también coincidencia por `slug`, ya que buena parte del
-   * código legado (cluster.js, pines, etc.) identifica POIs por slug
-   * en vez de por el id autogenerado de Firestore.
+   * Con la unificación de IDs, `poi.id` ES el slug limpio (ej.
+   * "alto-paz-tower") — coincide exactamente con el ID del mapa y con
+   * el nombre de archivo en Cloudinary. Se sigue aceptando `p.slug`
+   * como alias por si algún registro viejo todavía no migró a tener
+   * `id === slug`; una vez que los datos estén 100% unificados, ese
+   * segundo chequeo se puede borrar sin romper nada.
    * @param {string} poiId
    * @returns {number} índice, o -1 si no existe
    */

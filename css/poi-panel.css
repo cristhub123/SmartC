@@ -55,7 +55,12 @@
   /* Transform base: arranca oculto (fuera de pantalla, hacia abajo) */
   transform: translate(-50%, 100%);
   transition: var(--poi-panel-transition);
-  touch-action: none;
+  /* Nota: el bloqueo de gestos táctiles NO va acá a nivel de todo el
+     panel — si no, el scroll dentro de .poi-panel__scroll también
+     quedaría capturado por el navegador como "arrastre de panel".
+     touch-action:none vive solo en .poi-panel__handle-zone (línea de
+     abajo), y .poi-panel__scroll tiene pan-y explícito para que el
+     scroll de texto funcione libre y suave. */
 }
 
 .poi-panel.is-dragging {
@@ -87,6 +92,10 @@
   padding: 10px 0 6px;
   flex: 0 0 auto;
   cursor: grab;
+  /* Único punto de arranque válido para el gesto de arrastrar el panel
+     completo — acá sí se bloquea el scroll/gesto nativo del navegador
+     para que Pointer Events tenga control total. */
+  touch-action: none;
 }
 
 .poi-panel__handle-zone:active {
@@ -98,6 +107,24 @@
   height: 4px;
   border-radius: 999px;
   background: var(--poi-panel-gray-200);
+}
+
+/* --------------------------------------------------------------------
+   IMAGEN HERO (versión "full", 1024px, vía AppState.getImageUrl)
+   -------------------------------------------------------------------- */
+.poi-panel__hero {
+  flex: 0 0 auto;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: var(--poi-panel-gray-200);
+}
+
+.poi-panel__hero-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 /* --------------------------------------------------------------------
@@ -144,6 +171,9 @@
   flex-direction: column;
   gap: 1.5rem; /* gap-6 entre secciones */
   -webkit-overflow-scrolling: touch;
+  /* Gesto explícito: solo scroll vertical de texto acá adentro, nunca
+     arrastre del panel (ese gesto vive únicamente en el handle). */
+  touch-action: pan-y;
 }
 
 .poi-panel__section-title {

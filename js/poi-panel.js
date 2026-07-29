@@ -41,6 +41,15 @@
  *     `AppState.getImageUrl(slug, skin, 'full')` y se centra el mapa
  *     suavemente en sus coordenadas (`_centerMapOn`, con 3 vías de
  *     integración posibles — ver comentario de esa función).
+ *   - ID unificado: `poi.id` ahora ES el slug limpio (ej.
+ *     "alto-paz-tower"), el mismo valor usado en el mapa y en el
+ *     nombre de archivo de Cloudinary.
+ *   - Umbral de arrastre reducido a 36px (antes se pedía cruzar el
+ *     punto medio entre "full" y "peek"): un gesto corto ya alcanza
+ *     para subir/bajar/cerrar el panel. El drag SOLO arranca tocando
+ *     el handle (`.poi-panel__handle-zone`); dentro del cuerpo
+ *     scrolleable el gesto siempre es scroll de texto, nunca arrastre
+ *     del panel completo.
  * ============================================================================
  */
 
@@ -214,7 +223,7 @@ const PoiPanel = (function () {
    */
   function _renderHeroImage(poi) {
     const els = _els;
-    const slug = poi.slug || poi.id;
+    const slug = poi.id || poi.slug;
 
     if (!slug || typeof AppState.getImageUrl !== 'function') {
       els.hero.hidden = true;
@@ -444,9 +453,14 @@ const PoiPanel = (function () {
 
   const SNAP = Object.freeze({ FULL: 'full', PEEK: 'peek', CLOSED: 'closed' });
   const PEEK_VISIBLE_PX = 300;
-  const CLOSE_DRAG_THRESHOLD_PX = 120; // arrastre extra más allá de "peek" que dispara el cierre
 
-  let _dragState = null; // { startY, startTranslate, panelHeight, pointerId }
+  // Umbral de sensibilidad: un arrastre de solo 30-40px alcanza para
+  // cambiar de estado (subir/bajar/cerrar el panel). Antes se pedía
+  // arrastrar hasta pasar el punto medio entre "full" y "peek", lo
+  // cual se sentía duro/pesado; ahora es un gesto corto y suave.
+  const DRAG_THRESHOLD_PX = 36;
+
+  let _dragState = null; // { startY, startTranslate, panelHeight, pointerId, startState }
 
   function _bindStaticEvents() {
     const els = _els;
@@ -477,6 +491,13 @@ const PoiPanel = (function () {
     return height; // closed
   }
 
+  /**
+   * El arrastre del panel SOLO puede arrancar tocando el drag handle
+   * (`.poi-panel__handle-zone`, el equivalente de "header"/handle del
+   * spec). El cuerpo scrolleable (`.poi-panel__scroll`) no tiene este
+   * listener — ahí el pointerdown/move nativo del navegador hace
+   * scroll de texto normal, sin interferir con el panel.
+   */
   function _onPointerDown(e) {
     if (_isDesktop()) return; // en desktop el panel es sidebar fijo, no se arrastra
 
@@ -486,6 +507,7 @@ const PoiPanel = (function () {
     _dragState = {
       startY: e.clientY,
       startTranslate: _currentTranslateY(),
+      startState: _panelState,
       panelHeight: height,
       pointerId: e.pointerId,
     };
@@ -506,7 +528,7 @@ const PoiPanel = (function () {
     const maxTranslate = _dragState.panelHeight; // límite inferior (cerrado)
     const nextTranslate = Math.min(
       Math.max(_dragState.startTranslate + delta, 0),
-      maxTranslate + CLOSE_DRAG_THRESHOLD_PX
+      maxTranslate
     );
 
     els.panel.style.transform = `translate(-50%, ${nextTranslate}px)`;
@@ -516,33 +538,44 @@ const PoiPanel = (function () {
     if (!_dragState) return;
     const els = _els;
 
-    const delta = e.clientY - _dragState.startY;
-    const finalTranslate = Math.max(_dragState.startTranslate + delta, 0);
+    const delta = e.clientY - _dragState.startY; // + = arrastró hacia abajo, - = hacia arriba
+    const { startState } = _dragState;
 
     els.handleZone.releasePointerCapture(_dragState.pointerId);
     els.panel.classList.remove('is-dragging');
     els.handleZone.removeEventListener('pointermove', _onPointerMove);
     els.handleZone.removeEventListener('pointerup', _onPointerUp);
     els.handleZone.removeEventListener('pointercancel', _onPointerUp);
-
-    const peekTranslate = _dragState.panelHeight - PEEK_VISIBLE_PX;
-    const closeTranslate = _dragState.panelHeight + CLOSE_DRAG_THRESHOLD_PX * 0.6;
-
     _dragState = null;
 
-    // Decide el snap más cercano: full / peek / cerrado.
-    if (finalTranslate >= closeTranslate) {
-      close();
+    // Con un arrastre por debajo del umbral, el panel vuelve a su
+    // estado de partida (gesto no intencional / mano temblando).
+    if (Math.abs(delta) < DRAG_THRESHOLD_PX) {
+      _snapTo(startState);
       return;
     }
 
-    // Punto medio entre full y peek decide a cuál de los dos snapea.
-    const midPoint = peekTranslate / 2;
-    if (finalTranslate <= midPoint) {
-      _snapTo(SNAP.FULL);
-    } else {
-      _snapTo(SNAP.PEEK);
+    const draggedDown = delta > 0;
+
+    if (startState === SNAP.FULL) {
+      // Desde "full": un toque hacia abajo alcanza para bajar a "peek".
+      _snapTo(draggedDown ? SNAP.PEEK : SNAP.FULL);
+      return;
     }
+
+    if (startState === SNAP.PEEK) {
+      // Desde "peek": hacia arriba sube a "full", hacia abajo cierra.
+      if (draggedDown) {
+        close();
+      } else {
+        _snapTo(SNAP.FULL);
+      }
+      return;
+    }
+
+    // Estado "closed" no debería recibir drag (el panel no es visible),
+    // pero por las dudas no rompemos si pasara.
+    _snapTo(startState);
   }
 
   function _snapTo(state) {
