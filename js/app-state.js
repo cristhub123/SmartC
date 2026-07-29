@@ -147,18 +147,74 @@ const AppState = (function () {
   // --------------------------------------------------------------------
 
   /**
+   * NORMALIZACIÓN DE ID
+   * ----------------------------------------------------------------
+   * `markers.js`/`cluster.js` todavía generan algunos IDs de marcador
+   * con un sufijo regional pegado a mano (ej. `"alto-paz-tower-cordoba"`),
+   * mientras que los POIs cargados en AppState usan la clave limpia
+   * (`"alto-paz-tower"`). En vez de salir a tocar marker por marker en
+   * el mapa, esta función limpia el ID ANTES de comparar, así la
+   * búsqueda es infalible sin importar de qué lado venga el sufijo.
+   *
+   * Lista de sufijos regionales conocidos — agregar acá si aparece
+   * alguno nuevo (ej. otras ciudades a futuro).
+   */
+  const REGIONAL_SUFFIXES = ['-cordoba'];
+
+  /**
+   * @param {string} id
+   * @returns {string} id limpio (trim + sin sufijo regional), o '' si `id` es falsy.
+   */
+  function _normalizeId(id) {
+    if (!id) return '';
+    let clean = String(id).trim();
+    for (const suffix of REGIONAL_SUFFIXES) {
+      const re = new RegExp(`${suffix}$`, 'i');
+      clean = clean.replace(re, '');
+    }
+    return clean;
+  }
+
+  /**
+   * Compara un POI contra un id "crudo" (tal como llegó, ej. desde un
+   * marker de Leaflet) probando 4 combinaciones: id/slug del POI
+   * contra el id crudo y contra su versión normalizada. La comparación
+   * es insensible a mayúsculas/minúsculas de punta a punta, para que
+   * no importe si el marker manda "ALTO-PAZ-TOWER-Cordoba" o cualquier
+   * otra variante de capitalización.
+   * @param {Object} p - POI candidato.
+   * @param {string} rawId - id tal como llegó, sin procesar.
+   * @param {string} cleanId - id ya normalizado (`_normalizeId(rawId)`).
+   * @returns {boolean}
+   */
+  function _poiMatchesId(p, rawId, cleanId) {
+    if (!p) return false;
+    const poiId = (p.id || '').toLowerCase();
+    const poiSlug = (p.slug || '').toLowerCase();
+    const rawLower = rawId.toLowerCase();
+    const cleanLower = cleanId.toLowerCase();
+    return (
+      poiId === rawLower || poiSlug === rawLower ||
+      poiId === cleanLower || poiSlug === cleanLower ||
+      _normalizeId(poiId).toLowerCase() === cleanLower ||
+      _normalizeId(poiSlug).toLowerCase() === cleanLower
+    );
+  }
+
+  /**
    * Busca el índice de un POI por id dentro del arreglo interno.
    * Con la unificación de IDs, `poi.id` ES el slug limpio (ej.
    * "alto-paz-tower") — coincide exactamente con el ID del mapa y con
-   * el nombre de archivo en Cloudinary. Se sigue aceptando `p.slug`
-   * como alias por si algún registro viejo todavía no migró a tener
-   * `id === slug`; una vez que los datos estén 100% unificados, ese
-   * segundo chequeo se puede borrar sin romper nada.
+   * el nombre de archivo en Cloudinary. Además de aceptar `p.slug`
+   * como alias, normaliza ambos lados de la comparación para tolerar
+   * sufijos regionales pegados por el mapa (ver `_normalizeId`).
    * @param {string} poiId
    * @returns {number} índice, o -1 si no existe
    */
   function _findPoiIndex(poiId) {
-    return _pois.findIndex((p) => p.id === poiId || p.slug === poiId);
+    const rawId = String(poiId || '').trim();
+    const cleanId = _normalizeId(rawId);
+    return _pois.findIndex((p) => _poiMatchesId(p, rawId, cleanId));
   }
 
   /**
@@ -196,7 +252,9 @@ const AppState = (function () {
    */
   function _findInLegacyGlobal(poiId) {
     if (typeof window === 'undefined' || !Array.isArray(window.POIS)) return null;
-    const found = window.POIS.find((p) => p.id === poiId || p.slug === poiId);
+    const rawId = String(poiId || '').trim();
+    const cleanId = _normalizeId(rawId);
+    const found = window.POIS.find((p) => _poiMatchesId(p, rawId, cleanId));
     return found ? { ...found } : null;
   }
 
@@ -277,19 +335,26 @@ const AppState = (function () {
   /**
    * Devuelve un único POI por id (o por slug, ver `_findPoiIndex`).
    * Orden de búsqueda:
-   *   1. Arreglo interno `_pois` (fuente de verdad normal).
+   *   1. Arreglo interno `_pois` (fuente de verdad normal), comparando
+   *      tanto el id crudo como su versión normalizada (ver
+   *      `_normalizeId` / `_poiMatchesId`) — así da lo mismo si
+   *      `markers.js` manda `"alto-paz-tower-cordoba"` y AppState tiene
+   *      guardado `"alto-paz-tower"`.
    *   2. Si `_pois` está vacío, se auto-hidrata desde `window.POIS`
    *      antes de buscar (cubre el caso "arrancó sin loadPois()").
    *   3. Si igual no aparece, se busca como último recurso directo en
    *      `window.POIS` (cubre hidratación parcial / datos legados que
-   *      todavía no migraron al esquema nuevo).
+   *      todavía no migraron al esquema nuevo), también normalizado.
    * @param {string} poiId
    * @returns {Object|null}
    */
   function getPoi(poiId) {
     _autoHydrateFromLegacyGlobal();
 
-    const poi = _pois.find((p) => p.id === poiId || p.slug === poiId);
+    const rawId = String(poiId || '').trim();
+    const cleanId = _normalizeId(rawId);
+
+    const poi = _pois.find((p) => _poiMatchesId(p, rawId, cleanId));
     if (poi) return { ...poi };
 
     const legacy = _findInLegacyGlobal(poiId);
@@ -298,6 +363,7 @@ const AppState = (function () {
       return legacy;
     }
 
+    console.warn(`[AppState] No se encontró el POI. Buscado: "${rawId}" (normalizado: "${cleanId}")`);
     return null;
   }
 
@@ -328,7 +394,10 @@ const AppState = (function () {
   function getContent(poiId, lang) {
     _autoHydrateFromLegacyGlobal();
 
-    let poi = _pois.find((p) => p.id === poiId || p.slug === poiId);
+    const rawId = String(poiId || '').trim();
+    const cleanId = _normalizeId(rawId);
+
+    let poi = _pois.find((p) => _poiMatchesId(p, rawId, cleanId));
     if (!poi) poi = _findInLegacyGlobal(poiId);
 
     // POI legado sin esquema `content` multiidioma: se devuelve null y
@@ -367,7 +436,9 @@ const AppState = (function () {
    * @returns {{ skinName: string, url: string }|null}
    */
   function getEffectiveSkin(poiId) {
-    const poi = _pois.find((p) => p.id === poiId);
+    const rawId = String(poiId || '').trim();
+    const cleanId = _normalizeId(rawId);
+    const poi = _pois.find((p) => _poiMatchesId(p, rawId, cleanId));
     if (!poi || !poi.skins) return null;
 
     const desired = poi.skins[_globalSkin];

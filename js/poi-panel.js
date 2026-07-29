@@ -35,15 +35,20 @@
  *   - El botón "Editar" del footer solo se muestra si hay una sesión
  *     de administrador activa (`window.isAdminActive`).
  *   - `_render()` hace fallback a los campos legados del POI
- *     (`poi.name`, `poi.desc`, `poi.hist`, `poi.hours`) cuando el
- *     contenido multiidioma nuevo está vacío o no existe.
+ *     (`poi.name`/`poi.titulo`, `poi.desc`/`poi.descripcion`,
+ *     `poi.hist`/`poi.historia`, `poi.hours`) cuando el contenido
+ *     multiidioma nuevo está vacío o no existe.
  *   - Al abrir un POI se carga su imagen "full" (1024px) vía
  *     `AppState.getImageUrl(slug, skin, 'full')` y se centra el mapa
  *     suavemente en sus coordenadas (`_centerMapOn`, con 3 vías de
  *     integración posibles — ver comentario de esa función).
  *   - ID unificado: `poi.id` ahora ES el slug limpio (ej.
  *     "alto-paz-tower"), el mismo valor usado en el mapa y en el
- *     nombre de archivo de Cloudinary.
+ *     nombre de archivo de Cloudinary. `AppState.getPoi` normaliza
+ *     además cualquier sufijo regional que markers.js/cluster.js le
+ *     pegue al ID (ej. "-cordoba"), así que este archivo no necesita
+ *     limpiar nada por su cuenta — solo llama a `AppState.getPoi(id)`
+ *     tal cual.
  *   - Umbral de arrastre reducido a 36px (antes se pedía cruzar el
  *     punto medio entre "full" y "peek"): un gesto corto ya alcanza
  *     para subir/bajar/cerrar el panel. El drag SOLO arranca tocando
@@ -175,9 +180,12 @@ const PoiPanel = (function () {
     // `window.POIS` crudo), completamos con sus campos planos
     // tradicionales para que el panel nunca se vea en blanco.
     // ------------------------------------------------------------
-    const finalName = (rawContent && rawContent.name) || poi.name || '';
+    const finalName = (rawContent && rawContent.name) || poi.name || poi.titulo || '';
     const finalGancho = (rawContent && rawContent.gancho) || '';
-    const finalDescription = (rawContent && rawContent.description) || poi.desc || poi.hist || '';
+    const finalDescription = (rawContent && rawContent.description)
+      || poi.desc || poi.descripcion
+      || poi.hist || poi.historia
+      || '';
     const finalCustomFields = { ...((rawContent && rawContent.custom_fields) || {}) };
     if (!finalCustomFields.horario && poi.hours) {
       finalCustomFields.horario = poi.hours;
@@ -235,7 +243,7 @@ const PoiPanel = (function () {
 
     els.hero.hidden = false;
     els.heroImage.src = url;
-    els.heroImage.alt = (poi.content && poi.content[_currentLang] && poi.content[_currentLang].name) || poi.name || '';
+    els.heroImage.alt = (poi.content && poi.content[_currentLang] && poi.content[_currentLang].name) || poi.name || poi.titulo || '';
   }
 
   /**
