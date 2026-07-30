@@ -110,29 +110,42 @@
 }
 
 /* --------------------------------------------------------------------
-   IMAGEN HERO (versión "full", 1024px, vía AppState.getImageUrl)
+   IMAGEN HERO — banner debajo del título. Altura fija (no aspect-ratio,
+   para que el layout no salte según la proporción de cada foto).
+   Ocultación ESTRICTA: si el <img> no tiene src cargado (o falló),
+   poi-panel.js le pone el atributo `hidden` a este contenedor — la
+   regla de abajo lo saca completamente del flujo (0 alto, sin
+   recuadro gris, el texto sube pegado al título).
    -------------------------------------------------------------------- */
 .poi-panel__hero {
   flex: 0 0 auto;
   width: 100%;
-  aspect-ratio: 16 / 9;
+  height: 180px;
   overflow: hidden;
   background: var(--poi-panel-gray-200);
+}
+
+.poi-panel__hero[hidden] {
+  display: none !important;
+  height: 0;
 }
 
 .poi-panel__hero-image {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center;
   display: block;
 }
 
 /* --------------------------------------------------------------------
-   ENCABEZADO
+   ENCABEZADO — categoría + título únicamente (el subtitle vive en su
+   propia fila, después del hero, para que el orden visual sea
+   categoría → título → [banner] → coordenadas → descripción).
    -------------------------------------------------------------------- */
 .poi-panel__header {
   flex: 0 0 auto;
-  padding: 0 1.5rem 1rem;
+  padding: 0 1.5rem 0.75rem;
 }
 
 .poi-panel__category {
@@ -149,8 +162,13 @@
   font-weight: 700;
   letter-spacing: -0.02em;  /* tracking-tight */
   color: var(--poi-panel-slate-900);
-  margin: 0 0 0.25rem;
+  margin: 0;
   line-height: 1.2;
+}
+
+.poi-panel__subtitle-row {
+  flex: 0 0 auto;
+  padding: 0.75rem 1.5rem 0;
 }
 
 .poi-panel__subtitle {

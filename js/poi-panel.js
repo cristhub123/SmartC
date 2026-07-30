@@ -108,12 +108,14 @@ const PoiPanel = (function () {
         <button type="button" data-role="lang-btn" data-lang="en" style="border:none;background:transparent;font-size:0.75rem;font-weight:700;letter-spacing:0.04em;padding:2px 6px;border-radius:6px;cursor:pointer;color:#94a3b8;">EN</button>
         <button type="button" data-role="lang-btn" data-lang="pt" style="border:none;background:transparent;font-size:0.75rem;font-weight:700;letter-spacing:0.04em;padding:2px 6px;border-radius:6px;cursor:pointer;color:#94a3b8;">PT</button>
       </div>
-      <div class="poi-panel__hero" data-role="hero">
-        <img class="poi-panel__hero-image" data-role="hero-image" alt="">
-      </div>
       <div class="poi-panel__header" data-role="header">
         <p class="poi-panel__category" data-role="category"></p>
         <h2 class="poi-panel__title" data-role="title"></h2>
+      </div>
+      <div class="poi-panel__hero" data-role="hero" hidden>
+        <img class="poi-panel__hero-image" data-role="hero-image" alt="">
+      </div>
+      <div class="poi-panel__subtitle-row" data-role="subtitle-row">
         <p class="poi-panel__subtitle" data-role="subtitle"></p>
       </div>
       <div class="poi-panel__scroll" data-role="scroll">
@@ -250,18 +252,38 @@ const PoiPanel = (function () {
   function _renderHeroImage(poi) {
     const els = _els;
     const slug = poi.id || poi.slug;
+    const skin = poi.active_skin || 'main';
 
-    if (!slug || typeof AppState.getImageUrl !== 'function') {
+    // Prioridad de la URL: 1) la real ya subida a Cloudinary guardada
+    // en el POI (skins[skin].url, o el legado poi.imgB64 para "main"
+    // — ver nota en utils.js: pese al nombre, ya contiene una URL real,
+    // no base64), 2) si no hay ninguna, la formulaica de AppState
+    // (puede no existir todavía en Cloudinary si el lugar no tiene foto).
+    let url = '';
+    if (poi.skins && poi.skins[skin] && poi.skins[skin].url) {
+      url = poi.skins[skin].url;
+    } else if (skin === 'main' && poi.imgB64) {
+      url = poi.imgB64;
+    } else if (slug && typeof AppState.getImageUrl === 'function') {
+      url = AppState.getImageUrl(slug, skin, 'full');
+    }
+
+    // Ocultación estricta: si no hay ninguna URL posible, ni se
+    // intenta cargar — el banner queda en display:none / 0 alto
+    // (ver CSS) y el texto se pega directo debajo del título.
+    if (!url) {
       els.hero.hidden = true;
+      els.heroImage.removeAttribute('src');
       return;
     }
 
-    const skin = poi.active_skin || 'main';
-    const url = AppState.getImageUrl(slug, skin, 'full');
-
-    els.hero.hidden = false;
-    els.heroImage.src = url;
+    // Se mantiene oculto HASTA que la imagen realmente cargue (evento
+    // `load`, atado una sola vez en _ensureDom) — así nunca se ve ni
+    // un instante el recuadro gris antes de saber si la foto existe.
+    // Si falla (404, CORS, etc.), el evento `error` lo deja oculto.
+    els.hero.hidden = true;
     els.heroImage.alt = (poi.content && poi.content[_currentLang] && poi.content[_currentLang].name) || poi.name || poi.titulo || '';
+    els.heroImage.src = url;
   }
 
   /**
@@ -492,6 +514,18 @@ const PoiPanel = (function () {
     const els = _els;
 
     els.handleZone.addEventListener('pointerdown', _onPointerDown);
+
+    // Ocultación estricta del banner: solo se revela si la imagen
+    // efectivamente carga. Si falla (404, CORS, lo que sea), o si
+    // nunca se le asignó `src` (ver _renderHeroImage), el contenedor
+    // queda oculto (display:none / 0 alto vía CSS) y el texto sube
+    // pegado al título — nunca se ve un recuadro gris vacío.
+    els.heroImage.addEventListener('load', () => {
+      if (els.heroImage.getAttribute('src')) els.hero.hidden = false;
+    });
+    els.heroImage.addEventListener('error', () => {
+      els.hero.hidden = true;
+    });
 
     els.actionBtn.addEventListener('click', () => {
       if (!_isAdminActive()) return; // defensa extra: el botón ya está oculto para no-admins

@@ -607,8 +607,17 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   transform: translateX(-50%);
   width: 12px; height: 4px;
   border-radius: 50%;
-  animation: imgripple 2.8s ease-out infinite;
+  /* Antes: animation: imgripple 2.8s ease-out infinite; corría SIEMPRE,
+     en los 200 pines a la vez, en reposo — eso es lo que tira el
+     rendimiento abajo con muchos pines. Ahora queda estática por
+     defecto (mismo look que el primer frame de la animación) y solo
+     se anima al pasar el mouse o cuando el pin está seleccionado. */
+  opacity: .55;
   pointer-events: none;
+}
+.pin-wrap:hover .pin-img-ripple,
+.pin-wrap.big .pin-img-ripple {
+  animation: imgripple 2.8s ease-out infinite;
 }
 @keyframes imgripple {
   0%   { transform: translateX(-50%) scale(1); opacity: .55; }
