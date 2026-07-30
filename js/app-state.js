@@ -603,6 +603,40 @@ const AppState = (function () {
   }
 
   /**
+   * Activa/desactiva la visibilidad pública del contador de clicks de
+   * un POI (el "ojito"). Mismo comportamiento que `togglePublicClicks`
+   * de admin.js, pero pasando por AppState para que cualquier UI
+   * (panel del mapa, admin) quede sincronizada vía eventos, en vez de
+   * que cada lugar tenga su propia copia de la lógica.
+   *
+   * @param {string} poiId
+   * @param {boolean} isPublic
+   * @returns {Promise<void>}
+   */
+  async function toggleClicksVisibility(poiId, isPublic) {
+    const index = _findPoiIndex(poiId);
+    if (index === -1) {
+      const msg = `[AppState] toggleClicksVisibility: no existe el POI "${poiId}".`;
+      console.error(msg);
+      _emit(EVENTS.ERROR, { message: msg });
+      return;
+    }
+
+    _pois[index] = { ..._pois[index], clicksPublicVisible: isPublic };
+    const updatedPoi = getPoi(poiId);
+    _emit(EVENTS.POI_UPDATED, { poi: updatedPoi });
+
+    if (!_assertFirestoreSync()) return;
+
+    try {
+      await FirestoreSync.savePoi(updatedPoi);
+    } catch (err) {
+      console.error(`[AppState] Error al sincronizar visibilidad de clicks de "${poiId}":`, err);
+      _emit(EVENTS.ERROR, { message: 'Error al guardar visibilidad de clicks en Firestore', poiId, error: err });
+    }
+  }
+
+  /**
    * Agrega una idea al roadmap. Respeta la regla de trabajo permanente:
    * el texto debe guardarse literal (solo se permite corregir
    * ortografía/puntuación fuera de este módulo, antes de llamar acá).
@@ -684,6 +718,7 @@ const AppState = (function () {
     addRoadmapEntry,
     setLanguage,
     getLanguage,
+    toggleClicksVisibility,
   };
 })();
 

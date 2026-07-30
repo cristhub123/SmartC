@@ -55,11 +55,16 @@ function getDynStyle() {
 }
 
 function applyGlobalDim() {
-  const op = globalSettings.dimOpacity;
   const sz = globalSettings.pinSize;
   const sc = globalSettings.expandScale;
+  // ANTES: acá se armaba `.pin-wrap.dim { filter: grayscale(80%);
+  // opacity: ${op}; transform: scale(.9); }` — eso es lo que apagaba
+  // todos los pines (y con ellos, visualmente, el mapa entero) al
+  // expandir uno. Se saca por completo, sin importar en qué quede el
+  // slider "g-dim-opacity" del admin (ver más abajo, ahora no hace
+  // nada — se deja el control en el HTML por si en el futuro se
+  // quiere reactivar esto de otra forma, pero ya no tiene efecto).
   getDynStyle().textContent = `
-    .pin-wrap.dim { filter: grayscale(80%); opacity: ${op}; transform: scale(.9); }
     .pin-wrap.big { transform: scale(${sc}) !important; }
     :root { --eye-glow-color: ${globalSettings.eyeGlowColor}; }
   `;
@@ -125,6 +130,11 @@ document.getElementById('g-glow-hex').addEventListener('change', function() {
     updateGPreview();
   }
 });
+// NOTA: este slider queda guardado en globalSettings.dimOpacity por
+// compatibilidad, pero ya no tiene ningún efecto visual — applyGlobalDim()
+// dejó de usarlo (ver ese archivo). Se deja el control en el HTML sin
+// romper nada, por si en algún momento se quiere reactivar el dimming
+// con otro criterio.
 document.getElementById('g-dim-opacity').addEventListener('input', function() {
   document.getElementById('g-dim-opacity-val').textContent = this.value + '%';
   globalSettings.dimOpacity = parseInt(this.value) / 100;

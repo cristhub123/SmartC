@@ -103,10 +103,15 @@ const PoiPanel = (function () {
       <div class="poi-panel__handle-zone" data-role="handle-zone">
         <div class="poi-panel__handle"></div>
       </div>
-      <div data-role="lang-row" style="display:flex;justify-content:flex-end;gap:4px;padding:0 1.5rem 0.25rem;">
-        <button type="button" data-role="lang-btn" data-lang="es" style="border:none;background:transparent;font-size:0.75rem;font-weight:700;letter-spacing:0.04em;padding:2px 6px;border-radius:6px;cursor:pointer;color:#94a3b8;">ES</button>
-        <button type="button" data-role="lang-btn" data-lang="en" style="border:none;background:transparent;font-size:0.75rem;font-weight:700;letter-spacing:0.04em;padding:2px 6px;border-radius:6px;cursor:pointer;color:#94a3b8;">EN</button>
-        <button type="button" data-role="lang-btn" data-lang="pt" style="border:none;background:transparent;font-size:0.75rem;font-weight:700;letter-spacing:0.04em;padding:2px 6px;border-radius:6px;cursor:pointer;color:#94a3b8;">PT</button>
+      <div data-role="lang-row" style="display:flex;justify-content:space-between;align-items:center;gap:4px;padding:0 1.5rem 0.25rem;">
+        <button type="button" data-role="eye-btn" title="Visibilidad pública del contador de visitas" style="border:none;background:transparent;padding:2px 4px;border-radius:6px;cursor:pointer;font-size:1rem;line-height:1;display:flex;align-items:center;gap:4px;color:#94a3b8;">
+          <span data-role="eye-icon">👁️</span><span data-role="eye-count" style="font-size:0.75rem;font-weight:700;"></span>
+        </button>
+        <div style="display:flex;gap:4px;">
+          <button type="button" data-role="lang-btn" data-lang="es" style="border:none;background:transparent;font-size:0.75rem;font-weight:700;letter-spacing:0.04em;padding:2px 6px;border-radius:6px;cursor:pointer;color:#94a3b8;">ES</button>
+          <button type="button" data-role="lang-btn" data-lang="en" style="border:none;background:transparent;font-size:0.75rem;font-weight:700;letter-spacing:0.04em;padding:2px 6px;border-radius:6px;cursor:pointer;color:#94a3b8;">EN</button>
+          <button type="button" data-role="lang-btn" data-lang="pt" style="border:none;background:transparent;font-size:0.75rem;font-weight:700;letter-spacing:0.04em;padding:2px 6px;border-radius:6px;cursor:pointer;color:#94a3b8;">PT</button>
+        </div>
       </div>
       <div class="poi-panel__header" data-role="header">
         <p class="poi-panel__category" data-role="category"></p>
@@ -145,6 +150,9 @@ const PoiPanel = (function () {
       panel,
       handleZone: panel.querySelector('[data-role="handle-zone"]'),
       langBtns: Array.from(panel.querySelectorAll('[data-role="lang-btn"]')),
+      eyeBtn: panel.querySelector('[data-role="eye-btn"]'),
+      eyeIcon: panel.querySelector('[data-role="eye-icon"]'),
+      eyeCount: panel.querySelector('[data-role="eye-count"]'),
       hero: panel.querySelector('[data-role="hero"]'),
       heroImage: panel.querySelector('[data-role="hero-image"]'),
       category: panel.querySelector('[data-role="category"]'),
@@ -193,6 +201,9 @@ const PoiPanel = (function () {
       btn.style.color = isActive ? '#0d9488' : '#94a3b8';
       btn.style.background = isActive ? 'rgba(13,148,136,0.08)' : 'transparent';
     });
+
+    // --- Ojito: visibilidad pública del contador de clicks ---
+    _renderEyeBadge(poi);
 
     // ------------------------------------------------------------
     // FALLBACK A CAMPOS LEGADOS: si el POI todavía no migró al
@@ -353,6 +364,35 @@ const PoiPanel = (function () {
       return { lat: poi.lat, lng: poi.lng };
     }
     return null;
+  }
+
+  /**
+   * Pinta el "ojito": si `clicksPublicVisible` está activo, todos ven
+   * el conteo de visitas del lugar con el efecto de brillo que ya
+   * define shadow-eye.js (`--eye-glow-color` + `@keyframes eyeglow`,
+   * inyectados dinámicamente por ese archivo — acá solo se reutilizan,
+   * no se duplican). El toggle (tocar el botón para prender/apagar la
+   * visibilidad) solo está habilitado para admin, igual que el botón
+   * "Editar" — para un usuario normal, el ojito es de solo lectura.
+   * @param {Object} poi
+   */
+  function _renderEyeBadge(poi) {
+    const els = _els;
+    const isPublic = !!poi.clicksPublicVisible;
+    const isAdmin = _isAdminActive();
+
+    els.eyeIcon.style.opacity = isPublic ? '1' : '0.35';
+    els.eyeIcon.style.animation = isPublic ? 'eyeglow 2s ease-in-out infinite' : 'none';
+    els.eyeCount.textContent = isPublic ? String(poi.clicks || 0) : '';
+    els.eyeCount.style.color = 'var(--eye-glow-color, #60a5fa)';
+
+    // Solo-lectura para usuarios normales: el ojito muestra el dato
+    // pero no se puede tocar. Admin sí puede tocarlo para prender/
+    // apagar la visibilidad pública.
+    els.eyeBtn.style.cursor = isAdmin ? 'pointer' : 'default';
+    els.eyeBtn.title = isAdmin
+      ? (isPublic ? 'Ocultar el contador de visitas al público' : 'Mostrar el contador de visitas al público')
+      : (isPublic ? `${poi.clicks || 0} visitas` : '');
   }
 
   function _formatSubtitle(poi) {
@@ -542,6 +582,14 @@ const PoiPanel = (function () {
         // El re-render llega solo vía AppState.EVENTS.LANGUAGE_CHANGED
         // (ver _bindAppStateEvents), así que acá no hace falta nada más.
       });
+    });
+
+    els.eyeBtn.addEventListener('click', () => {
+      if (!_isAdminActive() || !_currentPoiId) return; // solo-lectura para usuarios normales
+      const poi = AppState.getPoi(_currentPoiId);
+      if (!poi) return;
+      AppState.toggleClicksVisibility(_currentPoiId, !poi.clicksPublicVisible);
+      // El re-render llega vía AppState.EVENTS.POI_UPDATED.
     });
 
     document.addEventListener('app:languageChanged', (e) => {

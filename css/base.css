@@ -613,11 +613,12 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
      defecto (mismo look que el primer frame de la animación) y solo
      se anima al pasar el mouse o cuando el pin está seleccionado. */
   opacity: .55;
+  animation: none !important;
   pointer-events: none;
 }
 .pin-wrap:hover .pin-img-ripple,
 .pin-wrap.big .pin-img-ripple {
-  animation: imgripple 2.8s ease-out infinite;
+  animation: imgripple 2.8s ease-out infinite !important;
 }
 @keyframes imgripple {
   0%   { transform: translateX(-50%) scale(1); opacity: .55; }
