@@ -537,7 +537,15 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   contain: layout style;
 }
 .pin-wrap:hover { transform: scale(1.15) translateY(-4px); }
-.pin-wrap.dim { filter: grayscale(80%); opacity: .35; transform: scale(.9); }
+/* Antes: .pin-wrap.dim aplicaba filter:grayscale(80%) + opacity:.35 a
+   TODOS los demás pines cuando uno se expandía — eso era el
+   "oscurecimiento" del mapa, y al ser un filtro GPU aplicado a varios
+   pines a la vez, generaba los tirones de rendimiento. Se neutraliza
+   por completo: el mapa mantiene su brillo y color original, sin
+   costo extra de composición. La clase `.dim` puede seguir
+   agregándose/quitándose desde el JS sin problema — acá ya no hace
+   nada visualmente. */
+.pin-wrap.dim { /* sin efecto visual: ver nota arriba */ }
 /* Expanded: float high above the panel, stays pinned at base */
 .pin-wrap.big {
   /* translate3d forces GPU compositing layer */
