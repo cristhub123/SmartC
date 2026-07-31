@@ -485,6 +485,36 @@
       <div id="zona-edit-form" style="display:none">
         <div class="fg"><label class="fl">Nombre</label><input class="fi" id="ze-name" type="text"></div>
         <div class="fg"><label class="fl">Tags (separados por coma)</label><input class="fi" id="ze-tags" type="text"></div>
+
+        <div class="divider"><span>UBICACIÓN EN EL MAPA</span></div>
+        <div class="fg">
+          <label class="fl">🔍 Buscar dirección o lugar</label>
+          <div class="geocoder-row">
+            <input class="fi geocoder-input" id="geo-input-zona" type="text" placeholder="Ej: Barrio Güemes, Nueva Córdoba…">
+            <button class="geocoder-btn" id="geo-btn-zona">Buscar</button>
+          </div>
+          <div class="geocoder-results" id="geo-results-zona"></div>
+          <div class="coord-display" id="ze-coord-display">Sin coordenadas — buscá una dirección o hacé click en el mapa</div>
+
+          <div class="frow" style="margin-bottom:8px;margin-top:8px">
+            <div>
+              <label class="fl">Latitud</label>
+              <input class="fi" id="ze-lat" type="number" step="0.000001" placeholder="-31.4167">
+            </div>
+            <div>
+              <label class="fl">Longitud</label>
+              <input class="fi" id="ze-lng" type="number" step="0.000001" placeholder="-64.1833">
+            </div>
+          </div>
+
+          <div class="fg" style="margin-top:8px;margin-bottom:8px">
+            <label class="fl">Zoom al llegar (más alto = más acercado)</label>
+            <input class="fi" id="ze-zoom" type="number" min="10" max="19" step="1" placeholder="16" value="16">
+          </div>
+
+          <button class="btn-map-pick" id="btn-pick-zona" type="button">📍 O hacer clic en el mapa</button>
+        </div>
+
         <div id="ze-attrs-wrap"></div>
         <button class="btn-primary" id="btn-save-zona" style="margin-top:4px">✓ Guardar cambios</button>
         <button class="btn-outline" id="btn-cancel-zona" style="margin-top:6px">Cancelar</button>
