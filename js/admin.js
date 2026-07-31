@@ -147,8 +147,14 @@ function syncAddCoordDisplay() {
 }
 
 document.getElementById('btn-pick-add').addEventListener('click', () => {
+  // OJO: NO llamar a closeAdmin() acá — closeAdmin() internamente
+  // llama a stopPickMode(), que desregistra el listener de click que
+  // startPickMode() acaba de registrar, apagando el modo "elegir en
+  // el mapa" en el mismo instante en que se prendía (por eso nunca
+  // se colocaba el pin). startPickMode() ya oculta el admin por su
+  // cuenta (`#admin { display: none }`), así que no hace falta nada
+  // más acá.
   startPickMode('add');
-  closeAdmin();
 });
 
 // btn-save-add listener handled in image block
@@ -255,8 +261,8 @@ function syncEditCoordDisplay() {
 }
 
 document.getElementById('btn-pick-edit').addEventListener('click', () => {
+  // Mismo bug que btn-pick-add — ver el comentario ahí.
   startPickMode('edit');
-  closeAdmin();
 });
 
 // btn-save-edit listener handled in image block
@@ -317,6 +323,10 @@ function startPickMode(ctx) {
       document.getElementById('a-lat').value = lat.toFixed(6);
       document.getElementById('a-lng').value = lng.toFixed(6);
       syncAddCoordDisplay();
+    } else if (ctx === 'zona') {
+      document.getElementById('ze-lat').value = lat.toFixed(6);
+      document.getElementById('ze-lng').value = lng.toFixed(6);
+      if (typeof _syncZonaCoordDisplay === 'function') _syncZonaCoordDisplay();
     } else {
       document.getElementById('e-lat').value = lat.toFixed(6);
       document.getElementById('e-lng').value = lng.toFixed(6);
@@ -325,6 +335,7 @@ function startPickMode(ctx) {
     stopPickMode();
     openAdmin();
     if (ctx === 'edit') switchTab('edit');
+    if (ctx === 'zona') switchTab('zonas-admin');
     toast(`📍 ${lat.toFixed(5)}, ${lng.toFixed(5)}`);
   };
   map.on('click', map._pickHandler);

@@ -5,7 +5,16 @@
    Datos extendidos: tags, attrs
    ═══════════════════════════════════════════════════════════ */
 // Add active field to all zones on load
-const ZONAS = [
+/* ANTES: esto era `const ZONAS = [...]` y vivía SOLO en memoria — se
+   perdía cualquier cambio del admin al recargar la página. Ahora es
+   la semilla de migración: si Firestore todavía no tiene ninguna
+   zona guardada (primera vez que corre esto), se usan estos 12
+   barrios como punto de partida y se guardan en Firestore de una,
+   así no se pierde nada de lo que ya tenías. Después de esa primera
+   vez, la fuente real es siempre Firestore, no este arreglo.
+   `ZONAS` (sin "_SEED") es el arreglo vivo en memoria, cargado desde
+   Firestore al arrancar — ver `_initZonas()` al final del archivo. */
+const ZONAS_SEED = [
   { id:'guemes',     name:'Barrio Güemes',
     lat:-31.4227,  lng:-64.1880, zoom:16,
     tags:['Noche','Bares','Arte','Diseño'],
@@ -116,17 +125,41 @@ const ZONAS = [
     ]},
 ];
 
+/** Arreglo vivo en memoria — se llena en `_initZonas()` desde
+ *  Firestore (o desde ZONAS_SEED si es la primera vez que corre
+ *  esto). Todo el resto del archivo sigue usando `ZONAS` igual que
+ *  antes, así que no hizo falta tocar el resto de las funciones. */
+let ZONAS = [];
+
 let zonasOpen   = false;
 let lastZonaId  = null; // persistencia inteligente
 
 let _editingZonaId = null;
+let _isCreatingZona = false; // true mientras el form de edición está en modo "nueva zona"
 
 function renderZonasAdmin() {
   const list = document.getElementById('zonas-admin-list');
+
+  // Botón "Nueva zona" — se inyecta arriba de la lista si el
+  // contenedor todavía no lo tiene (defensivo: no rompe si en algún
+  // momento se agrega a mano directo en el HTML).
+  const container = list && list.parentElement;
+  if (container && !document.getElementById('btn-new-zona')) {
+    const btn = document.createElement('button');
+    btn.id = 'btn-new-zona';
+    btn.type = 'button';
+    btn.textContent = '➕ Nueva zona';
+    btn.className = 'ibtn';
+    btn.style.cssText = 'margin-bottom:10px;width:100%;';
+    btn.addEventListener('click', startNewZona);
+    container.insertBefore(btn, list);
+  }
+
   list.innerHTML = ZONAS.map((z,i) => `
     <div class="za-row" data-id="${z.id}" draggable="true">
       <span class="za-drag">⠿</span>
       <span class="za-name">${z.name}</span>
+      <span style="font-size:11px;color:var(--text3);white-space:nowrap;">👁 ${z.clicks || 0}</span>
       <button class="za-edit-btn" onclick="startEditZona('${z.id}')" title="Editar">✏️</button>
       <button class="za-toggle ${z.active?'on':''}" onclick="toggleZona('${z.id}',this)" title="${z.active?'Desactivar':'Activar'}"></button>
     </div>`).join('');
@@ -140,15 +173,65 @@ window.toggleZona = function(id, btn) {
   z.active = !z.active;
   btn.classList.toggle('on', z.active);
   buildZonasDropdown();
+  saveZonaToFirestore(z); // ahora sí queda guardado, no solo en memoria
   toast(z.active ? `✅ ${z.name} activada` : `⭕ ${z.name} desactivada`);
 };
 
+/**
+ * Abre el form en modo EDICIÓN de una zona existente.
+ * @param {string} id
+ */
 window.startEditZona = function(id) {
   const z = ZONAS.find(x => x.id === id);
   if (!z) return;
   _editingZonaId = id;
-  document.getElementById('ze-name').value = z.name;
+  _isCreatingZona = false;
+  _fillZonaForm(z);
+  document.getElementById('zona-edit-form').style.display = 'block';
+  document.getElementById('zona-edit-form').scrollIntoView({behavior:'smooth'});
+};
+
+/**
+ * Abre el form en modo CREACIÓN de una zona nueva (todo vacío).
+ * Reusa el mismo form de edición — no hacía falta un HTML aparte.
+ */
+function startNewZona() {
+  _editingZonaId = null;
+  _isCreatingZona = true;
+  _fillZonaForm({ name: '', lat: null, lng: null, zoom: 15, tags: [], attrs: [] });
+  const title = document.getElementById('zona-edit-title');
+  if (title) title.textContent = 'Nueva zona';
+  document.getElementById('zona-edit-form').style.display = 'block';
+  document.getElementById('zona-edit-form').scrollIntoView({behavior:'smooth'});
+}
+window.startNewZona = startNewZona;
+
+/**
+ * Llena el formulario de edición con los datos de una zona (o vacíos,
+ * para el modo "nueva"). Centraliza lo que antes estaba solo dentro
+ * de startEditZona, para no duplicarlo en startNewZona.
+ * @param {Object} z
+ */
+function _fillZonaForm(z) {
+  document.getElementById('ze-name').value = z.name || '';
   document.getElementById('ze-tags').value = (z.tags||[]).join(', ');
+
+  // Campos de ubicación — mismo sistema que los lugares: buscador
+  // por texto (prioridad) + clic en el mapa (alternativa). Ver nota
+  // en la respuesta: esto todavía necesita el archivo real donde
+  // vive ese buscador (geocoder.js/autofill.js) para conectarse del
+  // todo — mientras tanto, lat/lng se pueden completar a mano acá.
+  const latEl  = document.getElementById('ze-lat');
+  const lngEl  = document.getElementById('ze-lng');
+  const zoomEl = document.getElementById('ze-zoom');
+  if (latEl)  latEl.value  = (z.lat  !== null && z.lat  !== undefined) ? z.lat  : '';
+  if (lngEl)  lngEl.value  = (z.lng  !== null && z.lng  !== undefined) ? z.lng  : '';
+  if (zoomEl) zoomEl.value = z.zoom || 15;
+  if (typeof _syncZonaCoordDisplay === 'function') _syncZonaCoordDisplay();
+
+  const title = document.getElementById('zona-edit-title');
+  if (title) title.textContent = z.name ? `Editando "${z.name}"` : 'Nueva zona';
+
   // Build attrs inputs
   const wrap = document.getElementById('ze-attrs-wrap');
   wrap.innerHTML = (z.attrs||[]).map((a,i) => `
@@ -156,32 +239,113 @@ window.startEditZona = function(id) {
       <input class="fi" style="flex:0 0 110px;font-size:12px" value="${a.l}" id="ze-al-${i}" placeholder="Label">
       <input class="fi" style="flex:1;font-size:12px" value="${a.v}" id="ze-av-${i}" placeholder="Valor">
     </div>`).join('');
-  document.getElementById('zona-edit-form').style.display = 'block';
-  document.getElementById('zona-edit-form').scrollIntoView({behavior:'smooth'});
-};
+}
+
+/** Muestra la coordenada elegida arriba del botón "clic en el mapa",
+ *  igual que `syncAddCoordDisplay`/`syncEditCoordDisplay` de admin.js. */
+function _syncZonaCoordDisplay() {
+  const lat = document.getElementById('ze-lat')?.value;
+  const lng = document.getElementById('ze-lng')?.value;
+  const d   = document.getElementById('ze-coord-display');
+  if (!d) return;
+  if (lat && lng) {
+    d.textContent = `${parseFloat(lat).toFixed(6)}, ${parseFloat(lng).toFixed(6)}`;
+    d.classList.add('set');
+  } else {
+    d.textContent = 'Sin coordenadas — buscá una dirección o hacé clic en el mapa';
+    d.classList.remove('set');
+  }
+}
+['ze-lat','ze-lng'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('input', _syncZonaCoordDisplay);
+});
+
+/* === UBICACIÓN DE LA ZONA: mismo combo que los lugares ===
+   1) Buscador por nombre/dirección (Nominatim) — vía rápida.
+   2) "📍 O hacer clic en el mapa" — alternativa, para zonas amplias
+      o lugares que el buscador no encuentra.
+   Ambos son DEFENSIVOS: si todavía no agregaste los inputs
+   `geo-input-zona`/`geo-btn-zona`/`geo-results-zona` ni el botón
+   `btn-pick-zona` al HTML del form de zonas, esto simplemente no
+   hace nada — no rompe el resto del archivo. */
+if (document.getElementById('geo-input-zona') && typeof setupGeocoder === 'function') {
+  setupGeocoder(
+    'geo-input-zona', 'geo-btn-zona', 'geo-results-zona',
+    'ze-lat', 'ze-lng', 'ze-coord-display', _syncZonaCoordDisplay
+  );
+}
+
+const _btnPickZona = document.getElementById('btn-pick-zona');
+if (_btnPickZona && typeof startPickMode === 'function') {
+  _btnPickZona.addEventListener('click', () => {
+    startPickMode('zona');
+  });
+}
 
 document.getElementById('btn-save-zona').addEventListener('click', () => {
-  const z = ZONAS.find(x => x.id === _editingZonaId);
-  if (!z) return;
-  z.name  = document.getElementById('ze-name').value.trim() || z.name;
-  z.tags  = document.getElementById('ze-tags').value.split(',').map(s=>s.trim()).filter(Boolean);
+  const name = document.getElementById('ze-name').value.trim();
+  if (!name) { toast('⚠️ Ingresá el nombre de la zona'); return; }
+
+  const latEl = document.getElementById('ze-lat');
+  const lngEl = document.getElementById('ze-lng');
+  const lat = latEl ? parseFloat(latEl.value) : NaN;
+  const lng = lngEl ? parseFloat(lngEl.value) : NaN;
+  if (latEl && lngEl && (isNaN(lat) || isNaN(lng))) {
+    toast('⚠️ Falta la ubicación — buscá una dirección o hacé clic en el mapa');
+    return;
+  }
+
+  const tags = document.getElementById('ze-tags').value.split(',').map(s=>s.trim()).filter(Boolean);
   const attrCount = document.querySelectorAll('[id^="ze-al-"]').length;
-  z.attrs = [];
+  const attrs = [];
   for (let i=0; i<attrCount; i++) {
     const l = document.getElementById(`ze-al-${i}`)?.value.trim();
     const v = document.getElementById(`ze-av-${i}`)?.value.trim();
-    if (l) z.attrs.push({l,v});
+    if (l) attrs.push({l,v});
   }
+
+  let z;
+  if (_isCreatingZona) {
+    const id = slugify(name);
+    if (ZONAS.some(x => x.id === id)) {
+      toast('⚠️ Ya existe una zona con ese nombre');
+      return;
+    }
+    z = {
+      id, name, tags, attrs,
+      lat: latEl ? lat : 0,
+      lng: lngEl ? lng : 0,
+      zoom: parseInt(document.getElementById('ze-zoom')?.value) || 15,
+      active: true,
+      clicks: 0,
+    };
+    ZONAS.push(z);
+  } else {
+    z = ZONAS.find(x => x.id === _editingZonaId);
+    if (!z) return;
+    z.name = name;
+    z.tags = tags;
+    z.attrs = attrs;
+    if (latEl) z.lat = lat;
+    if (lngEl) z.lng = lng;
+    const zoomEl = document.getElementById('ze-zoom');
+    if (zoomEl) z.zoom = parseInt(zoomEl.value) || z.zoom;
+  }
+
   document.getElementById('zona-edit-form').style.display = 'none';
   buildZonasDropdown();
   renderZonasAdmin();
-  toast(`✅ ${z.name} actualizada`);
+  saveZonaToFirestore(z); // guardado real y permanente
+  toast(`✅ ${z.name} ${_isCreatingZona ? 'creada' : 'actualizada'}`);
   _editingZonaId = null;
+  _isCreatingZona = false;
 });
 
 document.getElementById('btn-cancel-zona').addEventListener('click', () => {
   document.getElementById('zona-edit-form').style.display = 'none';
   _editingZonaId = null;
+  _isCreatingZona = false;
 });
 
 function setupZonaDrag(list) {
@@ -233,6 +397,12 @@ function navigateToZona(z) {
   closeZonaPanel();
   lastZonaId = z.id;
   map.flyTo([z.lat, z.lng], z.zoom, {animate: true, duration: 1.1});
+
+  // Conteo de clicks — permanente en Firestore, mismo criterio que
+  // los lugares (incrementPinClicks). Se actualiza también el valor
+  // en memoria para que el admin lo vea sin tener que recargar.
+  z.clicks = (z.clicks || 0) + 1;
+  if (typeof incrementZonaClicks === 'function') incrementZonaClicks(z.id);
 }
 
 function openZonaPanel(z) {
@@ -293,9 +463,27 @@ document.addEventListener('click', e => {
   }
 });
 
-// Init active flag
-ZONAS.forEach(z => { if (z.active === undefined) z.active = true; });
-buildZonasDropdown();
+/* === INIT — carga las zonas desde Firestore antes de construir
+   el dropdown. Si Firestore todavía no tiene ninguna zona guardada
+   (primera vez que corre esto sobre este proyecto), usa ZONAS_SEED
+   como punto de partida Y las guarda de una, para no perder los 12
+   barrios que ya tenías armados. === */
+async function _initZonas() {
+  const loaded = await loadZonasFromFirestore();
+
+  if (loaded.length > 0) {
+    ZONAS = loaded;
+  } else {
+    // Migración única: Firestore está vacío, se siembra con lo que
+    // ya tenías hardcodeado y se guarda cada una de una vez.
+    ZONAS = ZONAS_SEED.map(z => ({ ...z, active: true, clicks: 0 }));
+    await Promise.all(ZONAS.map(z => saveZonaToFirestore(z)));
+  }
+
+  ZONAS.forEach(z => { if (z.active === undefined) z.active = true; });
+  buildZonasDropdown();
+}
+_initZonas();
 
 /* === REGISTRO DE PESTAÑA ADMIN — dibuja la lista de zonas al abrir la pestaña === */
 SC.registerTabPlugin('zonas-admin', renderZonasAdmin);

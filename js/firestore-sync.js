@@ -97,3 +97,88 @@ async function deletePoiFromFirestore(id) {
     return false;
   }
 }
+
+/* ═══════════════════════════════════════════
+   ZONAS — mismo patrón exacto que arriba (colección "zonas" +
+   caché público "cache/all-zonas"), para que las zonas queden
+   guardadas de forma permanente en vez de vivir solo en memoria.
+   El ID del documento es `z.id` (el slug de la zona, ej. "guemes").
+═══════════════════════════════════════════ */
+
+/* === CARGAR TODAS LAS ZONAS AL ABRIR EL ADMIN — 1 sola lectura === */
+async function loadZonasFromFirestore() {
+  try {
+    const cacheDoc = await db.collection('cache').doc('all-zonas').get();
+    if (cacheDoc.exists && Array.isArray(cacheDoc.data().zonas)) {
+      return cacheDoc.data().zonas;
+    }
+    // Primera vez (el caché todavía no existe): se lee la colección
+    // completa una vez y se genera el caché para la próxima carga.
+    const snapshot = await db.collection('zonas').get();
+    const loaded = [];
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      if (!data.name) return; // salta documentos de prueba con otro esquema
+      loaded.push({ id: doc.id, ...data });
+    });
+    await db.collection('cache').doc('all-zonas').set({
+      zonas: loaded,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    return loaded;
+  } catch (err) {
+    console.error('Error cargando zonas desde Firestore:', err);
+    toast('⚠️ No se pudieron cargar las zonas. Revisá tu conexión.');
+    return [];
+  }
+}
+
+/* === REGENERAR EL CACHÉ PÚBLICO DE ZONAS === */
+async function regenerateZonasPublicCache() {
+  try {
+    await db.collection('cache').doc('all-zonas').set({
+      zonas: ZONAS,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    return true;
+  } catch (err) {
+    console.error('Error regenerando el caché público de zonas:', err);
+    return false;
+  }
+}
+
+/* === GUARDAR (crear o editar) UNA ZONA === */
+async function saveZonaToFirestore(zona) {
+  try {
+    const { id, ...data } = zona;
+    await db.collection('zonas').doc(id).set(data, { merge: false });
+    regenerateZonasPublicCache(); // no se espera, no bloquea la UI
+    return true;
+  } catch (err) {
+    console.error('Error guardando zona en Firestore:', err);
+    toast('⚠️ No se guardó la zona en la base de datos. Probá de nuevo (¿iniciaste sesión?).');
+    return false;
+  }
+}
+
+/* === BORRAR UNA ZONA DE FIRESTORE (por si algún día hace falta —
+   la vía normal para "no quiero esta zona" es el toggle on/off,
+   que no borra nada) === */
+async function deleteZonaFromFirestore(id) {
+  try {
+    await db.collection('zonas').doc(id).delete();
+    regenerateZonasPublicCache();
+    return true;
+  } catch (err) {
+    console.error('Error borrando zona de Firestore:', err);
+    toast('⚠️ No se pudo borrar la zona.');
+    return false;
+  }
+}
+
+/* === CONTEO DE CLICKS POR ZONA — permanente, no se resetea nunca === */
+function incrementZonaClicks(id) {
+  db.collection('zonas').doc(id).update({
+    clicks: firebase.firestore.FieldValue.increment(1),
+  }).catch(err => console.warn('No se pudo registrar el click de zona (no crítico):', err));
+}
