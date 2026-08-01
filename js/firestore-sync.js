@@ -201,6 +201,17 @@ async function saveZonasOrder(zonasArray) {
   try {
     const batch = db.batch();
     zonasArray.forEach((z, i) => {
+      // CLAVE: actualizar z.order EN MEMORIA acá también, no solo en
+      // Firestore. Antes esto faltaba — el documento de Firestore
+      // quedaba bien, pero el objeto `z` en memoria seguía con su
+      // `order` viejo. Como `regenerateZonasPublicCache()` guarda el
+      // caché público a partir de estos mismos objetos en memoria,
+      // el caché terminaba con `order` desactualizado — y la próxima
+      // vez que alguien cargaba la página, el `ZONAS.sort(...)` de
+      // _initZonas() volvía a barajar todo usando esos valores viejos,
+      // deshaciendo el orden recién guardado. Por eso "parecía" que
+      // el reordenamiento nunca quedaba guardado.
+      z.order = i;
       // set(..., {merge:true}) en vez de update(): update() falla si el
       // documento no existe todavía, y como el batch es atómico, UN
       // SOLO documento faltante hacía fallar el guardado de TODAS las
