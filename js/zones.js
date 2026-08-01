@@ -347,13 +347,74 @@ function _fillZonaForm(z) {
   const title = document.getElementById('zona-edit-title');
   if (title) title.textContent = z.name ? `Editando "${z.name}"` : 'Nueva zona';
 
-  // Build attrs inputs
+  // Editor de campos de información (antes: solo mostraba los que
+  // ya tenía la zona, sin forma de agregar uno nuevo ni sacar uno).
+  _renderZonaAttrsEditor(z.attrs || []);
+}
+
+/**
+ * Lee del formulario los pares [título, texto] tal como están AHORA
+ * en pantalla (incluye filas vacías recién agregadas — el filtrado
+ * de filas sin título se hace recién al guardar, no acá).
+ * @returns {Array<{l:string, v:string}>}
+ */
+function _readZonaAttrsFromForm() {
+  const attrCount = document.querySelectorAll('[id^="ze-al-"]').length;
+  const attrs = [];
+  for (let i=0; i<attrCount; i++) {
+    const l = document.getElementById(`ze-al-${i}`)?.value ?? '';
+    const v = document.getElementById(`ze-av-${i}`)?.value ?? '';
+    attrs.push({ l, v });
+  }
+  return attrs;
+}
+
+/**
+ * Dibuja el editor de "campos de información" de la zona (los que se
+ * ven como Ideal para / Ambiente / Tipo de plan / Horario fuerte en
+ * el panel del usuario) — con título y texto editables, más un botón
+ * "🗑" para quitar cada uno y "➕ Agregar campo" para sumar uno nuevo
+ * en blanco. El admin define tanto el TÍTULO del campo como su TEXTO
+ * — no hay nada hardcodeado, la cantidad de campos tampoco es fija.
+ * @param {Array<{l:string, v:string}>} attrs
+ */
+function _renderZonaAttrsEditor(attrs) {
   const wrap = document.getElementById('ze-attrs-wrap');
-  wrap.innerHTML = (z.attrs||[]).map((a,i) => `
-    <div style="display:flex;gap:7px;margin-bottom:7px">
-      <input class="fi" style="flex:0 0 110px;font-size:12px" value="${a.l}" id="ze-al-${i}" placeholder="Label">
-      <input class="fi" style="flex:1;font-size:12px" value="${a.v}" id="ze-av-${i}" placeholder="Valor">
+  if (!wrap) return;
+
+  wrap.innerHTML = (attrs || []).map((a,i) => `
+    <div class="za-attr-row" style="display:flex;gap:7px;margin-bottom:7px;align-items:center">
+      <input class="fi" style="flex:0 0 110px;font-size:12px" value="${a.l||''}" id="ze-al-${i}" placeholder="Título (ej: Ideal para)">
+      <input class="fi" style="flex:1;font-size:12px" value="${a.v||''}" id="ze-av-${i}" placeholder="Texto">
+      <button type="button" class="ibtn" data-remove-attr="${i}" title="Quitar este campo" style="flex:0 0 auto;padding:6px 9px;">🗑</button>
     </div>`).join('');
+
+  wrap.querySelectorAll('[data-remove-attr]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const current = _readZonaAttrsFromForm();
+      current.splice(parseInt(btn.dataset.removeAttr, 10), 1);
+      _renderZonaAttrsEditor(current);
+    });
+  });
+
+  // Botón "Agregar campo" — se inyecta una sola vez, justo después
+  // del contenedor de filas (no adentro, para que no se borre en
+  // cada re-render de las filas).
+  let addBtn = document.getElementById('btn-add-zona-attr');
+  if (!addBtn) {
+    addBtn = document.createElement('button');
+    addBtn.id = 'btn-add-zona-attr';
+    addBtn.type = 'button';
+    addBtn.className = 'ibtn';
+    addBtn.style.cssText = 'width:100%;margin-bottom:10px;';
+    addBtn.textContent = '➕ Agregar campo de información';
+    wrap.parentNode.insertBefore(addBtn, wrap.nextSibling);
+  }
+  addBtn.onclick = () => {
+    const current = _readZonaAttrsFromForm();
+    current.push({ l: '', v: '' });
+    _renderZonaAttrsEditor(current);
+  };
 }
 
 /** Muestra la coordenada elegida arriba del botón "clic en el mapa",
