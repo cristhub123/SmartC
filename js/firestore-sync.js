@@ -201,7 +201,14 @@ async function saveZonasOrder(zonasArray) {
   try {
     const batch = db.batch();
     zonasArray.forEach((z, i) => {
-      batch.update(db.collection('zonas').doc(z.id), { order: i });
+      // set(..., {merge:true}) en vez de update(): update() falla si el
+      // documento no existe todavía, y como el batch es atómico, UN
+      // SOLO documento faltante hacía fallar el guardado de TODAS las
+      // zonas sin avisar bien la causa — parecía que "no guardaba
+      // nada" cuando en realidad era un solo doc corrupto/inexistente
+      // el que tiraba abajo todo el lote. set con merge crea el campo
+      // si falta, y nunca falla por esto.
+      batch.set(db.collection('zonas').doc(z.id), { order: i }, { merge: true });
     });
     await batch.commit();
     regenerateZonasPublicCache(); // el caché público también debe reflejar el nuevo orden

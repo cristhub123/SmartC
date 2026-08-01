@@ -146,14 +146,14 @@ function renderZonasAdmin() {
   const container = list && list.parentElement;
   if (container && !document.getElementById('btn-new-zona')) {
     const row = document.createElement('div');
-    row.style.cssText = 'display:flex;gap:8px;margin-bottom:10px;';
+    row.style.cssText = 'display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;';
 
     const btnNew = document.createElement('button');
     btnNew.id = 'btn-new-zona';
     btnNew.type = 'button';
     btnNew.textContent = '➕ Nueva zona';
     btnNew.className = 'ibtn';
-    btnNew.style.cssText = 'flex:1;';
+    btnNew.style.cssText = 'flex:1;min-width:120px;';
     btnNew.addEventListener('click', startNewZona);
 
     const btnAZ = document.createElement('button');
@@ -161,12 +161,36 @@ function renderZonasAdmin() {
     btnAZ.type = 'button';
     btnAZ.textContent = '🔤 Ordenar A-Z';
     btnAZ.className = 'ibtn';
-    btnAZ.style.cssText = 'flex:1;';
+    btnAZ.style.cssText = 'flex:1;min-width:120px;';
     btnAZ.title = 'Ordena todas las zonas alfabéticamente y lo guarda';
     btnAZ.addEventListener('click', sortZonasAlphabetically);
 
+    // Botón explícito de guardado — el arrastre manual y "Ordenar A-Z"
+    // YA guardan solos, pero se deja este botón para que quede el
+    // mismo patrón visual que el resto del admin (ej. "✓ Guardar
+    // cambios" en Editar Zona, "✓ Aplicar a todos los pins" en
+    // Global) y sirva de confirmación/reintento explícito por las
+    // dudas — con feedback claro de que sí quedó guardado.
+    const btnSaveOrder = document.createElement('button');
+    btnSaveOrder.id = 'btn-zonas-save-order';
+    btnSaveOrder.type = 'button';
+    btnSaveOrder.textContent = '💾 Guardar orden';
+    btnSaveOrder.className = 'ibtn';
+    btnSaveOrder.style.cssText = 'flex:1;min-width:120px;';
+    btnSaveOrder.title = 'Guarda el orden actual de la lista de forma permanente';
+    btnSaveOrder.addEventListener('click', async () => {
+      btnSaveOrder.disabled = true;
+      const originalText = btnSaveOrder.textContent;
+      btnSaveOrder.textContent = '⏳ Guardando...';
+      const ok = await saveZonasOrder(ZONAS);
+      btnSaveOrder.textContent = originalText;
+      btnSaveOrder.disabled = false;
+      if (ok) toast('✅ Orden guardado — así lo van a ver los usuarios');
+    });
+
     row.appendChild(btnNew);
     row.appendChild(btnAZ);
+    row.appendChild(btnSaveOrder);
     container.insertBefore(row, list);
   }
 
