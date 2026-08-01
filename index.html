@@ -481,6 +481,18 @@
     <div class="tpane" id="tp-zonas-admin">
       <p style="font-size:12px;color:var(--text3);margin-bottom:12px">Activá/desactivá zonas y reordenalas arrastrando ⠿</p>
       <div id="zonas-admin-list"></div>
+
+      <div class="divider" style="margin-top:16px"><span>PRESETS DE ORDEN</span></div>
+      <p style="font-size:11px;color:var(--text3);margin-bottom:8px">Guardá el orden actual con un nombre para poder volver a él con un clic más adelante.</p>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <input class="fi" id="zona-preset-name" type="text" placeholder="Ej: Orden Principal" style="flex:1">
+        <button class="ibtn" id="btn-zona-preset-save" style="flex:0 0 auto">💾 Guardar</button>
+      </div>
+      <div style="display:flex;gap:8px">
+        <select class="fi" id="zona-preset-select" style="flex:1"></select>
+        <button class="ibtn" id="btn-zona-preset-load" style="flex:0 0 auto">↩ Cargar</button>
+      </div>
+
       <div class="divider" style="margin-top:16px"><span>EDITAR ZONA</span></div>
       <div id="zona-edit-form" style="display:none">
         <div class="fg"><label class="fl">Nombre</label><input class="fi" id="ze-name" type="text"></div>

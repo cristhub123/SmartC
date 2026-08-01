@@ -182,3 +182,90 @@ function incrementZonaClicks(id) {
     clicks: firebase.firestore.FieldValue.increment(1),
   }).catch(err => console.warn('No se pudo registrar el click de zona (no crítico):', err));
 }
+
+/* ═══════════════════════════════════════════
+   ORDEN DE ZONAS — el campo numérico `order` en cada documento de
+   "zonas" define en qué posición aparece en el dropdown del usuario.
+   Se guarda con un solo batch write (una sola operación atómica,
+   no N escrituras sueltas) cada vez que el admin reordena (botón
+   A-Z, arrastre manual, o cargar un preset).
+═══════════════════════════════════════════ */
+
+/**
+ * Guarda el `order` (0,1,2...) de cada zona según su posición actual
+ * en el arreglo que se le pasa — típicamente el `ZONAS` en memoria,
+ * ya reordenado. Un solo batch, no N escrituras sueltas.
+ * @param {Array<Object>} zonasArray - ZONAS ya en el orden deseado.
+ */
+async function saveZonasOrder(zonasArray) {
+  try {
+    const batch = db.batch();
+    zonasArray.forEach((z, i) => {
+      batch.update(db.collection('zonas').doc(z.id), { order: i });
+    });
+    await batch.commit();
+    regenerateZonasPublicCache(); // el caché público también debe reflejar el nuevo orden
+    return true;
+  } catch (err) {
+    console.error('Error guardando el orden de zonas:', err);
+    toast('⚠️ No se pudo guardar el nuevo orden.');
+    return false;
+  }
+}
+
+/* ═══════════════════════════════════════════
+   PRESETS DE ORDEN — "fotos" del orden actual, guardadas con un
+   nombre (ej. "Orden Principal", "Verano 2026"), para poder volver
+   a cualquiera de ellas con un clic sin tener que reordenar todo de
+   nuevo a mano. Colección aparte ("zona-presets"), no mezclada con
+   los documentos de zonas en sí.
+═══════════════════════════════════════════ */
+
+/**
+ * Guarda el orden actual como un preset con nombre. Si ya existe un
+ * preset con ese nombre, lo sobreescribe (mismo criterio que "Guardar
+ * cambios" en todo el resto del admin: el nombre es el identificador).
+ * @param {string} name
+ * @param {Array<Object>} zonasArray - ZONAS en el orden a guardar.
+ */
+async function saveZonaOrderPreset(name, zonasArray) {
+  try {
+    const id = slugify(name);
+    await db.collection('zona-presets').doc(id).set({
+      name,
+      orderIds: zonasArray.map(z => z.id),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    return true;
+  } catch (err) {
+    console.error('Error guardando preset de orden:', err);
+    toast('⚠️ No se pudo guardar el preset.');
+    return false;
+  }
+}
+
+/** Trae todos los presets de orden guardados (para el selector del admin). */
+async function loadZonaOrderPresets() {
+  try {
+    const snapshot = await db.collection('zona-presets').get();
+    const presets = [];
+    snapshot.forEach(doc => presets.push({ id: doc.id, ...doc.data() }));
+    return presets;
+  } catch (err) {
+    console.error('Error cargando presets de orden:', err);
+    return [];
+  }
+}
+
+/** Borra un preset de orden guardado. */
+async function deleteZonaOrderPreset(id) {
+  try {
+    await db.collection('zona-presets').doc(id).delete();
+    return true;
+  } catch (err) {
+    console.error('Error borrando preset de orden:', err);
+    toast('⚠️ No se pudo borrar el preset.');
+    return false;
+  }
+}
+

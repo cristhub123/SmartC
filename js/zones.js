@@ -140,19 +140,34 @@ let _isCreatingZona = false; // true mientras el form de edición está en modo 
 function renderZonasAdmin() {
   const list = document.getElementById('zonas-admin-list');
 
-  // Botón "Nueva zona" — se inyecta arriba de la lista si el
-  // contenedor todavía no lo tiene (defensivo: no rompe si en algún
-  // momento se agrega a mano directo en el HTML).
+  // Botones "Nueva zona" / "Ordenar A-Z" — se inyectan arriba de la
+  // lista si el contenedor todavía no los tiene (defensivo: no rompe
+  // si en algún momento se agregan a mano directo en el HTML).
   const container = list && list.parentElement;
   if (container && !document.getElementById('btn-new-zona')) {
-    const btn = document.createElement('button');
-    btn.id = 'btn-new-zona';
-    btn.type = 'button';
-    btn.textContent = '➕ Nueva zona';
-    btn.className = 'ibtn';
-    btn.style.cssText = 'margin-bottom:10px;width:100%;';
-    btn.addEventListener('click', startNewZona);
-    container.insertBefore(btn, list);
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;gap:8px;margin-bottom:10px;';
+
+    const btnNew = document.createElement('button');
+    btnNew.id = 'btn-new-zona';
+    btnNew.type = 'button';
+    btnNew.textContent = '➕ Nueva zona';
+    btnNew.className = 'ibtn';
+    btnNew.style.cssText = 'flex:1;';
+    btnNew.addEventListener('click', startNewZona);
+
+    const btnAZ = document.createElement('button');
+    btnAZ.id = 'btn-zonas-az';
+    btnAZ.type = 'button';
+    btnAZ.textContent = '🔤 Ordenar A-Z';
+    btnAZ.className = 'ibtn';
+    btnAZ.style.cssText = 'flex:1;';
+    btnAZ.title = 'Ordena todas las zonas alfabéticamente y lo guarda';
+    btnAZ.addEventListener('click', sortZonasAlphabetically);
+
+    row.appendChild(btnNew);
+    row.appendChild(btnAZ);
+    container.insertBefore(row, list);
   }
 
   list.innerHTML = ZONAS.map((z,i) => `
@@ -165,7 +180,83 @@ function renderZonasAdmin() {
     </div>`).join('');
   // Drag-to-reorder (touch + mouse)
   setupZonaDrag(list);
+
+  // Presets de orden — solo si el HTML ya tiene estos controles (ver
+  // el bloque que se agrega a index.html); si no existen, no hace nada.
+  _refreshZonaPresetSelect();
 }
+
+/**
+ * Ordena todas las zonas alfabéticamente por nombre (case-insensitive,
+ * respeta acentos/ñ vía localeCompare), reasigna `order` según la
+ * nueva posición, y lo guarda de una — no queda solo en memoria.
+ */
+async function sortZonasAlphabetically() {
+  ZONAS.sort((a, b) => a.name.localeCompare(b.name, 'es'));
+  renderZonasAdmin();
+  buildZonasDropdown();
+  await saveZonasOrder(ZONAS);
+  toast('✅ Zonas ordenadas alfabéticamente');
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PRESETS DE ORDEN — guardar el orden actual con un nombre, y
+   restaurar cualquiera de los guardados con un clic. Los controles
+   son opcionales en el HTML (`zona-preset-name`, `btn-zona-preset-save`,
+   `zona-preset-select`, `btn-zona-preset-load`) — todo acá es
+   defensivo, si no existen simplemente no se conecta nada.
+   ═══════════════════════════════════════════════════════════ */
+
+async function _refreshZonaPresetSelect() {
+  const select = document.getElementById('zona-preset-select');
+  if (!select) return; // el HTML todavía no tiene el selector — nada que hacer
+  const presets = await loadZonaOrderPresets();
+  select.innerHTML = '<option value="">— Elegir preset guardado —</option>' +
+    presets.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+}
+
+function _wireZonaPresetControls() {
+  const nameInput  = document.getElementById('zona-preset-name');
+  const btnSave    = document.getElementById('btn-zona-preset-save');
+  const select     = document.getElementById('zona-preset-select');
+  const btnLoad    = document.getElementById('btn-zona-preset-load');
+
+  if (btnSave && nameInput) {
+    btnSave.addEventListener('click', async () => {
+      const name = nameInput.value.trim();
+      if (!name) { toast('⚠️ Ponele un nombre al preset (ej: "Orden Principal")'); return; }
+      await saveZonaOrderPreset(name, ZONAS);
+      nameInput.value = '';
+      await _refreshZonaPresetSelect();
+      toast(`✅ Preset "${name}" guardado`);
+    });
+  }
+
+  if (btnLoad && select) {
+    btnLoad.addEventListener('click', async () => {
+      const id = select.value;
+      if (!id) { toast('⚠️ Elegí un preset de la lista'); return; }
+      const presets = await loadZonaOrderPresets();
+      const preset = presets.find(p => p.id === id);
+      if (!preset) return;
+
+      // Reordena ZONAS según el orden guardado en el preset. Si algún
+      // id del preset ya no existe (se borró esa zona después), se
+      // ignora sin romper; si aparece una zona NUEVA que no estaba en
+      // el preset, se agrega al final para no perderla de la lista.
+      const byId = new Map(ZONAS.map(z => [z.id, z]));
+      const reordered = preset.orderIds.map(id2 => byId.get(id2)).filter(Boolean);
+      const missing = ZONAS.filter(z => !preset.orderIds.includes(z.id));
+      ZONAS = [...reordered, ...missing];
+
+      renderZonasAdmin();
+      buildZonasDropdown();
+      await saveZonasOrder(ZONAS);
+      toast(`✅ Orden "${preset.name}" restaurado`);
+    });
+  }
+}
+
 
 window.toggleZona = function(id, btn) {
   const z = ZONAS.find(x => x.id === id);
@@ -370,6 +461,7 @@ function setupZonaDrag(list) {
       ZONAS.splice(ti,0,moved);
       renderZonasAdmin();
       buildZonasDropdown();
+      saveZonasOrder(ZONAS); // el arrastre queda guardado, no solo en memoria
     });
   });
 }
@@ -476,14 +568,27 @@ async function _initZonas() {
   } else {
     // Migración única: Firestore está vacío, se siembra con lo que
     // ya tenías hardcodeado y se guarda cada una de una vez.
-    ZONAS = ZONAS_SEED.map(z => ({ ...z, active: true, clicks: 0 }));
+    ZONAS = ZONAS_SEED.map((z, i) => ({ ...z, active: true, clicks: 0, order: i }));
     await Promise.all(ZONAS.map(z => saveZonaToFirestore(z)));
   }
 
   ZONAS.forEach(z => { if (z.active === undefined) z.active = true; });
+
+  // Orden: por el campo `order` si lo tiene. Migración silenciosa
+  // para zonas viejas que quedaron sin `order` (de antes de esta
+  // función) — se les asigna uno según su posición actual y se
+  // guarda, así la próxima carga ya viene ordenada sin este parche.
+  const sinOrder = ZONAS.some(z => typeof z.order !== 'number');
+  if (sinOrder) {
+    ZONAS.forEach((z, i) => { if (typeof z.order !== 'number') z.order = i; });
+    saveZonasOrder(ZONAS);
+  }
+  ZONAS.sort((a, b) => a.order - b.order);
+
   buildZonasDropdown();
 }
 _initZonas();
+_wireZonaPresetControls();
 
 /* === REGISTRO DE PESTAÑA ADMIN — dibuja la lista de zonas al abrir la pestaña === */
 SC.registerTabPlugin('zonas-admin', renderZonasAdmin);

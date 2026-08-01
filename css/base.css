@@ -398,12 +398,46 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   pointer-events: all;
 }
 #zonas-list-scroll {
-  overflow-y: auto;
+  /* ANTES: overflow-y:auto — en la mayoría de los navegadores/SO
+     modernos (scrollbars "overlay"), eso hace que la barra sea
+     invisible hasta que el usuario ya está scrolleando, así que no
+     era obvio que había más zonas abajo. overflow-y:scroll reserva
+     el espacio de la barra siempre, y se le da color de pista/thumb
+     no transparente para que se vea sin necesidad de interactuar. */
+  overflow-y: scroll;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
-  scrollbar-color: var(--border) transparent;
+  scrollbar-color: var(--border2) var(--surface2);
   flex: 1;
+  position: relative;
+}
+#zonas-list-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+#zonas-list-scroll::-webkit-scrollbar-track {
+  background: var(--surface2);
+}
+#zonas-list-scroll::-webkit-scrollbar-thumb {
+  background: var(--border2);
+  border-radius: 999px;
+}
+/* Refuerzo visual adicional, independiente de si el navegador del
+   usuario decide mostrar la scrollbar nativa o no: un degradado
+   suave pegado abajo del contenedor que insinúa "hay más contenido"
+   sin necesitar JS. Se apoya en background-attachment:local, que
+   hace que el degradado se "esconda" solo automáticamente cuando ya
+   se llegó al final del scroll (truco CSS clásico, sin JS). */
+#zonas-list-scroll {
+  background:
+    linear-gradient(var(--surface) 30%, rgba(255,255,255,0)),
+    linear-gradient(rgba(255,255,255,0), var(--surface) 70%) 0 100%,
+    radial-gradient(farthest-side at 50% 0, rgba(26,46,26,.10), rgba(26,46,26,0)),
+    radial-gradient(farthest-side at 50% 100%, rgba(26,46,26,.10), rgba(26,46,26,0)) 0 100%;
+  background-repeat: no-repeat;
+  background-color: var(--surface);
+  background-size: 100% 24px, 100% 24px, 100% 10px, 100% 10px;
+  background-attachment: local, local, scroll, scroll;
 }
 .zd-header {
   padding: 12px 18px 10px;
