@@ -287,3 +287,75 @@ async function deleteZonaOrderPreset(id) {
   }
 }
 
+/* ═══════════════════════════════════════════
+   PRESETS DE TIPOGRAFÍA — cada preset define color/tipografía/tamaño
+   para 3 niveles (título, título de sección, texto) y tiene "scopes"
+   (a qué partes de la app aplica: "pines", "zonas", o ambos).
+   ---------------------------------------------------------------
+   REGLA DE EXCLUSIVIDAD: un scope solo puede estar "en manos" de UN
+   preset a la vez — así nunca hay ambigüedad sobre qué preset manda
+   en "pines" o en "zonas". Guardar un preset con un scope se lo saca
+   automáticamente a cualquier otro preset que lo tuviera (no lo
+   borra, solo deja de aplicar ahí).
+═══════════════════════════════════════════ */
+
+/**
+ * Guarda (crea o edita) un preset de tipografía, aplicando la regla
+ * de exclusividad de scope contra el resto de los presets existentes.
+ * @param {{id:string, name:string, scopes:string[], levels:Object}} preset
+ */
+async function saveTypographyPreset(preset) {
+  try {
+    const { id, ...data } = preset;
+    const scopes = data.scopes || [];
+
+    const batch = db.batch();
+
+    if (scopes.length) {
+      const snapshot = await db.collection('typography-presets').get();
+      snapshot.forEach(doc => {
+        if (doc.id === id) return; // no tocar el propio preset acá, va aparte abajo
+        const other = doc.data();
+        const otherScopes = other.scopes || [];
+        const cleaned = otherScopes.filter(s => !scopes.includes(s));
+        if (cleaned.length !== otherScopes.length) {
+          batch.set(db.collection('typography-presets').doc(doc.id), { scopes: cleaned }, { merge: true });
+        }
+      });
+    }
+
+    batch.set(db.collection('typography-presets').doc(id), data, { merge: false });
+    await batch.commit();
+    return true;
+  } catch (err) {
+    console.error('Error guardando preset de tipografía:', err);
+    toast('⚠️ No se guardó el preset de tipografía.');
+    return false;
+  }
+}
+
+/** Trae todos los presets de tipografía guardados. */
+async function loadTypographyPresets() {
+  try {
+    const snapshot = await db.collection('typography-presets').get();
+    const presets = [];
+    snapshot.forEach(doc => presets.push({ id: doc.id, ...doc.data() }));
+    return presets;
+  } catch (err) {
+    console.error('Error cargando presets de tipografía:', err);
+    return [];
+  }
+}
+
+/** Borra un preset de tipografía (no afecta a otros presets). */
+async function deleteTypographyPreset(id) {
+  try {
+    await db.collection('typography-presets').doc(id).delete();
+    return true;
+  } catch (err) {
+    console.error('Error borrando preset de tipografía:', err);
+    toast('⚠️ No se pudo borrar el preset.');
+    return false;
+  }
+}
+

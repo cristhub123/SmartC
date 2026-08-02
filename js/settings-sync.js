@@ -48,3 +48,29 @@ async function loadMapSettings() {
     console.warn('No se pudo cargar el estilo del mapa guardado (se usan valores por defecto):', err);
   }
 }
+
+/* === TIPOGRAFÍA — lista de fuentes extra de Google Fonts que el
+   admin fue agregando (hasta 8), para que se carguen automáticamente
+   en cada visita, a todos los usuarios, sin depender de que alguien
+   vuelva a tocar el panel. Mismo esquema que appearance/mapstyle:
+   un solo documento con el dato completo. === */
+async function saveTypographyFonts(fontsArray) {
+  try {
+    await db.collection('settings').doc('typography-fonts').set({ fonts: fontsArray });
+    return true;
+  } catch (err) {
+    console.error('No se pudo guardar la lista de fuentes:', err);
+    toast('⚠️ No se guardó la lista de fuentes. ¿Iniciaste sesión?');
+    return false;
+  }
+}
+
+async function loadTypographyFonts() {
+  try {
+    const doc = await db.collection('settings').doc('typography-fonts').get();
+    return (doc.exists && Array.isArray(doc.data().fonts)) ? doc.data().fonts : [];
+  } catch (err) {
+    console.warn('No se pudo cargar la lista de fuentes guardada:', err);
+    return [];
+  }
+}
