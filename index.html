@@ -139,6 +139,7 @@
     <div class="atab"     data-t="cats">🏷 Categ.</div>
     <div class="atab"     data-t="groups">📦 Grupos</div>
     <div class="atab"     data-t="temas-admin">🎭 Temas</div>
+    <div class="atab"     data-t="typography">🔤 Tipografía</div>
     <div class="atab"     data-t="funciones-admin">🔧 Funciones</div>
     <div class="atab"     data-t="import-content">📥 Importar</div>
     <div class="atab"     data-t="edit" id="tab-edit-btn" style="display:none">✏️ Editando</div>
@@ -563,6 +564,107 @@
       <button class="btn-primary" id="btn-save-nightmode" style="margin-top:6px">✓ Guardar configuración día/noche</button>
     </div>
 
+    <!-- TIPOGRAFÍA Y ESTILOS — 3 niveles (título / título de sección /
+         texto), con presets por alcance (pines / zonas) y fuentes
+         extra cargables por el propio admin -->
+    <div class="tpane" id="tp-typography">
+      <p style="font-size:12px;color:var(--text3);margin-bottom:12px">
+        Definí color, tipografía y tamaño para 3 niveles de texto, y elegí
+        a qué parte de la app aplica cada preset (Pines, Zonas, o ambos).
+        Un preset guardado con un alcance se lo saca automáticamente a
+        cualquier otro preset que lo tuviera — nunca hay dos presets
+        controlando lo mismo a la vez.
+      </p>
+
+      <div class="divider"><span>FUENTES DISPONIBLES</span></div>
+      <p style="font-size:11px;color:var(--text3);margin-bottom:8px">
+        Sora, Nunito y JetBrains Mono ya vienen cargadas con la página, sin costo
+        extra. Podés sumar hasta 8 fuentes más de Google Fonts vos mismo,
+        sin tener que pedírmelo.
+      </p>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <input class="fi" id="typo-font-new" type="text" placeholder="Nombre exacto de la fuente en Google Fonts (ej: Poppins)" style="flex:1">
+        <button class="ibtn" id="btn-typo-font-add" style="flex:0 0 auto">➕ Agregar</button>
+      </div>
+      <div id="typo-fonts-list" style="margin-bottom:16px"></div>
+
+      <div class="divider"><span>PRESET A EDITAR</span></div>
+      <div class="fg">
+        <label class="fl">Elegir preset existente (o dejar en "Nuevo" para crear uno)</label>
+        <select class="fi" id="typo-preset-select"></select>
+      </div>
+      <div class="fg">
+        <label class="fl">Nombre del preset</label>
+        <input class="fi" id="typo-preset-name" type="text" placeholder="Ej: Elegante, Compacto móvil...">
+      </div>
+      <div class="fg">
+        <label class="fl">¿A qué aplica este preset?</label>
+        <div style="display:flex;gap:16px">
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px">
+            <input type="checkbox" id="typo-scope-pines"> Pines
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px">
+            <input type="checkbox" id="typo-scope-zonas"> Zonas
+          </label>
+        </div>
+      </div>
+
+      <div class="divider"><span>NIVEL 1 — NOMBRE PRINCIPAL</span></div>
+      <div class="fg">
+        <label class="fl">Tipografía</label>
+        <select class="fi" id="typo-title-font"></select>
+      </div>
+      <div class="fg">
+        <label class="fl">Tamaño <span id="typo-title-size-val" style="color:var(--text3)">24px</span></label>
+        <input class="fi" id="typo-title-size" type="range" min="14" max="48" value="24">
+      </div>
+      <div class="fg" style="display:flex;gap:8px;align-items:flex-end">
+        <div>
+          <label class="fl">Color</label>
+          <input id="typo-title-color" type="color" value="#0f172a" style="width:44px;height:36px;padding:2px;border:1px solid var(--border);border-radius:8px">
+        </div>
+        <input class="fi" id="typo-title-hex" type="text" placeholder="#0f172a" maxlength="7" style="width:100px">
+      </div>
+
+      <div class="divider"><span>NIVEL 2 — TÍTULO DE SECCIÓN INTERNA</span></div>
+      <p style="font-size:11px;color:var(--text3);margin-bottom:8px">Ej: "Dato curioso", "Historia", "Ideal para"...</p>
+      <div class="fg">
+        <label class="fl">Tipografía</label>
+        <select class="fi" id="typo-section-font"></select>
+      </div>
+      <div class="fg">
+        <label class="fl">Tamaño <span id="typo-section-size-val" style="color:var(--text3)">12px</span></label>
+        <input class="fi" id="typo-section-size" type="range" min="9" max="24" value="12">
+      </div>
+      <div class="fg" style="display:flex;gap:8px;align-items:flex-end">
+        <div>
+          <label class="fl">Color</label>
+          <input id="typo-section-color" type="color" value="#94a3b8" style="width:44px;height:36px;padding:2px;border:1px solid var(--border);border-radius:8px">
+        </div>
+        <input class="fi" id="typo-section-hex" type="text" placeholder="#94a3b8" maxlength="7" style="width:100px">
+      </div>
+
+      <div class="divider"><span>NIVEL 3 — TEXTO DE CONTENIDO</span></div>
+      <div class="fg">
+        <label class="fl">Tipografía</label>
+        <select class="fi" id="typo-body-font"></select>
+      </div>
+      <div class="fg">
+        <label class="fl">Tamaño <span id="typo-body-size-val" style="color:var(--text3)">14px</span></label>
+        <input class="fi" id="typo-body-size" type="range" min="11" max="22" value="14">
+      </div>
+      <div class="fg" style="display:flex;gap:8px;align-items:flex-end">
+        <div>
+          <label class="fl">Color</label>
+          <input id="typo-body-color" type="color" value="#334155" style="width:44px;height:36px;padding:2px;border:1px solid var(--border);border-radius:8px">
+        </div>
+        <input class="fi" id="typo-body-hex" type="text" placeholder="#334155" maxlength="7" style="width:100px">
+      </div>
+
+      <button class="btn-primary" id="btn-typo-save" style="margin-top:16px">💾 Guardar cambios</button>
+      <button class="btn-outline" id="btn-typo-delete" style="margin-top:8px">🗑 Borrar este preset</button>
+    </div>
+
     <!-- FUNCIONES — interruptores on/off por feature -->
     <div class="tpane" id="tp-funciones-admin">
       <p style="font-size:12px;color:var(--text3);margin-bottom:12px">
@@ -967,6 +1069,7 @@
   <!-- 6. Admin sub-panels (use registerTabPlugin) -->
   <script src="js/admin-global.js" defer></script>
   <script src="js/themes.js" defer></script>
+  <script src="js/typography.js" defer></script>
   <script src="js/features.js" defer></script>
   <script src="js/content-import.js" defer></script>
   <script src="js/roadmap.js" defer></script>
