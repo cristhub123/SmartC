@@ -518,8 +518,10 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   display: flex; align-items: flex-start; justify-content: space-between; gap: 10px;
 }
 .zp-name {
-  font-family: var(--font-d);
-  font-size: 26px; font-weight: 800; letter-spacing: -.3px; line-height: 1;
+  font-family: var(--zonas-title-font, var(--font-d));
+  font-size: clamp(18px, var(--zonas-title-size, 26px), 40px);
+  color: var(--zonas-title-color, inherit);
+  font-weight: 800; letter-spacing: -.3px; line-height: 1;
 }
 .zp-body { padding: 16px 20px 22px; }
 
@@ -536,9 +538,15 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   margin-bottom: 9px; font-size: 13px;
 }
 .zp-attr-label {
-  font-weight: 700; color: var(--text); min-width: 110px; flex-shrink: 0;
+  font-family: var(--zonas-section-font, inherit);
+  font-size: clamp(9px, var(--zonas-section-size, 13px), 20px);
+  font-weight: 700; color: var(--zonas-section-color, var(--text)); min-width: 110px; flex-shrink: 0;
 }
-.zp-attr-val { color: var(--text2); line-height: 1.5; }
+.zp-attr-val {
+  font-family: var(--zonas-body-font, inherit);
+  font-size: clamp(11px, var(--zonas-body-size, 13px), 22px);
+  color: var(--zonas-body-color, var(--text2)); line-height: 1.5;
+}
 
 .zp-go-btn {
   width: 100%; margin-top: 16px;
