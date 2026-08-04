@@ -228,6 +228,16 @@
           ⬆ Importar JSON
         </div>
       </div>
+
+      <div class="divider" style="margin-top:14px"><span>CREAR LUGARES DESDE LISTA DE PREFIJOS</span></div>
+      <p style="font-size:11px;color:var(--text3);margin-bottom:8px">
+        Pegá los nombres separados por coma. Se crea un lugar por cada uno,
+        desactivado y sin datos todavía — los completás después entrando a
+        cada uno. Usa la Ubicación Activa de la pestaña 🌎 Ubicaciones.
+      </p>
+      <textarea class="fi" id="bulk-prefix-list" rows="3" placeholder="cabildo, torre-angela, plaza-espana, ..." style="width:100%;resize:vertical;margin-bottom:8px"></textarea>
+      <button class="btn-primary" id="btn-bulk-create" style="width:100%;margin-bottom:14px">📁 Crear pines desde la lista</button>
+
       <div class="import-warning" id="import-warning">
         ⚠️ Esto va a <strong>reemplazar</strong> todos los lugares actuales.<br>
         <button id="import-confirm" style="margin-top:6px;background:var(--accent);color:white;border:none;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:600;cursor:pointer">Confirmar importación</button>
