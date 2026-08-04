@@ -130,9 +130,12 @@ async function saveNew() {
   const lng  = parseFloat(document.getElementById('a-lng').value);
   const address = document.getElementById('a-address')?.value.trim() || '';
 
-  if (!name)             { toast('⚠️ Ingresá el nombre del lugar'); return; }
-  if (!cats.length)      { toast('⚠️ Seleccioná al menos una categoría'); return; }
-  if (isNaN(lat)||isNaN(lng)) { toast('⚠️ Falta la ubicación en el mapa'); return; }
+  // ANTES: exigía nombre + categoría + coordenadas juntos para poder
+  // guardar. Se relaja a solo el nombre — mismo criterio que ya usa
+  // saveEdit() (que nunca exigió categoría ni coordenadas). Así se
+  // puede crear un lugar "cascarón" y completar el resto después,
+  // sin que el guardado se trabe por datos que todavía no tenés.
+  if (!name) { toast('⚠️ Ingresá el nombre del lugar'); return; }
 
   const mainCat = cats[0];
   const allCatsFn = typeof getAllCats === 'function' ? getAllCats() : CAT;
@@ -195,6 +198,84 @@ async function saveNew() {
   const clone = btn.cloneNode(true);
   btn.parentNode.replaceChild(clone, btn);
   clone.addEventListener('click', saveNew);
+})();
+
+/* ═══════════════════════════════════════════════════════════
+   CREACIÓN MASIVA DE PINES-CASCARÓN (Entrega 2 del plan multi-ciudad)
+   ---------------------------------------------------------------
+   A partir de una lista de prefijos (separados por coma) y de la
+   Ubicación Activa definida en la pestaña "Ubicaciones" (Entrega 1),
+   crea un pin por cada prefijo único — todos incompletos a propósito
+   (sin categoría, sin coordenadas, sin imagen) y DESACTIVADOS
+   (`active:false`), para completarlos uno por uno después sin que
+   nada se le muestre al público mientras tanto.
+   ═══════════════════════════════════════════════════════════ */
+
+async function createShellPinsFromPrefixList() {
+  const textarea = document.getElementById('bulk-prefix-list');
+  if (!textarea) return;
+
+  if (!window.ACTIVE_LOCATION || !window.ACTIVE_LOCATION.countryCode) {
+    toast('⚠️ Primero elegí y guardá una Ubicación Activa en la pestaña Ubicaciones');
+    return;
+  }
+
+  const raw = textarea.value || '';
+  const prefixes = [...new Set(raw.split(',').map(s => s.trim()).filter(Boolean))];
+  if (!prefixes.length) {
+    toast('⚠️ Pegá al menos un nombre de lugar, separados por coma');
+    return;
+  }
+
+  const btn = document.getElementById('btn-bulk-create');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Creando...'; }
+
+  let created = 0, skipped = 0;
+  for (const rawSlug of prefixes) {
+    const slug = slugify(rawSlug);
+    if (!slug) { skipped++; continue; }
+    if (POIS.some(p => p.id === slug)) { skipped++; continue; } // ya existe, no se pisa
+
+    const p = {
+      id: slug,
+      name: rawSlug,          // nombre provisorio — se prolija después al editar
+      category: '', categories: [], categoryLabel: '',
+      icon: '📍',
+      lat: null, lng: null,   // sin ubicación todavía — admin.js ya sabe mostrar
+                               // el aviso "📍 Falta ubicación" para este caso
+      country:  window.ACTIVE_LOCATION.countryCode,
+      province: window.ACTIVE_LOCATION.provinceCode,
+      city:     window.ACTIVE_LOCATION.cityCode,
+      imgB64: null, imgAlt1: null, imgAlt2: null, imgAlt3: null,
+      pinScale: 100, pinOffsetX: 0, pinOffsetY: 0,
+      desc: '', hist: '', soc: [], tags: [],
+      phone: '', hours: '',
+      events: [], iconCyber:'🔵', iconWinter:'❄️', iconZombie:'☣️',
+      active: false, // nace apagado: el público no ve nada hasta que lo actives a mano
+    };
+
+    const ok = await savePoiToFirestore(p);
+    if (ok) {
+      POIS.push(p);
+      created++;
+      // OJO: no se llama a makeMarker(p) acá — todavía no tiene
+      // lat/lng válidos, Leaflet no puede dibujar un pin sin
+      // coordenadas. El marcador se crea solo cuando se edite el
+      // pin con una ubicación real y se guarde (ver saveEdit).
+    } else {
+      skipped++;
+    }
+  }
+
+  if (btn) { btn.disabled = false; btn.textContent = '📁 Crear pines desde la lista'; }
+  textarea.value = '';
+  renderList();
+  toast(`✅ ${created} lugar(es) creado(s)` + (skipped ? `, ${skipped} omitido(s) (ya existían o nombre inválido)` : ''));
+}
+
+(function wireBulkCreateBtn() {
+  const btn = document.getElementById('btn-bulk-create');
+  if (btn) btn.addEventListener('click', createShellPinsFromPrefixList);
 })();
 
 /* ═══════════════════════════════════════════════════════════
