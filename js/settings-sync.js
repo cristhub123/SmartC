@@ -74,3 +74,57 @@ async function loadTypographyFonts() {
     return [];
   }
 }
+
+/* === UBICACIONES (Entrega 1) ===
+   "Contexto activo": qué país/provincia/ciudad/subcarpeta quedaron
+   seleccionados en la pestaña Ubicaciones — se guarda para que
+   sobreviva un F5 y para que la Entrega 2 (creación masiva de pines)
+   sepa en qué carpeta de Cloudinary buscar sin tener que volver a
+   elegirlo cada vez. Mismo esquema de un solo documento que
+   appearance/mapstyle/typography-fonts. */
+async function saveActiveLocationContext(context) {
+  try {
+    await db.collection('settings').doc('active-location').set(context);
+    return true;
+  } catch (err) {
+    console.error('No se pudo guardar el contexto de ubicación activo:', err);
+    toast('⚠️ No se guardó la ubicación activa. ¿Iniciaste sesión?');
+    return false;
+  }
+}
+
+async function loadActiveLocationContext() {
+  try {
+    const doc = await db.collection('settings').doc('active-location').get();
+    return doc.exists ? doc.data() : null;
+  } catch (err) {
+    console.warn('No se pudo cargar el contexto de ubicación activo guardado:', err);
+    return null;
+  }
+}
+
+/* Tipos de subcarpeta dentro de cada ciudad (hoy "images", mañana
+   "sounds" y lo que haga falta) — lista simple, mismo patrón que las
+   fuentes extra de tipografía. */
+async function saveSubfolderTypes(typesArray) {
+  try {
+    await db.collection('settings').doc('subfolder-types').set({ types: typesArray });
+    return true;
+  } catch (err) {
+    console.error('No se pudo guardar la lista de tipos de subcarpeta:', err);
+    toast('⚠️ No se guardaron los tipos de subcarpeta. ¿Iniciaste sesión?');
+    return false;
+  }
+}
+
+async function loadSubfolderTypes() {
+  try {
+    const doc = await db.collection('settings').doc('subfolder-types').get();
+    return (doc.exists && Array.isArray(doc.data().types) && doc.data().types.length)
+      ? doc.data().types
+      : ['images'];
+  } catch (err) {
+    console.warn('No se pudo cargar la lista de tipos de subcarpeta guardada (se usa "images" por defecto):', err);
+    return ['images'];
+  }
+}

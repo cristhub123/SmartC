@@ -359,3 +359,61 @@ async function deleteTypographyPreset(id) {
   }
 }
 
+/* ═══════════════════════════════════════════
+   UBICACIONES (Entrega 1 del plan multi-ciudad) — cada combinación
+   país/provincia/ciudad que el admin declara queda guardada de forma
+   permanente en la colección "locations", para poder elegirla del
+   dropdown de 3 niveles cuantas veces haga falta sin volver a
+   tipearla. El ID del documento se arma con los 3 códigos, ej.
+   "arg__p-cba__c-cba" (doble guion bajo para no confundir con los
+   guiones que ya usan los códigos como p-cba).
+═══════════════════════════════════════════ */
+
+function _locationDocId(countryCode, provinceCode, cityCode) {
+  return `${countryCode}__${provinceCode}__${cityCode}`;
+}
+
+/**
+ * Guarda (crea) una ubicación. Si ya existe exactamente esa
+ * combinación de códigos, la sobreescribe (por si cambiaste una
+ * etiqueta) en vez de duplicarla.
+ * @param {{countryCode,countryLabel,provinceCode,provinceLabel,cityCode,cityLabel}} loc
+ */
+async function saveLocation(loc) {
+  try {
+    const id = _locationDocId(loc.countryCode, loc.provinceCode, loc.cityCode);
+    await db.collection('locations').doc(id).set(loc, { merge: false });
+    return true;
+  } catch (err) {
+    console.error('Error guardando la ubicación:', err);
+    toast('⚠️ No se guardó la ubicación en la base de datos.');
+    return false;
+  }
+}
+
+/** Trae todas las ubicaciones guardadas. */
+async function loadLocations() {
+  try {
+    const snapshot = await db.collection('locations').get();
+    const locations = [];
+    snapshot.forEach(doc => locations.push({ id: doc.id, ...doc.data() }));
+    return locations;
+  } catch (err) {
+    console.error('Error cargando ubicaciones:', err);
+    toast('⚠️ No se pudieron cargar las ubicaciones. Revisá tu conexión.');
+    return [];
+  }
+}
+
+/** Borra una ubicación guardada (por si hay que corregir un error de tipeo). */
+async function deleteLocation(id) {
+  try {
+    await db.collection('locations').doc(id).delete();
+    return true;
+  } catch (err) {
+    console.error('Error borrando la ubicación:', err);
+    toast('⚠️ No se pudo borrar la ubicación.');
+    return false;
+  }
+}
+

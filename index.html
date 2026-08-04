@@ -130,6 +130,7 @@
     <button class="btn-x" id="admin-close">✕</button>
   </div>
   <div class="admin-tabs" data-scroll-hint="horizontal" style="overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;">
+    <div class="atab"     data-t="locations">🌎 Ubicaciones</div>
     <div class="atab on"  data-t="list">📋 Lugares</div>
     <div class="atab"     data-t="add">➕ Nuevo</div>
     <div class="atab"     data-t="global">🎨 Global</div>
@@ -145,6 +146,78 @@
     <div class="atab"     data-t="edit" id="tab-edit-btn" style="display:none">✏️ Editando</div>
   </div>
   <div class="admin-body" data-scroll-hint>
+
+    <!-- UBICACIONES (Entrega 1 del plan multi-ciudad) -->
+    <div class="tpane" id="tp-locations">
+      <p style="font-size:12px;color:var(--text3);margin-bottom:12px">
+        Declarás las combinaciones país/provincia/ciudad que vayas a usar,
+        y elegís cuál queda activa — esa va a ser la carpeta de Cloudinary
+        donde trabaje todo lo que hagas de acá en más.
+      </p>
+
+      <div class="divider"><span>CREAR NUEVA UBICACIÓN</span></div>
+      <div class="frow">
+        <div>
+          <label class="fl">Código país</label>
+          <input class="fi" id="loc-country-code" type="text" placeholder="arg">
+        </div>
+        <div>
+          <label class="fl">Nombre país</label>
+          <input class="fi" id="loc-country-label" type="text" placeholder="Argentina">
+        </div>
+      </div>
+      <div class="frow" style="margin-top:8px">
+        <div>
+          <label class="fl">Código provincia</label>
+          <input class="fi" id="loc-province-code" type="text" placeholder="p-cba">
+        </div>
+        <div>
+          <label class="fl">Nombre provincia</label>
+          <input class="fi" id="loc-province-label" type="text" placeholder="Córdoba">
+        </div>
+      </div>
+      <div class="frow" style="margin-top:8px">
+        <div>
+          <label class="fl">Código ciudad</label>
+          <input class="fi" id="loc-city-code" type="text" placeholder="c-cba">
+        </div>
+        <div>
+          <label class="fl">Nombre ciudad</label>
+          <input class="fi" id="loc-city-label" type="text" placeholder="Córdoba Capital">
+        </div>
+      </div>
+      <button class="ibtn" id="btn-loc-save-new" style="width:100%;margin-top:10px">➕ Guardar ubicación nueva</button>
+
+      <div class="divider" style="margin-top:16px"><span>UBICACIONES GUARDADAS</span></div>
+      <div id="locations-list"></div>
+
+      <div class="divider" style="margin-top:16px"><span>UBICACIÓN ACTIVA</span></div>
+      <div class="fg">
+        <label class="fl">País</label>
+        <select class="fi" id="loc-select-country"></select>
+      </div>
+      <div class="fg">
+        <label class="fl">Provincia</label>
+        <select class="fi" id="loc-select-province"></select>
+      </div>
+      <div class="fg">
+        <label class="fl">Ciudad</label>
+        <select class="fi" id="loc-select-city"></select>
+      </div>
+
+      <div class="fg">
+        <label class="fl">Tipo de carpeta</label>
+        <select class="fi" id="loc-select-subfolder"></select>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <input class="fi" id="loc-new-subfolder" type="text" placeholder="Nuevo tipo (ej: sounds)" style="flex:1">
+        <button class="ibtn" id="btn-loc-add-subfolder" style="flex:0 0 auto">➕ Agregar</button>
+      </div>
+
+      <div class="coord-display" id="loc-active-preview" style="margin-bottom:12px">Elegí país, provincia y ciudad para ver la ruta.</div>
+
+      <button class="btn-primary" id="btn-loc-save" style="width:100%">💾 Guardar cambios</button>
+    </div>
 
     <!-- LIST -->
     <div class="tpane on" id="tp-list">
@@ -1070,6 +1143,7 @@
   <script src="js/admin-global.js" defer></script>
   <script src="js/themes.js" defer></script>
   <script src="js/typography.js" defer></script>
+  <script src="js/locations.js" defer></script>
   <script src="js/features.js" defer></script>
   <script src="js/content-import.js" defer></script>
   <script src="js/roadmap.js" defer></script>

@@ -24,11 +24,26 @@ function cloudinaryImageUrl(slug, { suffix = '', w, h } = {}) {
    1) si el lugar ya tiene imgB64 guardado a mano → se respeta tal cual
    2) si no, se arma la cadena completa de respaldo (ver utils.js) */
 function resolvePinImageUrl(poi) {
-  if (poi.imgB64) return [poi.imgB64];
+  // ANTES: esta rama devolvía `poi.imgB64` tal cual, sin ningún recorte
+  // de tamaño — como casi todos los lugares ya tienen `imgB64` seteado
+  // (es la URL real de Cloudinary desde la corrección de utils.js, ver
+  // notas del proyecto), el pin del mapa terminaba pidiendo siempre la
+  // foto en su resolución original. Con 2 lugares no se nota; con 100+
+  // sería un problema real de rendimiento. Ahora se le aplica el mismo
+  // recorte 150x150 que a la cadena de respaldo, con c_fill,g_auto
+  // (recorte inteligente a cuadrado, en vez de solo escalar) — y se
+  // chequea que sea una URL de Cloudinary antes de tocarla, para no
+  // romper el caso de una URL externa que no soporte transformaciones.
+  if (poi.imgB64) {
+    const url = poi.imgB64.includes('res.cloudinary.com')
+      ? poi.imgB64.replace('/image/upload/', '/image/upload/c_fill,g_auto,w_150,h_150/')
+      : poi.imgB64;
+    return [url];
+  }
   return buildImageFallbackChain(poi, { forMap: true }).map(url =>
     // La cadena base de utils.js no trae tamaño — acá se agrega
-    // el recorte de 200x200 solo a las URLs calculadas por fórmula.
-    url.replace('/image/upload/', '/image/upload/c_scale,w_200,h_200/')
+    // el recorte de 150x150 solo a las URLs calculadas por fórmula.
+    url.replace('/image/upload/', '/image/upload/c_fill,g_auto,w_150,h_150/')
   );
 }
 
