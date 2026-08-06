@@ -63,12 +63,15 @@ async function saveEdit() {
   const cats = (typeof getSelectedCats === 'function') ? getSelectedCats('cat-chips-edit') : [document.getElementById('e-cat')?.value].filter(Boolean);
   const lat  = parseFloat(document.getElementById('e-lat').value);
   const lng  = parseFloat(document.getElementById('e-lng').value);
-  if (!name)        { toast('⚠️ El nombre no puede estar vacío'); return; }
-  if (!cats.length) { toast('⚠️ Seleccioná al menos una categoría'); return; }
+  if (!name) { toast('⚠️ El nombre no puede estar vacío'); return; }
+  // ANTES: acá también se exigía al menos 1 categoría. Se relaja
+  // (igual que en saveNew) para que un pin creado por importación
+  // masiva — que todavía no tiene categoría asignada — se pueda
+  // seguir editando y guardando sin trabarse.
 
-  const mainCat = cats[0];
+  const mainCat = cats[0] || '';
   const allCatsFn = typeof getAllCats === 'function' ? getAllCats() : CAT;
-  const cfg = allCatsFn[mainCat] || {label: (mainCat||'').toUpperCase()};
+  const cfg = mainCat ? (allCatsFn[mainCat] || {label: mainCat.toUpperCase()}) : {label: ''};
 
   const updated = {
     ...POIS[idx], name,
@@ -87,6 +90,7 @@ async function saveEdit() {
     pinOffsetY: _eOffY  ? parseInt(_eOffY.value)   : (POIS[idx].pinOffsetY ?? 0),
     desc:      document.getElementById('e-desc').value.trim(),
     hist:      document.getElementById('e-hist').value.trim() || 'Sin datos históricos.',
+    attrs:     _readPinAttrsFromForm('e-attrs-wrap').filter(a => a.l.trim()),
     soc:       document.getElementById('e-soc').value.split(',').map(s=>s.trim()).filter(Boolean),
     tags:      document.getElementById('e-tags').value.split(',').map(s=>s.trim()).filter(Boolean),
     phone:     (document.getElementById('e-phone')||{value:''}).value.trim(),
@@ -144,12 +148,21 @@ async function saveNew() {
   // El ID del lugar es su slug (lugar-ciudad) — el mismo identificador
   // que se usa para nombrar las imágenes en Cloudinary. Así todo queda
   // conectado por un único dato, sin contadores artificiales.
-  const slug = `${slugify(name)}-cordoba`;
+  // ANTES: el sufijo de ciudad era "-cordoba" fijo, sin importar la
+  // Ubicación Activa — con multi-ciudad eso generaba slugs incorrectos
+  // para cualquier lugar que no fuera de Córdoba. Ahora usa el código
+  // de la ciudad activa (Entrega 1); si por algún motivo no hay
+  // ninguna elegida, cae al slug simple, sin sufijo inventado.
+  const cityCode = (window.ACTIVE_LOCATION && window.ACTIVE_LOCATION.cityCode) || '';
+  const slug = cityCode ? `${slugify(name)}-${cityCode}` : slugify(name);
 
   const p = {
     id: slug, name,
     category: mainCat, categories: cats, categoryLabel: cfg.label,
     icon: addEmoji, lat, lng, address,
+    country:  (window.ACTIVE_LOCATION && window.ACTIVE_LOCATION.countryCode)  || '',
+    province: (window.ACTIVE_LOCATION && window.ACTIVE_LOCATION.provinceCode) || '',
+    city:     (window.ACTIVE_LOCATION && window.ACTIVE_LOCATION.cityCode)     || '',
     imgB64:  window._addImgB64  || null,
     imgAlt1: window._addImgAlt1 || null,
     imgAlt2: window._addImgAlt2 || null,
@@ -157,6 +170,7 @@ async function saveNew() {
     pinScale: 100, pinOffsetX: 0, pinOffsetY: 0,
     desc:  document.getElementById('a-desc').value.trim(),
     hist:  document.getElementById('a-hist').value.trim() || 'Sin datos históricos.',
+    attrs: _readPinAttrsFromForm('a-attrs-wrap').filter(a => a.l.trim()),
     soc:   document.getElementById('a-soc').value.split(',').map(s=>s.trim()).filter(Boolean),
     tags:  document.getElementById('a-tags').value.split(',').map(s=>s.trim()).filter(Boolean),
     phone: (document.getElementById('a-phone')||{value:''}).value.trim(),
@@ -279,6 +293,85 @@ async function createShellPinsFromPrefixList() {
 })();
 
 /* ═══════════════════════════════════════════════════════════
+   CAMPOS DE INFORMACIÓN LIBRES POR PIN — mismo concepto exacto que
+   ya existe para zonas (_renderZonaAttrsEditor en zones.js): título
+   y texto arbitrarios, cantidad libre, con "🗑" para quitar y
+   "➕ Agregar campo" para sumar uno nuevo en blanco. Se separó como
+   función genérica (recibe el id del contenedor) porque acá hace
+   falta en DOS formularios (Agregar y Editar), no en uno solo.
+   ═══════════════════════════════════════════════════════════ */
+
+/**
+ * Lee del formulario los pares [título, texto] tal como están ahora
+ * en pantalla (incluye filas vacías — el filtrado se hace al guardar).
+ * @param {string} wrapId - 'a-attrs-wrap' o 'e-attrs-wrap'
+ * @returns {Array<{l:string, v:string}>}
+ */
+function _readPinAttrsFromForm(wrapId) {
+  const prefix = wrapId === 'a-attrs-wrap' ? 'a-al-' : 'e-al-';
+  const vprefix = wrapId === 'a-attrs-wrap' ? 'a-av-' : 'e-av-';
+  const count = document.querySelectorAll(`[id^="${prefix}"]`).length;
+  const attrs = [];
+  for (let i = 0; i < count; i++) {
+    const l = document.getElementById(`${prefix}${i}`)?.value ?? '';
+    const v = document.getElementById(`${vprefix}${i}`)?.value ?? '';
+    attrs.push({ l, v });
+  }
+  return attrs;
+}
+
+/**
+ * Dibuja el editor de campos de información dentro de `wrapId`
+ * ('a-attrs-wrap' o 'e-attrs-wrap'), con sus filas + botón de
+ * agregar. Misma lógica que `_renderZonaAttrsEditor` de zones.js,
+ * adaptada para poder usarse en los dos formularios de pin.
+ * @param {string} wrapId
+ * @param {Array<{l:string, v:string}>} attrs
+ */
+function _renderPinAttrsEditor(wrapId, attrs) {
+  const wrap = document.getElementById(wrapId);
+  if (!wrap) return;
+  const labelPrefix = wrapId === 'a-attrs-wrap' ? 'a-al-' : 'e-al-';
+  const valuePrefix = wrapId === 'a-attrs-wrap' ? 'a-av-' : 'e-av-';
+  const addBtnId = wrapId === 'a-attrs-wrap' ? 'btn-add-a-attr' : 'btn-add-e-attr';
+
+  wrap.innerHTML = (attrs || []).map((a, i) => `
+    <div style="display:flex;gap:7px;margin-bottom:7px;align-items:center">
+      <input class="fi" style="flex:0 0 110px;font-size:12px" value="${a.l || ''}" id="${labelPrefix}${i}" placeholder="Título (ej: Dato curioso)">
+      <input class="fi" style="flex:1;font-size:12px" value="${a.v || ''}" id="${valuePrefix}${i}" placeholder="Texto">
+      <button type="button" class="ibtn" data-remove-pin-attr="${i}" data-wrap="${wrapId}" title="Quitar este campo" style="flex:0 0 auto;padding:6px 9px;">🗑</button>
+    </div>`).join('');
+
+  wrap.querySelectorAll('[data-remove-pin-attr]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const current = _readPinAttrsFromForm(wrapId);
+      current.splice(parseInt(btn.dataset.removePinAttr, 10), 1);
+      _renderPinAttrsEditor(wrapId, current);
+    });
+  });
+
+  let addBtn = document.getElementById(addBtnId);
+  if (!addBtn) {
+    addBtn = document.createElement('button');
+    addBtn.id = addBtnId;
+    addBtn.type = 'button';
+    addBtn.className = 'ibtn';
+    addBtn.style.cssText = 'width:100%;margin-bottom:10px;';
+    addBtn.textContent = '➕ Agregar campo de información';
+    wrap.parentNode.insertBefore(addBtn, wrap.nextSibling);
+  }
+  addBtn.onclick = () => {
+    const current = _readPinAttrsFromForm(wrapId);
+    current.push({ l: '', v: '' });
+    _renderPinAttrsEditor(wrapId, current);
+  };
+}
+
+// El form de Agregar arranca vacío (sin pin todavía cargado) — se
+// dibuja una sola vez al cargar la página, con la lista en blanco.
+_renderPinAttrsEditor('a-attrs-wrap', []);
+
+/* ═══════════════════════════════════════════════════════════
    EXPAND CON ESCALA INDEPENDIENTE Y OFFSET POR POI
    ═══════════════════════════════════════════════════════════ */
 const _expandPinBase   = expandPin;
@@ -360,5 +453,234 @@ map.getContainer().addEventListener('touchend', function(e) {
   }
 });
 
+/* ═══════════════════════════════════════════════════════════
+   IMPORTACIÓN MASIVA DE LUGARES COMPLETOS (texto estructurado)
+   ---------------------------------------------------------------
+   Formato acordado con Cris — bloques separados por "### PIN":
+
+     ### PIN
+     nombre: cabildo-cba
+     titulo: Cabildo Histórico de Córdoba
+     lat: -31.4167
+     lng: -64.1833
+     tags: cultura, historia
+     campos:
+       Descripción: texto...
+       Dato curioso: texto...
+     imagenes:
+       cabildo-cba_main_01.webp
+       cabildo-cba_night_01.webp
+
+   Si un lugar del texto ya existe (mismo id/slug), se ACTUALIZA en
+   vez de duplicarse. Un error en un bloque puntual no frena a los
+   demás — se reporta al final cuáles fallaron y por qué.
+   ═══════════════════════════════════════════════════════════ */
+
+/**
+ * Extrae la "variante" de un nombre de archivo de imagen siguiendo
+ * la regla del "_" ya acordada: {slug}_{variante}_{NN}.{ext}. El "_"
+ * separa niveles, el "-" queda DENTRO de un nivel (por eso el slug
+ * "cabildo-cba" y variantes como "t-futurista" no se rompen).
+ * @param {string} filename - ej "cabildo-cba_t-futurista_01.gif"
+ * @returns {{variant: string, extension: string}|null}
+ */
+function parseImageFilename(filename) {
+  const clean = filename.trim();
+  const extMatch = clean.match(/\.([a-zA-Z0-9]+)$/);
+  if (!extMatch) return null; // sin extensión, no es un nombre de archivo válido
+  const extension = extMatch[1].toLowerCase();
+  const withoutExt = clean.slice(0, -(extension.length + 1));
+  const parts = withoutExt.split('_');
+
+  if (parts.length < 2) {
+    // No hay suficientes niveles para separar slug de variante — se
+    // toma todo como "main" para no descartar la imagen de plano.
+    return { variant: 'main', extension };
+  }
+  if (parts.length === 2) {
+    // {slug}_{variante}, sin número — está bien, el número es opcional.
+    return { variant: parts[1], extension };
+  }
+  // {slug}_{variante...}_{NN} — el último segmento es el número (se
+  // descarta, no es parte del nombre de la variante), todo lo del
+  // medio es la variante (puede tener guiones, ej. "t-futurista").
+  const last = parts[parts.length - 1];
+  const isNumber = /^\d+$/.test(last);
+  const variantParts = isNumber ? parts.slice(1, -1) : parts.slice(1);
+  return { variant: variantParts.join('_') || 'main', extension };
+}
+
+/**
+ * Arma la URL de Cloudinary para una imagen, a partir del nombre de
+ * archivo TAL CUAL lo escribió el admin (no se reconstruye el
+ * nombre — se respeta la extensión exacta que puso, sea la que sea).
+ * @param {string} filename
+ * @returns {string}
+ */
+function _buildBulkImageUrl(filename) {
+  const cloudName = (typeof CLOUDINARY_CLOUD_NAME !== 'undefined') ? CLOUDINARY_CLOUD_NAME : '';
+  const folder = (typeof CloudinaryAdmin !== 'undefined' && CloudinaryAdmin.buildFolder)
+    ? CloudinaryAdmin.buildFolder({
+        country:  window.ACTIVE_LOCATION?.countryCode,
+        state:    window.ACTIVE_LOCATION?.provinceCode,
+        city:     window.ACTIVE_LOCATION?.cityCode,
+      })
+    : '';
+  // NOTA: para GIFs animados no conviene forzar f_auto (puede
+  // convertir a otro formato y perder la animación) — se usa
+  // q_auto solamente, que es seguro para cualquier formato.
+  return `https://res.cloudinary.com/${cloudName}/image/upload/q_auto/${folder}/${filename}`;
+}
+
+/**
+ * Parsea el texto completo (uno o más bloques "### PIN") en una
+ * lista de objetos de pin listos para guardar. No lanza excepción
+ * por un bloque individual mal formado — lo reporta en `errors` y
+ * sigue con los demás.
+ * @param {string} text
+ * @returns {{pins: Array<Object>, errors: Array<string>}}
+ */
+function parsePinBulkText(text) {
+  const blocks = text.split(/^###\s*PIN\s*$/mi).map(b => b.trim()).filter(Boolean);
+  const pins = [];
+  const errors = [];
+
+  blocks.forEach((block, blockIndex) => {
+    try {
+      const lines = block.split('\n');
+      const data = { tags: [], attrs: [], images: [] };
+      let section = null; // null | 'campos' | 'imagenes'
+
+      for (const rawLine of lines) {
+        const line = rawLine.replace(/\r$/, '');
+        if (!line.trim()) continue;
+
+        const isIndented = /^\s{2,}/.test(line);
+
+        if (!isIndented) {
+          const m = line.match(/^([a-zA-Záéíóúñ_]+)\s*:\s*(.*)$/i);
+          if (!m) continue;
+          const key = m[1].trim().toLowerCase();
+          const value = m[2].trim();
+
+          if (key === 'campos') { section = 'campos'; continue; }
+          if (key === 'imagenes' || key === 'imágenes') { section = 'imagenes'; continue; }
+          section = null;
+
+          if (key === 'nombre') data.nombre = value;
+          else if (key === 'titulo' || key === 'título') data.titulo = value;
+          else if (key === 'lat') data.lat = parseFloat(value);
+          else if (key === 'lng' || key === 'lon') data.lng = parseFloat(value);
+          else if (key === 'tags') data.tags = value.split(',').map(s => s.trim()).filter(Boolean);
+          continue;
+        }
+
+        // Línea indentada: pertenece a la sección activa.
+        if (section === 'campos') {
+          const m = line.trim().match(/^(.+?):\s*(.*)$/);
+          if (m) data.attrs.push({ l: m[1].trim(), v: m[2].trim() });
+        } else if (section === 'imagenes') {
+          const filename = line.trim();
+          if (filename) data.images.push(filename);
+        }
+      }
+
+      if (!data.nombre) {
+        errors.push(`Bloque #${blockIndex + 1}: falta "nombre:" — se saltea.`);
+        return;
+      }
+
+      const cityCode = (window.ACTIVE_LOCATION && window.ACTIVE_LOCATION.cityCode) || '';
+      const slug = slugify(data.nombre);
+      // Si el admin ya puso el sufijo de ciudad en el nombre (como en
+      // los ejemplos, "cabildo-cba"), se respeta tal cual — no se le
+      // vuelve a pegar el código de ciudad encima.
+      const id = slug;
+
+      const skins = {};
+      data.images.forEach(filename => {
+        const parsed = parseImageFilename(filename);
+        if (!parsed) {
+          errors.push(`"${data.nombre}": nombre de imagen inválido "${filename}" (sin extensión) — se saltea esa imagen.`);
+          return;
+        }
+        skins[parsed.variant] = {
+          url: _buildBulkImageUrl(filename),
+          style: parsed.variant,
+          active: true,
+        };
+      });
+
+      pins.push({
+        id,
+        name: data.titulo || data.nombre,
+        category: '', categories: [], categoryLabel: '',
+        icon: '📍',
+        lat: isNaN(data.lat) ? null : data.lat,
+        lng: isNaN(data.lng) ? null : data.lng,
+        country:  window.ACTIVE_LOCATION?.countryCode  || '',
+        province: window.ACTIVE_LOCATION?.provinceCode || '',
+        city:     window.ACTIVE_LOCATION?.cityCode      || '',
+        imgB64: skins.main ? skins.main.url : null, // compatibilidad con el pin del mapa actual
+        skins,
+        pinScale: 100, pinOffsetX: 0, pinOffsetY: 0,
+        desc: '', hist: '',
+        attrs: data.attrs.filter(a => a.l),
+        soc: [], tags: data.tags,
+        phone: '', hours: '',
+        active: false, // igual que la creación por lista simple: nace apagado
+      });
+    } catch (err) {
+      errors.push(`Bloque #${blockIndex + 1}: error inesperado (${err.message}) — se saltea.`);
+    }
+  });
+
+  return { pins, errors };
+}
+
+async function importFullPinsFromText() {
+  const textarea = document.getElementById('bulk-full-text');
+  const report = document.getElementById('bulk-import-report');
+  if (!textarea) return;
+
+  if (!window.ACTIVE_LOCATION || !window.ACTIVE_LOCATION.countryCode) {
+    toast('⚠️ Primero elegí y guardá una Ubicación Activa en la pestaña Ubicaciones');
+    return;
+  }
+
+  const { pins, errors } = parsePinBulkText(textarea.value || '');
+
+  if (!pins.length && !errors.length) {
+    toast('⚠️ Pegá al menos un lugar con el formato "### PIN"');
+    return;
+  }
+
+  const btn = document.getElementById('btn-bulk-full-import');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Importando...'; }
+
+  let created = 0, updated = 0;
+  for (const p of pins) {
+    const existingIdx = POIS.findIndex(x => x.id === p.id);
+    const ok = await savePoiToFirestore(p);
+    if (!ok) { errors.push(`"${p.name}": no se pudo guardar en Firestore.`); continue; }
+    if (existingIdx === -1) { POIS.push(p); created++; }
+    else { POIS[existingIdx] = { ...POIS[existingIdx], ...p }; updated++; }
+  }
+
+  if (btn) { btn.disabled = false; btn.textContent = '📥 Importar lugares completos'; }
+  textarea.value = '';
+  renderList();
+
+  if (report) {
+    report.innerHTML = `✅ ${created} creado(s), ${updated} actualizado(s).` +
+      (errors.length ? `<br>⚠️ ${errors.length} aviso(s):<br>` + errors.map(e => `• ${e}`).join('<br>') : '');
+  }
+  toast(`✅ Importación terminada: ${created} creado(s), ${updated} actualizado(s)`);
+}
+
+(function wireBulkFullImportBtn() {
+  const btn = document.getElementById('btn-bulk-full-import');
+  if (btn) btn.addEventListener('click', importFullPinsFromText);
+})();
 
 

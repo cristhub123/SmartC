@@ -58,11 +58,28 @@ window.switchTab = switchTab;
 /* ── LIST TAB ── */
 function renderList() {
   const c = document.getElementById('admin-list');
+
+  // Filtro geográfico (país/provincia/ciudad) — selects opcionales,
+  // si no existen o no hay nada elegido, se muestra todo igual que
+  // antes. Vacío en cualquiera de los 3 = "todos" en ese nivel.
+  const fCountry  = document.getElementById('list-filter-country')?.value || '';
+  const fProvince = document.getElementById('list-filter-province')?.value || '';
+  const fCity     = document.getElementById('list-filter-city')?.value || '';
+  const filteredPOIS = POIS.filter(p =>
+    (!fCountry  || p.country  === fCountry) &&
+    (!fProvince || p.province === fProvince) &&
+    (!fCity     || p.city     === fCity)
+  );
+
   if (!POIS.length) {
     c.innerHTML = '<div class="empty-state"><div class="big">📭</div>No hay lugares cargados.<br>Usá el botón ➕ para agregar.</div>';
     return;
   }
-  c.innerHTML = POIS.map(p => {
+  if (!filteredPOIS.length) {
+    c.innerHTML = '<div class="empty-state"><div class="big">🔍</div>Ningún lugar coincide con el filtro de ubicación.</div>';
+    return;
+  }
+  c.innerHTML = filteredPOIS.map(p => {
     const cats = Array.isArray(p.categories) && p.categories.length
       ? p.categories.map(k => CAT[k]).filter(Boolean)
       : [CAT[p.category] || {label: p.category||'—', color:'#6055d8'}];
@@ -173,6 +190,7 @@ window.startEdit = function(id) {
   document.getElementById('e-tags').value = (p.tags||[]).join(', ');
   const _ePhone = document.getElementById('e-phone'); if (_ePhone) _ePhone.value = p.phone || '';
   const _eHours = document.getElementById('e-hours'); if (_eHours) _eHours.value = p.hours || '';
+  if (typeof _renderPinAttrsEditor === 'function') _renderPinAttrsEditor('e-attrs-wrap', p.attrs || []);
 
   // Main image
   const prev = document.getElementById('img-prev-edit');

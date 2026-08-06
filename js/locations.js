@@ -78,6 +78,56 @@ async function _reloadLocations() {
   _locations = await loadLocations();
   _renderLocationsList();
   _renderCountrySelect();
+  _renderListFilterCountry();
+}
+
+/* ─────────────────────────────────────────────────────────────
+   FILTRO DE UBICACIÓN EN LA TAB "LUGARES" — mismo concepto de
+   cascada que el selector de contexto activo de arriba, pero
+   independiente (acá "vacío" significa "todos", no una elección
+   obligatoria). Cada cambio dispara renderList() de nuevo.
+   ───────────────────────────────────────────────────────────── */
+
+function _renderListFilterCountry() {
+  const sel = document.getElementById('list-filter-country');
+  if (!sel) return;
+  const current = sel.value;
+  const countries = _uniqueBy(_locations, l => l.countryCode, l => l.countryLabel);
+  sel.innerHTML = `<option value="">Todos los países</option>` +
+    countries.map(([code, label]) => `<option value="${code}">${label}</option>`).join('');
+  sel.value = current;
+  _renderListFilterProvince();
+}
+
+function _renderListFilterProvince() {
+  const sel = document.getElementById('list-filter-province');
+  if (!sel) return;
+  const current = sel.value;
+  const countryCode = document.getElementById('list-filter-country')?.value || '';
+  const provinces = _uniqueBy(
+    _locations.filter(l => !countryCode || l.countryCode === countryCode),
+    l => l.provinceCode, l => l.provinceLabel
+  );
+  sel.innerHTML = `<option value="">Todas las provincias</option>` +
+    provinces.map(([code, label]) => `<option value="${code}">${label}</option>`).join('');
+  sel.value = current;
+  _renderListFilterCity();
+}
+
+function _renderListFilterCity() {
+  const sel = document.getElementById('list-filter-city');
+  if (!sel) return;
+  const current = sel.value;
+  const countryCode = document.getElementById('list-filter-country')?.value || '';
+  const provinceCode = document.getElementById('list-filter-province')?.value || '';
+  const cities = _uniqueBy(
+    _locations.filter(l => (!countryCode || l.countryCode === countryCode) && (!provinceCode || l.provinceCode === provinceCode)),
+    l => l.cityCode, l => l.cityLabel
+  );
+  sel.innerHTML = `<option value="">Todas las ciudades</option>` +
+    cities.map(([code, label]) => `<option value="${code}">${label}</option>`).join('');
+  sel.value = current;
+  if (typeof renderList === 'function') renderList();
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -237,6 +287,19 @@ async function initLocationsTab() {
 
   const saveBtn = document.getElementById('btn-loc-save');
   if (saveBtn) saveBtn.addEventListener('click', _saveActiveContext);
+
+  // Filtro de ubicación en la tab "Lugares" — se puebla ya, no hace
+  // falta esperar a que se abra la pestaña Ubicaciones.
+  _renderListFilterCountry();
+
+  const filterCountrySel = document.getElementById('list-filter-country');
+  if (filterCountrySel) filterCountrySel.addEventListener('change', _renderListFilterProvince);
+
+  const filterProvinceSel = document.getElementById('list-filter-province');
+  if (filterProvinceSel) filterProvinceSel.addEventListener('change', _renderListFilterCity);
+
+  const filterCitySel = document.getElementById('list-filter-city');
+  if (filterCitySel) filterCitySel.addEventListener('change', () => { if (typeof renderList === 'function') renderList(); });
 })();
 
 if (typeof SC !== 'undefined' && SC.registerTabPlugin) {
