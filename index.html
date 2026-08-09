@@ -272,6 +272,14 @@ imagenes:
         <select class="fi" id="list-filter-city"><option value="">Todas las ciudades</option></select>
       </div>
 
+      <input class="fi" id="list-text-filter" type="text" placeholder="🔍 Filtrar por nombre..." style="width:100%;margin-bottom:10px">
+
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+        <span style="font-size:11px;color:var(--text3)">Filtrar por estado (tocá para cambiar):</span>
+        <div id="bars-filter-row" style="display:flex;gap:5px"></div>
+        <button class="ibtn" id="btn-bars-filter-clear" style="font-size:11px;padding:4px 8px" title="Limpiar filtro de estado">✕ Limpiar</button>
+      </div>
+
       <div id="admin-list"></div>
     </div>
 
@@ -1119,6 +1127,7 @@ imagenes:
         </div>
       </div>
       <button class="btn-primary" id="btn-save-edit">✓ Guardar Cambios</button>
+      <button class="ibtn" id="btn-mark-reviewed" style="width:100%;margin-top:8px" title="Confirma que revisaste toda la info de este lugar — se apaga solo si algo se vuelve a modificar después">🟡 Marcar como revisado</button>
       <button class="btn-outline"  id="btn-cancel-edit">Cancelar</button>
     </div>
 

@@ -3,6 +3,111 @@
    ADMIN PANEL
 ═══════════════════════════════════════════ */
 
+/* ═══════════════════════════════════════════
+   BARRITAS DE ESTADO (Entrega 3 del plan multi-ciudad)
+   ---------------------------------------------------------------
+   5 indicadores por lugar, para ver de un vistazo qué le falta a
+   cada uno sin tener que entrar a revisarlo 1x1. Doble función:
+   muestran el estado Y sirven de filtro clickeable (una fila igual
+   arriba de la lista, alineada en columnas).
+   - 🔴🔵🟢 son binarias (dos estados reales: 'empty'/'full').
+   - ⚫ (night) y 🟡 (revisado) tienen 3 estados reales:
+     'empty' / 'half' / 'full'.
+   Como FILTRO, cada barrita cicla: sin filtro → exigir llena →
+   (si tiene 3 estados) exigir mitad → exigir vacía → sin filtro.
+═══════════════════════════════════════════ */
+
+const BAR_DEFS = [
+  { key: 'red',   color: '#ef4444', title: 'Tiene imágenes cargadas',      states: 2 },
+  { key: 'blue',  color: '#3b82f6', title: 'Tiene algún campo de info',    states: 2 },
+  { key: 'black', color: '#111111', title: 'Variante "night" (cargada / activa)', states: 3 },
+  { key: 'green', color: '#22c55e', title: 'Tiene coordenadas',            states: 2 },
+  { key: 'gold',  color: '#eab308', title: 'Revisado por el admin',        states: 3 },
+];
+
+/**
+ * Calcula el estado de las 5 barritas para un pin puntual.
+ * @param {Object} p
+ * @returns {{red:string, blue:string, black:string, green:string, gold:string}}
+ */
+function computePinBarStates(p) {
+  const hasImages = !!(p.skins && Object.keys(p.skins).length) || !!p.imgB64;
+
+  const hasInfo = !!(
+    (p.desc && p.desc.trim()) ||
+    (p.hist && p.hist.trim() && p.hist !== 'Sin datos históricos.') ||
+    (p.attrs && p.attrs.length) ||
+    (p.phone && p.phone.trim()) ||
+    (p.hours && p.hours.trim()) ||
+    (p.tags && p.tags.length)
+  );
+
+  let black = 'empty';
+  if (p.skins) {
+    const nightKey = Object.keys(p.skins).find(k => k.toLowerCase().includes('night'));
+    if (nightKey) black = p.skins[nightKey].active ? 'full' : 'half';
+  }
+
+  const hasCoords = typeof p.lat === 'number' && typeof p.lng === 'number';
+
+  let gold = 'empty';
+  if (p.reviewed) gold = p.reviewedDirty ? 'half' : 'full';
+
+  return {
+    red:   hasImages ? 'full' : 'empty',
+    blue:  hasInfo   ? 'full' : 'empty',
+    black,
+    green: hasCoords ? 'full' : 'empty',
+    gold,
+  };
+}
+
+/* Filtro de estado activo — null en una barrita = "sin filtro" para
+   esa columna. Se guarda acá porque tiene que sobrevivir entre
+   renders (cada click en la fila maestra dispara un renderList()). */
+let _barsFilter = { red: null, blue: null, black: null, green: null, gold: null };
+
+/** Ciclo de estados al hacer click, según cuántos tiene la barrita. */
+function _cycleBarFilter(key, def) {
+  const order = def.states === 3 ? [null, 'full', 'half', 'empty'] : [null, 'full', 'empty'];
+  const idx = order.indexOf(_barsFilter[key]);
+  _barsFilter[key] = order[(idx + 1) % order.length];
+}
+
+function _pinMatchesBarsFilter(p) {
+  const states = computePinBarStates(p);
+  return BAR_DEFS.every(def => !_barsFilter[def.key] || states[def.key] === _barsFilter[def.key]);
+}
+
+/** Un solo bloque de HTML para las 5 barritas — se reusa tanto para
+ *  pintar el estado de un pin como (con `clickable:true`) para la
+ *  fila maestra de filtro arriba de la lista. */
+function _renderBarsHTML(states, clickable) {
+  return BAR_DEFS.map(def => {
+    const state = states ? states[def.key] : (_barsFilter[def.key] || 'off');
+    let opacity = '1', bg = def.color;
+    if (state === 'empty' || state === 'off') { bg = '#d1d5db'; opacity = clickable && _barsFilter[def.key] === 'empty' ? '1' : '.5'; }
+    else if (state === 'half') { opacity = '.55'; }
+    const attrs = clickable ? `data-bar-filter="${def.key}" style="cursor:pointer;` : `style="`;
+    return `<span ${attrs}display:inline-block;width:7px;height:18px;border-radius:2px;background:${bg};opacity:${opacity};" title="${def.title}${clickable ? ' — click para filtrar' : ''}"></span>`;
+  }).join('');
+}
+
+function _renderBarsFilterRow() {
+  const row = document.getElementById('bars-filter-row');
+  if (!row) return;
+  row.innerHTML = _renderBarsHTML(null, true);
+  row.querySelectorAll('[data-bar-filter]').forEach(el => {
+    el.addEventListener('click', () => {
+      const key = el.dataset.barFilter;
+      const def = BAR_DEFS.find(d => d.key === key);
+      _cycleBarFilter(key, def);
+      _renderBarsFilterRow();
+      renderList();
+    });
+  });
+}
+
 /* === TOAST — avisos chicos flotantes (RECONSTRUIDA: se había
    perdido en algún momento, aunque se seguía llamando 63 veces
    en todo el proyecto — por eso nada guardaba correctamente,
@@ -65,18 +170,29 @@ function renderList() {
   const fCountry  = document.getElementById('list-filter-country')?.value || '';
   const fProvince = document.getElementById('list-filter-province')?.value || '';
   const fCity     = document.getElementById('list-filter-city')?.value || '';
-  const filteredPOIS = POIS.filter(p =>
-    (!fCountry  || p.country  === fCountry) &&
-    (!fProvince || p.province === fProvince) &&
-    (!fCity     || p.city     === fCity)
-  );
+
+  // Filtro de texto por nombre — sin distinguir mayúsculas/acentos.
+  const fTextRaw = document.getElementById('list-text-filter')?.value || '';
+  const fText = fTextRaw.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+  const filteredPOIS = POIS.filter(p => {
+    if (fCountry  && p.country  !== fCountry)  return false;
+    if (fProvince && p.province !== fProvince) return false;
+    if (fCity     && p.city     !== fCity)     return false;
+    if (fText) {
+      const name = (p.name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      if (!name.includes(fText)) return false;
+    }
+    if (!_pinMatchesBarsFilter(p)) return false;
+    return true;
+  });
 
   if (!POIS.length) {
     c.innerHTML = '<div class="empty-state"><div class="big">📭</div>No hay lugares cargados.<br>Usá el botón ➕ para agregar.</div>';
     return;
   }
   if (!filteredPOIS.length) {
-    c.innerHTML = '<div class="empty-state"><div class="big">🔍</div>Ningún lugar coincide con el filtro de ubicación.</div>';
+    c.innerHTML = '<div class="empty-state"><div class="big">🔍</div>Ningún lugar coincide con los filtros activos.</div>';
     return;
   }
   c.innerHTML = filteredPOIS.map(p => {
@@ -87,11 +203,13 @@ function renderList() {
     const isOn = p.active !== false;
     const clicksPublicOn = !!p.clicksPublicVisible;
     const faltaUbicacion = !(typeof p.lat === 'number' && typeof p.lng === 'number');
+    const barsHTML = _renderBarsHTML(computePinBarStates(p), false);
     return `<div class="poi-row" style="${isOn?'':'opacity:.5'}">
       <div class="poi-row-ico" style="background:${mainCat.color}20">${p.icon}</div>
       <div class="poi-row-info">
         <div class="poi-row-name">${p.name} ${faltaUbicacion ? '<span style="color:var(--amber);font-size:11px;font-weight:700">📍 Falta ubicación</span>' : ''}</div>
         <div class="poi-row-cat" style="color:${mainCat.color}">${cats.map(c=>c.label).join(' · ')}</div>
+        <div style="display:flex;gap:3px;margin-top:4px">${barsHTML}</div>
         <div style="font-size:11px;color:var(--text3);margin-top:2px;display:flex;align-items:center;gap:8px">
           👁 ${p.clicks || 0} clicks
           <label style="display:flex;align-items:center;gap:4px;cursor:pointer">
@@ -108,6 +226,20 @@ function renderList() {
     </div>`;
   }).join('');
 }
+
+(function _wireListFilters() {
+  const textInput = document.getElementById('list-text-filter');
+  if (textInput) textInput.addEventListener('input', renderList);
+
+  const clearBtn = document.getElementById('btn-bars-filter-clear');
+  if (clearBtn) clearBtn.addEventListener('click', () => {
+    Object.keys(_barsFilter).forEach(k => { _barsFilter[k] = null; });
+    _renderBarsFilterRow();
+    renderList();
+  });
+
+  _renderBarsFilterRow();
+})();
 
 window.togglePublicClicks = function(id, checked) {
   const p = POIS.find(x => x.id === id);

@@ -97,6 +97,13 @@ async function saveEdit() {
     hours:     (document.getElementById('e-hours')||{value:''}).value.trim(),
   };
 
+  // Barrita dorada (revisado): si este pin ya estaba marcado como
+  // revisado y ahora se guarda un cambio normal (no el botón de
+  // "Marcar como revisado" en sí, que es una función aparte), queda
+  // en "mitad" — sigue habiendo un OK previo, pero algo cambió desde
+  // entonces y conviene volver a mirarlo.
+  if (POIS[idx].reviewed) updated.reviewedDirty = true;
+
   toast('⏳ Guardando...');
   const guardadoOk = await savePoiToFirestore(updated);
   if (!guardadoOk) return; // el propio savePoiToFirestore ya avisó el error, no seguimos
@@ -115,6 +122,31 @@ async function saveEdit() {
   window._editImgB64 = null; window._editImgAlt1 = null; window._editImgAlt2 = null; window._editImgAlt3 = null;
   map.setView([lat, lng], Math.max(map.getZoom(), 16), {animate:true});
 }
+
+/**
+ * Botón "🟡 Marcar como revisado" — confirma que el admin entró,
+ * revisó toda la info del pin y está conforme. Se guarda aparte del
+ * botón normal de "Guardar Cambios" a propósito: es una acción
+ * puntual (prender la barrita dorada), no un guardado de datos.
+ */
+async function markPinAsReviewed() {
+  if (editingId === null) return;
+  const idx = POIS.findIndex(x => x.id === editingId);
+  if (idx === -1) return;
+
+  const updated = { ...POIS[idx], reviewed: true, reviewedDirty: false };
+  const ok = await savePoiToFirestore(updated);
+  if (!ok) return;
+
+  POIS[idx] = updated;
+  toast(`🟡 "${updated.name}" marcado como revisado`);
+  renderList();
+}
+
+(function wireMarkReviewedBtn() {
+  const btn = document.getElementById('btn-mark-reviewed');
+  if (btn) btn.addEventListener('click', markPinAsReviewed);
+})();
 
 // Conectar botón de guardar edición a la función definitiva
 (function wireEditBtn() {
@@ -661,6 +693,13 @@ async function importFullPinsFromText() {
   let created = 0, updated = 0;
   for (const p of pins) {
     const existingIdx = POIS.findIndex(x => x.id === p.id);
+    if (existingIdx !== -1 && POIS[existingIdx].reviewed) {
+      // Ya estaba revisado y ahora la importación le cambia datos —
+      // la barrita dorada pasa a "mitad" (mismo criterio que un
+      // guardado normal desde el form de edición).
+      p.reviewed = true;
+      p.reviewedDirty = true;
+    }
     const ok = await savePoiToFirestore(p);
     if (!ok) { errors.push(`"${p.name}": no se pudo guardar en Firestore.`); continue; }
     if (existingIdx === -1) { POIS.push(p); created++; }
