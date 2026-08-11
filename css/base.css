@@ -992,6 +992,25 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   background: var(--surface);
 }
 .fta { resize: vertical; min-height: 80px; }
+
+/* Dropdowns de ubicación en la tab "Lugares" (list-filter-country/
+   province/city): fondo verde cuando la ciudad elegida ahí coincide
+   con la Ubicación Activa de la tab "Ubicaciones", fondo rojo con
+   texto blanco cuando el admin la cambió a otra ciudad para previsualizar
+   otro lugar — evita confundir "lo que estoy viendo" con "a dónde
+   suben las imágenes nuevas ahora mismo". Sin ninguna clase = todavía
+   no se eligieron las 3 (estado neutro, ver renderList()). */
+.loc-filter-match {
+  background: #3a8c4f !important; border-color: #3a8c4f !important;
+  color: #fff !important;
+}
+.loc-filter-match option { color: var(--text); background: #fff; }
+.loc-filter-mismatch {
+  background: #c0392b !important; border-color: #c0392b !important;
+  color: #fff !important;
+}
+.loc-filter-mismatch option { color: var(--text); background: #fff; }
+
 .frow { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
 /* Emoji grid */
