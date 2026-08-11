@@ -968,6 +968,18 @@ imagenes:
     <!-- EDIT -->
     <div class="tpane" id="tp-edit">
       <div class="fg">
+        <label class="fl">País</label>
+        <select class="fi" id="e-country"></select>
+      </div>
+      <div class="fg">
+        <label class="fl">Provincia</label>
+        <select class="fi" id="e-state"></select>
+      </div>
+      <div class="fg">
+        <label class="fl">Ciudad</label>
+        <select class="fi" id="e-city"></select>
+      </div>
+      <div class="fg">
         <label class="fl">Nombre *</label>
         <input class="fi" id="e-name" type="text">
       </div>
@@ -1202,6 +1214,7 @@ imagenes:
   <script src="js/admin-auth.js" defer></script>
 
   <!-- 5. Utilities -->
+  <script src="js/cloudinary-admin.js" defer></script>
   <script src="js/utils.js" defer></script>
   <script src="js/geocoder.js" defer></script>
 
