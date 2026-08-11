@@ -286,6 +286,18 @@ imagenes:
     <!-- ADD -->
     <div class="tpane" id="tp-add">
       <div class="fg">
+        <label class="fl">País</label>
+        <select class="fi" id="a-country"></select>
+      </div>
+      <div class="fg">
+        <label class="fl">Provincia</label>
+        <select class="fi" id="a-state"></select>
+      </div>
+      <div class="fg">
+        <label class="fl">Ciudad</label>
+        <select class="fi" id="a-city"></select>
+      </div>
+      <div class="fg">
         <label class="fl">Nombre *</label>
         <input class="fi" id="a-name" type="text" placeholder="Ej: Mercado Norte">
       </div>
@@ -1197,7 +1209,7 @@ imagenes:
   <script src="js/admin-global.js" defer></script>
   <script src="js/themes.js" defer></script>
   <script src="js/typography.js" defer></script>
-  <script src="js/locations.js" defer></script>
+  <script src="js/cities.js" defer></script>
   <script src="js/features.js" defer></script>
   <script src="js/content-import.js" defer></script>
   <script src="js/roadmap.js" defer></script>
@@ -1208,7 +1220,7 @@ imagenes:
 
   <!-- 7. Features -->
   <script src="js/pin-adjust.js" defer></script>
-  <script src="js/location.js" defer></script>
+  <script src="js/pin-geocode.js" defer></script>
   <script src="js/cluster.js" defer></script>
 
   <!-- 7b. Map settings -->
