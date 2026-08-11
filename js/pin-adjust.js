@@ -169,6 +169,56 @@ async function markPinAsReviewed() {
 
 // Patch saveNew para guardar address
 const _saveNewPrev = saveNew;
+/**
+ * Resetea la tab "Nuevo" por completo: nombre, descripción, categorías,
+ * imagen principal + las 3 variantes (alt1/2/3), campos de info libres,
+ * coordenadas, y los 3 dropdowns de ubicación (vuelven al default =
+ * Ubicación Activa). Se usa después de guardar un pin nuevo Y también
+ * cada vez que se cambia la Ubicación Activa en la tab "Ubicaciones" —
+ * para que no quede una imagen previsualizada de la ciudad anterior,
+ * algo que podía llevar a confusión (imagen de un lugar mostrada como
+ * si fuera de otro).
+ */
+function resetAddTab() {
+  ['a-name','a-desc','a-hist','a-soc','a-lat','a-lng','a-phone','a-hours','a-tags'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+  const addrEl = document.getElementById('a-address'); if (addrEl) addrEl.value = '';
+  document.querySelectorAll('#eg-add .eopt').forEach(e => e.classList.remove('sel'));
+  const defE = document.querySelector('#eg-add [data-e="📍"]'); if (defE) defE.classList.add('sel');
+  addEmoji = '📍';
+
+  // Imagen principal
+  const mainPrev = document.getElementById('img-prev-add'); if (mainPrev) mainPrev.innerHTML = '🏙️';
+  const mainLbl  = document.getElementById('img-lbl-add');  if (mainLbl)  mainLbl.textContent = 'Subir imagen del edificio';
+  const mainWrap = document.getElementById('iu-add');       if (mainWrap) mainWrap.classList.remove('has-img');
+  window._addImgB64 = null;
+
+  // Variantes 2/3/4 — antes esto NO se reseteaba nunca (ni siquiera
+  // después de guardar un pin), quedaba la preview de la variante
+  // anterior pisada visualmente hasta cargar una nueva a mano.
+  [
+    ['img-prev-alt1-add', 'img-lbl-alt1-add', 'iu-alt1-add', '2', 'Variante 2'],
+    ['img-prev-alt2-add', 'img-lbl-alt2-add', 'iu-alt2-add', '3', 'Variante 3'],
+    ['img-prev-alt3-add', 'img-lbl-alt3-add', 'iu-alt3-add', '4', 'Variante 4'],
+  ].forEach(([prevId, lblId, wrapId, slotNum, slotLbl]) => {
+    const prevEl = document.getElementById(prevId); if (prevEl) prevEl.innerHTML = slotNum;
+    const lblEl  = document.getElementById(lblId);  if (lblEl)  lblEl.textContent = slotLbl;
+    const wrapEl = document.getElementById(wrapId); if (wrapEl) wrapEl.classList.remove('has-img');
+  });
+  window._addImgAlt1 = null; window._addImgAlt2 = null; window._addImgAlt3 = null;
+
+  // Inputs de archivo + inputs de URL (pegar link) de las 4 imágenes —
+  // texto/archivo tipeado o elegido que quedaba sin limpiar aunque
+  // nunca se hubiera tocado "Cargar".
+  ['img-input-add','img-input-alt1-add','img-input-alt2-add','img-input-alt3-add',
+   'img-url-add','img-url-alt1-add','img-url-alt2-add','img-url-alt3-add']
+    .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+
+  if (typeof _renderPinAttrsEditor === 'function') _renderPinAttrsEditor('a-attrs-wrap', []);
+  if (typeof _renderAddCountrySelect === 'function') _renderAddCountrySelect(); // vuelve al default (Ubicación Activa)
+  if (typeof buildMultiCatSelector === 'function') buildMultiCatSelector('cat-chips-add', []);
+  if (typeof syncAddCoordDisplay === 'function') syncAddCoordDisplay();
+}
+
 async function saveNew() {
   const name = document.getElementById('a-name').value.trim();
   const cats = (typeof getSelectedCats === 'function') ? getSelectedCats('cat-chips-add') : [];
@@ -235,18 +285,7 @@ async function saveNew() {
   POIS.push(p);
   makeMarker(p);
 
-  ['a-name','a-desc','a-hist','a-soc','a-lat','a-lng','a-phone','a-hours','a-tags'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
-  const addrEl = document.getElementById('a-address'); if (addrEl) addrEl.value = '';
-  document.querySelectorAll('#eg-add .eopt').forEach(e => e.classList.remove('sel'));
-  const defE = document.querySelector('#eg-add [data-e="📍"]'); if (defE) defE.classList.add('sel');
-  addEmoji = '📍';
-  document.getElementById('img-prev-add').innerHTML = '🏙️';
-  document.getElementById('img-lbl-add').textContent = 'Subir imagen del edificio';
-  document.getElementById('iu-add').classList.remove('has-img');
-  window._addImgB64 = null; window._addImgAlt1 = null; window._addImgAlt2 = null; window._addImgAlt3 = null;
-  if (typeof _renderAddCountrySelect === 'function') _renderAddCountrySelect(); // vuelve al default (Ubicación Activa) para el próximo pin
-  if (typeof buildMultiCatSelector === 'function') buildMultiCatSelector('cat-chips-add', []);
-  syncAddCoordDisplay();
+  resetAddTab();
   toast(`✅ "${name}" agregado al mapa`);
   renderList(); switchTab('list');
   applyFilter();

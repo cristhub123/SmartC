@@ -129,6 +129,75 @@ function _renderListFilterCity() {
     cities.map(([code, label]) => `<option value="${code}">${label}</option>`).join('');
   sel.value = provinceCode ? current : ''; // sin provincia elegida no tiene sentido dejar una ciudad puesta
   sel.disabled = !provinceCode;
+  _updateListFilterColors();
+  if (typeof renderList === 'function') renderList();
+}
+
+/**
+ * Pinta verde los 3 dropdowns de la tab "Lugares" si la ciudad que
+ * están mostrando coincide con la Ubicación Activa (la de la tab
+ * "Ubicaciones") — o rojo con texto blanco si el admin cambió a
+ * previsualizar otra ciudad distinta. Sin las 3 elegidas, ninguna
+ * clase (estado neutro).
+ */
+function _updateListFilterColors() {
+  const countrySel  = document.getElementById('list-filter-country');
+  const provinceSel = document.getElementById('list-filter-province');
+  const citySel     = document.getElementById('list-filter-city');
+  if (!countrySel || !provinceSel || !citySel) return;
+
+  [countrySel, provinceSel, citySel].forEach(el => el.classList.remove('loc-filter-match', 'loc-filter-mismatch'));
+
+  const allChosen = countrySel.value && provinceSel.value && citySel.value;
+  if (!allChosen) return;
+
+  const al = window.ACTIVE_LOCATION || {};
+  const matches = !!al.cityCode &&
+    countrySel.value === al.countryCode &&
+    provinceSel.value === al.provinceCode &&
+    citySel.value === al.cityCode;
+
+  [countrySel, provinceSel, citySel].forEach(el => el.classList.add(matches ? 'loc-filter-match' : 'loc-filter-mismatch'));
+}
+
+/**
+ * Fuerza los 3 dropdowns de la tab "Lugares" a la Ubicación Activa
+ * vigente, pisando cualquier selección manual que hubiera — se llama
+ * al guardar una Ubicación Activa nueva (Cris lo pidió: "por defecto
+ * esté el lugar que se seteó en Ubicaciones") y al arrancar la página.
+ */
+function _applyActiveLocationToListFilter() {
+  const al = window.ACTIVE_LOCATION || {};
+  const countrySel = document.getElementById('list-filter-country');
+  if (countrySel) {
+    const countries = _uniqueBy(_locations, l => l.countryCode, l => l.countryLabel);
+    countrySel.innerHTML = `<option value="">País</option>` +
+      countries.map(([code, label]) => `<option value="${code}">${label}</option>`).join('');
+    countrySel.value = al.countryCode || '';
+  }
+  const provinceSel = document.getElementById('list-filter-province');
+  if (provinceSel) {
+    const provinces = _uniqueBy(
+      _locations.filter(l => !al.countryCode || l.countryCode === al.countryCode),
+      l => l.provinceCode, l => l.provinceLabel
+    );
+    provinceSel.innerHTML = `<option value="">Provincia</option>` +
+      provinces.map(([code, label]) => `<option value="${code}">${label}</option>`).join('');
+    provinceSel.value = al.provinceCode || '';
+    provinceSel.disabled = !al.countryCode;
+  }
+  const citySel = document.getElementById('list-filter-city');
+  if (citySel) {
+    const cities = _uniqueBy(
+      _locations.filter(l => (!al.countryCode || l.countryCode === al.countryCode) && (!al.provinceCode || l.provinceCode === al.provinceCode)),
+      l => l.cityCode, l => l.cityLabel
+    );
+    citySel.innerHTML = `<option value="">Ciudad</option>` +
+      cities.map(([code, label]) => `<option value="${code}">${label}</option>`).join('');
+    citySel.value = al.cityCode || '';
+    citySel.disabled = !al.provinceCode;
+  }
+  _updateListFilterColors();
   if (typeof renderList === 'function') renderList();
 }
 
@@ -389,9 +458,20 @@ async function _saveActiveContext() {
   if (btn) { btn.disabled = false; btn.textContent = '💾 Guardar cambios'; }
   toast('✅ Ubicación activa guardada — así queda para todos hasta que la cambies');
 
-  // Si la tab "Nuevo" ya está pintada, refrescamos sus 3 dropdowns para
-  // que el default que muestran también quede al día con este guardado.
-  if (typeof _renderAddCountrySelect === 'function') _renderAddCountrySelect();
+  // Reseteo completo de la tab "Nuevo" — antes solo se refrescaban los
+  // 3 dropdowns de ubicación, pero el resto del form (nombre, imagen
+  // principal, variantes, etc.) quedaba tal cual estaba. Eso permitía
+  // que quedara previsualizada una imagen cargada para la ciudad
+  // anterior, dando a entender que correspondía a la ciudad nueva.
+  // Ahora se resetea TODO el form, no solo la ubicación.
+  if (typeof resetAddTab === 'function') resetAddTab();
+
+  // Tab "Lugares": el filtro país/provincia/ciudad arranca por
+  // defecto en la Ubicación Activa recién guardada — a diferencia de
+  // _renderListFilterCountry() (que preserva lo que el admin tuviera
+  // elegido ahí), acá se fuerza el pisado porque el pedido puntual es
+  // "que por defecto esté el lugar que se seteó en Ubicaciones".
+  if (typeof _applyActiveLocationToListFilter === 'function') _applyActiveLocationToListFilter();
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -434,8 +514,10 @@ async function initLocationsTab() {
   if (saveBtn) saveBtn.addEventListener('click', _saveActiveContext);
 
   // Filtro de ubicación en la tab "Lugares" — se puebla ya, no hace
-  // falta esperar a que se abra la pestaña Ubicaciones.
-  _renderListFilterCountry();
+  // falta esperar a que se abra la pestaña Ubicaciones. Arranca
+  // seteado en la Ubicación Activa vigente (no vacío), mismo criterio
+  // que al guardar una nueva.
+  _applyActiveLocationToListFilter();
 
   const filterCountrySel = document.getElementById('list-filter-country');
   if (filterCountrySel) filterCountrySel.addEventListener('change', _renderListFilterProvince);
@@ -444,7 +526,10 @@ async function initLocationsTab() {
   if (filterProvinceSel) filterProvinceSel.addEventListener('change', _renderListFilterCity);
 
   const filterCitySel = document.getElementById('list-filter-city');
-  if (filterCitySel) filterCitySel.addEventListener('change', () => { if (typeof renderList === 'function') renderList(); });
+  if (filterCitySel) filterCitySel.addEventListener('change', () => {
+    _updateListFilterColors();
+    if (typeof renderList === 'function') renderList();
+  });
 
   // Dropdowns de ubicación en la tab "Nuevo" — se pueblan ya (por si
   // la tab estuviera abierta de entrada) y quedan listos para el
