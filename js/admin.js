@@ -164,9 +164,12 @@ window.switchTab = switchTab;
 function renderList() {
   const c = document.getElementById('admin-list');
 
-  // Filtro geográfico (país/provincia/ciudad) — selects opcionales,
-  // si no existen o no hay nada elegido, se muestra todo igual que
-  // antes. Vacío en cualquiera de los 3 = "todos" en ese nivel.
+  // Filtro geográfico (país/provincia/ciudad) — a diferencia de antes,
+  // esto ya NO es opcional: con varias ciudades cargadas, mostrar todo
+  // por defecto significaría listar de una cientos de pines mezclados.
+  // Ahora hace falta elegir las 3 (país + provincia + ciudad) para que
+  // aparezca cualquier pin — si falta alguna, se muestra un aviso en
+  // vez de la lista.
   const fCountry  = document.getElementById('list-filter-country')?.value || '';
   const fProvince = document.getElementById('list-filter-province')?.value || '';
   const fCity     = document.getElementById('list-filter-city')?.value || '';
@@ -174,6 +177,16 @@ function renderList() {
   // Filtro de texto por nombre — sin distinguir mayúsculas/acentos.
   const fTextRaw = document.getElementById('list-text-filter')?.value || '';
   const fText = fTextRaw.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+  if (!POIS.length) {
+    c.innerHTML = '<div class="empty-state"><div class="big">📭</div>No hay lugares cargados.<br>Usá el botón ➕ para agregar.</div>';
+    return;
+  }
+
+  if (!fCountry || !fProvince || !fCity) {
+    c.innerHTML = '<div class="empty-state"><div class="big">📍</div>Elegí país, provincia y ciudad arriba para ver sus lugares.</div>';
+    return;
+  }
 
   const filteredPOIS = POIS.filter(p => {
     if (fCountry  && p.country  !== fCountry)  return false;
@@ -187,10 +200,6 @@ function renderList() {
     return true;
   });
 
-  if (!POIS.length) {
-    c.innerHTML = '<div class="empty-state"><div class="big">📭</div>No hay lugares cargados.<br>Usá el botón ➕ para agregar.</div>';
-    return;
-  }
   if (!filteredPOIS.length) {
     c.innerHTML = '<div class="empty-state"><div class="big">🔍</div>Ningún lugar coincide con los filtros activos.</div>';
     return;

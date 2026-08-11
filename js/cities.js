@@ -93,7 +93,7 @@ function _renderListFilterCountry() {
   if (!sel) return;
   const current = sel.value;
   const countries = _uniqueBy(_locations, l => l.countryCode, l => l.countryLabel);
-  sel.innerHTML = `<option value="">Todos los países</option>` +
+  sel.innerHTML = `<option value="">País</option>` +
     countries.map(([code, label]) => `<option value="${code}">${label}</option>`).join('');
   sel.value = current;
   _renderListFilterProvince();
@@ -108,9 +108,10 @@ function _renderListFilterProvince() {
     _locations.filter(l => !countryCode || l.countryCode === countryCode),
     l => l.provinceCode, l => l.provinceLabel
   );
-  sel.innerHTML = `<option value="">Todas las provincias</option>` +
+  sel.innerHTML = `<option value="">Provincia</option>` +
     provinces.map(([code, label]) => `<option value="${code}">${label}</option>`).join('');
-  sel.value = current;
+  sel.value = countryCode ? current : ''; // sin país elegido no tiene sentido dejar una provincia puesta
+  sel.disabled = !countryCode;
   _renderListFilterCity();
 }
 
@@ -124,9 +125,10 @@ function _renderListFilterCity() {
     _locations.filter(l => (!countryCode || l.countryCode === countryCode) && (!provinceCode || l.provinceCode === provinceCode)),
     l => l.cityCode, l => l.cityLabel
   );
-  sel.innerHTML = `<option value="">Todas las ciudades</option>` +
+  sel.innerHTML = `<option value="">Ciudad</option>` +
     cities.map(([code, label]) => `<option value="${code}">${label}</option>`).join('');
-  sel.value = current;
+  sel.value = provinceCode ? current : ''; // sin provincia elegida no tiene sentido dejar una ciudad puesta
+  sel.disabled = !provinceCode;
   if (typeof renderList === 'function') renderList();
 }
 
