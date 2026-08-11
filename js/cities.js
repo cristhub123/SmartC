@@ -247,6 +247,75 @@ function initAddLocationDropdowns() {
 }
 
 /* ─────────────────────────────────────────────────────────────
+   DROPDOWN DE UBICACIÓN EN LA TAB "EDITAR" — misma cascada, pero el
+   default acá NO es la Ubicación Activa: es la ubicación YA GUARDADA
+   de ESE pin puntual (para no cambiarle la carpeta de golpe a un pin
+   que ya tenía sus imágenes en otro lado). Se llama explícitamente
+   desde `startEdit(p)` en admin.js con la ubicación del pin — no está
+   registrada como tab plugin, porque la tab "Editar" no se abre nunca
+   "vacía" (siempre es a través de editar un pin puntual).
+   ───────────────────────────────────────────────────────────── */
+
+let _editDefaultLocation = { countryCode: '', provinceCode: '', cityCode: '' };
+
+function _renderEditCountrySelect() {
+  const sel = document.getElementById('e-country');
+  if (!sel) return;
+  const countries = _uniqueBy(_locations, l => l.countryCode, l => l.countryLabel);
+  sel.innerHTML = `<option value="">— Elegir país —</option>` +
+    countries.map(([code, label]) => `<option value="${code}">${label} (${code})</option>`).join('');
+  sel.value = _editDefaultLocation.countryCode || '';
+  _renderEditProvinceSelect();
+}
+
+function _renderEditProvinceSelect() {
+  const sel = document.getElementById('e-state');
+  if (!sel) return;
+  const countryCode = document.getElementById('e-country')?.value || '';
+  const provinces = _uniqueBy(
+    _locations.filter(l => l.countryCode === countryCode),
+    l => l.provinceCode, l => l.provinceLabel
+  );
+  sel.innerHTML = `<option value="">— Elegir provincia —</option>` +
+    provinces.map(([code, label]) => `<option value="${code}">${label} (${code})</option>`).join('');
+  const matches = countryCode === _editDefaultLocation.countryCode;
+  sel.value = matches ? (_editDefaultLocation.provinceCode || '') : '';
+  sel.disabled = !countryCode;
+  _renderEditCitySelect();
+}
+
+function _renderEditCitySelect() {
+  const sel = document.getElementById('e-city');
+  if (!sel) return;
+  const countryCode = document.getElementById('e-country')?.value || '';
+  const provinceCode = document.getElementById('e-state')?.value || '';
+  const cities = _uniqueBy(
+    _locations.filter(l => l.countryCode === countryCode && l.provinceCode === provinceCode),
+    l => l.cityCode, l => l.cityLabel
+  );
+  sel.innerHTML = `<option value="">— Elegir ciudad —</option>` +
+    cities.map(([code, label]) => `<option value="${code}">${label} (${code})</option>`).join('');
+  const matches = countryCode === _editDefaultLocation.countryCode && provinceCode === _editDefaultLocation.provinceCode;
+  sel.value = matches ? (_editDefaultLocation.cityCode || '') : '';
+  sel.disabled = !provinceCode;
+}
+
+/**
+ * Llamado desde `startEdit(p)` en admin.js con la ubicación guardada
+ * del pin (`{country, province, city}` — nombres de campo tal cual
+ * están en el esquema del POI). Repinta los 3 dropdowns con ese
+ * default, pero quedan 100% editables a mano.
+ */
+function initEditLocationDropdowns(pinLocation) {
+  _editDefaultLocation = {
+    countryCode:  (pinLocation && pinLocation.country)  || '',
+    provinceCode: (pinLocation && pinLocation.province) || '',
+    cityCode:     (pinLocation && pinLocation.city)     || '',
+  };
+  _renderEditCountrySelect();
+}
+
+/* ─────────────────────────────────────────────────────────────
    TIPOS DE SUBCARPETA (images / sounds / lo que haga falta)
    ───────────────────────────────────────────────────────────── */
 
@@ -387,6 +456,15 @@ async function initLocationsTab() {
 
   const addStateSel = document.getElementById('a-state');
   if (addStateSel) addStateSel.addEventListener('change', _renderAddCitySelect);
+
+  // Dropdowns de ubicación en la tab "Editar" — el default lo pone
+  // startEdit() en admin.js (ubicación propia del pin), acá solo se
+  // wirean los listeners de cascada.
+  const editCountrySel = document.getElementById('e-country');
+  if (editCountrySel) editCountrySel.addEventListener('change', _renderEditProvinceSelect);
+
+  const editStateSel = document.getElementById('e-state');
+  if (editStateSel) editStateSel.addEventListener('change', _renderEditCitySelect);
 })();
 
 if (typeof SC !== 'undefined' && SC.registerTabPlugin) {

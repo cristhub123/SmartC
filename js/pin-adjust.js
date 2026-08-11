@@ -73,6 +73,15 @@ async function saveEdit() {
   const allCatsFn = typeof getAllCats === 'function' ? getAllCats() : CAT;
   const cfg = mainCat ? (allCatsFn[mainCat] || {label: mainCat.toUpperCase()}) : {label: ''};
 
+  // País/provincia/ciudad — antes `saveEdit()` nunca los tocaba (el
+  // spread `...POIS[idx]` los dejaba tal cual quedaron al crear el
+  // pin, sin forma de reubicarlo). Ahora se leen de los 3 dropdowns
+  // e-country/e-state/e-city (con fallback al valor que ya tenía el
+  // pin, por si no estuvieran en el DOM).
+  const country  = document.getElementById('e-country')?.value  || POIS[idx].country  || '';
+  const province = document.getElementById('e-state')?.value    || POIS[idx].province || '';
+  const city     = document.getElementById('e-city')?.value     || POIS[idx].city     || '';
+
   const updated = {
     ...POIS[idx], name,
     category:      mainCat,
@@ -80,6 +89,7 @@ async function saveEdit() {
     categoryLabel: cfg.label,
     icon:          editEmoji,
     lat, lng,
+    country, province, city,
     address:   document.getElementById('e-address')?.value.trim() || POIS[idx].address || '',
     imgB64:    window._editImgB64  !== undefined ? window._editImgB64  : POIS[idx].imgB64,
     imgAlt1:   window._editImgAlt1 !== undefined ? window._editImgAlt1 : POIS[idx].imgAlt1,

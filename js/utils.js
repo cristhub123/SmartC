@@ -177,10 +177,14 @@ function _slugForUpload(formPrefix) {
 
 function _locationForUpload(formPrefix) {
   const p = formPrefix === 'edit' ? 'e' : 'a';
+  // Fallback con GUION MEDIO (p-cba/c-cba) — convención definitiva; antes
+  // tenía guion bajo, que no coincidía con las carpetas reales ya usadas
+  // en Cloudinary. Solo se usa si por algún motivo el dropdown no tiene
+  // nada elegido todavía.
   return {
     country: document.getElementById(`${p}-country`)?.value || 'arg',
-    state:   document.getElementById(`${p}-state`)?.value   || 'p_cba',
-    city:    document.getElementById(`${p}-city`)?.value    || 'c_cba',
+    state:   document.getElementById(`${p}-state`)?.value   || 'p-cba',
+    city:    document.getElementById(`${p}-city`)?.value    || 'c-cba',
   };
 }
 

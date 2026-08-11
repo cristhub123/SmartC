@@ -376,12 +376,15 @@ window.startEdit = function(id) {
   syncEditCoordDisplay();
 
   // Campos de ubicación para la carpeta dinámica de Cloudinary (ver
-  // js/cloudinary-admin.js). Defensivo: si el HTML todavía no tiene
-  // estos inputs, no rompe nada (mismo patrón que e-phone/e-hours).
-  // Default Córdoba si el POI no trae estos campos (dato legado).
-  const _eCountry = document.getElementById('e-country'); if (_eCountry) _eCountry.value = p.country || 'arg';
-  const _eState   = document.getElementById('e-state');   if (_eState)   _eState.value   = p.state   || 'p_cba';
-  const _eCity    = document.getElementById('e-city');    if (_eCity)    _eCity.value    = p.city    || 'c_cba';
+  // js/cloudinary-admin.js). Antes: se pisaba el valor a mano con
+  // `.value =`, leyendo además `p.state` (el campo real del esquema
+  // es `p.province`, no `p.state` — por eso la provincia real del pin
+  // nunca se reflejaba acá). Ahora usa la cascada de `cities.js`, con
+  // default = la ubicación YA GUARDADA de este pin — pero queda
+  // editable a mano si hace falta reubicar sus imágenes a otra ciudad.
+  if (typeof initEditLocationDropdowns === 'function') {
+    initEditLocationDropdowns({ country: p.country, province: p.province, city: p.city });
+  }
 
   editEmoji = p.icon;
   document.querySelectorAll('#eg-edit .eopt').forEach(e => e.classList.toggle('sel', e.dataset.e === p.icon));

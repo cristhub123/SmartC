@@ -36,8 +36,11 @@ const CloudinaryAdmin = (function () {
   const CLOUD_NAME = (typeof window !== 'undefined' && window.CLOUDINARY_CLOUD_NAME) || 'TU_CLOUD_NAME';
   const UPLOAD_PRESET = (typeof window !== 'undefined' && window.CLOUDINARY_UPLOAD_PRESET) || 'TU_UPLOAD_PRESET';
 
-  /** Valores por defecto — Córdoba Capital, para no romper el flujo local */
-  const DEFAULT_LOCATION = Object.freeze({ country: 'arg', state: 'p_cba', city: 'c_cba' });
+  /** Valores por defecto — Córdoba Capital, para no romper el flujo local.
+   *  Con GUION MEDIO (p-cba/c-cba), la convención definitiva acordada —
+   *  antes tenía guion bajo (p_cba/c_cba), que no coincidía con las
+   *  carpetas reales que ya existen en Cloudinary. */
+  const DEFAULT_LOCATION = Object.freeze({ country: 'arg', state: 'p-cba', city: 'c-cba' });
 
   // --------------------------------------------------------------------
   // 2. FOLDER / PUBLIC_ID DINÁMICOS

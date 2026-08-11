@@ -58,7 +58,7 @@ const AppState = (function () {
   // 1.1 CONFIGURACIÓN DE IMÁGENES (CLOUDINARY)
   // --------------------------------------------------------------------
   // Estructura real en el dashboard:
-  //   smartcity/media/arg/p_cba/c_cba/images/{slug}_{skin}.webp
+  //   smartcity/media/arg/p-cba/c-cba/images/{slug}_{skin}.webp
   //   (con hermanas audio/, video/, gifs/ para más adelante)
   //
   // Solo existen 2 tamaños reales en toda la interfaz:
@@ -76,8 +76,14 @@ const AppState = (function () {
   const CLOUD_NAME = (typeof window !== 'undefined' && window.CLOUDINARY_CLOUD_NAME)
     || 'TU_CLOUD_NAME';
 
-  /** Carpeta base fija donde viven las imágenes de POIs en Cloudinary */
-  const CLOUDINARY_IMAGES_PATH = 'smartcity/media/arg/p_cba/c_cba/images';
+  /** Carpeta base fija donde viven las imágenes de POIs en Cloudinary.
+   *  GUION MEDIO (p-cba/c-cba) — convención definitiva; antes tenía
+   *  guion bajo, que no coincidía con las carpetas reales de Cloudinary.
+   *  Nota: esta ruta es fija a propósito — la usa solo el loader legado
+   *  de `pois_cordoba.json` (ver pois-loader.js), que es Córdoba-only
+   *  por diseño. El admin real (multi-ciudad) arma la carpeta dinámica
+   *  con CloudinaryAdmin.buildFolder(), no con esta constante. */
+  const CLOUDINARY_IMAGES_PATH = 'smartcity/media/arg/p-cba/c-cba/images';
 
   /** Transformaciones válidas por tamaño — únicas 2 variantes soportadas */
   const IMAGE_TRANSFORMS = Object.freeze({
