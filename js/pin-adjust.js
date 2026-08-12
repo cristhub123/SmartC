@@ -298,6 +298,25 @@ function resetAddTab() {
 }
 
 /* ═══════════════════════════════════════════════════════════
+   PALABRAS DE RELLENO EN EL ID AUTOGENERADO
+   ---------------------------------------------------------------
+   Solo se filtran cuando el ID se arma SOLO del nombre (no hay
+   Código Corto/ID tipeado a mano). "Museo de la Industria y el
+   Trabajo" → "museo-industria-trabajo-cba", no el nombre completo.
+   Si el resultado quedara vacío (nombre = puro relleno), se usa
+   el nombre sin filtrar como respaldo, para nunca perder el ID.
+   El campo ID tipeado a mano NUNCA pasa por este filtro — ahí el
+   admin escribe lo que quiera, tal cual, sin ninguna corrección.
+   ═══════════════════════════════════════════════════════════ */
+const ID_STOPWORDS = new Set(['de','del','la','las','el','los','y','en','a','al','o','u','un','una','unos','unas','con','por']);
+
+function _autoSlugBase(name) {
+  const words = slugify(name).split('-').filter(Boolean);
+  const filtered = words.filter(w => !ID_STOPWORDS.has(w));
+  return (filtered.length ? filtered : words).join('-');
+}
+
+/* ═══════════════════════════════════════════════════════════
    PREVIEW EN VIVO DEL ID (tab "Nuevo") + ALERTA DE DUPLICADO
    ---------------------------------------------------------------
    Recalcula, en cada tecla/cambio, el mismo ID que saveNew() va a
@@ -313,7 +332,7 @@ function _computeAddSlugPreview() {
   const province = document.getElementById('a-state')?.value    || (window.ACTIVE_LOCATION && window.ACTIVE_LOCATION.provinceCode) || '';
   const cityCode = document.getElementById('a-city')?.value     || (window.ACTIVE_LOCATION && window.ACTIVE_LOCATION.cityCode)     || '';
   const citySuffix = (typeof getCitySuffixFor === 'function') ? getCitySuffixFor(country, province, cityCode) : cityCode;
-  const autoSlug   = citySuffix ? `${slugify(name)}-${citySuffix}` : slugify(name);
+  const autoSlug   = citySuffix ? `${_autoSlugBase(name)}-${citySuffix}` : _autoSlugBase(name);
   const rawSlugVal = (document.getElementById('a-slug')?.value || '').trim();
   return rawSlugVal ? slugify(rawSlugVal) : autoSlug;
 }
@@ -379,7 +398,7 @@ async function saveNew() {
   // en las ubicaciones guardadas (cities.js); si no encuentra nada,
   // getCitySuffixFor ya devuelve un respaldo razonable.
   const citySuffix = (typeof getCitySuffixFor === 'function') ? getCitySuffixFor(country, province, cityCode) : cityCode;
-  const autoSlug   = citySuffix ? `${slugify(name)}-${citySuffix}` : slugify(name);
+  const autoSlug   = citySuffix ? `${_autoSlugBase(name)}-${citySuffix}` : _autoSlugBase(name);
   const rawSlugVal = (document.getElementById('a-slug')?.value || '').trim();
   const slug = rawSlugVal ? slugify(rawSlugVal) : autoSlug;
 
