@@ -186,6 +186,17 @@
           <input class="fi" id="loc-city-label" type="text" placeholder="Córdoba Capital">
         </div>
       </div>
+      <!-- Sigla de 3 letras: separada del "Código ciudad" de arriba a propósito.
+           El código de ciudad (c-cba) se usa para la carpeta de Cloudinary y puede
+           tener el prefijo "c-"; la sigla es SOLO las 3 letras limpias que van al
+           final del id de cada pin nuevo (mercado-norte-cba). Si se deja vacía, se
+           deriva sola del código de ciudad (ver _saveNewLocation en cities.js). -->
+      <div class="frow" style="margin-top:8px">
+        <div>
+          <label class="fl">Sigla (3 letras) <small style="color:var(--text3);font-weight:400">para el ID de los pines</small></label>
+          <input class="fi" id="loc-city-suffix" type="text" maxlength="3" placeholder="cba">
+        </div>
+      </div>
       <button class="ibtn" id="btn-loc-save-new" style="width:100%;margin-top:10px">➕ Guardar ubicación nueva</button>
 
       <div class="divider" style="margin-top:16px"><span>UBICACIONES GUARDADAS</span></div>
@@ -309,6 +320,11 @@ imagenes:
       <div class="fg">
         <label class="fl">ID <small style="color:var(--text3);font-weight:400">(identificador único — se autocompleta, pero se puede ajustar, ej. para distinguir sucursales del mismo nombre)</small></label>
         <input class="fi" id="a-slug" type="text" placeholder="se genera solo a partir del nombre">
+        <!-- Preview en vivo: se recalcula en cada tecla de Nombre/ID/ubicación
+             (ver wireAddIdPreview en pin-adjust.js). Verde = disponible,
+             rojo = ya existe otro lugar con ese ID. Solo informativo, no
+             bloquea el tipeo — el bloqueo real está en saveNew(). -->
+        <div id="a-slug-preview" style="margin-top:4px;font-size:12px;color:var(--text3)"></div>
       </div>
       <div class="fg">
         <label class="fl">Descripción breve</label>
