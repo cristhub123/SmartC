@@ -301,6 +301,15 @@ imagenes:
         <label class="fl">Nombre *</label>
         <input class="fi" id="a-name" type="text" placeholder="Ej: Mercado Norte">
       </div>
+      <!-- ID: identificador único del lugar (campo `id` del esquema). Se autocompleta
+           a partir de Nombre+Ciudad mientras el usuario no lo haya tocado a mano;
+           una vez editado a mano, deja de autocompletarse (ver ID_FIELD en pin-adjust.js).
+           Editable libre acá (a diferencia del panel Editar) porque el pin todavía
+           no tiene imágenes subidas que dependan de este valor. -->
+      <div class="fg">
+        <label class="fl">ID <small style="color:var(--text3);font-weight:400">(identificador único — se autocompleta, pero se puede ajustar, ej. para distinguir sucursales del mismo nombre)</small></label>
+        <input class="fi" id="a-slug" type="text" placeholder="se genera solo a partir del nombre">
+      </div>
       <div class="fg">
         <label class="fl">Descripción breve</label>
         <textarea class="fta" id="a-desc" placeholder="¿Qué hace especial a este lugar?"></textarea>
@@ -982,6 +991,21 @@ imagenes:
       <div class="fg">
         <label class="fl">Nombre *</label>
         <input class="fi" id="e-name" type="text">
+      </div>
+      <!-- ID: identificador único del lugar (campo `id` del esquema), también usado
+           como prefijo de archivo en Cloudinary. Bloqueado por defecto: solo se
+           habilita tildando los 2 checkboxes de seguridad (ver wireEditIdLock en
+           pin-adjust.js), momento en el que el cuadro se pinta de rojo. -->
+      <div class="fg">
+        <label class="fl">ID <small style="color:var(--text3);font-weight:400">(identificador único — bloqueado por seguridad)</small></label>
+        <input class="fi" id="e-slug" type="text" disabled style="opacity:.6">
+        <div style="display:flex;gap:14px;margin-top:6px;font-size:12px;color:var(--text3)">
+          <label style="display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="e-slug-lock1"> Entiendo que esto afecta las imágenes</label>
+          <label style="display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="e-slug-lock2"> Quiero editar el ID igual</label>
+        </div>
+        <div id="e-slug-warning" style="display:none;margin-top:4px;font-size:12px;color:#ef4444">
+          ⚠️ Al cambiar el ID hay que renombrar las imágenes en Cloudinary con el nuevo prefijo, o volver a subirlas — si no, van a dejar de encontrarse.
+        </div>
       </div>
       <div class="fg">
         <label class="fl">Descripción</label>

@@ -61,6 +61,12 @@ const CloudinaryAdmin = (function () {
    * Arma el `public_id` obligatorio: `{slug}_{skin}`. Este es el nombre
    * final del archivo en Cloudinary — reemplaza cualquier nombre
    * original del teléfono/computadora del admin.
+   * NOTA: este `slug` es el mismo valor que se ve como "ID" en los
+   * paneles Nuevo/Editar (campo `id` del POI) — un solo dato con dos
+   * nombres según el contexto (interno: slug, en pantalla: ID). Si el
+   * admin cambia el ID de un pin ya con imágenes, hay que renombrar/
+   * resubir los archivos acá con el ID nuevo (el panel Editar ya avisa
+   * esto al usuario antes de dejarlo tocar el campo).
    * @param {string} slug
    * @param {string} [skin='main']
    * @returns {string}

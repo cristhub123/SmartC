@@ -328,6 +328,34 @@ document.querySelectorAll('#eg-add .eopt').forEach(el => {
   });
 });
 
+/* ═══════════════════════════════════════════════════════════
+   ID (tab "Nuevo") — autocompletado editable
+   Mientras el usuario no haya tocado a-slug a mano, se recalcula
+   solo a partir de Nombre + Ciudad cada vez que cambian. Apenas el
+   usuario escribe algo directamente en a-slug, _addSlugTouched pasa
+   a true y el autocompletado se detiene para esa carga (se resetea
+   en resetAddTab, js/pin-adjust.js).
+   ═══════════════════════════════════════════════════════════ */
+window._addSlugTouched = false;
+
+function _autofillAddSlug() {
+  if (window._addSlugTouched) return;
+  const slugEl = document.getElementById('a-slug');
+  if (!slugEl) return;
+  const name = (document.getElementById('a-name')?.value || '').trim();
+  const cityCode = document.getElementById('a-city')?.value || (window.ACTIVE_LOCATION && window.ACTIVE_LOCATION.cityCode) || '';
+  slugEl.value = name ? (cityCode ? `${slugify(name)}-${cityCode}` : slugify(name)) : '';
+}
+
+(function _wireAddSlugField() {
+  const nameEl = document.getElementById('a-name');
+  const slugEl = document.getElementById('a-slug');
+  const cityEl = document.getElementById('a-city');
+  if (nameEl) nameEl.addEventListener('input', _autofillAddSlug);
+  if (cityEl) cityEl.addEventListener('change', _autofillAddSlug);
+  if (slugEl) slugEl.addEventListener('input', () => { window._addSlugTouched = true; });
+})();
+
 // Sync lat/lng inputs → coord display
 ['a-lat','a-lng'].forEach(id => {
   document.getElementById(id).addEventListener('input', syncAddCoordDisplay);

@@ -51,7 +51,52 @@ window.startEdit = function(id) {
   loadPinAdjust(p);
   const addrEl = document.getElementById('e-address');
   if (addrEl) addrEl.value = (p && p.address) || '';
+  resetEditIdLock(p && p.id);
 };
+
+/* ═══════════════════════════════════════════════════════════
+   ID (panel "Editar") — doble candado de seguridad
+   El campo e-slug arranca siempre bloqueado y muestra el ID actual.
+   Se habilita (fondo/borde rojo) solo cuando los 2 checkboxes de
+   seguridad están tildados a la vez; destildar cualquiera de los dos
+   vuelve a bloquear el campo y restaura el valor original (se
+   descarta cualquier edición a medio hacer). saveEdit() solo aplica
+   un ID nuevo si el candado está abierto Y el valor cambió.
+   ═══════════════════════════════════════════════════════════ */
+function resetEditIdLock(currentId) {
+  const slugEl = document.getElementById('e-slug');
+  const lock1  = document.getElementById('e-slug-lock1');
+  const lock2  = document.getElementById('e-slug-lock2');
+  const warn   = document.getElementById('e-slug-warning');
+  if (slugEl) { slugEl.value = currentId || ''; slugEl.disabled = true; slugEl.style.color = ''; slugEl.style.borderColor = ''; }
+  if (lock1) lock1.checked = false;
+  if (lock2) lock2.checked = false;
+  if (warn) warn.style.display = 'none';
+}
+
+function _applyEditIdLockState() {
+  const slugEl = document.getElementById('e-slug');
+  const lock1  = document.getElementById('e-slug-lock1');
+  const lock2  = document.getElementById('e-slug-lock2');
+  const warn   = document.getElementById('e-slug-warning');
+  if (!slugEl || !lock1 || !lock2) return;
+  const unlocked = lock1.checked && lock2.checked;
+  slugEl.disabled = !unlocked;
+  slugEl.style.color = unlocked ? '#ef4444' : '';
+  slugEl.style.borderColor = unlocked ? '#ef4444' : '';
+  if (warn) warn.style.display = unlocked ? '' : 'none';
+  if (!unlocked && editingId !== null) {
+    const p = POIS.find(x => x.id === editingId);
+    slugEl.value = (p && p.id) || '';
+  }
+}
+
+(function _wireEditIdLock() {
+  const lock1 = document.getElementById('e-slug-lock1');
+  const lock2 = document.getElementById('e-slug-lock2');
+  if (lock1) lock1.addEventListener('change', _applyEditIdLockState);
+  if (lock2) lock2.addEventListener('change', _applyEditIdLockState);
+})();
 
 // ÚNICA definición final de saveEdit — incluye todos los campos
 async function saveEdit() {
@@ -114,9 +159,40 @@ async function saveEdit() {
   // entonces y conviene volver a mirarlo.
   if (POIS[idx].reviewed) updated.reviewedDirty = true;
 
+  // Cambio de ID: solo se aplica si el candado (2 checkboxes) está
+  // abierto y el valor del campo e-slug realmente difiere del ID
+  // actual. El ID es el nombre del documento en Firestore, así que
+  // "cambiarlo" en la práctica es crear un documento nuevo con el ID
+  // nuevo y borrar el viejo — no un simple update de campo.
+  const oldId  = POIS[idx].id;
+  const lock1  = document.getElementById('e-slug-lock1');
+  const lock2  = document.getElementById('e-slug-lock2');
+  const idUnlocked = !!(lock1 && lock1.checked && lock2 && lock2.checked);
+  let newId = oldId;
+  if (idUnlocked) {
+    const rawNewId = (document.getElementById('e-slug')?.value || '').trim();
+    const candidate = rawNewId ? slugify(rawNewId) : '';
+    if (!candidate) { toast('⚠️ El ID no puede quedar vacío'); return; }
+    if (candidate !== oldId) {
+      if (POIS.some(x => x.id === candidate)) {
+        toast(`⚠️ Ya existe un lugar con el ID "${candidate}"`);
+        return;
+      }
+      newId = candidate;
+    }
+  }
+  updated.id = newId;
+
   toast('⏳ Guardando...');
   const guardadoOk = await savePoiToFirestore(updated);
   if (!guardadoOk) return; // el propio savePoiToFirestore ya avisó el error, no seguimos
+
+  if (newId !== oldId) {
+    // Migración de ID: el doc viejo queda huérfano si no se borra.
+    await deletePoiFromFirestore(oldId);
+    if (typeof removeMarker === 'function') removeMarker(oldId);
+    editingId = newId;
+  }
 
   POIS[idx] = updated;
   removeMarker(editingId);
@@ -180,7 +256,8 @@ const _saveNewPrev = saveNew;
  * si fuera de otro).
  */
 function resetAddTab() {
-  ['a-name','a-desc','a-hist','a-soc','a-lat','a-lng','a-phone','a-hours','a-tags'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+  ['a-name','a-slug','a-desc','a-hist','a-soc','a-lat','a-lng','a-phone','a-hours','a-tags'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+  window._addSlugTouched = false; // el ID vuelve a autocompletarse desde el próximo nombre tipeado
   const addrEl = document.getElementById('a-address'); if (addrEl) addrEl.value = '';
   document.querySelectorAll('#eg-add .eopt').forEach(e => e.classList.remove('sel'));
   const defE = document.querySelector('#eg-add [data-e="📍"]'); if (defE) defE.classList.add('sel');
@@ -237,22 +314,27 @@ async function saveNew() {
   const allCatsFn = typeof getAllCats === 'function' ? getAllCats() : CAT;
   const cfg = allCatsFn[mainCat] || {label: (mainCat||'').toUpperCase()};
 
-  // El ID del lugar es su slug (lugar-ciudad) — el mismo identificador
-  // que se usa para nombrar las imágenes en Cloudinary. Así todo queda
-  // conectado por un único dato, sin contadores artificiales.
-  // ANTES: el sufijo de ciudad era "-cordoba" fijo, sin importar la
-  // Ubicación Activa — con multi-ciudad eso generaba slugs incorrectos
-  // para cualquier lugar que no fuera de Córdoba. Después pasó a usar
-  // window.ACTIVE_LOCATION directo, pero eso no dejaba elegir OTRA
-  // ubicación para un pin puntual. Ahora se lee de los 3 dropdowns
-  // país/provincia/ciudad propios de la tab "Nuevo" (que arrancan
-  // en la Ubicación Activa por defecto, pero son editables a mano) —
-  // si por algún motivo no están en el DOM, cae a la Ubicación Activa
-  // global, y si tampoco hay ninguna, al slug simple sin sufijo.
+  // El ID del lugar es el identificador único (campo `id`) — el mismo
+  // valor que se usa como prefijo para nombrar las imágenes en
+  // Cloudinary. Se lee del campo a-slug del panel: por defecto trae el
+  // valor autocompletado (nombre+ciudad), pero el usuario puede haberlo
+  // reemplazado a mano (ej. para diferenciar sucursales con el mismo
+  // nombre: "pichi-cln120-cba" vs "pichi-alv150-cba"). Se pasa por
+  // slugify() igual para garantizar que sea válido como nombre de
+  // archivo/documento aunque el usuario haya tipeado espacios o
+  // mayúsculas. Si el campo queda vacío, se cae al autogenerado.
   const country  = document.getElementById('a-country')?.value  || (window.ACTIVE_LOCATION && window.ACTIVE_LOCATION.countryCode)  || '';
   const province = document.getElementById('a-state')?.value    || (window.ACTIVE_LOCATION && window.ACTIVE_LOCATION.provinceCode) || '';
   const cityCode = document.getElementById('a-city')?.value     || (window.ACTIVE_LOCATION && window.ACTIVE_LOCATION.cityCode)     || '';
-  const slug = cityCode ? `${slugify(name)}-${cityCode}` : slugify(name);
+  const autoSlug   = cityCode ? `${slugify(name)}-${cityCode}` : slugify(name);
+  const rawSlugVal = (document.getElementById('a-slug')?.value || '').trim();
+  const slug = rawSlugVal ? slugify(rawSlugVal) : autoSlug;
+
+  if (!slug) { toast('⚠️ El ID no puede quedar vacío'); return; }
+  if (POIS.some(p => p.id === slug)) {
+    toast(`⚠️ Ya existe un lugar con el ID "${slug}" — cambialo para diferenciarlo (ej. agregando la altura/calle)`);
+    return;
+  }
 
   const p = {
     id: slug, name,
