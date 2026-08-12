@@ -145,6 +145,9 @@
     <div class="atab"     data-t="import-content">📥 Importar</div>
     <div class="atab"     data-t="edit" id="tab-edit-btn" style="display:none">✏️ Editando</div>
   </div>
+  <div class="atabs-slider-track" id="atabs-slider-track">
+    <div class="atabs-slider-thumb" id="atabs-slider-thumb"></div>
+  </div>
   <div class="admin-body" data-scroll-hint>
 
     <!-- UBICACIONES (Entrega 1 del plan multi-ciudad) -->
@@ -702,9 +705,9 @@ imagenes:
         Un lugar debe tener imágenes cargadas con el sufijo <code>_nombre-tema</code>
         para que la temática le esté disponible.
       </p>
-      <div class="fg" style="display:flex;gap:8px;margin-bottom:14px">
-        <input class="fi" id="tema-new-name" type="text" placeholder="Nombre del tema nuevo (ej: ataque-dragones)" style="flex:1">
-        <button class="btn-primary" id="btn-add-tema">+ Agregar</button>
+      <div class="fg" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px">
+        <input class="fi" id="tema-new-name" type="text" placeholder="Nombre del tema nuevo (ej: ataque-dragones)" style="width:100%">
+        <button class="btn-primary" id="btn-add-tema" style="width:100%">+ Agregar</button>
       </div>
       <div id="temas-admin-list"></div>
 
