@@ -154,10 +154,12 @@ function _renderListFilterCity() {
     _locations.filter(l => (!countryCode || l.countryCode === countryCode) && (!provinceCode || l.provinceCode === provinceCode)),
     l => l.cityCode, l => l.cityLabel
   );
-  sel.innerHTML = `<option value="">Ciudad</option>` +
+  // "🌐 Mostrar todo" queda siempre disponible, sin depender de que haya
+  // país/provincia elegidos — es un escape hatch aparte de la cascada
+  // normal, por eso el select ya no se deshabilita más abajo.
+  sel.innerHTML = `<option value="">Ciudad</option><option value="__ALL__">🌐 Mostrar todo</option>` +
     cities.map(([code, label]) => `<option value="${code}">${label}</option>`).join('');
-  sel.value = provinceCode ? current : ''; // sin provincia elegida no tiene sentido dejar una ciudad puesta
-  sel.disabled = !provinceCode;
+  sel.value = (provinceCode || current === '__ALL__') ? current : ''; // sin provincia elegida no tiene sentido dejar una ciudad puesta (salvo "Mostrar todo")
   _updateListFilterColors();
   if (typeof renderList === 'function') renderList();
 }
@@ -176,6 +178,10 @@ function _updateListFilterColors() {
   if (!countrySel || !provinceSel || !citySel) return;
 
   [countrySel, provinceSel, citySel].forEach(el => el.classList.remove('loc-filter-match', 'loc-filter-mismatch'));
+
+  // "Mostrar todo" no es ni un match ni un mismatch de la Ubicación
+  // Activa — es un modo aparte, se deja en gris neutro.
+  if (citySel.value === '__ALL__') return;
 
   const allChosen = countrySel.value && provinceSel.value && citySel.value;
   if (!allChosen) return;
@@ -221,10 +227,9 @@ function _applyActiveLocationToListFilter() {
       _locations.filter(l => (!al.countryCode || l.countryCode === al.countryCode) && (!al.provinceCode || l.provinceCode === al.provinceCode)),
       l => l.cityCode, l => l.cityLabel
     );
-    citySel.innerHTML = `<option value="">Ciudad</option>` +
+    citySel.innerHTML = `<option value="">Ciudad</option><option value="__ALL__">🌐 Mostrar todo</option>` +
       cities.map(([code, label]) => `<option value="${code}">${label}</option>`).join('');
     citySel.value = al.cityCode || '';
-    citySel.disabled = !al.provinceCode;
   }
   _updateListFilterColors();
   if (typeof renderList === 'function') renderList();

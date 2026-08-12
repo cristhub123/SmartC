@@ -175,6 +175,11 @@ function renderList() {
   const fCountry  = document.getElementById('list-filter-country')?.value || '';
   const fProvince = document.getElementById('list-filter-province')?.value || '';
   const fCity     = document.getElementById('list-filter-city')?.value || '';
+  // "🌐 Mostrar todo" (valor especial en el dropdown Ciudad) ignora
+  // país/provincia/ciudad por completo — incluye también los pines
+  // que no tienen ninguna ubicación cargada, cosa que el filtro
+  // normal (comparación exacta contra fCity) siempre dejaría afuera.
+  const showAllGeo = fCity === '__ALL__';
 
   // Filtro de texto por nombre — sin distinguir mayúsculas/acentos.
   const fTextRaw = document.getElementById('list-text-filter')?.value || '';
@@ -185,15 +190,17 @@ function renderList() {
     return;
   }
 
-  if (!fCountry || !fProvince || !fCity) {
+  if (!showAllGeo && (!fCountry || !fProvince || !fCity)) {
     c.innerHTML = '<div class="empty-state"><div class="big">📍</div>Elegí país, provincia y ciudad arriba para ver sus lugares.</div>';
     return;
   }
 
   const filteredPOIS = POIS.filter(p => {
-    if (fCountry  && p.country  !== fCountry)  return false;
-    if (fProvince && p.province !== fProvince) return false;
-    if (fCity     && p.city     !== fCity)     return false;
+    if (!showAllGeo) {
+      if (fCountry  && p.country  !== fCountry)  return false;
+      if (fProvince && p.province !== fProvince) return false;
+      if (fCity     && p.city     !== fCity)     return false;
+    }
     if (fText) {
       const name = (p.name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
       if (!name.includes(fText)) return false;
@@ -224,14 +231,15 @@ function renderList() {
     const isOn = p.active !== false;
     const clicksPublicOn = !!p.clicksPublicVisible;
     const faltaUbicacion = !(typeof p.lat === 'number' && typeof p.lng === 'number');
+    const sinCiudad = !p.city;
     const barsHTML = _renderBarsHTML(computePinBarStates(p), false);
     // _rowOpacityFor ya resuelve las 2 razones posibles de atenuado
     // (no cumple el filtro de barritas / pin desactivado) sin sumarlas.
     const rowOpacity = _rowOpacityFor(p);
-    return `<div class="poi-row" style="${rowOpacity ? `opacity:${rowOpacity}` : ''}">
+    return `<div class="poi-row ${sinCiudad ? 'poi-row--sin-ciudad' : ''}" style="${rowOpacity ? `opacity:${rowOpacity}` : ''}">
       <div class="poi-row-ico" style="background:${mainCat.color}20">${p.icon}</div>
       <div class="poi-row-info">
-        <div class="poi-row-name">${p.name} ${faltaUbicacion ? '<span style="color:var(--amber);font-size:11px;font-weight:700">📍 Falta ubicación</span>' : ''}</div>
+        <div class="poi-row-name">${p.name} ${faltaUbicacion ? '<span style="color:var(--amber);font-size:11px;font-weight:700">📍 Falta ubicación</span>' : ''} ${sinCiudad ? '<span style="color:#ef4444;font-size:11px;font-weight:700">🏙️ Sin ciudad</span>' : ''}</div>
         <div class="poi-row-cat" style="color:${mainCat.color}">${cats.map(c=>c.label).join(' · ')}</div>
         <div style="display:flex;gap:3px;margin-top:4px">${barsHTML}</div>
         <div style="font-size:11px;color:var(--text3);margin-top:2px;display:flex;align-items:center;gap:8px">
