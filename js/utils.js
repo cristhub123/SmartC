@@ -52,26 +52,31 @@ function getActivePanelThemeIds() {
 }
 
 /* === CADENA DE RESPALDO — ahora con temas globales al frente ===
-   Si hay una temática activa (evento del día, o modo noche), se
-   intenta ESA imagen primero; si este lugar puntual no la tiene
-   cargada, cae solo al resto de la cadena de siempre, sin romper
-   nada. Mismo mecanismo para cualquier temática futura, sin tener
-   que programar casos especiales por cada una. */
+   [LIMPIEZA 2026-08-12] Antes esto ARMABA urls por fórmula
+   (`cloudinaryImageUrl`, carpeta vieja `ar/cordoba`, extensión
+   `.png` fija, sufijos con guion `-alt1`) — no coincidía con la
+   convención definitiva y podía "encontrar" imágenes en el lugar
+   equivocado de Cloudinary, o directamente en un lugar donde nunca
+   hubo nada. Ahora esta función NO adivina nada: solo devuelve URLs
+   que ya están guardadas de verdad en `poi.skins[...].url` (las que
+   dejó el propio admin, sea por el uploader de a 1 o por la
+   importación masiva). Si un skin no tiene URL guardada, se lo
+   saltea — nunca se arma una URL a ciegas. */
 function buildImageFallbackChain(poi, { forMap = false, forPanel = false } = {}) {
-  const slug = getPoiSlug(poi);
+  const skins = poi.skins || {};
   const chain = [];
+  const seen = new Set();
 
-  if (forMap)   getActiveMapThemeIds().forEach(id   => chain.push(cloudinaryImageUrl(slug, { suffix: `_${id}` })));
-  if (forPanel) getActivePanelThemeIds().forEach(id => chain.push(cloudinaryImageUrl(slug, { suffix: `_${id}` })));
+  function pushSkin(id) {
+    const skin = skins[id];
+    if (skin && skin.url && !seen.has(skin.url)) { chain.push(skin.url); seen.add(skin.url); }
+  }
 
-  chain.push(
-    cloudinaryImageUrl(slug, {}),                    // principal ("-cordoba")
-    cloudinaryImageUrl(slug, { suffix: '_noche' }),   // variante noche (si no hay tema de noche configurado)
-    cloudinaryImageUrl(slug, { suffix: '-alt1' }),
-    cloudinaryImageUrl(slug, { suffix: '-alt2' }),
-    cloudinaryImageUrl(slug, { suffix: '-alt3' }),
-    cloudinaryImageUrl(`fallback-${poi.category || 'generico'}`, {}), // pin genérico de la categoría
-  );
+  if (forMap)   getActiveMapThemeIds().forEach(pushSkin);
+  if (forPanel) getActivePanelThemeIds().forEach(pushSkin);
+
+  ['main', 'noche', 'alt1', 'alt2', 'alt3'].forEach(pushSkin);
+
   return chain;
 }
 
@@ -109,43 +114,48 @@ window._editImgB64 = null;
 const CLOUDINARY_CLOUD_NAME    = 's92q7vch';
 const CLOUDINARY_UPLOAD_PRESET = 'smartcity_pines_01';
 
-/* Legado: `markers.js` todavía usa esta constante en su propia fórmula
-   de fallback (`cloudinaryImageUrl`, la cadena de respaldo del PIN en
-   el mapa) — se deja definida para no romper eso. Las subidas nuevas
-   YA NO usan este valor por defecto (ver `uploadToCloudinary` arriba),
-   usan la carpeta dinámica de `CloudinaryAdmin.buildFolder()`. */
-const DEFAULT_IMG_FOLDER = 'ar/cordoba';
+/* [LIMPIEZA 2026-08-12] `DEFAULT_IMG_FOLDER` ('ar/cordoba') y la
+   fórmula que la usaba (`cloudinaryImageUrl` en markers.js) quedaron
+   eliminadas — ya no existe ningún camino del código que arme una
+   URL apuntando a esa carpeta vieja. La carpeta siempre sale de
+   `CloudinaryAdmin.buildFolder()` (dinámica, según país/provincia/
+   ciudad), con el default de Córdoba con GUION MEDIO (`p-cba/c-cba`)
+   ya corregido ahí mismo (ver js/cloudinary-admin.js). */
 
 /* === SUBE UN ARCHIVO A CLOUDINARY Y DEVUELVE SU URL REAL ===
-   ANTES: carpeta fija 'ar/cordoba' y sin public_id → Cloudinary le
-   ponía un nombre random al archivo, y el mapa nunca lo encontraba
-   (buscaba `{slug}_main.webp` en una carpeta estructurada distinta).
-   AHORA: usa `CloudinaryAdmin.buildFolder()`/`buildPublicId()` (ver
-   js/cloudinary-admin.js) para armar la carpeta dinámica según
-   país/provincia/ciudad y forzar el nombre `{slug}_{skin}` — así
-   coincide exactamente con lo que el mapa busca.
-   Si por algún motivo `cloudinary-admin.js` no cargó, cae al
-   comportamiento viejo (carpeta fija, sin public_id) para no romper
-   la app — pero eso vuelve a dejar el bug de siempre, así que
-   revisar el <script> de index.html si esto llega a pasar. */
+   [LIMPIEZA 2026-08-12] Convención definitiva de nombres: el archivo
+   que subís mantiene SU NOMBRE REAL tal cual lo tenías en tu PC/
+   celular (sin extensión, como `public_id`) — el sistema YA NO lo
+   reconstruye a partir de slug+skin. Esto es a propósito: vos ya le
+   das el nombre correcto al archivo ANTES de subirlo (`{slug}_
+   {skin}_{NN}.ext`, ver `validateUploadFilename` más abajo, que se
+   corre antes de esta función y bloquea la subida si el nombre no
+   tiene sentido) — así el nombre en Cloudinary es siempre idéntico
+   al que existe en tu PC, cero discrepancia posible.
+   La carpeta sigue siendo dinámica vía `CloudinaryAdmin.buildFolder()`
+   según país/provincia/ciudad. */
 async function uploadToCloudinary(file, opts = {}) {
-  const { slug, skin = 'main', location, folder: folderOverride } = opts;
+  const { location, folder: folderOverride, publicId: publicIdOverride } = opts;
 
   const hasCloudinaryAdmin = typeof CloudinaryAdmin !== 'undefined';
   const folder = folderOverride
-    || (hasCloudinaryAdmin ? CloudinaryAdmin.buildFolder(location) : DEFAULT_IMG_FOLDER);
+    || (hasCloudinaryAdmin ? CloudinaryAdmin.buildFolder(location) : 'smartcity/media/arg/p-cba/c-cba/images');
+
+  // Nombre real preservado: se usa el nombre del archivo (sin
+  // extensión) tal cual lo trae `file.name`, salvo que se pase un
+  // publicId explícito (lo usa, por ejemplo, el pegado de imagen
+  // por Ctrl+V, que no tiene nombre de archivo real).
+  const publicId = publicIdOverride || (file.name || '').replace(/\.[^./\\]+$/, '');
 
   const formData = new FormData();
   formData.append('file', file);
   formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
   formData.append('folder', folder);
 
-  if (slug && hasCloudinaryAdmin) {
-    formData.append('public_id', CloudinaryAdmin.buildPublicId(slug, skin));
-  } else if (!hasCloudinaryAdmin) {
-    console.warn('[utils.js] CloudinaryAdmin no está cargado — la imagen sube sin public_id fijo (nombre random).');
-  } else if (!slug) {
-    console.warn('[utils.js] uploadToCloudinary sin slug — la imagen sube sin public_id fijo (nombre random). Completá el nombre del lugar antes de subir la imagen.');
+  if (publicId) {
+    formData.append('public_id', publicId);
+  } else {
+    console.warn('[utils.js] uploadToCloudinary sin nombre de archivo — sube con nombre random.');
   }
 
   const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
@@ -157,6 +167,41 @@ async function uploadToCloudinary(file, opts = {}) {
   return data.secure_url;
 }
 
+/* === VALIDACIÓN DEL NOMBRE DE ARCHIVO ANTES DE SUBIR ===
+   Convención definitiva (3 campos separados por "_", el número
+   siempre de 2 dígitos al final, extensión libre):
+     {id-del-lugar}_{skin}_{NN}.{ext}
+   Ejemplos válidos:
+     plaza-san-martin_main_01.webp
+     plaza-san-martin-ros_t-retro_01.webp
+     building_night_01.gif
+   El prefijo (todo lo que va antes del primer "_") tiene que ser
+   EXACTAMENTE igual al ID del lugar que se está editando/creando —
+   así nunca hay discrepancia entre lo que vive en Cloudinary y lo
+   que el admin/base de datos espera encontrar. */
+function validateUploadFilename(filename, expectedSlug) {
+  const base = (filename || '').replace(/\.[^./\\]+$/, '');
+  const parts = base.split('_');
+
+  if (parts.length !== 3) {
+    return { valid: false, reason: `Debe tener exactamente 3 partes separadas por "_" (ej. ${expectedSlug || 'id-del-lugar'}_main_01) — encontré ${parts.length}.` };
+  }
+  const [prefix, variant, num] = parts;
+  if (!prefix) {
+    return { valid: false, reason: 'Falta el prefijo (ID del lugar) antes del primer "_".' };
+  }
+  if (expectedSlug && prefix !== expectedSlug) {
+    return { valid: false, reason: `El prefijo "${prefix}" no coincide con el ID del lugar ("${expectedSlug}").` };
+  }
+  if (!variant) {
+    return { valid: false, reason: 'Falta el nombre de la variante entre los dos "_".' };
+  }
+  if (!/^\d{2}$/.test(num)) {
+    return { valid: false, reason: `Debe terminar en un número de 2 dígitos antes de la extensión (ej. _01) — encontré "${num}".` };
+  }
+  return { valid: true };
+}
+
 /* === CONTEXTO DE SUBIDA (slug + ubicación) SEGÚN EL FORMULARIO ===
    El upload ocurre ANTES de guardar el POI (apenas se elige el
    archivo), así que el slug/ubicación se leen en vivo del formulario
@@ -165,6 +210,16 @@ function _slugForUpload(formPrefix) {
   if (formPrefix === 'edit') {
     // Editando un lugar existente: el id YA es el slug unificado.
     if (typeof editingId !== 'undefined' && editingId) return editingId;
+  }
+  // [LIMPIEZA 2026-08-12] Para "Nuevo" esto usaba solo slugify(nombre),
+  // que NO coincide con el ID real que va a quedar guardado si hay
+  // sufijo de ciudad o un ID tipeado a mano (ver `_computeAddSlugPreview`
+  // en pin-adjust.js, la única fuente de verdad del ID final). Ahora
+  // reusa esa misma función para que la validación del nombre de
+  // archivo compare contra el ID REAL, no una aproximación.
+  if (formPrefix === 'add' && typeof _computeAddSlugPreview === 'function') {
+    const preview = _computeAddSlugPreview();
+    if (preview) return preview;
   }
   const nameEl = document.getElementById(formPrefix === 'edit' ? 'e-name' : 'a-name');
   const name = nameEl ? nameEl.value.trim() : '';
@@ -210,7 +265,7 @@ function clearImg(inputId, prevId, lblId, wrapperId, defaultLbl, onLoad) {
   document.getElementById(inputId).value = '';
   document.getElementById(prevId).innerHTML = '🏙️';
   document.getElementById(lblId).textContent = defaultLbl;
-  document.getElementById(wrapperId).classList.remove('has-img');
+  document.getElementById(wrapperId).classList.remove('has-img', 'img-uploader--name-ok', 'img-uploader--name-bad');
   onLoad(null);
 }
 
@@ -223,10 +278,24 @@ function setupImgUploader(inputId, prevId, lblId, clearId, wrapperId, defaultLbl
   async function loadFile(file) {
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) { toast('⚠️ Imagen demasiado grande (máx 5 MB)'); return; }
+
+    const ctx = typeof getUploadCtx === 'function' ? getUploadCtx() : {};
+
+    // [NUEVO 2026-08-12] Chequeo del nombre ANTES de subir — evita que
+    // se suba con un nombre que no va a coincidir con lo que el
+    // sistema espera. Bloquea la subida si el nombre no tiene sentido.
+    wrapper.classList.remove('img-uploader--name-ok', 'img-uploader--name-bad');
+    const check = validateUploadFilename(file.name, ctx.slug);
+    if (!check.valid) {
+      wrapper.classList.add('img-uploader--name-bad');
+      toast(`⚠️ Nombre de archivo incorrecto: ${check.reason}`);
+      return;
+    }
+    wrapper.classList.add('img-uploader--name-ok');
+
     const originalLbl = lbl.textContent;
     lbl.textContent = '⏳ Subiendo...';
     try {
-      const ctx = typeof getUploadCtx === 'function' ? getUploadCtx() : {};
       const url = await uploadToCloudinary(file, ctx);
       applyImgB64(url, prevId, lblId, wrapperId, file.name, onLoad);
       toast('✅ Imagen subida');
@@ -287,6 +356,8 @@ function setupUrlLoader(urlInputId, loadBtnId, prevId, lblId, wrapperId, onLoad,
     // link directo y listo.
     if (url.includes('res.cloudinary.com')) {
       const filename = url.split('/').pop().split('?')[0] || 'imagen';
+      const wrapperEl = document.getElementById(wrapperId);
+      if (wrapperEl) wrapperEl.classList.remove('img-uploader--name-ok', 'img-uploader--name-bad');
       applyImgB64(url, prevId, lblId, wrapperId, filename, onLoad);
       inp.value = '';
       toast('✅ Imagen enlazada (ya estaba en Cloudinary, no se duplicó)');
@@ -301,6 +372,8 @@ function setupUrlLoader(urlInputId, loadBtnId, prevId, lblId, wrapperId, onLoad,
     if (gdrive) url = `https://drive.google.com/uc?export=download&id=${gdrive[1]}`;
 
     btn.textContent = '…'; btn.classList.add('loading');
+    const wrapper = document.getElementById(wrapperId);
+    if (wrapper) wrapper.classList.remove('img-uploader--name-ok', 'img-uploader--name-bad');
     try {
       const res = await fetch(url, { mode: 'cors' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -308,8 +381,20 @@ function setupUrlLoader(urlInputId, loadBtnId, prevId, lblId, wrapperId, onLoad,
       if (!ct.startsWith('image/')) throw new Error('No es una imagen');
       const blob = await res.blob();
       const filename = url.split('/').pop().split('?')[0] || 'imagen.jpg';
-      const file = new File([blob], filename, { type: ct });
       const ctx = typeof getUploadCtx === 'function' ? getUploadCtx() : {};
+
+      // Mismo chequeo de nombre que el uploader de archivo — un link
+      // externo también tiene que traer el nombre correcto ya puesto.
+      const check = validateUploadFilename(filename, ctx.slug);
+      if (!check.valid) {
+        if (wrapper) wrapper.classList.add('img-uploader--name-bad');
+        toast(`⚠️ Nombre de archivo incorrecto: ${check.reason}`);
+        btn.textContent = 'Cargar'; btn.classList.remove('loading');
+        return;
+      }
+      if (wrapper) wrapper.classList.add('img-uploader--name-ok');
+
+      const file = new File([blob], filename, { type: ct });
       const cloudUrl = await uploadToCloudinary(file, ctx);
       applyImgB64(cloudUrl, prevId, lblId, wrapperId, filename, onLoad);
       inp.value = '';

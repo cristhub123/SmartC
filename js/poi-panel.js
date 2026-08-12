@@ -38,10 +38,11 @@
  *     (`poi.name`/`poi.titulo`, `poi.desc`/`poi.descripcion`,
  *     `poi.hist`/`poi.historia`, `poi.hours`) cuando el contenido
  *     multiidioma nuevo está vacío o no existe.
- *   - Al abrir un POI se carga su imagen "full" (1024px) vía
- *     `AppState.getImageUrl(slug, skin, 'full')` y se centra el mapa
- *     suavemente en sus coordenadas (`_centerMapOn`, con 3 vías de
- *     integración posibles — ver comentario de esa función).
+ *   - Al abrir un POI se carga su imagen "full" (1024px) desde la URL
+ *     real ya guardada en el POI (`poi.skins[skin].url`/`poi.imgB64`,
+ *     ver `_renderHeroImage`) y se centra el mapa suavemente en sus
+ *     coordenadas (`_centerMapOn`, con 3 vías de integración posibles
+ *     — ver comentario de esa función).
  *   - ID unificado: `poi.id` ahora ES el slug limpio (ej.
  *     "alto-paz-tower"), el mismo valor usado en el mapa y en el
  *     nombre de archivo de Cloudinary. `AppState.getPoi` normaliza
@@ -256,27 +257,30 @@ const PoiPanel = (function () {
 
   /**
    * Carga la imagen principal/maximizada del POI (tamaño "full", 1024px)
-   * usando el helper centralizado `AppState.getImageUrl`. Usa el skin
-   * activo del POI (`poi.active_skin`), con fallback a "main".
+   * a partir de la URL real ya guardada en el POI (`poi.skins[skin].url`
+   * o `poi.imgB64`). Usa el skin activo del POI (`poi.active_skin`),
+   * con fallback a "main". No adivina ninguna URL — si no hay ninguna
+   * guardada, no se muestra imagen.
    * @param {Object} poi
    */
   function _renderHeroImage(poi) {
     const els = _els;
-    const slug = poi.id || poi.slug;
     const skin = poi.active_skin || 'main';
 
-    // Prioridad de la URL: 1) la real ya subida a Cloudinary guardada
-    // en el POI (skins[skin].url, o el legado poi.imgB64 para "main"
-    // — ver nota en utils.js: pese al nombre, ya contiene una URL real,
-    // no base64), 2) si no hay ninguna, la formulaica de AppState
-    // (puede no existir todavía en Cloudinary si el lugar no tiene foto).
+    // [LIMPIEZA 2026-08-12] Prioridad de la URL: 1) la real ya subida a
+    // Cloudinary guardada en el POI (skins[skin].url, o el legado
+    // poi.imgB64 para "main" — ver nota en utils.js: pese al nombre,
+    // ya contiene una URL real, no base64). Antes había un 3er paso
+    // que "adivinaba" la URL con AppState.getImageUrl — esa función
+    // arma la ruta fija de Córdoba, así que en cualquier otra ciudad
+    // apuntaba a un lugar equivocado de Cloudinary. Se sacó: si no hay
+    // ninguna URL guardada de verdad, no se intenta cargar nada (el
+    // banner queda oculto, ver más abajo).
     let url = '';
     if (poi.skins && poi.skins[skin] && poi.skins[skin].url) {
       url = poi.skins[skin].url;
     } else if (skin === 'main' && poi.imgB64) {
       url = poi.imgB64;
-    } else if (slug && typeof AppState.getImageUrl === 'function') {
-      url = AppState.getImageUrl(slug, skin, 'full');
     }
 
     // Ocultación estricta: si no hay ninguna URL posible, ni se

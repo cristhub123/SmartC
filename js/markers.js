@@ -1,23 +1,22 @@
 /* markers.js — makeMarker, removeMarker */
 /* ═══════════════════════════════════════════
-   URLS DE IMAGEN CALCULADAS POR FÓRMULA (CLOUDINARY)
+   URLS DE IMAGEN — SOLO LO REALMENTE GUARDADO
    ---------------------------------------------------
-   No se "buscan" ni se guardan a mano — se arman con una fórmula
-   fija a partir del slug del lugar. Si la imagen no existe todavía
-   en Cloudinary, el <img onerror> se encarga de mostrar el emoji
-   de respaldo en vez de romper el pin.
+   [LIMPIEZA 2026-08-12] Antes esta URL se "adivinaba" con una fórmula
+   fija (carpeta vieja `ar/cordoba`, extensión `.png`, sufijos con
+   guion tipo `-alt1`) que YA NO coincide con la convención definitiva
+   de Cloudinary (`smartcity/media/{país}/{prov}/{ciudad}/images/
+   {slug}_{skin}_{NN}.{ext}`). Esa fórmula quedó eliminada del todo:
+   ahora el mapa solo usa URLs reales ya guardadas en el POI
+   (`poi.imgB64` o `poi.skins[...].url`, ver buildImageFallbackChain
+   en utils.js). Si no hay ninguna URL guardada, se muestra el emoji
+   de respaldo directamente — nunca se inventa una URL que puede
+   apuntar a un lugar equivocado de Cloudinary.
 ═══════════════════════════════════════════ */
 function slugify(str) {
   return (str || '').trim().toLowerCase()
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-}
-
-function getPoiSlug(poi) { return poi.slug || `${slugify(poi.name)}-cordoba`; }
-
-function cloudinaryImageUrl(slug, { suffix = '', w, h } = {}) {
-  const transform = (w && h) ? `c_scale,w_${w},h_${h}/` : '';
-  return `https://res.cloudinary.com/${CLOUDINARY_CLOUD_NAME}/image/upload/${transform}${DEFAULT_IMG_FOLDER}/${slug}${suffix}.png`;
 }
 
 /* Resuelve qué URL de imagen mostrar para el PIN del mapa:
