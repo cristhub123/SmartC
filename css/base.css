@@ -948,6 +948,10 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   box-shadow: var(--shadow-xs);
 }
 .poi-row:hover { border-color: var(--accent); box-shadow: 0 4px 16px rgba(58,140,79,.12); transform: translateY(-1px); }
+/* Pin sin ciudad asignada — visible sobre todo con el filtro "Mostrar
+   todo" del dropdown Ciudad, donde aparecen pines que el filtro
+   geográfico normal nunca deja ver. */
+.poi-row.poi-row--sin-ciudad { border-color: #ef4444; border-width: 2px; }
 .poi-row-ico {
   width: 42px; height: 42px; border-radius: var(--r);
   display: flex; align-items: center; justify-content: center;
