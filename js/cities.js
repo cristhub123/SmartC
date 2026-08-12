@@ -35,7 +35,7 @@ function _renderLocationsList() {
   wrap.innerHTML = _locations.map(loc => `
     <div class="za-row" data-id="${loc.id}">
       <span class="za-name" style="flex:1">${loc.countryLabel} · ${loc.provinceLabel} · ${loc.cityLabel}
-        <span style="color:var(--text3);font-weight:400;font-size:11px">(${loc.countryCode}/${loc.provinceCode}/${loc.cityCode})</span>
+        <span style="color:var(--text3);font-weight:400;font-size:11px">(${loc.countryCode}/${loc.provinceCode}/${loc.cityCode} — sigla: ${loc.citySuffix || getCitySuffixFor(loc.countryCode, loc.provinceCode, loc.cityCode)})</span>
       </span>
       <button class="za-edit-btn" data-delete-location="${loc.id}" title="Borrar">🗑️</button>
     </div>`).join('');
@@ -63,15 +63,44 @@ async function _saveNewLocation() {
     return;
   }
 
-  const loc = { countryCode, countryLabel, provinceCode, provinceLabel, cityCode, cityLabel };
+  // Sigla de 3 letras para el ID de los pines (ej. "cba"). Si el admin la
+  // completa, tiene que ser exactamente 3 letras. Si la deja vacía, se
+  // deriva sola del código de ciudad (saca un prefijo tipo "c-" si lo
+  // tiene, y toma las primeras 3 letras de lo que queda) — así ninguna
+  // ubicación se queda sin sigla, aunque el admin no la haya tipeado.
+  let citySuffix = (document.getElementById('loc-city-suffix')?.value || '').trim().toLowerCase();
+  if (citySuffix && !/^[a-z]{3}$/.test(citySuffix)) {
+    toast('⚠️ La sigla debe ser de exactamente 3 letras (ej. "cba")');
+    return;
+  }
+  if (!citySuffix) {
+    citySuffix = cityCode.toLowerCase().replace(/^[a-z]-/, '').replace(/[^a-z]/g, '').slice(0, 3);
+  }
+
+  const loc = { countryCode, countryLabel, provinceCode, provinceLabel, cityCode, cityLabel, citySuffix };
   const ok = await saveLocation(loc);
   if (!ok) return;
 
-  ['loc-country-code','loc-country-label','loc-province-code','loc-province-label','loc-city-code','loc-city-label']
+  ['loc-country-code','loc-country-label','loc-province-code','loc-province-label','loc-city-code','loc-city-label','loc-city-suffix']
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
 
   await _reloadLocations();
   toast(`✅ Ubicación "${loc.cityLabel}" guardada`);
+}
+
+/**
+ * Devuelve la sigla de 3 letras de una ciudad ya guardada, buscando por
+ * país+provincia+ciudad. Si esa ubicación es vieja y no tiene `citySuffix`
+ * guardado (se creó antes de este cambio), se deriva sola del cityCode
+ * como respaldo — nunca devuelve vacío si hay una ubicación que matchea.
+ * Usada por saveNew() (pin-adjust.js) para armar el ID del pin.
+ */
+function getCitySuffixFor(countryCode, provinceCode, cityCode) {
+  const loc = _locations.find(l =>
+    l.countryCode === countryCode && l.provinceCode === provinceCode && l.cityCode === cityCode);
+  if (!loc) return cityCode || '';
+  if (loc.citySuffix) return loc.citySuffix;
+  return (cityCode || '').toLowerCase().replace(/^[a-z]-/, '').replace(/[^a-z]/g, '').slice(0, 3) || cityCode;
 }
 
 async function _reloadLocations() {
@@ -313,6 +342,9 @@ function _renderAddCitySelect() {
 // default vigente de Ubicación Activa.
 function initAddLocationDropdowns() {
   _renderAddCountrySelect();
+  // Los 3 selects se repueblan con .value asignado por código (no dispara
+  // 'change'), así que el preview de ID hay que refrescarlo a mano acá.
+  if (typeof updateAddIdPreview === 'function') updateAddIdPreview();
 }
 
 /* ─────────────────────────────────────────────────────────────

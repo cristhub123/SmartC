@@ -294,7 +294,54 @@ function resetAddTab() {
   if (typeof _renderAddCountrySelect === 'function') _renderAddCountrySelect(); // vuelve al default (Ubicación Activa)
   if (typeof buildMultiCatSelector === 'function') buildMultiCatSelector('cat-chips-add', []);
   if (typeof syncAddCoordDisplay === 'function') syncAddCoordDisplay();
+  updateAddIdPreview();
 }
+
+/* ═══════════════════════════════════════════════════════════
+   PREVIEW EN VIVO DEL ID (tab "Nuevo") + ALERTA DE DUPLICADO
+   ---------------------------------------------------------------
+   Recalcula, en cada tecla/cambio, el mismo ID que saveNew() va a
+   generar (mismo criterio: Código corto manual si está escrito, si
+   no nombre+sigla de ciudad) y lo muestra debajo del campo ID. Si
+   ese ID ya existe en POIS, el texto pasa a rojo con un aviso. Es
+   solo informativo — nunca bloquea el tipeo; el bloqueo real sigue
+   estando en saveNew() como respaldo.
+   ═══════════════════════════════════════════════════════════ */
+function _computeAddSlugPreview() {
+  const name = (document.getElementById('a-name')?.value || '').trim();
+  const country  = document.getElementById('a-country')?.value  || (window.ACTIVE_LOCATION && window.ACTIVE_LOCATION.countryCode)  || '';
+  const province = document.getElementById('a-state')?.value    || (window.ACTIVE_LOCATION && window.ACTIVE_LOCATION.provinceCode) || '';
+  const cityCode = document.getElementById('a-city')?.value     || (window.ACTIVE_LOCATION && window.ACTIVE_LOCATION.cityCode)     || '';
+  const citySuffix = (typeof getCitySuffixFor === 'function') ? getCitySuffixFor(country, province, cityCode) : cityCode;
+  const autoSlug   = citySuffix ? `${slugify(name)}-${citySuffix}` : slugify(name);
+  const rawSlugVal = (document.getElementById('a-slug')?.value || '').trim();
+  return rawSlugVal ? slugify(rawSlugVal) : autoSlug;
+}
+
+function updateAddIdPreview() {
+  const previewEl = document.getElementById('a-slug-preview');
+  if (!previewEl) return;
+  const slug = _computeAddSlugPreview();
+  if (!slug) { previewEl.textContent = ''; previewEl.style.color = ''; return; }
+
+  const duplicate = typeof POIS !== 'undefined' && POIS.some(p => p.id === slug);
+  if (duplicate) {
+    previewEl.style.color = '#ef4444';
+    previewEl.textContent = `⚠️ Ya existe un lugar con el ID "${slug}" — cambiá el nombre o el ID para diferenciarlo`;
+  } else {
+    previewEl.style.color = 'var(--text3)';
+    previewEl.textContent = `ID: ${slug}`;
+  }
+}
+
+(function _wireAddIdPreview() {
+  ['a-name','a-slug','a-country','a-state','a-city'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', updateAddIdPreview);
+    el.addEventListener('change', updateAddIdPreview);
+  });
+})();
 
 async function saveNew() {
   const name = document.getElementById('a-name').value.trim();
@@ -326,7 +373,13 @@ async function saveNew() {
   const country  = document.getElementById('a-country')?.value  || (window.ACTIVE_LOCATION && window.ACTIVE_LOCATION.countryCode)  || '';
   const province = document.getElementById('a-state')?.value    || (window.ACTIVE_LOCATION && window.ACTIVE_LOCATION.provinceCode) || '';
   const cityCode = document.getElementById('a-city')?.value     || (window.ACTIVE_LOCATION && window.ACTIVE_LOCATION.cityCode)     || '';
-  const autoSlug   = cityCode ? `${slugify(name)}-${cityCode}` : slugify(name);
+  // El sufijo del ID es la SIGLA de 3 letras de la ciudad (ej. "cba"),
+  // no el cityCode completo (que puede traer un prefijo tipo "c-" y se
+  // usa para la carpeta de Cloudinary, no para el ID del pin). Se busca
+  // en las ubicaciones guardadas (cities.js); si no encuentra nada,
+  // getCitySuffixFor ya devuelve un respaldo razonable.
+  const citySuffix = (typeof getCitySuffixFor === 'function') ? getCitySuffixFor(country, province, cityCode) : cityCode;
+  const autoSlug   = citySuffix ? `${slugify(name)}-${citySuffix}` : slugify(name);
   const rawSlugVal = (document.getElementById('a-slug')?.value || '').trim();
   const slug = rawSlugVal ? slugify(rawSlugVal) : autoSlug;
 
