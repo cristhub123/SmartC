@@ -718,6 +718,12 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
 }
 .img-uploader.has-img .img-clear { display: flex; }
 
+/* [NUEVO 2026-08-12] Señal visual de nombre de archivo válido/inválido
+   antes de subir a Cloudinary — recuadro de 7px, no desplaza el
+   layout (usa outline, no border/margin). */
+.img-uploader--name-ok   { outline: 7px solid var(--green);   outline-offset: 2px; }
+.img-uploader--name-bad  { outline: 7px solid #ef4444;        outline-offset: 2px; }
+
 /* Geocoder search — see full styles in bottom block */
 .geocoder-input { flex: 1; }
 .geocoder-result {
