@@ -23,6 +23,7 @@ const BAR_DEFS = [
   { key: 'black', color: '#111111', title: 'Variante "night" (cargada / activa)', states: 3 },
   { key: 'green', color: '#22c55e', title: 'Tiene coordenadas',            states: 2 },
   { key: 'gold',  color: '#eab308', title: 'Revisado por el admin',        states: 3 },
+  { key: 'purple', color: '#8b5cf6', title: 'Visible al público (mismo tilde que "visible al público" de cada fila)', states: 2 },
 ];
 
 /**
@@ -59,13 +60,14 @@ function computePinBarStates(p) {
     black,
     green: hasCoords ? 'full' : 'empty',
     gold,
+    purple: p.clicksPublicVisible ? 'full' : 'empty',
   };
 }
 
 /* Filtro de estado activo — null en una barrita = "sin filtro" para
    esa columna. Se guarda acá porque tiene que sobrevivir entre
    renders (cada click en la fila maestra dispara un renderList()). */
-let _barsFilter = { red: null, blue: null, black: null, green: null, gold: null };
+let _barsFilter = { red: null, blue: null, black: null, green: null, gold: null, purple: null };
 
 /** Ciclo de estados al hacer click, según cuántos tiene la barrita. */
 function _cycleBarFilter(key, def) {
@@ -196,7 +198,6 @@ function renderList() {
       const name = (p.name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
       if (!name.includes(fText)) return false;
     }
-    if (!_pinMatchesBarsFilter(p)) return false;
     return true;
   });
 
@@ -204,7 +205,18 @@ function renderList() {
     c.innerHTML = '<div class="empty-state"><div class="big">🔍</div>Ningún lugar coincide con los filtros activos.</div>';
     return;
   }
-  c.innerHTML = filteredPOIS.map(p => {
+
+  // Barritas de estado (incluida "visible al público"): ya NO ocultan
+  // los que no cumplen — los separan al final de la lista, atenuados,
+  // para no perder de vista lugares que igual podrías querer tocar.
+  // Con ningún filtro de barrita activo, todos "cumplen" trivialmente
+  // y queda una sola lista, simplemente en orden alfabético.
+  const byName = (a, b) => (a.name || '').localeCompare(b.name || '', 'es', { sensitivity: 'base' });
+  const matching    = filteredPOIS.filter(p =>  _pinMatchesBarsFilter(p)).sort(byName);
+  const nonMatching = filteredPOIS.filter(p => !_pinMatchesBarsFilter(p)).sort(byName);
+  const anyBarFilterActive = Object.values(_barsFilter).some(v => v !== null);
+
+  const renderRow = (p) => {
     const cats = Array.isArray(p.categories) && p.categories.length
       ? p.categories.map(k => CAT[k]).filter(Boolean)
       : [CAT[p.category] || {label: p.category||'—', color:'#6055d8'}];
@@ -213,7 +225,10 @@ function renderList() {
     const clicksPublicOn = !!p.clicksPublicVisible;
     const faltaUbicacion = !(typeof p.lat === 'number' && typeof p.lng === 'number');
     const barsHTML = _renderBarsHTML(computePinBarStates(p), false);
-    return `<div class="poi-row" style="${isOn?'':'opacity:.5'}">
+    // _rowOpacityFor ya resuelve las 2 razones posibles de atenuado
+    // (no cumple el filtro de barritas / pin desactivado) sin sumarlas.
+    const rowOpacity = _rowOpacityFor(p);
+    return `<div class="poi-row" style="${rowOpacity ? `opacity:${rowOpacity}` : ''}">
       <div class="poi-row-ico" style="background:${mainCat.color}20">${p.icon}</div>
       <div class="poi-row-info">
         <div class="poi-row-name">${p.name} ${faltaUbicacion ? '<span style="color:var(--amber);font-size:11px;font-weight:700">📍 Falta ubicación</span>' : ''}</div>
@@ -233,7 +248,19 @@ function renderList() {
         <button class="ibtn del" onclick="askDelete('${p.id}')" title="Eliminar">🗑️</button>
       </div>
     </div>`;
-  }).join('');
+  };
+
+  const divider = (anyBarFilterActive && nonMatching.length)
+    ? `<div style="display:flex;align-items:center;gap:8px;margin:10px 0;color:var(--text3);font-size:11px">
+         <div style="flex:1;height:1px;background:var(--border)"></div>
+         No cumplen el filtro activo
+         <div style="flex:1;height:1px;background:var(--border)"></div>
+       </div>`
+    : '';
+
+  c.innerHTML = matching.map(p => renderRow(p)).join('')
+    + divider
+    + nonMatching.map(p => renderRow(p)).join('');
 }
 
 (function _wireListFilters() {
@@ -256,7 +283,20 @@ window.togglePublicClicks = function(id, checked) {
   p.clicksPublicVisible = checked;
   savePoiToFirestore(p);
   toast(checked ? '✅ El conteo ahora es visible al público' : '⭕ El conteo ya no es visible al público');
+  // Este checkbox alimenta la barrita/filtro "purple" nueva — sin este
+  // refresh, la fila quedaba con el color de barrita viejo y no
+  // reubicaba el pin entre "cumple"/"no cumple" si había un filtro activo.
+  renderList();
 };
+
+/** Misma regla de opacidad que usa cada fila al pintarse — reusada acá
+ *  para que togglePoi() no pise el atenuado por "no cumple el filtro
+ *  de barritas" con el atenuado por "pin desactivado" (no se suman,
+ *  gana el más bajo de los dos). */
+function _rowOpacityFor(p) {
+  if (!_pinMatchesBarsFilter(p)) return '.4';
+  return p.active !== false ? '' : '.5';
+}
 
 window.togglePoi = function(id, btn) {
   const p = POIS.find(x => x.id === id);
@@ -264,7 +304,7 @@ window.togglePoi = function(id, btn) {
   p.active = !(p.active !== false);
   btn.classList.toggle('on', p.active);
   const row = btn.closest('.poi-row');
-  if (row) row.style.opacity = p.active ? '' : '.5';
+  if (row) { const op = _rowOpacityFor(p); row.style.opacity = op || ''; }
   // Show/hide marker on map
   const m = markers[id];
   if (m) {
