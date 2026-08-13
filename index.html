@@ -274,6 +274,21 @@ imagenes:
       <div id="bulk-import-report" style="font-size:12px;color:var(--text3);margin-bottom:8px"></div>
       <button class="btn-primary" id="btn-bulk-full-import" style="width:100%;margin-bottom:14px">📥 Importar lugares completos</button>
 
+      <div class="divider" style="margin-top:14px"><span>VINCULAR IMÁGENES YA SUBIDAS A CLOUDINARY</span></div>
+      <p style="font-size:11px;color:var(--text3);margin-bottom:8px">
+        Para cuando subís las imágenes directo a Cloudinary (fuera de acá).
+        El lugar tiene que existir ya — esto NO crea ni pisa nombre/descripción/
+        categoría/tags, solo agrega o actualiza sus imágenes. Cada bloque
+        separado por <code>### IMG</code>.
+      </p>
+      <textarea class="fi" id="bulk-img-link-text" rows="6" style="width:100%;resize:vertical;margin-bottom:8px;font-family:var(--font-m);font-size:12px" placeholder="### IMG
+id: cabildo-cba
+imagenes:
+  cabildo-cba_main_01.webp
+  cabildo-cba_night_01.webp"></textarea>
+      <div id="bulk-img-link-report" style="font-size:12px;color:var(--text3);margin-bottom:8px"></div>
+      <button class="btn-primary" id="btn-bulk-img-link" style="width:100%;margin-bottom:14px">🖼️ Vincular imágenes</button>
+
       <div class="import-warning" id="import-warning">
         ⚠️ Esto va a <strong>reemplazar</strong> todos los lugares actuales.<br>
         <button id="import-confirm" style="margin-top:6px;background:var(--accent);color:white;border:none;border-radius:6px;padding:4px 10px;font-size:11px;font-weight:600;cursor:pointer">Confirmar importación</button>
