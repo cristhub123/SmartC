@@ -10,15 +10,25 @@
  */
 
 :root {
-  --poi-panel-accent: #0d9488;      /* teal-600 */
-  --poi-panel-accent-hover: #0f766e; /* teal-700, por si se necesita */
-  --poi-panel-slate-900: #0f172a;
-  --poi-panel-slate-800: #1e293b;
-  --poi-panel-slate-700: #334155;
-  --poi-panel-slate-400: #94a3b8;
-  --poi-panel-slate-300: #cbd5e1;
-  --poi-panel-gray-200: #e5e7eb;
-  --poi-panel-white: #ffffff;
+  /* --- Paleta "Warm Editorial / Organic Minimal" ---------------------
+     Misma estructura de siempre; solo cambian los tonos: de frío/clínico
+     a cálido/natural. Los nombres de variable se mantienen (los usa
+     todo el archivo) pero ahora apuntan a los tonos cálidos. */
+  --poi-panel-accent: #c86d3b;         /* terracota — categoría, foco de inputs */
+  --poi-panel-accent-hover: #b25f31;   /* terracota oscurecido, por si se necesita */
+  --poi-panel-accent-2: #2d5a27;       /* verde bosque — títulos de sección (Datos, Skins, etc.) */
+
+  --poi-panel-slate-900: #1c1917;      /* grafito cálido — título principal */
+  --poi-panel-slate-800: #292524;      /* variante oscura de texto, por si se necesita */
+  --poi-panel-slate-700: #44403c;      /* pardo oscuro — cuerpo de texto */
+  --poi-panel-slate-400: #78716c;      /* piedra cálido — subtítulo/dirección */
+  --poi-panel-slate-300: #d6ceb8;      /* arena — drag handle, separador de metadatos, borde de inputs */
+  --poi-panel-gray-200: #e7e2d9;       /* gris arena — línea divisoria del footer, placeholder de imágenes */
+  --poi-panel-white: #faf8f5;          /* lino cálido — fondo del panel (reemplaza el blanco clínico) */
+
+  --poi-panel-action-bg: #2d3728;      /* verde oliva oscuro — botón de acción principal */
+  --poi-panel-action-bg-hover: #24301f;
+  --poi-panel-action-text: #f5f3ef;    /* texto cálido claro sobre el botón */
 
   --poi-panel-radius: 1rem;         /* rounded-t-2xl */
   --poi-panel-max-width: 28rem;     /* max-w-md */
@@ -106,7 +116,7 @@
   width: 36px;
   height: 4px;
   border-radius: 999px;
-  background: var(--poi-panel-gray-200);
+  background: var(--poi-panel-slate-300);
 }
 
 /* --------------------------------------------------------------------
@@ -194,15 +204,34 @@
   flex-direction: column;
   gap: 1.5rem; /* gap-6 entre secciones */
   -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
   /* Gesto explícito: solo scroll vertical de texto acá adentro, nunca
      arrastre del panel (ese gesto vive únicamente en el handle). */
   touch-action: pan-y;
+
+  /* Barra de scroll fina y en tono cálido (Firefox + navegadores WebKit)
+     en vez de la barra de scroll gris genérica del navegador. */
+  scrollbar-width: thin;
+  scrollbar-color: var(--poi-panel-slate-300) transparent;
+}
+
+.poi-panel__scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.poi-panel__scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.poi-panel__scroll::-webkit-scrollbar-thumb {
+  background: var(--poi-panel-slate-300);
+  border-radius: 999px;
 }
 
 .poi-panel__section-title {
   font-family: var(--pines-section-font, inherit);
   font-size: clamp(0.65rem, var(--pines-section-size, 0.75rem), 1.1rem);
-  color: var(--pines-section-color, var(--poi-panel-slate-400));
+  color: var(--pines-section-color, var(--poi-panel-accent-2));
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -313,7 +342,7 @@
 }
 
 .poi-panel__switch.is-active {
-  background: var(--poi-panel-accent);
+  background: var(--poi-panel-action-bg);
 }
 
 .poi-panel__switch.is-active::after {
@@ -370,17 +399,18 @@
   width: 100%;
   border: none;
   border-radius: 0.75rem; /* rounded-xl */
-  background: var(--poi-panel-slate-900);
-  color: var(--poi-panel-white);
+  background: var(--poi-panel-action-bg);
+  color: var(--poi-panel-action-text);
   font-weight: 600;
   font-size: 0.9375rem;
   padding: 0.875rem 1rem;
   cursor: pointer;
+  box-shadow: 0 4px 12px rgba(45, 55, 40, 0.15);
   transition: background 0.15s ease;
 }
 
 .poi-panel__action-btn:hover {
-  background: var(--poi-panel-slate-800);
+  background: var(--poi-panel-action-bg-hover);
 }
 
 .poi-panel__action-btn:disabled {
