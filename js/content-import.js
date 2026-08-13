@@ -106,6 +106,12 @@ async function importContentJSON(jsonText) {
     // como "Falta ubicación", listo para completar desde "Editar".
   }
 
+  // [CORREGIDO 2026-08-13] Una sola regeneración de caché al final,
+  // con POIS ya con todos los creados/actualizados de este lote —
+  // antes se regeneraba (mal) adentro de cada savePoiToFirestore
+  // del loop, con POIS todavía sin ese ítem puntual.
+  if (creados > 0 || actualizados > 0) await regeneratePublicCache();
+
   renderList();
 
   let resumen = `✅ Importación terminada: ${creados} creados, ${actualizados} actualizados.<br>`;

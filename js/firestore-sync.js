@@ -72,11 +72,28 @@ function incrementPinClicks(id) {
 }
 
 
+/* [CORREGIDO 2026-08-13] Antes esta función regeneraba el caché
+   público ella misma, sin esperar (fire-and-forget), JUSTO DESPUÉS
+   de escribir el documento — pero en la mayoría de los que la
+   llaman (saveEdit/saveNew/importaciones), el array POIS en memoria
+   TODAVÍA no estaba actualizado con los datos nuevos en ese
+   instante exacto (esa actualización pasa después, más abajo en
+   cada función). Resultado: el caché público (el que lee CUALQUIER
+   visitante al cargar la página) se regeneraba con datos VIEJOS —
+   a veces el cambio recién se reflejaba en el próximo guardado de
+   OTRO lugar cualquiera, a veces nunca si era un cambio de ID (el
+   caso más grave: el documento viejo se borra de Firestore, pero el
+   caché queda apuntando a ese ID que ya no existe → el lugar
+   desaparece por completo al recargar).
+   SOLUCIÓN: esta función YA NO dispara la regeneración del caché
+   por su cuenta. Cada lugar que la llama es responsable de llamar a
+   `regeneratePublicCache()` (con await) DESPUÉS de haber actualizado
+   POIS en memoria con el dato final y correcto — así el caché nunca
+   puede quedar desincronizado. */
 async function savePoiToFirestore(poi) {
   try {
     const { id, ...data } = poi; // el id va aparte, no adentro del documento
     await db.collection('pines').doc(id).set(data, { merge: false });
-    regeneratePublicCache(); // mantiene el caché público al día (no se espera, no bloquea la UI)
     return true;
   } catch (err) {
     console.error('Error guardando en Firestore:', err);
@@ -100,7 +117,9 @@ async function saveSkinsToFirestore(id, skinsPartial, mainUrl) {
     const payload = { skins: skinsPartial };
     if (mainUrl) payload.imgB64 = mainUrl;
     await db.collection('pines').doc(id).set(payload, { merge: true });
-    regeneratePublicCache();
+    // [CORREGIDO 2026-08-13] Ídem savePoiToFirestore — ya no regenera
+    // el caché acá. El que llama (importImageLinksFromText) lo hace
+    // una sola vez al final, con POIS ya actualizado del todo.
     return true;
   } catch (err) {
     console.error('Error vinculando imágenes en Firestore:', err);
@@ -113,7 +132,8 @@ async function saveSkinsToFirestore(id, skinsPartial, mainUrl) {
 async function deletePoiFromFirestore(id) {
   try {
     await db.collection('pines').doc(id).delete();
-    regeneratePublicCache(); // mantiene el caché público al día
+    // [CORREGIDO 2026-08-13] Ídem savePoiToFirestore — el que llama
+    // regenera el caché explícitamente, con POIS ya actualizado.
     return true;
   } catch (err) {
     console.error('Error borrando de Firestore:', err);

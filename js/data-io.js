@@ -211,6 +211,10 @@ function confirmImport() {
       POIS.push(poi); makeMarker(poi);
       savePoiToFirestore(poi); // el import también persiste en Firestore
     });
+    // [CORREGIDO 2026-08-13] Una sola regeneración de caché acá, con
+    // POIS ya completo (antes se regeneraba, mal, dentro de cada
+    // savePoiToFirestore del forEach, con datos parciales).
+    if (POIS.length) regeneratePublicCache();
     applyFilter(); renderList();
     if (POIS.length) {
       const lats = POIS.map(p=>p.lat), lngs = POIS.map(p=>p.lng);

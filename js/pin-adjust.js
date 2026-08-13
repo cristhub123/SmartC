@@ -215,6 +215,13 @@ async function saveEdit() {
   }
 
   POIS[idx] = updated;
+  // [CORREGIDO 2026-08-13] Recién ACÁ, con POIS ya actualizado al
+  // dato final (incluido el ID nuevo si se renombró), se regenera el
+  // caché público — antes se regeneraba desde adentro de
+  // savePoiToFirestore/deletePoiFromFirestore, ANTES de esta línea,
+  // con datos viejos. Eso era la causa real de que un lugar
+  // renombrado desapareciera del todo al refrescar.
+  await regeneratePublicCache();
   removeMarker(editingId);
   makeMarker(updated);
   applyFilter();
@@ -245,6 +252,7 @@ async function markPinAsReviewed() {
   if (!ok) return;
 
   POIS[idx] = updated;
+  await regeneratePublicCache(); // [CORREGIDO 2026-08-13]
   toast(`🟡 "${updated.name}" marcado como revisado`);
   renderList();
 }
@@ -458,6 +466,10 @@ async function saveNew() {
   if (!guardadoOk) return; // el propio savePoiToFirestore ya avisó el error, no seguimos
 
   POIS.push(p);
+  // [CORREGIDO 2026-08-13] Regenerar caché acá, con POIS ya incluyendo
+  // el lugar nuevo — antes se disparaba desde adentro de
+  // savePoiToFirestore, ANTES de este push.
+  await regeneratePublicCache();
   makeMarker(p);
 
   resetAddTab();
@@ -543,6 +555,10 @@ async function createShellPinsFromPrefixList() {
   }
 
   if (btn) { btn.disabled = false; btn.textContent = '📁 Crear pines desde la lista'; }
+  // [CORREGIDO 2026-08-13] Una sola regeneración de caché al final,
+  // con POIS ya con todos los pines-cascarón nuevos adentro — antes
+  // se regeneraba (mal) adentro de cada savePoiToFirestore del loop.
+  if (created > 0) await regeneratePublicCache();
   textarea.value = '';
   renderList();
   toast(`✅ ${created} lugar(es) creado(s)` + (skipped ? `, ${skipped} omitido(s) (ya existían o nombre inválido)` : ''));
@@ -936,6 +952,9 @@ async function importFullPinsFromText() {
   }
 
   if (btn) { btn.disabled = false; btn.textContent = '📥 Importar lugares completos'; }
+  // [CORREGIDO 2026-08-13] Una sola regeneración de caché al final,
+  // con POIS ya con todos los creados/actualizados de este lote.
+  if (created > 0 || updated > 0) await regeneratePublicCache();
   textarea.value = '';
   renderList();
 
@@ -1104,6 +1123,9 @@ async function importImageLinksFromText() {
   }
 
   if (btn) { btn.disabled = false; btn.textContent = '🖼️ Vincular imágenes'; }
+  // [CORREGIDO 2026-08-13] Una sola regeneración de caché al final,
+  // con POIS ya con todos los skins vinculados de este lote.
+  if (linked > 0) await regeneratePublicCache();
   textarea.value = '';
   renderList();
 
