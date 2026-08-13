@@ -425,23 +425,13 @@ setupImgUploader(
 );
 setupUrlLoader('img-url-add',  'img-url-load-add',  'img-prev-add',  'img-lbl-add',  'iu-add',  b64 => { window._addImgB64  = b64; }, _uploadCtx('add', 'main'));
 setupUrlLoader('img-url-edit', 'img-url-load-edit', 'img-prev-edit', 'img-lbl-edit', 'iu-edit', b64 => { window._editImgB64 = b64; }, _uploadCtx('edit', 'main'));
-// Alt images for add form
-window._addImgAlt1 = null; window._addImgAlt2 = null; window._addImgAlt3 = null;
-setupImgUploader('img-input-alt1-add','img-prev-alt1-add','img-lbl-alt1-add','img-clear-alt1-add','iu-alt1-add','Variante 2', b64=>{ window._addImgAlt1=b64; }, _uploadCtx('add', 'alt1'));
-setupImgUploader('img-input-alt2-add','img-prev-alt2-add','img-lbl-alt2-add','img-clear-alt2-add','iu-alt2-add','Variante 3', b64=>{ window._addImgAlt2=b64; }, _uploadCtx('add', 'alt2'));
-setupImgUploader('img-input-alt3-add','img-prev-alt3-add','img-lbl-alt3-add','img-clear-alt3-add','iu-alt3-add','Variante 4', b64=>{ window._addImgAlt3=b64; }, _uploadCtx('add', 'alt3'));
-setupUrlLoader('img-url-alt1-add', 'img-url-load-alt1-add', 'img-prev-alt1-add', 'img-lbl-alt1-add', 'iu-alt1-add', b64 => { window._addImgAlt1 = b64; }, _uploadCtx('add', 'alt1'));
-setupUrlLoader('img-url-alt2-add', 'img-url-load-alt2-add', 'img-prev-alt2-add', 'img-lbl-alt2-add', 'iu-alt2-add', b64 => { window._addImgAlt2 = b64; }, _uploadCtx('add', 'alt2'));
-setupUrlLoader('img-url-alt3-add', 'img-url-load-alt3-add', 'img-prev-alt3-add', 'img-lbl-alt3-add', 'iu-alt3-add', b64 => { window._addImgAlt3 = b64; }, _uploadCtx('add', 'alt3'));
-
-// Alt images for edit form
-window._editImgAlt1 = undefined; window._editImgAlt2 = undefined; window._editImgAlt3 = undefined;
-setupImgUploader('img-input-alt1-edit','img-prev-alt1-edit','img-lbl-alt1-edit','img-clear-alt1-edit','iu-alt1-edit','Variante 2', b64=>{ window._editImgAlt1=b64; }, _uploadCtx('edit', 'alt1'));
-setupImgUploader('img-input-alt2-edit','img-prev-alt2-edit','img-lbl-alt2-edit','img-clear-alt2-edit','iu-alt2-edit','Variante 3', b64=>{ window._editImgAlt2=b64; }, _uploadCtx('edit', 'alt2'));
-setupImgUploader('img-input-alt3-edit','img-prev-alt3-edit','img-lbl-alt3-edit','img-clear-alt3-edit','iu-alt3-edit','Variante 4', b64=>{ window._editImgAlt3=b64; }, _uploadCtx('edit', 'alt3'));
-setupUrlLoader('img-url-alt1-edit', 'img-url-load-alt1-edit', 'img-prev-alt1-edit', 'img-lbl-alt1-edit', 'iu-alt1-edit', b64 => { window._editImgAlt1 = b64; }, _uploadCtx('edit', 'alt1'));
-setupUrlLoader('img-url-alt2-edit', 'img-url-load-alt2-edit', 'img-prev-alt2-edit', 'img-lbl-alt2-edit', 'iu-alt2-edit', b64 => { window._editImgAlt2 = b64; }, _uploadCtx('edit', 'alt2'));
-setupUrlLoader('img-url-alt3-edit', 'img-url-load-alt3-edit', 'img-prev-alt3-edit', 'img-lbl-alt3-edit', 'iu-alt3-edit', b64 => { window._editImgAlt3 = b64; }, _uploadCtx('edit', 'alt3'));
+// Alt images (variantes) — [MIGRADO 2026-08-13] antes eran 3 uploaders
+// fijos acá (alt1/2/3, guardaban en window._addImgAlt1/2/3, un campo
+// legado `imgAlt1/2/3` que nunca se mostraba en ningún lado público).
+// Ahora el manejo es dinámico y sin límite: ver js/img-slots.js
+// (AltSlotsAdd / AltSlotsEdit), que crea/enlaza cada slot al vuelo y
+// guarda directo en `poi.skins` — el mismo lugar que ya usa el
+// carrusel del panel y la vinculación de imágenes por texto.
 
 /* ── Patch startEdit: ya integrado en la definición base arriba ── */
 

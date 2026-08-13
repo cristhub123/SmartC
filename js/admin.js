@@ -409,27 +409,12 @@ window.startEdit = function(id) {
     window._editImgB64 = null;
   }
 
-  // Alt images
-  function preloadAlt(imgData, prevId, lblId, wrapperId, slot, varName) {
-    const prevEl = document.getElementById(prevId);
-    const lblEl  = document.getElementById(lblId);
-    const wrapEl = document.getElementById(wrapperId);
-    if (!prevEl) return;
-    if (imgData) {
-      prevEl.innerHTML = `<img src="${imgData}" alt="variante">`;
-      lblEl.textContent = `Variante ${slot} cargada — clic para cambiar`;
-      wrapEl.classList.add('has-img');
-      window[varName] = imgData;
-    } else {
-      prevEl.innerHTML = String(slot);
-      lblEl.textContent = `Variante ${slot}`;
-      wrapEl.classList.remove('has-img');
-      window[varName] = null;
-    }
-  }
-  preloadAlt(p.imgAlt1, 'img-prev-alt1-edit', 'img-lbl-alt1-edit', 'iu-alt1-edit', 2, '_editImgAlt1');
-  preloadAlt(p.imgAlt2, 'img-prev-alt2-edit', 'img-lbl-alt2-edit', 'iu-alt2-edit', 3, '_editImgAlt2');
-  preloadAlt(p.imgAlt3, 'img-prev-alt3-edit', 'img-lbl-alt3-edit', 'iu-alt3-edit', 4, '_editImgAlt3');
+  // Alt images (variantes) — [MIGRADO 2026-08-13] antes eran 3
+  // preloads fijos leyendo el campo legado imgAlt1/2/3 (que nunca se
+  // mostraba en ningún lado público). Ahora AltSlotsEdit.reset() lee
+  // directo de poi.skins y recrea tantos slots como variantes "altN"
+  // tenga el lugar, más uno vacío al final.
+  if (typeof AltSlotsEdit !== 'undefined' && AltSlotsEdit) AltSlotsEdit.reset(p.skins);
 
   document.getElementById('e-lat').value  = p.lat;
   document.getElementById('e-lng').value  = p.lng;

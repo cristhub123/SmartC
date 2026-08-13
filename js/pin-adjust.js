@@ -137,9 +137,6 @@ async function saveEdit() {
     country, province, city,
     address:   document.getElementById('e-address')?.value.trim() || POIS[idx].address || '',
     imgB64:    window._editImgB64  !== undefined ? window._editImgB64  : POIS[idx].imgB64,
-    imgAlt1:   window._editImgAlt1 !== undefined ? window._editImgAlt1 : POIS[idx].imgAlt1,
-    imgAlt2:   window._editImgAlt2 !== undefined ? window._editImgAlt2 : POIS[idx].imgAlt2,
-    imgAlt3:   window._editImgAlt3 !== undefined ? window._editImgAlt3 : POIS[idx].imgAlt3,
     pinScale:   _eScale ? parseInt(_eScale.value)  : (POIS[idx].pinScale   ?? 100),
     pinOffsetX: _eOffX  ? parseInt(_eOffX.value)   : (POIS[idx].pinOffsetX ?? 0),
     pinOffsetY: _eOffY  ? parseInt(_eOffY.value)   : (POIS[idx].pinOffsetY ?? 0),
@@ -151,6 +148,29 @@ async function saveEdit() {
     phone:     (document.getElementById('e-phone')||{value:''}).value.trim(),
     hours:     (document.getElementById('e-hours')||{value:''}).value.trim(),
   };
+
+  // Skins — [MIGRADO 2026-08-13] igual que en saveNew, pero acá hay
+  // que preservar lo que ya existía y NO está bajo control de este
+  // editor visual: variantes con nombre distinto de "altN" (ej.
+  // "noche", o cualquiera vinculada por texto en Importar) se dejan
+  // intactas. Las "altN" sí se reconstruyen enteras a partir de los
+  // slots dinámicos actuales (si se borró un slot, esa variante
+  // desaparece; si se cambió, se actualiza; si no se tocó, sigue
+  // igual porque AltSlotsEdit.reset() precargó el mismo valor).
+  const existingSkins = POIS[idx].skins || {};
+  const skins = {};
+  Object.entries(existingSkins).forEach(([k, v]) => {
+    if (k === 'main' || /^alt\d+$/.test(k)) return; // se reconstruyen abajo
+    skins[k] = v;
+  });
+  if (updated.imgB64) {
+    skins.main = existingSkins.main ? { ...existingSkins.main, url: updated.imgB64 } : { url: updated.imgB64, style: 'main', active: true };
+  }
+  const altSkins = (typeof AltSlotsEdit !== 'undefined' && AltSlotsEdit) ? AltSlotsEdit.getSkins() : {};
+  Object.entries(altSkins).forEach(([variant, url]) => {
+    skins[variant] = existingSkins[variant] ? { ...existingSkins[variant], url } : { url, style: variant, active: true };
+  });
+  updated.skins = skins;
 
   // Barrita dorada (revisado): si este pin ya estaba marcado como
   // revisado y ahora se guarda un cambio normal (no el botón de
@@ -269,25 +289,17 @@ function resetAddTab() {
   const mainWrap = document.getElementById('iu-add');       if (mainWrap) mainWrap.classList.remove('has-img');
   window._addImgB64 = null;
 
-  // Variantes 2/3/4 — antes esto NO se reseteaba nunca (ni siquiera
-  // después de guardar un pin), quedaba la preview de la variante
-  // anterior pisada visualmente hasta cargar una nueva a mano.
-  [
-    ['img-prev-alt1-add', 'img-lbl-alt1-add', 'iu-alt1-add', '2', 'Variante 2'],
-    ['img-prev-alt2-add', 'img-lbl-alt2-add', 'iu-alt2-add', '3', 'Variante 3'],
-    ['img-prev-alt3-add', 'img-lbl-alt3-add', 'iu-alt3-add', '4', 'Variante 4'],
-  ].forEach(([prevId, lblId, wrapId, slotNum, slotLbl]) => {
-    const prevEl = document.getElementById(prevId); if (prevEl) prevEl.innerHTML = slotNum;
-    const lblEl  = document.getElementById(lblId);  if (lblEl)  lblEl.textContent = slotLbl;
-    const wrapEl = document.getElementById(wrapId); if (wrapEl) wrapEl.classList.remove('has-img');
-  });
-  window._addImgAlt1 = null; window._addImgAlt2 = null; window._addImgAlt3 = null;
+  // Variantes — [MIGRADO 2026-08-13] ahora son slots dinámicos sin
+  // límite (ver js/img-slots.js). reset() sin argumentos = arranca
+  // con 1 slot vacío, como un pin nuevo sin ninguna variante todavía.
+  if (typeof AltSlotsAdd !== 'undefined' && AltSlotsAdd) AltSlotsAdd.reset();
 
-  // Inputs de archivo + inputs de URL (pegar link) de las 4 imágenes —
-  // texto/archivo tipeado o elegido que quedaba sin limpiar aunque
-  // nunca se hubiera tocado "Cargar".
-  ['img-input-add','img-input-alt1-add','img-input-alt2-add','img-input-alt3-add',
-   'img-url-add','img-url-alt1-add','img-url-alt2-add','img-url-alt3-add']
+  // Inputs de archivo + input de URL de la imagen principal — texto/
+  // archivo tipeado o elegido que quedaba sin limpiar aunque nunca
+  // se hubiera tocado "Cargar". (Los inputs de las variantes se
+  // recrean solos desde cero en AltSlotsAdd.reset(), no hace falta
+  // limpiarlos acá.)
+  ['img-input-add', 'img-url-add']
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
 
   if (typeof _renderPinAttrsEditor === 'function') _renderPinAttrsEditor('a-attrs-wrap', []);
@@ -414,9 +426,6 @@ async function saveNew() {
     icon: addEmoji, lat, lng, address,
     country, province, city: cityCode,
     imgB64:  window._addImgB64  || null,
-    imgAlt1: window._addImgAlt1 || null,
-    imgAlt2: window._addImgAlt2 || null,
-    imgAlt3: window._addImgAlt3 || null,
     pinScale: 100, pinOffsetX: 0, pinOffsetY: 0,
     desc:  document.getElementById('a-desc').value.trim(),
     hist:  document.getElementById('a-hist').value.trim() || 'Sin datos históricos.',
@@ -428,6 +437,18 @@ async function saveNew() {
     events: [], iconCyber:'🔵', iconWinter:'❄️', iconZombie:'☣️',
     active: true,
   };
+
+  // Skins — [MIGRADO 2026-08-13] la imagen principal + las variantes
+  // (slots dinámicos de AltSlotsAdd) se guardan en `poi.skins`, el
+  // mismo campo que usa el carrusel del panel y la vinculación de
+  // imágenes por texto. Ya no existe el campo legado imgAlt1/2/3.
+  const skins = {};
+  if (p.imgB64) skins.main = { url: p.imgB64, style: 'main', active: true };
+  const altSkins = (typeof AltSlotsAdd !== 'undefined' && AltSlotsAdd) ? AltSlotsAdd.getSkins() : {};
+  Object.entries(altSkins).forEach(([variant, url]) => {
+    skins[variant] = { url, style: variant, active: true };
+  });
+  if (Object.keys(skins).length > 0) p.skins = skins;
 
   // Aplicar campos compartidos del grupo si aplica
   if (p.groupId) applyGroupFields(p);
