@@ -398,45 +398,8 @@ imagenes:
       </div>
       <div class="fg">
         <label class="fl">Imágenes alternativas (para el ojito 👁)</label>
-        <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Cada imagen es una variante visual del edificio. Se activan desde el panel del lugar.</div>
-        <div style="display:flex;flex-direction:column;gap:8px">
-          <div class="img-uploader" id="iu-alt1-add">
-            <input type="file" accept="image/*" id="img-input-alt1-add">
-            <div class="img-uploader-inner">
-              <div class="img-preview-box" id="img-prev-alt1-add">2</div>
-              <div class="img-uploader-text"><strong id="img-lbl-alt1-add">Variante 2</strong><span>PNG recomendado</span></div>
-            </div>
-            <button class="img-clear" id="img-clear-alt1-add" type="button">✕</button>
-          </div>
-          <div class="url-input-row">
-            <input class="fi url-fi" id="img-url-alt1-add" type="url" placeholder="O pegá el link de la imagen (Cloudinary, Dropbox, etc.)">
-            <button class="url-load-btn" id="img-url-load-alt1-add" type="button">Cargar</button>
-          </div>
-          <div class="img-uploader" id="iu-alt2-add">
-            <input type="file" accept="image/*" id="img-input-alt2-add">
-            <div class="img-uploader-inner">
-              <div class="img-preview-box" id="img-prev-alt2-add">3</div>
-              <div class="img-uploader-text"><strong id="img-lbl-alt2-add">Variante 3</strong><span>PNG recomendado</span></div>
-            </div>
-            <button class="img-clear" id="img-clear-alt2-add" type="button">✕</button>
-          </div>
-          <div class="url-input-row">
-            <input class="fi url-fi" id="img-url-alt2-add" type="url" placeholder="O pegá el link de la imagen (Cloudinary, Dropbox, etc.)">
-            <button class="url-load-btn" id="img-url-load-alt2-add" type="button">Cargar</button>
-          </div>
-          <div class="img-uploader" id="iu-alt3-add">
-            <input type="file" accept="image/*" id="img-input-alt3-add">
-            <div class="img-uploader-inner">
-              <div class="img-preview-box" id="img-prev-alt3-add">4</div>
-              <div class="img-uploader-text"><strong id="img-lbl-alt3-add">Variante 4</strong><span>PNG recomendado</span></div>
-            </div>
-            <button class="img-clear" id="img-clear-alt3-add" type="button">✕</button>
-          </div>
-          <div class="url-input-row">
-            <input class="fi url-fi" id="img-url-alt3-add" type="url" placeholder="O pegá el link de la imagen (Cloudinary, Dropbox, etc.)">
-            <button class="url-load-btn" id="img-url-load-alt3-add" type="button">Cargar</button>
-          </div>
-        </div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Cada imagen es una variante visual del edificio. Se activan desde el panel del lugar. Sin límite: se agrega un cuadro nuevo automáticamente cada vez que usás el último.</div>
+        <div id="alt-slots-add" style="display:flex;flex-direction:column;gap:8px"></div>
       </div>
       <div class="fg">
         <label class="fl">Ícono de respaldo (si no hay imagen)</label>
@@ -1094,45 +1057,8 @@ imagenes:
       </div>
       <div class="fg">
         <label class="fl">Imágenes alternativas (ojito 👁)</label>
-        <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Podés agregar o cambiar variantes en cualquier momento.</div>
-        <div style="display:flex;flex-direction:column;gap:8px">
-          <div class="img-uploader" id="iu-alt1-edit">
-            <input type="file" accept="image/*" id="img-input-alt1-edit">
-            <div class="img-uploader-inner">
-              <div class="img-preview-box" id="img-prev-alt1-edit">2</div>
-              <div class="img-uploader-text"><strong id="img-lbl-alt1-edit">Variante 2</strong><span>PNG recomendado</span></div>
-            </div>
-            <button class="img-clear" id="img-clear-alt1-edit" type="button">✕</button>
-          </div>
-          <div class="url-input-row">
-            <input class="fi url-fi" id="img-url-alt1-edit" type="url" placeholder="O pegá el link de la imagen (Cloudinary, Dropbox, etc.)">
-            <button class="url-load-btn" id="img-url-load-alt1-edit" type="button">Cargar</button>
-          </div>
-          <div class="img-uploader" id="iu-alt2-edit">
-            <input type="file" accept="image/*" id="img-input-alt2-edit">
-            <div class="img-uploader-inner">
-              <div class="img-preview-box" id="img-prev-alt2-edit">3</div>
-              <div class="img-uploader-text"><strong id="img-lbl-alt2-edit">Variante 3</strong><span>PNG recomendado</span></div>
-            </div>
-            <button class="img-clear" id="img-clear-alt2-edit" type="button">✕</button>
-          </div>
-          <div class="url-input-row">
-            <input class="fi url-fi" id="img-url-alt2-edit" type="url" placeholder="O pegá el link de la imagen (Cloudinary, Dropbox, etc.)">
-            <button class="url-load-btn" id="img-url-load-alt2-edit" type="button">Cargar</button>
-          </div>
-          <div class="img-uploader" id="iu-alt3-edit">
-            <input type="file" accept="image/*" id="img-input-alt3-edit">
-            <div class="img-uploader-inner">
-              <div class="img-preview-box" id="img-prev-alt3-edit">4</div>
-              <div class="img-uploader-text"><strong id="img-lbl-alt3-edit">Variante 4</strong><span>PNG recomendado</span></div>
-            </div>
-            <button class="img-clear" id="img-clear-alt3-edit" type="button">✕</button>
-          </div>
-          <div class="url-input-row">
-            <input class="fi url-fi" id="img-url-alt3-edit" type="url" placeholder="O pegá el link de la imagen (Cloudinary, Dropbox, etc.)">
-            <button class="url-load-btn" id="img-url-load-alt3-edit" type="button">Cargar</button>
-          </div>
-        </div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Podés agregar o cambiar variantes en cualquier momento. Sin límite: se agrega un cuadro nuevo automáticamente cada vez que usás el último.</div>
+        <div id="alt-slots-edit" style="display:flex;flex-direction:column;gap:8px"></div>
       </div>
       <div class="fg">
         <label class="fl">Ícono de respaldo</label>
@@ -1274,6 +1200,7 @@ imagenes:
   <!-- 5. Utilities -->
   <script src="js/cloudinary-admin.js" defer></script>
   <script src="js/utils.js" defer></script>
+  <script src="js/img-slots.js" defer></script>
   <script src="js/geocoder.js" defer></script>
 
   <!-- 6. Admin sub-panels (use registerTabPlugin) -->
