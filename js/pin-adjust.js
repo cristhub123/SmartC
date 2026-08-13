@@ -931,3 +931,171 @@ async function importFullPinsFromText() {
 })();
 
 
+/* ═══════════════════════════════════════════════════════════
+   [NUEVO 2026-08-12] VINCULAR IMÁGENES POR TEXTO (sin pisar el pin)
+   ---------------------------------------------------------------
+   Pensado para el flujo real: subís las imágenes directo a
+   Cloudinary (fuera del admin) y después pegás acá SOLO el id de
+   cada lugar + los nombres de archivo. A diferencia de "Importar
+   lugares completos" de arriba, esto NO crea ni reemplaza el pin:
+   el lugar tiene que existir ya, y solo se actualiza su campo de
+   imágenes (`skins`), vía `saveSkinsToFirestore` (merge:true) —
+   descripción, categoría, tags, coordenadas, etc. quedan intactos.
+
+   Formato (bloques separados por "### IMG"):
+
+     ### IMG
+     id: cabildo-cba
+     imagenes:
+       cabildo-cba_main_01.webp
+       cabildo-cba_night_01.webp
+   ═══════════════════════════════════════════════════════════ */
+
+/**
+ * Parsea el texto de vinculación de imágenes en bloques "### IMG".
+ * Reutiliza `parseImageFilename` (misma regla de nomenclatura que
+ * ya usa "Importar lugares completos"). No lanza excepción por un
+ * bloque puntual mal formado — lo reporta en `errors` y sigue.
+ * @param {string} text
+ * @returns {{items: Array<{id:string, skins:Object}>, errors: Array<string>}}
+ */
+function parseImageLinkText(text) {
+  const blocks = text.split(/^###\s*IMG\s*$/mi).map(b => b.trim()).filter(Boolean);
+  const items = [];
+  const errors = [];
+
+  blocks.forEach((block, blockIndex) => {
+    try {
+      const lines = block.split('\n');
+      let id = null;
+      const images = [];
+      let inImagesSection = false;
+
+      for (const rawLine of lines) {
+        const line = rawLine.replace(/\r$/, '');
+        if (!line.trim()) continue;
+        const isIndented = /^\s{2,}/.test(line);
+
+        if (!isIndented) {
+          const m = line.match(/^([a-zA-Záéíóúñ_]+)\s*:\s*(.*)$/i);
+          if (!m) continue;
+          const key = m[1].trim().toLowerCase();
+          const value = m[2].trim();
+          if (key === 'imagenes' || key === 'imágenes') { inImagesSection = true; continue; }
+          inImagesSection = false;
+          if (key === 'id') id = value;
+          continue;
+        }
+        if (inImagesSection) {
+          const filename = line.trim();
+          if (filename) images.push(filename);
+        }
+      }
+
+      if (!id) {
+        errors.push(`Bloque #${blockIndex + 1}: falta "id:" — se saltea.`);
+        return;
+      }
+      if (!images.length) {
+        errors.push(`"${id}": no tiene ninguna imagen listada en "imagenes:" — se saltea.`);
+        return;
+      }
+
+      const existing = POIS.find(x => x.id === id);
+      if (!existing) {
+        errors.push(`"${id}": no existe ningún lugar con ese ID todavía — creálo primero (o revisá que esté bien escrito).`);
+        return;
+      }
+
+      const skins = {};
+      images.forEach(filename => {
+        const parsed = parseImageFilename(filename);
+        if (!parsed) {
+          errors.push(`"${id}": nombre de imagen inválido "${filename}" (sin extensión) — se saltea esa imagen.`);
+          return;
+        }
+        const check = (typeof validateUploadFilename === 'function') ? validateUploadFilename(filename, id) : { valid: true };
+        if (!check.valid) {
+          errors.push(`"${id}" / "${filename}": ${check.reason}`);
+          return;
+        }
+        skins[parsed.variant] = {
+          url: _buildBulkImageUrl(filename),
+          style: parsed.variant,
+          active: true,
+        };
+      });
+
+      if (Object.keys(skins).length === 0) return;
+      items.push({ id, skins });
+    } catch (err) {
+      errors.push(`Bloque #${blockIndex + 1}: error inesperado (${err.message}) — se saltea.`);
+    }
+  });
+
+  return { items, errors };
+}
+
+/**
+ * Guarda las vinculaciones parseadas: merge del campo `skins` en
+ * Firestore (sin tocar el resto del documento) + actualiza POIS en
+ * memoria + re-renderiza. Si el pin editado está abierto en el panel
+ * en ese momento, también lo refresca para que se vea al toque.
+ */
+async function importImageLinksFromText() {
+  const textarea = document.getElementById('bulk-img-link-text');
+  const report = document.getElementById('bulk-img-link-report');
+  if (!textarea) return;
+
+  const { items, errors } = parseImageLinkText(textarea.value || '');
+
+  if (!items.length && !errors.length) {
+    toast('⚠️ Pegá al menos un lugar con el formato "### IMG"');
+    return;
+  }
+
+  const btn = document.getElementById('btn-bulk-img-link');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Vinculando...'; }
+
+  let linked = 0;
+  for (const item of items) {
+    const idx = POIS.findIndex(x => x.id === item.id);
+    if (idx === -1) { errors.push(`"${item.id}": desapareció de la lista local — reintentá.`); continue; }
+
+    const mainUrl = item.skins.main ? item.skins.main.url : null;
+    const ok = await saveSkinsToFirestore(item.id, item.skins, mainUrl);
+    if (!ok) { errors.push(`"${item.id}": no se pudo guardar en Firestore.`); continue; }
+
+    // Skins ya mergeados (existentes + nuevos) — se usan tanto para el
+    // arreglo global POIS (lista del admin, marcadores) como para
+    // avisarle a AppState (panel de lugar) del cambio.
+    const mergedSkins = { ...(POIS[idx].skins || {}), ...item.skins };
+    POIS[idx].skins = mergedSkins;
+    if (mainUrl) POIS[idx].imgB64 = mainUrl;
+
+    if (typeof AppState !== 'undefined' && typeof AppState.updatePoi === 'function') {
+      const patch = { id: item.id, skins: mergedSkins };
+      if (mainUrl) patch.imgB64 = mainUrl;
+      AppState.updatePoi(patch); // dispara POI_UPDATED → el panel se re-renderiza solo si está abierto en ese lugar
+    }
+
+    linked++;
+  }
+
+  if (btn) { btn.disabled = false; btn.textContent = '🖼️ Vincular imágenes'; }
+  textarea.value = '';
+  renderList();
+
+  if (report) {
+    report.innerHTML = `✅ ${linked} lugar(es) vinculado(s).` +
+      (errors.length ? `<br>⚠️ ${errors.length} aviso(s):<br>` + errors.map(e => `• ${e}`).join('<br>') : '');
+  }
+  toast(`✅ Vinculación terminada: ${linked} lugar(es) actualizado(s)`);
+}
+
+(function wireBulkImageLinkBtn() {
+  const btn = document.getElementById('btn-bulk-img-link');
+  if (btn) btn.addEventListener('click', importImageLinksFromText);
+})();
+
+

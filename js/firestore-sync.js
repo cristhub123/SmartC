@@ -85,6 +85,30 @@ async function savePoiToFirestore(poi) {
   }
 }
 
+/* === GUARDADO PARCIAL — SOLO IMÁGENES (no toca el resto del pin) ===
+   [NUEVO 2026-08-12] A diferencia de `savePoiToFirestore` (que
+   reemplaza el documento entero con merge:false), esta función usa
+   merge:true y manda ÚNICAMENTE el campo `skins` (+ `imgB64` si vino
+   una variante "main", por compatibilidad con el pin del mapa que
+   todavía la usa como fallback). Firestore hace merge profundo del
+   mapa `skins`: las variantes que no se mencionan acá quedan como
+   estaban, y el resto del documento (nombre, descripción, categoría,
+   tags, coordenadas, etc.) no se toca en absoluto.
+   La usa `linkPinImagesFromText` en pin-adjust.js. */
+async function saveSkinsToFirestore(id, skinsPartial, mainUrl) {
+  try {
+    const payload = { skins: skinsPartial };
+    if (mainUrl) payload.imgB64 = mainUrl;
+    await db.collection('pines').doc(id).set(payload, { merge: true });
+    regeneratePublicCache();
+    return true;
+  } catch (err) {
+    console.error('Error vinculando imágenes en Firestore:', err);
+    toast('⚠️ No se pudieron vincular las imágenes. Probá de nuevo (¿iniciaste sesión?).');
+    return false;
+  }
+}
+
 /* === BORRAR UN LUGAR DE FIRESTORE === */
 async function deletePoiFromFirestore(id) {
   try {
