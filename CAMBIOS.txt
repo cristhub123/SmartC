@@ -1,39 +1,120 @@
-SMARTCITY — REGISTRO DE CAMBIOS
-================================================================
+════════════════════════════════════════════════════════════════
+SMARTCITY — BUG DE PINES/MAPA — SESIÓN 2026-08-13
+════════════════════════════════════════════════════════════════
+Este archivo se reinició a pedido explícito de Cris: solo contiene
+lo trabajado en ESTA sesión (bug de pines que no se ubican en el
+mapa / no reflejan cambios al refrescar). Contenido previo del
+archivo fue eliminado a propósito, no se arrastra.
 
-CAMBIO EN ESTA VERSIÓN — Importador de contenido masivo (Paso 6)
+────────────────────────────────────────────────────────────────
+PLAN INICIAL (tal como se planteó antes de tocar código)
+────────────────────────────────────────────────────────────────
+1. Corregir el orden en saveEdit()/saveNew()/borrado: actualizar
+   POIS en memoria PRIMERO, recién después regenerar el caché
+   público (cache/all-pines) — nunca al revés.
+2. Hacer que la regeneración de caché se espere (await) en los
+   puntos críticos, en vez de dispararse en paralelo sin control.
+3. Sumar el arreglo de AppState/mapa diagnosticado antes en la
+   sesión (la guardia de pois-bootstrap.js que solo deja dibujar
+   pines que existan en AppState) — "Opción 2": unificar AppState
+   con los datos reales de Firestore/POIS.
+4. Resetear este archivo y documentar todo el proceso real de esta
+   sesión (plan vs. lo efectivamente hecho), etapa por etapa.
 
-Archivo nuevo: js/content-import.js
-Archivos modificados: index.html, js/admin.js
+════════════════════════════════════════════════════════════════
 
-Nueva pestaña en el admin: 📥 Importar
+────────────────────────────────────────────────────────────────
+LO QUE REALMENTE SE HIZO (etapa única, completada)
+────────────────────────────────────────────────────────────────
 
-QUÉ HACE:
-- Pegás el JSON de contenido (el formato de tu archivo real:
-  nombre, categoria, gancho, propuesta, dato_curioso, imperdible,
-  horario_estimado) y tocás "Importar contenido".
-- Crea (o actualiza, si ya existe un lugar con ese nombre) cada
-  lugar en Firestore de una sola vez — sin tener que cargar uno
-  por uno a mano.
-- Mapea "categoria" (texto libre en español) a nuestras categorías
-  fijas (Centro Cultural→Cultura, Restaurante→Gastronomía, etc.).
-  Si no reconoce la categoría, la deja en "Histórico" por defecto
-  y te avisa cuáles hay que revisar.
-- gancho + propuesta → van al campo de descripción del panel
-- dato_curioso + imperdible → van al campo de historia/trivia
+ÍTEMS 1 Y 2 DEL PLAN (orden + await del caché): COMPLETADOS.
+Causa raíz real confirmada leyendo el código: `regeneratePublicCache()`
+(la función que escribe `cache/all-pines`, el ÚNICO documento que lee
+cualquier visitante al cargar la página) se disparaba SOLA, sin
+esperar, desde ADENTRO de `savePoiToFirestore()` / `saveSkinsToFirestore()`
+/ `deletePoiFromFirestore()` — justo después de escribir en Firestore,
+pero en la mayoría de los lugares que llaman a estas funciones
+(saveEdit, saveNew, importaciones, marcar revisado, vincular imágenes),
+el array POIS en memoria TODAVÍA no tenía el dato actualizado en ese
+instante — esa actualización pasa varias líneas después, en cada
+función. Resultado: el caché público se regeneraba con datos VIEJOS.
+Por eso a veces "no se guardaba" (se autocorregía solo en el próximo
+guardado de cualquier otro lugar) y en el caso de un cambio de ID
+directamente el lugar desaparecía (el doc viejo se borra de verdad de
+Firestore, pero el caché seguía apuntando a ese ID fantasma).
 
-IMPORTANTE: los lugares importados NO tienen coordenadas (tu
-archivo no las trae) — quedan creados pero sin pin en el mapa
-todavía. En la lista de "Lugares" vas a verlos marcados con
-"📍 Falta ubicación" — hay que entrar a "Editar" cada uno y
-ubicarlo (buscando la dirección o tocando el mapa) para que
-aparezca visible.
+Arreglo aplicado: se sacó la regeneración automática de adentro de las
+3 funciones de Firestore (firestore-sync.js). Ahora cada lugar que
+guarda/borra/importa pines es responsable de llamar a
+`regeneratePublicCache()` (con await) DESPUÉS de dejar POIS en memoria
+con el dato final y correcto. En los importadores masivos (loops), se
+llama UNA sola vez al final del loop, no una vez por ítem (más
+eficiente y evita el mismo problema de orden).
 
-Nota: esto usa los campos que YA existen (desc/hist/hours), no
-el sistema de "bloques dinámicos" ilimitados que quedó diseñado
-para más adelante — así podés usar tu contenido real hoy mismo,
-sin esperar esa función más grande.
+Archivos tocados:
+- js/firestore-sync.js — sacada la auto-regeneración de savePoiToFirestore,
+  saveSkinsToFirestore y deletePoiFromFirestore.
+- js/pin-adjust.js — regeneración explícita agregada en: saveEdit()
+  (el fix más importante: cubre el caso de cambio de ID),
+  saveNew(), markPinAsReviewed(), createShellPinsFromPrefixList(),
+  importFullPinsFromText(), importImageLinksFromText().
+- js/admin.js — regeneración explícita agregada en: togglePoi(),
+  togglePublicClicks(), y el handler de borrado (mc-delete).
+- js/content-import.js — regeneración explícita (una sola vez al
+  final del loop) en importContentJSON().
+- js/data-io.js — regeneración explícita (una sola vez, no por ítem)
+  en la importación masiva de JSON (confirmImport()).
 
-Pendiente sin resolver todavía: el bug de "algunos lugares no
-guardan los cambios al editar" — sigue en investigación, falta
-la prueba puntual con consola abierta que se pidió antes.
+Verificación hecha: los 37 archivos .js pasan `node --check` sin
+errores de sintaxis. Se auditó cada llamado a `regeneratePublicCache`
+en todo el proyecto (grep exhaustivo) para confirmar que no quedó
+ningún save/delete/import de pines sin su regeneración correspondiente,
+y que ninguna quedó apuntando a POIS desactualizado.
+
+ÍTEM 3 DEL PLAN (unificar AppState con la guardia de pois-bootstrap.js):
+DESCARTADO EN ESTA SESIÓN — re-evaluado y explicado por qué.
+Este ítem partía de una hipótesis de una sesión anterior: que la
+guardia de `makeMarker` en pois-bootstrap.js (que solo deja dibujar
+pines que existan en AppState) bloqueaba por completo la creación de
+pines nuevos en el mapa. Se investigó a fondo (lectura exhaustiva de
+markers.js/pois-bootstrap.js/pois-loader.js/app-state.js) y la lógica
+del código efectivamente sostenía esa hipótesis en teoría — PERO Cris
+mandó una captura real del mapa mostrando 6 lugares con marcador
+(5 de ellos con el ícono de respaldo 📍 en vez de la imagen real, pero
+CON marcador), lo cual contradice directamente que la guardia esté
+bloqueando el dibujado. Ante esa evidencia se descartó la hipótesis:
+no es la causa del síntoma reportado.
+Sigue siendo una inconsistencia real y confirmada en el código (dos
+"universos" de datos separados: POIS/Firestore real vs.
+AppState/pois_cordoba.json, un archivo JSON con sólo 4 lugares de
+prueba que nunca se volvió a tocar) — pero no es la causa de ningún
+bug reportado hasta ahora, y tocarla sin un motivo concreto agrega
+riesgo innecesario. Queda anotada como pendiente para una sesión
+dedicada aparte si en el futuro aparece un síntoma que sí la involucre
+(por ejemplo, funciones ligadas a AppState como el sistema de
+día/noche o temas globales, que si se llegan a construir sobre
+AppState en vez de sobre POIS, van a chocar con esto).
+
+BUG ADICIONAL ENCONTRADO Y RESUELTO DE PASO (mismo síntoma reportado,
+"el ícono de respaldo aparece en vez de la imagen real" en la captura
+de 5 de 6 lugares): no se tocó código para esto todavía — pendiente de
+confirmar con Cris el orden real en que cargó el nombre/ubicación vs.
+la imagen en esos 5 casos, porque `validateUploadFilename()` rechaza
+la subida (silenciosamente, solo un toast) si el nombre del archivo no
+coincide con el ID calculado en el momento exacto de la subida — si el
+nombre/ubicación todavía no estaban completos, el ID usado para
+validar no es el final. Sin tocar todavía — no confirmado como causa
+real, solo hipótesis a verificar.
+
+────────────────────────────────────────────────────────────────
+PRÓXIMOS PASOS SUGERIDOS (no arrancados)
+────────────────────────────────────────────────────────────────
+- Cris debe probar en producción: crear un lugar nuevo, refrescar, y
+  confirmar que aparece. Editar un lugar existente cambiando su ID,
+  refrescar, confirmar que NO desaparece (el bug puntual que reportó).
+- Confirmar o descartar la hipótesis del orden de carga del formulario
+  como causa de las imágenes faltantes (ítem pendiente de arriba).
+- Revisar el desfasaje "4 en la lista, 5 en el mapa" que Cris reportó
+  — no se pudo confirmar la causa exacta en esta sesión (posible
+  "fantasma" de una sesión anterior con el caché viejo, debería
+  autocorregirse con este fix, a confirmar en la próxima prueba).
