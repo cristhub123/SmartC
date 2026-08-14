@@ -112,6 +112,12 @@ function removeMarker(id) {
 
 /* ═══════════════════════════════════════════
    PIN INTERACTION
+   [NOTA] Esta pinClick() nunca se ejecuta en la práctica: js/cluster.js
+   declara una función global con el mismo nombre y carga después en
+   index.html, así que esa es la que realmente atiende el click (ver
+   window.pinClick al final de cluster.js). Se deja acá sin borrar para
+   no romper nada que dependa de ella indirectamente, pero el código
+   real a tocar para el comportamiento de click en un pin es cluster.js.
 ═══════════════════════════════════════════ */
 function pinClick(id) {
   if (expandedId === id) { collapsePin(id); closePoiPanel(); return; }

@@ -38,11 +38,22 @@
  *     (`poi.name`/`poi.titulo`, `poi.desc`/`poi.descripcion`,
  *     `poi.hist`/`poi.historia`, `poi.hours`) cuando el contenido
  *     multiidioma nuevo está vacío o no existe.
+ *   - [2026-08-14] El toggle on/off por imagen (activar/desactivar un
+ *     skin) YA NO vive acá — se movió al panel admin de cada lugar
+ *     (ver js/img-slots.js, junto a cada slot de imagen). Este panel
+ *     público solo LEE qué skins están activos (`_getActiveSkinList`).
+ *   - [2026-08-14] El "ojito" cambió de función: ya no controla la
+ *     visibilidad pública del contador de clicks (esa función quedó
+ *     huérfana en AppState.toggleClicksVisibility, sin UI que la
+ *     dispare — pendiente de decidir dónde va). Ahora el ojito es un
+ *     control público: cada click avanza a la siguiente imagen activa
+ *     del lugar (`_heroSkinIndex` sobre `_getActiveSkinList`), en
+ *     loop. Ver `_renderEyeBadge` / el listener de `eyeBtn`.
  *   - Al abrir un POI se carga su imagen "full" (1024px) desde la URL
  *     real ya guardada en el POI (`poi.skins[skin].url`/`poi.imgB64`,
- *     ver `_renderHeroImage`) y se centra el mapa suavemente en sus
- *     coordenadas (`_centerMapOn`, con 3 vías de integración posibles
- *     — ver comentario de esa función).
+ *     ver `_renderHeroImage`). El centrado del mapa sobre el pin NO
+ *     se hace desde este archivo — queda unificado en
+ *     `window.panToPoiCenter` (js/app.js), llamado por js/cluster.js.
  *   - ID unificado: `poi.id` ahora ES el slug limpio (ej.
  *     "alto-paz-tower"), el mismo valor usado en el mapa y en el
  *     nombre de archivo de Cloudinary. `AppState.getPoi` normaliza
@@ -71,6 +82,16 @@ const PoiPanel = (function () {
   let _isEditMode = false;
   let _panelState = 'closed'; // 'closed' | 'peek' | 'full'
   let _unsubscribers = [];
+
+  // Índice del skin actualmente mostrado en la imagen "hero" del panel,
+  // dentro de la lista de skins ACTIVOS del POI abierto (ver
+  // _getActiveSkinList). Lo recorre el ojito (_renderEyeBadge +
+  // el click de eyeBtn): cada click avanza uno, y al pasar del
+  // último vuelve al primero. Se resetea a 0 cada vez que se abre
+  // un POI nuevo (ver open()), NO en cada _render() — así un
+  // cambio de idioma o un re-render por edición no reinicia la
+  // imagen que el usuario ya venía mirando.
+  let _heroSkinIndex = 0;
 
   // Breakpoint desktop: por encima de esto el panel es sidebar fijo
   // (sin drag); por debajo, bottom sheet arrastrable. Debe coincidir
@@ -105,7 +126,7 @@ const PoiPanel = (function () {
         <div class="poi-panel__handle"></div>
       </div>
       <div data-role="lang-row" style="display:flex;justify-content:space-between;align-items:center;gap:4px;padding:0 1.5rem 0.25rem;">
-        <button type="button" data-role="eye-btn" title="Visibilidad pública del contador de visitas" style="border:none;background:transparent;padding:2px 4px;border-radius:6px;cursor:pointer;font-size:1rem;line-height:1;display:flex;align-items:center;gap:4px;color:#94a3b8;">
+        <button type="button" data-role="eye-btn" title="Ver otra imagen de este lugar" style="border:none;background:transparent;padding:2px 4px;border-radius:6px;cursor:pointer;font-size:1rem;line-height:1;display:flex;align-items:center;gap:4px;color:#94a3b8;">
           <span data-role="eye-icon">👁️</span><span data-role="eye-count" style="font-size:0.75rem;font-weight:700;"></span>
         </button>
         <div style="display:flex;gap:4px;">
@@ -132,10 +153,6 @@ const PoiPanel = (function () {
         <div data-role="meta-section" hidden>
           <p class="poi-panel__section-title">Datos</p>
           <div class="poi-panel__meta-row" data-role="meta-row"></div>
-        </div>
-        <div data-role="skins-section" hidden>
-          <p class="poi-panel__section-title">Skins disponibles</p>
-          <div class="poi-panel__skins-grid" data-role="skins-grid"></div>
         </div>
       </div>
       <div class="poi-panel__footer">
@@ -165,8 +182,6 @@ const PoiPanel = (function () {
       description: panel.querySelector('[data-role="description"]'),
       metaSection: panel.querySelector('[data-role="meta-section"]'),
       metaRow: panel.querySelector('[data-role="meta-row"]'),
-      skinsSection: panel.querySelector('[data-role="skins-section"]'),
-      skinsGrid: panel.querySelector('[data-role="skins-grid"]'),
       actionBtn: panel.querySelector('[data-role="action-btn"]'),
     };
 
@@ -244,9 +259,6 @@ const PoiPanel = (function () {
     // --- Metadatos (custom_fields no vacíos, con fallback a poi.hours) ---
     _renderMeta(finalCustomFields);
 
-    // --- Skins ---
-    _renderSkins(poi);
-
     // --- Botón de acción (solo visible/habilitado para admin) ---
     const isAdmin = _isAdminActive();
     els.actionBtn.hidden = !isAdmin;
@@ -265,23 +277,16 @@ const PoiPanel = (function () {
    */
   function _renderHeroImage(poi) {
     const els = _els;
-    const skin = poi.active_skin || 'main';
 
-    // [LIMPIEZA 2026-08-12] Prioridad de la URL: 1) la real ya subida a
-    // Cloudinary guardada en el POI (skins[skin].url, o el legado
-    // poi.imgB64 para "main" — ver nota en utils.js: pese al nombre,
-    // ya contiene una URL real, no base64). Antes había un 3er paso
-    // que "adivinaba" la URL con AppState.getImageUrl — esa función
-    // arma la ruta fija de Córdoba, así que en cualquier otra ciudad
-    // apuntaba a un lugar equivocado de Cloudinary. Se sacó: si no hay
-    // ninguna URL guardada de verdad, no se intenta cargar nada (el
-    // banner queda oculto, ver más abajo).
-    let url = '';
-    if (poi.skins && poi.skins[skin] && poi.skins[skin].url) {
-      url = poi.skins[skin].url;
-    } else if (skin === 'main' && poi.imgB64) {
-      url = poi.imgB64;
-    }
+    // La imagen mostrada depende de _heroSkinIndex, que el ojito va
+    // avanzando (ver _renderEyeBadge / el click de eyeBtn). Siempre
+    // full 1024px porque las URLs guardadas en skins[*].url /
+    // poi.imgB64 son las reales subidas a Cloudinary — la versión
+    // recortada 150x150 solo la usa el pin chico en el mapa
+    // (js/markers.js), nunca este panel.
+    const list = _getActiveSkinList(poi);
+    if (_heroSkinIndex >= list.length) _heroSkinIndex = 0; // por si se desactivó un skin mientras estaba seleccionado
+    const url = list[_heroSkinIndex] ? list[_heroSkinIndex].url : '';
 
     // Ocultación estricta: si no hay ninguna URL posible, ni se
     // intenta cargar — el banner queda en display:none / 0 alto
@@ -299,37 +304,6 @@ const PoiPanel = (function () {
     els.hero.hidden = true;
     els.heroImage.alt = (poi.content && poi.content[_currentLang] && poi.content[_currentLang].name) || poi.name || poi.titulo || '';
     els.heroImage.src = url;
-  }
-
-  /**
-   * Centra suavemente el mapa en las coordenadas del POI al abrir el
-   * panel. Como este archivo no conoce la implementación concreta del
-   * mapa (Leaflet u otra), prueba, en orden, los puntos de integración
-   * más probables del proyecto y usa el primero disponible:
-   *   1. `window.SmartCityMap.centerOn(lat, lng)`  — API propia del proyecto, si existe.
-   *   2. `window.map.flyTo([lat, lng], zoom)`      — instancia Leaflet expuesta globalmente.
-   *   3. Evento genérico `poi:centerMap`           — por si el mapa prefiere suscribirse en vez de ser llamado directo.
-   * Si ninguno de los tres existe, no hace nada (no rompe si el mapa
-   * todavía no expone ninguna de estas vías).
-   * @param {{lat: number, lng: number}} coords
-   */
-  function _centerMapOn(coords) {
-    if (!coords) return;
-    const { lat, lng } = coords;
-
-    if (typeof window === 'undefined') return;
-
-    if (window.SmartCityMap && typeof window.SmartCityMap.centerOn === 'function') {
-      window.SmartCityMap.centerOn(lat, lng);
-      return;
-    }
-
-    if (window.map && typeof window.map.flyTo === 'function') {
-      window.map.flyTo([lat, lng], window.map.getZoom ? window.map.getZoom() : undefined);
-      return;
-    }
-
-    document.dispatchEvent(new CustomEvent('poi:centerMap', { detail: { lat, lng } }));
   }
 
   /**
@@ -371,32 +345,54 @@ const PoiPanel = (function () {
   }
 
   /**
-   * Pinta el "ojito": si `clicksPublicVisible` está activo, todos ven
-   * el conteo de visitas del lugar con el efecto de brillo que ya
-   * define shadow-eye.js (`--eye-glow-color` + `@keyframes eyeglow`,
-   * inyectados dinámicamente por ese archivo — acá solo se reutilizan,
-   * no se duplican). El toggle (tocar el botón para prender/apagar la
-   * visibilidad) solo está habilitado para admin, igual que el botón
-   * "Editar" — para un usuario normal, el ojito es de solo lectura.
+   * Devuelve la lista ordenada de skins ACTIVOS de un POI (los que se
+   * pueden mostrar al público — filtra los que el admin desactivó
+   * desde el toggle que ahora vive en el panel de edición, ver
+   * js/img-slots.js). Cada entrada es { name, url }.
+   *
+   * - "main" siempre se considera activo (regla de negocio: nunca se
+   *   puede desactivar, es el fallback obligatorio).
+   * - Un skin sin campo `active` explícito se toma como activo (dato
+   *   legado, antes de que existiera el toggle).
+   * - Si el POI no tiene `skins` pero sí `imgB64` (esquema viejo), se
+   *   devuelve una sola entrada con esa imagen.
+   * @param {Object} poi
+   * @returns {{name: string, url: string}[]}
+   */
+  function _getActiveSkinList(poi) {
+    const skins = poi.skins || {};
+    const list = Object.keys(skins)
+      .filter((name) => name === 'main' || skins[name].active !== false)
+      .filter((name) => !!skins[name].url)
+      .map((name) => ({ name, url: skins[name].url }));
+
+    if (list.length > 0) return list;
+    if (poi.imgB64) return [{ name: 'main', url: poi.imgB64 }];
+    return [];
+  }
+
+  /**
+   * Pinta el "ojito": ahora es el control público para recorrer las
+   * imágenes activas del lugar. Muestra "posición/total" (ej. "2/4")
+   * cuando hay más de una imagen activa disponible; se oculta el
+   * contador si solo hay una (o ninguna), ya que no hay nada para
+   * recorrer. El brillo (`eyeglow`, definido por shadow-eye.js) se
+   * usa acá solo como indicador de "hay más para ver" — se reutiliza,
+   * no se duplica.
    * @param {Object} poi
    */
   function _renderEyeBadge(poi) {
     const els = _els;
-    const isPublic = !!poi.clicksPublicVisible;
-    const isAdmin = _isAdminActive();
+    const list = _getActiveSkinList(poi);
+    const hasMultiple = list.length > 1;
 
-    els.eyeIcon.style.opacity = isPublic ? '1' : '0.35';
-    els.eyeIcon.style.animation = isPublic ? 'eyeglow 2s ease-in-out infinite' : 'none';
-    els.eyeCount.textContent = isPublic ? String(poi.clicks || 0) : '';
+    els.eyeIcon.style.opacity = hasMultiple ? '1' : '0.35';
+    els.eyeIcon.style.animation = hasMultiple ? 'eyeglow 2s ease-in-out infinite' : 'none';
+    els.eyeCount.textContent = hasMultiple ? `${_heroSkinIndex + 1}/${list.length}` : '';
     els.eyeCount.style.color = 'var(--eye-glow-color, #60a5fa)';
 
-    // Solo-lectura para usuarios normales: el ojito muestra el dato
-    // pero no se puede tocar. Admin sí puede tocarlo para prender/
-    // apagar la visibilidad pública.
-    els.eyeBtn.style.cursor = isAdmin ? 'pointer' : 'default';
-    els.eyeBtn.title = isAdmin
-      ? (isPublic ? 'Ocultar el contador de visitas al público' : 'Mostrar el contador de visitas al público')
-      : (isPublic ? `${poi.clicks || 0} visitas` : '');
+    els.eyeBtn.style.cursor = hasMultiple ? 'pointer' : 'default';
+    els.eyeBtn.title = hasMultiple ? 'Ver otra imagen de este lugar' : '';
   }
 
   function _formatSubtitle(poi) {
@@ -424,62 +420,6 @@ const PoiPanel = (function () {
       span.textContent = value;
       span.title = key;
       els.metaRow.appendChild(span);
-    });
-  }
-
-  function _renderSkins(poi) {
-    const els = _els;
-    const skins = poi.skins || {};
-    const skinNames = Object.keys(skins);
-
-    els.skinsGrid.innerHTML = '';
-    if (skinNames.length === 0) {
-      els.skinsSection.hidden = true;
-      return;
-    }
-
-    els.skinsSection.hidden = false;
-
-    skinNames.forEach((skinName) => {
-      const skin = skins[skinName];
-      const row = document.createElement('div');
-      row.className = 'poi-panel__skin-row';
-
-      const thumb = document.createElement('img');
-      thumb.className = 'poi-panel__skin-thumb';
-      thumb.src = skin.url || '';
-      thumb.alt = skinName;
-      thumb.loading = 'lazy';
-
-      const name = document.createElement('span');
-      name.className = 'poi-panel__skin-name';
-      name.textContent = skinName;
-
-      const toggle = document.createElement('button');
-      toggle.type = 'button';
-      toggle.className = 'poi-panel__switch' + (skin.active ? ' is-active' : '');
-      toggle.setAttribute('aria-pressed', String(!!skin.active));
-      toggle.setAttribute('aria-label', `Activar/desactivar skin ${skinName}`);
-
-      // Regla de negocio: 'main' es el fallback obligatorio y no se desactiva
-      // (coincide con la guarda ya implementada en AppState.toggleSkinStatus).
-      if (skinName === 'main') {
-        toggle.disabled = true;
-        toggle.title = "El skin 'main' no se puede desactivar (es el fallback).";
-      }
-
-      toggle.addEventListener('click', () => {
-        const nextActive = !skin.active;
-        AppState.toggleSkinStatus(_currentPoiId, skinName, nextActive);
-        // No se re-renderiza acá manualmente: el listener de
-        // AppState.EVENTS.SKIN_TOGGLED (ver _bindAppStateEvents) se
-        // encarga de refrescar el panel cuando el estado cambia.
-      });
-
-      row.appendChild(thumb);
-      row.appendChild(name);
-      row.appendChild(toggle);
-      els.skinsGrid.appendChild(row);
     });
   }
 
@@ -589,11 +529,15 @@ const PoiPanel = (function () {
     });
 
     els.eyeBtn.addEventListener('click', () => {
-      if (!_isAdminActive() || !_currentPoiId) return; // solo-lectura para usuarios normales
+      // Público: pasa a la siguiente imagen activa del lugar, en loop.
+      if (!_currentPoiId) return;
       const poi = AppState.getPoi(_currentPoiId);
       if (!poi) return;
-      AppState.toggleClicksVisibility(_currentPoiId, !poi.clicksPublicVisible);
-      // El re-render llega vía AppState.EVENTS.POI_UPDATED.
+      const list = _getActiveSkinList(poi);
+      if (list.length <= 1) return; // nada para recorrer
+      _heroSkinIndex = (_heroSkinIndex + 1) % list.length;
+      _renderHeroImage(poi);
+      _renderEyeBadge(poi);
     });
 
     document.addEventListener('app:languageChanged', (e) => {
@@ -755,14 +699,20 @@ const PoiPanel = (function () {
     _ensureDom();
     _bindAppStateEvents();
 
+    // Nuevo POI => arranca mostrando su primera imagen activa.
+    if (poiId !== _currentPoiId) _heroSkinIndex = 0;
+
     _currentPoiId = poiId;
     _isEditMode = false;
     _render();
     _snapTo(initialState === SNAP.FULL ? SNAP.FULL : SNAP.PEEK);
 
-    // Centrado suave del mapa en las coordenadas del POI recién abierto.
-    const poi = AppState.getPoi(poiId);
-    if (poi) _centerMapOn(_getPoiCoords(poi));
+    // El centrado del mapa sobre el pin YA NO se hace acá: queda a
+    // cargo exclusivo de window.panToPoiCenter (js/app.js), llamado
+    // desde js/cluster.js con el delay de 50ms tras el click. Tener
+    // dos sistemas de centrado corriendo en paralelo (este panel +
+    // panToPoiCenter) era justamente lo que rompía el centrado: el
+    // segundo interrumpía al primero a mitad de animación.
   }
 
   /** Cierra el panel y limpia el estado de edición. */

@@ -279,3 +279,147 @@ PENDIENTE REAL PARA LA PRÓXIMA SESIÓN:
   (el panel), o algo distinto. Revisar en la próxima sesión.
 - Decidir con Cris qué hacer con pois_cordoba.json y los 4
   lugares que tenía hardcodeados (ver arriba).
+
+════════════════════════════════════════════════════════════════
+SESIÓN 2026-08-14 (continuación) — toggles reubicados + ojito
+nueva función + fix de centrado del mapa
+════════════════════════════════════════════════════════════════
+
+CONTEXTO: Cris reportó 2 toggles en el panel PÚBLICO del lugar (el
+de skin/imagen y el ojito) que no debían estar ahí, y que el mapa
+ya no se centraba bien sobre el pin al hacer click (antes andaba
+perfecto). Se auditó primero (sin tocar código) y se confirmó todo
+lo reportado; en esta sesión se aplicaron los 4 cambios pedidos.
+
+1) TOGGLE DE SKIN/IMAGEN — reubicado del panel público al admin.
+   Antes: en js/poi-panel.js (panel público), el toggle on/off por
+   skin no tenía NINGÚN chequeo de admin (bug real: cualquier
+   visitante podía activar/desactivar imágenes de cualquier lugar,
+   a diferencia del botón "Editar" y del ojito, que sí estaban
+   protegidos).
+   Ahora: la sección entera de skins (thumbnails + switch) se sacó
+   del panel público — ni se renderiza más ahí. El toggle "Activo"
+   vive ahora en el admin, en js/img-slots.js, uno por cada slot de
+   imagen (variantes altN), reutilizando el estilo `.za-toggle` que
+   ya existía en el admin (css/base.css). Por ahora es solo
+   reubicación, tal como pidió Cris — sin cambiar más su función.
+   NOTA: el toggle no se agregó al slot de la imagen "principal"
+   (main, markup fijo en index.html/utils.js) porque esa imagen no
+   se puede desactivar por regla de negocio (fallback obligatorio,
+   misma regla que ya tenía AppState.toggleSkinStatus). Si se quiere
+   ese toggle también ahí (aunque sea deshabilitado, solo visual),
+   es un cambio aparte a definir.
+   Cambio de forma de datos: `AltSlotsAdd.getSkins()` /
+   `AltSlotsEdit.getSkins()` antes devolvían `{variant: url}`, ahora
+   devuelven `{variant: {url, active}}`. Se actualizaron los 2
+   lugares que los consumen en js/pin-adjust.js (saveNew y saveEdit)
+   a la forma nueva.
+
+2) OJITO — se queda en el panel público (tal como pidió Cris), pero
+   con función completamente distinta.
+   Antes: tocaba AppState.toggleClicksVisibility (mostrar/ocultar el
+   contador de visitas al público), solo habilitado para admin.
+   Ahora: es un control PÚBLICO que recorre las imágenes activas del
+   lugar — cada click avanza a la siguiente imagen (entre las que
+   tienen active !== false), y al llegar a la última vuelve a la
+   primera en loop. Si el lugar tiene 1 sola imagen activa (o
+   ninguna), el ojito queda apagado/sin contador (nada para
+   recorrer). Se agregó `_getActiveSkinList(poi)` en poi-panel.js
+   como fuente única de esa lista, usada tanto por el ojito
+   (_renderEyeBadge) como por la imagen hero (_renderHeroImage).
+   PENDIENTE DE DECISIÓN DE CRIS: AppState.toggleClicksVisibility
+   quedó sin ningún botón que lo dispare (la función sigue existiendo
+   en app-state.js, no se borró). Falta decidir si esa función
+   (mostrar/ocultar el contador de visitas) se reubica también en el
+   admin —y dónde— o se abandona.
+
+3) IMAGEN FULL 1024PX AL MAXIMIZAR — se confirmó que YA estaba bien
+   implementado (no era un bug de código): _renderHeroImage siempre
+   usó la URL real guardada en poi.skins[skin].url / poi.imgB64
+   (full resolución), nunca el recorte 150x150 que usa el pin chico
+   en el mapa (ese recorte es exclusivo de js/markers.js). Sigue
+   igual, solo que ahora la imagen mostrada depende de qué índice
+   señala el ojito en vez de un único active_skin/main fijo.
+
+4) CENTRADO DEL MAPA AL CLICKEAR UN PIN — arreglado.
+   Causa raíz confirmada: había 2 sistemas de centrado compitiendo
+   entre sí. `PoiPanel.open()` (poi-panel.js) centraba el mapa de
+   forma SÍNCRONA con su propia `_centerMapOn()` (un flyTo al medio
+   geométrico de toda la pantalla, sin descontar el panel) y, 50ms
+   después, js/cluster.js disparaba ADEMÁS `panToPoiCenter()` (de
+   app.js), interrumpiendo la animación del flyTo a mitad de vuelo.
+   Encima, panToPoiCenter usaba una constante vieja hardcodeada
+   (PANEL_FRAC = 0.62) que no coincidía con la altura real del panel,
+   y no distinguía pantalla vertical de cuadrada/horizontal.
+   Arreglo: se eliminó `_centerMapOn()` de poi-panel.js por completo
+   — el centrado queda unificado en un solo lugar, `panToPoiCenter`
+   (js/app.js), disparado por cluster.js con el mismo delay de 50ms
+   que Cris pidió conservar. Se reescribió la fórmula con 3 casos,
+   usando el mismo breakpoint de 1024px que ya usa poi-panel.js para
+   pasar a modo sidebar:
+     - Vertical (alto > ancho), bottom sheet: horizontal exacto sobre
+       la coordenada del pin (50% del ancho), vertical centrado en la
+       mitad libre de arriba (25% desde arriba, ya que el panel
+       reserva el 50% inferior).
+     - Cuadrada u horizontal (ancho >= alto), todavía bottom sheet
+       (< 1024px de ancho): al revés — vertical exacto (50% del
+       alto), horizontal centrado en el 25% desde la izquierda
+       (asumiendo la mitad reservada a la derecha).
+     - Desktop (>= 1024px, sidebar real de 380px fijo a la
+       izquierda): vertical exacto (50% del alto), horizontal
+       centrado en el hueco real que deja el sidebar (desde 380px
+       hasta el borde derecho) — acá sí se usa la medida real del
+       panel, no una suposición.
+   NOTA IMPORTANTE PARA CRIS: en el caso "cuadrada/horizontal por
+   debajo de 1024px", el CSS del panel (css/poi-panel.css) hoy TODAVÍA
+   sigue mostrando el panel como bottom sheet (desde abajo), no como
+   panel lateral — solo el CÁLCULO de centrado ya asume un hueco
+   lateral. Si se quiere que el panel también deslice desde el
+   costado visualmente en esas pantallas (no solo el cálculo del
+   centrado), es un cambio de CSS aparte, todavía no hecho.
+   Cambio menor de paso: en js/markers.js se dejó un comentario
+   aclarando que la función `pinClick()` de ese archivo está muerta
+   en la práctica (js/cluster.js declara una función global con el
+   mismo nombre y carga después, así que esa es la que realmente
+   atiende cada click) — no se borró nada, solo se documentó para
+   que quien abra ese archivo no se confunda buscando ahí el bug de
+   click en un pin.
+
+Archivos tocados en esta sesión:
+- js/poi-panel.js — sacada la sección de skins (HTML+refs+función
+  _renderSkins); ojito reescrito (_renderEyeBadge, click handler,
+  nueva _getActiveSkinList, _heroSkinIndex); _renderHeroImage usa
+  ahora esa lista; sacado _centerMapOn() y su llamado en open().
+- css/poi-panel.css — sacados los estilos de la sección de skins
+  (.poi-panel__skins-grid, __skin-row, __skin-thumb, __skin-name,
+  __switch y sus variantes).
+- js/img-slots.js — agregado el toggle "Activo" por slot (markup +
+  estado + _paintToggle), _syncWindowVar y getSkins() devuelven
+  ahora {url, active} en vez de solo url, reset() precarga el active
+  existente.
+- js/pin-adjust.js — saveNew() y saveEdit() actualizados a la nueva
+  forma {url, active} que devuelve getSkins().
+- js/app.js — panToPoiCenter() reescrito completo (3 casos según
+  orientación/breakpoint, sin la constante vieja 0.62).
+- js/markers.js — comentario aclaratorio agregado sobre pinClick()
+  muerta (sin cambio de comportamiento).
+
+Verificación hecha: los 38 archivos .js pasan `node --check` sin
+errores de sintaxis.
+
+PENDIENTE REAL PARA LA PRÓXIMA SESIÓN:
+- Cris debe probar en producción: click en un pin en celular vertical
+  (confirmar el 25%/50% correcto), en celular/tablet horizontal, y en
+  desktop (>=1024px) — confirmar que ya no hay "salto"/pelea de
+  animaciones. Probar el ojito con un lugar de 2+ imágenes activas
+  (debe ciclar y volver a la primera). Probar el toggle "Activo" desde
+  el admin (Nuevo y Editar) y confirmar que una imagen desactivada ya
+  no aparece en el ciclo del ojito público.
+- Decidir dónde va (o si se abandona) el control de
+  mostrar/ocultar el contador de visitas públicas (antes era la
+  función del ojito, ver punto 2 de arriba).
+- Decidir si se agrega el toggle "Activo" también a la imagen
+  principal (main), aunque sea deshabilitado/informativo.
+- Decidir si el panel debe deslizar desde el costado (no solo bottom
+  sheet) en pantallas cuadradas/horizontales por debajo de 1024px,
+  para que coincida visualmente con el nuevo cálculo de centrado.

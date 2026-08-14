@@ -19,6 +19,17 @@
    Reutiliza tal cual `setupImgUploader`/`setupUrlLoader`/`clearImg`
    de utils.js — no hizo falta tocarlos, solo dejaron de llamarse
    3 veces fijas y ahora se llaman dinámicamente por cada slot.
+
+   [NUEVO 2026-08-14] Cada slot ahora tiene su propio toggle ON/OFF
+   ("Activo"), reutilizando el estilo .za-toggle ya existente en el
+   admin (css/base.css). Esto reemplaza al toggle que antes vivía en
+   el panel PÚBLICO del lugar (poi-panel.js) sin ningún control de
+   admin — cualquier visitante podía tocarlo. Ahora la decisión de
+   qué imagen está activa/visible al público se toma acá, solo desde
+   el admin. `getSkins()` cambió de forma: antes devolvía
+   `{variant: url}`, ahora devuelve `{variant: {url, active}}` — ver
+   los dos lugares que lo consumen en js/pin-adjust.js (saveNew y
+   saveEdit), ya actualizados a la forma nueva.
    ═══════════════════════════════════════════════════════════ */
 
 /**
@@ -44,7 +55,7 @@ function createAltSlotManager(containerId, formPrefix) {
 
   function _syncWindowVar() {
     const out = {};
-    slots.forEach(s => { if (s.hasImg && s.url) out[s.variant] = s.url; });
+    slots.forEach(s => { if (s.hasImg && s.url) out[s.variant] = { url: s.url, active: s.active !== false }; });
     window[formPrefix === 'edit' ? '_editAltSkins' : '_addAltSkins'] = out;
   }
 
@@ -58,8 +69,10 @@ function createAltSlotManager(containerId, formPrefix) {
    * @param {string|null} variant - nombre fijo (ej. "alt2") si viene
    *   de un pin ya cargado, o null para autogenerar el próximo libre.
    * @param {string|null} prefillUrl - URL ya guardada, si la hay.
+   * @param {boolean} [prefillActive=true] - si el skin ya guardado
+   *   estaba activo (`skin.active !== false`) o lo desactivó el admin.
    */
-  function _addSlot(variant, prefillUrl) {
+  function _addSlot(variant, prefillUrl, prefillActive) {
     const v = variant || _nextAutoVariant();
     const slotNum = slots.length + 2; // +2: el slot 1 visual es "principal", que va aparte
     const ids = {
@@ -71,6 +84,7 @@ function createAltSlotManager(containerId, formPrefix) {
       clearId:  `img-clear-${v}-${formPrefix}-dyn`,
       urlId:    `img-url-${v}-${formPrefix}-dyn`,
       urlBtnId: `img-url-load-${v}-${formPrefix}-dyn`,
+      toggleId: `img-active-${v}-${formPrefix}-dyn`,
     };
 
     const wrap = document.createElement('div');
@@ -90,11 +104,34 @@ function createAltSlotManager(containerId, formPrefix) {
       <input class="fi url-fi" id="${ids.urlId}" type="url" placeholder="O pegá el link de la imagen (Cloudinary, Dropbox, etc.)">
       <button class="url-load-btn" id="${ids.urlBtnId}" type="button">Cargar</button>
     `;
+    // Toggle "Activo" — controla si esta imagen se muestra al público
+    // (antes vivía, sin protección de admin, en el panel público del
+    // lugar; ver nota de cabecera del archivo).
+    const activeRow = document.createElement('div');
+    activeRow.className = 'za-row';
+    activeRow.style.marginTop = '4px';
+    activeRow.innerHTML = `
+      <span class="za-name">Imagen activa (visible al público)</span>
+      <button class="za-toggle" id="${ids.toggleId}" type="button" aria-pressed="true"></button>
+    `;
     container.appendChild(wrap);
     container.appendChild(urlRow);
+    container.appendChild(activeRow);
 
-    const state = { variant: v, hasImg: false, url: null, ids };
+    const state = { variant: v, hasImg: false, url: null, active: prefillActive !== false, ids };
     slots.push(state);
+
+    const toggleBtn = document.getElementById(ids.toggleId);
+    function _paintToggle() {
+      toggleBtn.classList.toggle('on', state.active);
+      toggleBtn.setAttribute('aria-pressed', String(state.active));
+    }
+    _paintToggle();
+    toggleBtn.addEventListener('click', () => {
+      state.active = !state.active;
+      _paintToggle();
+      _syncWindowVar();
+    });
 
     function onLoad(url) {
       state.hasImg = !!url;
@@ -134,13 +171,13 @@ function createAltSlotManager(containerId, formPrefix) {
     if (altEntries.length === 0) {
       _addSlot(null, null);
     } else {
-      altEntries.forEach(([variant, skin]) => _addSlot(variant, skin && skin.url));
+      altEntries.forEach(([variant, skin]) => _addSlot(variant, skin && skin.url, skin && skin.active));
       _ensureTrailingEmptySlot();
     }
     _syncWindowVar();
   }
 
-  /** @returns {Object} mapa {variant: url} de los slots con imagen cargada */
+  /** @returns {Object} mapa {variant: {url, active}} de los slots con imagen cargada */
   function getSkins() {
     _syncWindowVar();
     return window[formPrefix === 'edit' ? '_editAltSkins' : '_addAltSkins'] || {};

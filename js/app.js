@@ -115,17 +115,56 @@ async function init() {
     inp.addEventListener('focus', () => { if (inp.value.trim()) inp.dispatchEvent(new Event('input')); });
   })();
 
-  // 9. Pan helper used by cluster + poi panel — centra el pin
-  //    horizontalmente al 50% de la pantalla, y verticalmente en el
-  //    centro exacto de la zona libre de arriba (el panel ocupa el
-  //    62% inferior, así que la zona libre es el 38% superior — el
-  //    pin queda en el centro de ESA franja, no del panel ni de la
-  //    pantalla completa).
+  // 9. Pan helper — ÚNICO responsable de centrar el mapa sobre el pin
+  //    activo (el panel del lugar YA NO se centra a sí mismo, ver
+  //    js/poi-panel.js: antes había 2 sistemas de centrado corriendo
+  //    en paralelo y se pisaban entre sí a mitad de animación).
+  //
+  //    Debe coincidir con el mismo breakpoint de desktop que usa
+  //    js/poi-panel.js (DESKTOP_MEDIA_QUERY = min-width:1024px), que
+  //    es donde el panel pasa de "bottom sheet" a sidebar fijo a la
+  //    izquierda de 380px.
+  //
+  //    - Pantalla VERTICAL (alto > ancho), bottom sheet: el panel
+  //      ocupa la mitad inferior, así que el pin se centra
+  //      horizontalmente en su coordenada exacta (50% del ancho) y
+  //      verticalmente en el centro de la mitad libre de arriba (25%
+  //      desde arriba).
+  //    - Pantalla CUADRADA u HORIZONTAL (ancho >= alto), todavía en
+  //      bottom sheet (menos de 1024px de ancho): se invierte —
+  //      vertical exacto (50% del alto) y horizontal centrado en la
+  //      mitad libre lateral (25% desde la izquierda, asumiendo la
+  //      mitad reservada a la derecha).
+  //      [NOTA] La grilla CSS del panel (css/poi-panel.css) hoy solo
+  //      pasa a modo "lateral" a partir de 1024px de ancho — en
+  //      cuadrado/horizontal por debajo de eso el panel sigue siendo
+  //      bottom sheet visualmente, aunque el centrado ya calcula el
+  //      hueco como si fuera lateral. Si se quiere que el panel
+  //      también deslice desde el costado en esas pantallas, es un
+  //      cambio aparte de CSS a definir.
+  //    - Desktop (ancho >= 1024px, panel lateral REAL de 380px fijo
+  //      a la izquierda): vertical exacto (50% del alto) y horizontal
+  //      centrado en el hueco real que deja el sidebar (desde 380px
+  //      hasta el borde derecho).
+  const DESKTOP_PANEL_WIDTH = 380;
+  const DESKTOP_BREAKPOINT_PX = 1024;
+
   window.panToPoiCenter = function(poi) {
     const vw = window.innerWidth, vh = window.innerHeight;
-    const PANEL_FRAC = 0.62;           // el panel ocupa el 62% inferior
-    const targetX = vw * 0.5;
-    const targetY = vh * ((1 - PANEL_FRAC) / 2); // centro del 38% libre de arriba
+    const isDesktop = vw >= DESKTOP_BREAKPOINT_PX;
+    const isPortrait = vh > vw;
+
+    let targetX, targetY;
+    if (isDesktop) {
+      targetX = DESKTOP_PANEL_WIDTH + (vw - DESKTOP_PANEL_WIDTH) * 0.5;
+      targetY = vh * 0.5;
+    } else if (isPortrait) {
+      targetX = vw * 0.5;
+      targetY = vh * 0.25;
+    } else {
+      targetX = vw * 0.25;
+      targetY = vh * 0.5;
+    }
 
     const rect  = map.getContainer().getBoundingClientRect();
     const pinPx = map.latLngToContainerPoint([poi.lat, poi.lng]);

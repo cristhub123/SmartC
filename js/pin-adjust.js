@@ -167,8 +167,8 @@ async function saveEdit() {
     skins.main = existingSkins.main ? { ...existingSkins.main, url: updated.imgB64 } : { url: updated.imgB64, style: 'main', active: true };
   }
   const altSkins = (typeof AltSlotsEdit !== 'undefined' && AltSlotsEdit) ? AltSlotsEdit.getSkins() : {};
-  Object.entries(altSkins).forEach(([variant, url]) => {
-    skins[variant] = existingSkins[variant] ? { ...existingSkins[variant], url } : { url, style: variant, active: true };
+  Object.entries(altSkins).forEach(([variant, { url, active }]) => {
+    skins[variant] = existingSkins[variant] ? { ...existingSkins[variant], url, active } : { url, style: variant, active };
   });
   updated.skins = skins;
 
@@ -455,8 +455,8 @@ async function saveNew() {
   const skins = {};
   if (p.imgB64) skins.main = { url: p.imgB64, style: 'main', active: true };
   const altSkins = (typeof AltSlotsAdd !== 'undefined' && AltSlotsAdd) ? AltSlotsAdd.getSkins() : {};
-  Object.entries(altSkins).forEach(([variant, url]) => {
-    skins[variant] = { url, style: variant, active: true };
+  Object.entries(altSkins).forEach(([variant, { url, active }]) => {
+    skins[variant] = { url, style: variant, active };
   });
   if (Object.keys(skins).length > 0) p.skins = skins;
 

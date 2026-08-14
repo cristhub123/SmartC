@@ -256,74 +256,10 @@
 }
 
 /* --------------------------------------------------------------------
-   SKINS
+   [2026-08-14] La sección de skins (thumbnails + switch on/off) que
+   vivía acá se movió al panel admin de cada lugar (ver js/img-slots.js
+   y css/base.css .za-toggle) — este panel público ya no la muestra.
    -------------------------------------------------------------------- */
-.poi-panel__skins-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.poi-panel__skin-row {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.poi-panel__skin-thumb {
-  width: 40px;
-  height: 40px;
-  border-radius: 0.5rem;
-  object-fit: cover;
-  background: var(--poi-panel-gray-200);
-  flex: 0 0 auto;
-}
-
-.poi-panel__skin-name {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--poi-panel-slate-700);
-  flex: 1 1 auto;
-  text-transform: capitalize;
-}
-
-/* Switch ON/OFF minimalista */
-.poi-panel__switch {
-  position: relative;
-  width: 36px;
-  height: 20px;
-  border-radius: 999px;
-  background: var(--poi-panel-gray-200);
-  border: none;
-  cursor: pointer;
-  flex: 0 0 auto;
-  transition: background 0.2s ease;
-}
-
-.poi-panel__switch::after {
-  content: '';
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 16px;
-  height: 16px;
-  border-radius: 999px;
-  background: var(--poi-panel-white);
-  transition: transform 0.2s ease;
-}
-
-.poi-panel__switch.is-active {
-  background: var(--poi-panel-accent);
-}
-
-.poi-panel__switch.is-active::after {
-  transform: translateX(16px);
-}
-
-.poi-panel__switch:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
 
 /* --------------------------------------------------------------------
    MODO EDICIÓN (inputs inline, mismo look que el texto estático)
