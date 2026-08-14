@@ -1180,7 +1180,16 @@ imagenes:
 
   <!-- Módulo de Estado Centralizado (Central Store) -->
   <script src="js/app-state.js" defer></script>
-  <script src="js/pois-loader.js" defer></script>
+  <!-- [DESCONECTADO 2026-08-13 — smartcityV3.0_fix-mapa-pines. NO BORRAR ESTA NOTA
+       en una limpieza futura: explica por qué este script sigue en el repo pero
+       sin cargarse.] js/pois-loader.js hidrataba AppState/window.POIS con los 4
+       lugares fijos de pois_cordoba.json — eso bloqueaba que los pines reales
+       (Firestore) se dibujaran en el mapa y rompía el panel de cada pin (lee
+       EXCLUSIVAMENTE de AppState). AppState ahora se hidrata con los datos
+       reales vía syncAppStateWithPOIS() (js/firestore-sync.js). Detalle completo
+       en CAMBIOS.txt. Para reactivar este loader habría que revertir también
+       js/pois-bootstrap.js más abajo. -->
+  <!-- <script src="js/pois-loader.js" defer></script> -->
   <script src="js/settings-sync.js" defer></script>
   <script src="js/config.js" defer></script>
   <script src="js/scroll-hints.js" defer></script>
@@ -1191,7 +1200,13 @@ imagenes:
   <!-- 3. Core marker logic -->
   <script src="js/markers.js" defer></script>
   <script src="js/poi-panel.js" defer></script>
-  <script src="js/pois-bootstrap.js" defer></script>
+  <!-- [DESCONECTADO 2026-08-13 — smartcityV3.0_fix-mapa-pines. NO BORRAR ESTA NOTA
+       en una limpieza futura.] js/pois-bootstrap.js reemplazaba makeMarker global
+       por una versión "guardia" que solo dibujaba un pin si existía en AppState
+       (o sea, solo los 4 de pois_cordoba.json) — bloqueaba en silencio TODO pin
+       real creado desde el admin. Causa raíz confirmada del bug "los pines
+       nuevos/editados no aparecen en el mapa". Detalle completo en CAMBIOS.txt. -->
+  <!-- <script src="js/pois-bootstrap.js" defer></script> -->
 
   <!-- 4. Admin panel (defines switchTab) -->
   <script src="js/admin.js" defer></script>

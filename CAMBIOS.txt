@@ -118,3 +118,164 @@ PRÓXIMOS PASOS SUGERIDOS (no arrancados)
   — no se pudo confirmar la causa exacta en esta sesión (posible
   "fantasma" de una sesión anterior con el caché viejo, debería
   autocorregirse con este fix, a confirmar en la próxima prueba).
+
+════════════════════════════════════════════════════════════════
+SESIÓN 2026-08-13/14 — smartcityV3.0_fix-mapa-pines
+════════════════════════════════════════════════════════════════
+NOTA PERMANENTE — NO BORRAR ESTA SECCIÓN EN NINGUNA LIMPIEZA
+FUTURA DE CAMBIOS.TXT, INCLUSO SI SE LIMPIAN NOTAS VIEJAS DE
+OTRAS SESIONES. Esta sesión resolvió el bug central de que los
+pines nuevos/editados no aparecían en el mapa, arrastrado desde
+hace semanas — el detalle de qué se tocó y por qué es información
+crítica para no repetir el mismo problema ni revertir el fix por
+error en una limpieza futura. Si en algún momento se decide
+resumir/acortar esta sección, el resumen debe conservar como
+mínimo: los 3 bugs encontrados, los archivos tocados, y esta
+misma advertencia de "no borrar".
+
+PLAN ORIGINAL (con el que arrancó esta sesión):
+Etapa 0 — Auditoría de dependencias (grep exhaustivo, sin tocar
+  nada), para saber con certeza qué archivos referencian
+  pois-bootstrap.js/pois-loader.js/AppState/window.POIS antes de
+  desconectar nada.
+Etapa 1 — Desconectar pois_cordoba.json/pois-bootstrap.js como
+  fuente del mapa (sin borrar los archivos, solo sacarlos de
+  index.html).
+Etapa 2 — Confirmar que crear/editar/borrar un pin se refleja en
+  el mapa sin necesidad de refrescar.
+Etapa 3 — Limpieza de datos fantasma en Firestore, recién después
+  de identificarlos con certeza.
+Etapa 4 — Verificación final + entrega.
+
+QUÉ SE ENCONTRÓ REALMENTE (más profundo que el plan original):
+1) CAUSA RAÍZ ORIGINAL, CONFIRMADA: pois-bootstrap.js reemplazaba
+   la función global makeMarker() por una versión "guardia" que
+   solo dibuja un pin si su ID existe en AppState — y AppState
+   solo se hidrataba con los 4 lugares fijos de pois_cordoba.json
+   (vía pois-loader.js). Ningún pin real (Firestore, vía
+   pin-adjust.js) podía entrar nunca a AppState (app-state.js no
+   tiene función addPoi(), solo loadPois()/updatePoi()) — por eso
+   nunca se dibujaba, sin importar que pin-adjust.js sí llamara a
+   makeMarker(p) correctamente después de guardar.
+   CONFIRMADO CON EVIDENCIA VISUAL DIRECTA de Cris: 2 marcadores
+   "Alto Paz Tower" en el mapa (uno sin imagen = el fantasma del
+   JSON con ID "alto-paz-tower", otro con imagen = el real de
+   Firestore con ID "alto-paz-tower-cordoba"), mientras que en
+   Firestore solo existe 1 documento con ese nombre. Los IDs no
+   coinciden exacto pero AppState normaliza sufijos regionales
+   tipo "-cordoba" al comparar, por eso el real "se colaba" por la
+   guardia además del fantasma del JSON — de ahí el duplicado.
+2) BUG NUEVO #1, no diagnosticado en sesiones anteriores:
+   poi-panel.js (el panel que se abre al tocar un pin) lee
+   EXCLUSIVAMENTE de AppState.getPoi()/getContent() — nunca lee
+   POIS directo. Aunque se hubiera arreglado solo el dibujado del
+   mapa, el panel de cualquier pin real iba a seguir sin mostrar
+   nada, porque AppState nunca tuvo esos datos.
+3) BUG NUEVO #2, no diagnosticado en sesiones anteriores:
+   AppState.updatePoi()/toggleSkinStatus()/toggleClicksVisibility()
+   (las funciones que poi-panel.js usa para persistir una edición
+   hecha DESDE EL PANEL — texto, skins, el "ojito") llaman a un
+   objeto global FirestoreSync.savePoi(). Ese objeto NUNCA existió
+   en el proyecto (firestore-sync.js solo exponía funciones
+   sueltas). Cualquier edición hecha desde el panel se perdía en
+   el próximo refresh, sin error visible. Nunca se notó porque el
+   panel nunca tuvo un pin real para editar (ver bug #2 arriba).
+4) BUG NUEVO #3, CONFIRMADO CON EVIDENCIA DIRECTA DE FIRESTORE
+   (capturas de Cris): loadPOISFromFirestore() confiaba
+   ciegamente en el documento cache/all-pines si existía, sin
+   verificar nunca que estuviera completo respecto a la colección
+   pines real — solo se reconstruía si el caché NO EXISTÍA en
+   absoluto, nunca por estar incompleto. Cris confirmó: la
+   colección pines tenía 11 documentos reales, el panel Admin
+   (que arma su lista leyendo POIS, hidratado por esta función)
+   solo mostraba 5. Uno de los faltantes, plaza-san-martin-cba, es
+   un documento perfectamente válido y completo (nombre, coords,
+   imagen ya en Cloudinary) — descarta que sea un problema de
+   datos, es un problema de LECTURA. Cris también confirmó que el
+   botón de borrar SÍ funciona en Firestore (probó borrar
+   plaza-colon desde el panel y desapareció también de Firestore),
+   así que el problema es puntualmente de lectura/caché, no de
+   guardado ni de borrado.
+
+QUÉ SE HIZO REALMENTE (coincide con el plan reformulado tras los
+hallazgos, no con el plan original de 4 etapas):
+
+- index.html: comentadas las líneas <script> de js/pois-loader.js
+  y js/pois-bootstrap.js (NO se borraron los archivos). Cada línea
+  comentada tiene una nota explicando el motivo y remitiendo a
+  esta sección de CAMBIOS.txt.
+- js/pois-loader.js y js/pois-bootstrap.js: se agregó un bloque de
+  comentario al inicio de cada archivo marcándolos DESCONECTADOS,
+  con la razón completa, para que quien abra el archivo suelto
+  entienda por qué sigue ahí sin usarse.
+- js/firestore-sync.js:
+  · Nueva función syncAppStateWithPOIS() — mantiene AppState
+    sincronizado con el array real POIS. Se llama en cada punto
+    donde POIS queda en su estado final (los mismos puntos donde
+    ya se llama regeneratePublicCache()).
+  · loadPOISFromFirestore() reescrita: ya NO lee cache/all-pines
+    para armar POIS (ese código queda comentado, no borrado, por
+    si se reintroduce la optimización más adelante). Ahora lee
+    siempre en vivo la colección pines completa, y regenera el
+    caché de paso en cada carga (autosanándolo). A la escala
+    actual (~11 lugares) esto es 1 lectura extra insignificante
+    contra la cuota gratis de Firestore (50.000/día) — antes de
+    escalar a tráfico público real (lanzamiento de noviembre) hay
+    que revisar si conviene reintroducir el caché, pero con una
+    forma real de detectar que está desactualizado (por ejemplo
+    una count() aggregation query, 1 sola lectura sin importar el
+    tamaño de la colección) en vez de solo confiar en que existe.
+  · Nuevo objeto window.FirestoreSync = { savePoi(poi) {...} } —
+    el wrapper que faltaba (bug #3 de arriba). Hace lo mismo que
+    ya hace el admin real al guardar: escribe en Firestore,
+    actualiza POIS en memoria, sincroniza AppState, regenera el
+    caché.
+- js/admin.js: syncAppStateWithPOIS() agregada en togglePoi(),
+  togglePublicClicks(), y el handler de borrado (mc-delete) — los
+  mismos 3 puntos que ya tenían regeneratePublicCache() de la
+  sesión anterior.
+- js/content-import.js: syncAppStateWithPOIS() agregada junto a la
+  regeneración de caché existente en importContentJSON().
+- js/data-io.js: syncAppStateWithPOIS() agregada junto a la
+  regeneración de caché existente en confirmImport().
+- js/pin-adjust.js: syncAppStateWithPOIS() agregada en los 6
+  puntos que ya tenían regeneratePublicCache(): saveEdit(),
+  saveNew(), markPinAsReviewed(), createShellPinsFromPrefixList(),
+  importFullPinsFromText(), linkPinImagesFromText().
+
+Verificación hecha: los 38 archivos .js del proyecto pasan
+`node --check` sin errores de sintaxis. Se auditó con grep
+exhaustivo cada referencia a AppState/PoisLoader/pois_cordoba.json
+en todo el proyecto — confirmado que solo pois-bootstrap.js y
+pois-loader.js dependían de ellos, seguro desconectarlos sin
+romper nada más.
+
+QUÉ NO SE TOCÓ (a propósito, según lo acordado):
+- Ningún documento de Firestore fue borrado ni modificado. Los
+  11 documentos reales de la colección "pines" siguen exactamente
+  igual que antes de esta sesión.
+- No se decidió todavía qué hacer con los IDs del JSON viejo
+  (patio-olmos, alto-paz-tower, loteria-de-cordoba,
+  palacio-municipal-6-de-julio) — pois_cordoba.json sigue
+  existiendo en el repo, simplemente desconectado. Esa decisión
+  (Etapa 3 del plan original) sigue pendiente de que Cris confirme
+  qué hacer, ahora que se sabe que esos 4 nombres SÍ tienen
+  documentos reales asociados en Firestore con otros IDs (con o
+  sin sufijo regional) — no son solo "basura de prueba".
+
+PENDIENTE REAL PARA LA PRÓXIMA SESIÓN:
+- Cris debe probar en producción tras este deploy: F5 fuerte,
+  confirmar que el mapa y la tab Lugares muestran EXACTAMENTE los
+  mismos ~11 lugares (incluido plaza-san-martin-cba). Confirmar
+  que ya no aparece el "Alto Paz Tower" duplicado sin imagen.
+  Crear un pin nuevo y confirmar que aparece en el mapa sin
+  refrescar. Editar un pin desde el panel (no desde el admin) y
+  confirmar que sobrevive un F5 (prueba directa del bug #3).
+- Bug reportado y sin confirmar todavía (independiente de todo lo
+  de arriba): "al agrandar la imagen de Alto Paz Tower se ve la
+  versión de baja calidad" — no investigado en esta sesión, puede
+  ser el mismo bug histórico del crop de miniatura (ya arreglado
+  en markers.js para el pin del mapa) manifestándose en otro lugar
+  (el panel), o algo distinto. Revisar en la próxima sesión.
+- Decidir con Cris qué hacer con pois_cordoba.json y los 4
+  lugares que tenía hardcodeados (ver arriba).

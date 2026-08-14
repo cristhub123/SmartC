@@ -214,7 +214,7 @@ function confirmImport() {
     // [CORREGIDO 2026-08-13] Una sola regeneración de caché acá, con
     // POIS ya completo (antes se regeneraba, mal, dentro de cada
     // savePoiToFirestore del forEach, con datos parciales).
-    if (POIS.length) regeneratePublicCache();
+    if (POIS.length) { syncAppStateWithPOIS(); regeneratePublicCache(); } // [NUEVO 2026-08-13] ver nota en firestore-sync.js
     applyFilter(); renderList();
     if (POIS.length) {
       const lats = POIS.map(p=>p.lat), lngs = POIS.map(p=>p.lng);

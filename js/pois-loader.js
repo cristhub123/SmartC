@@ -1,5 +1,24 @@
 /**
  * ============================================================================
+ * [DESCONECTADO 2026-08-13 — smartcityV3.0_fix-mapa-pines]
+ * ----------------------------------------------------------------------------
+ * ESTE ARCHIVO YA NO SE CARGA EN index.html (su <script> quedó comentado).
+ * NO BORRAR ESTA NOTA en una limpieza futura de comentarios — explica por
+ * qué el archivo sigue en el repo sin usarse.
+ *
+ * Motivo: `loadFromJson()` hidrataba AppState/window.POIS con SOLO los 4
+ * lugares fijos de `pois_cordoba.json`. Eso, combinado con la guardia de
+ * `js/pois-bootstrap.js` (también desconectado), bloqueaba que los pines
+ * reales de Firestore se dibujaran en el mapa, y además rompía el panel de
+ * cada pin (`poi-panel.js`, que lee EXCLUSIVAMENTE de AppState) para
+ * cualquier lugar real. Diagnóstico y fix completos en CAMBIOS.txt.
+ * AppState ahora se hidrata con los datos reales vía
+ * `syncAppStateWithPOIS()` (js/firestore-sync.js).
+ * ============================================================================
+ */
+
+/**
+ * ============================================================================
  * js/pois-loader.js
  * ----------------------------------------------------------------------------
  * INGESTA DESDE pois_cordoba.json — reemplaza la carga manual de POIs

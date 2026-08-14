@@ -1,5 +1,26 @@
 /**
  * ============================================================================
+ * [DESCONECTADO 2026-08-13 — smartcityV3.0_fix-mapa-pines]
+ * ----------------------------------------------------------------------------
+ * ESTE ARCHIVO YA NO SE CARGA EN index.html (su <script> quedó comentado).
+ * NO BORRAR ESTA NOTA en una limpieza futura de comentarios — explica por
+ * qué el archivo sigue en el repo sin usarse.
+ *
+ * Motivo: CAUSA RAÍZ CONFIRMADA del bug "los pines nuevos/editados no
+ * aparecen en el mapa". La guardia que este archivo instalaba sobre
+ * `makeMarker` (ver `_installMakeMarkerGuard` más abajo) bloqueaba en
+ * silencio cualquier pin cuyo ID no existiera en AppState — y como
+ * AppState solo se hidrataba con los 4 lugares fijos de
+ * `pois_cordoba.json` (vía `pois-loader.js`, también desconectado),
+ * NINGÚN pin real creado desde el admin (Firestore) llegaba a dibujarse
+ * nunca, sin importar que `pin-adjust.js` sí llamara a `makeMarker(p)`
+ * correctamente después de guardar. Diagnóstico y fix completos en
+ * CAMBIOS.txt.
+ * ============================================================================
+ */
+
+/**
+ * ============================================================================
  * js/pois-bootstrap.js
  * ----------------------------------------------------------------------------
  * Conecta la carga de `pois_cordoba.json` (vía PoisLoader) con el dibujado

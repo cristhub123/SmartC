@@ -221,6 +221,7 @@ async function saveEdit() {
   // savePoiToFirestore/deletePoiFromFirestore, ANTES de esta línea,
   // con datos viejos. Eso era la causa real de que un lugar
   // renombrado desapareciera del todo al refrescar.
+  syncAppStateWithPOIS(); // [NUEVO 2026-08-13] ver nota en firestore-sync.js — sin esto, el panel de este pin seguía mostrando el ID/datos viejos tras editar
   await regeneratePublicCache();
   removeMarker(editingId);
   makeMarker(updated);
@@ -252,6 +253,7 @@ async function markPinAsReviewed() {
   if (!ok) return;
 
   POIS[idx] = updated;
+  syncAppStateWithPOIS(); // [NUEVO 2026-08-13] ver nota en firestore-sync.js
   await regeneratePublicCache(); // [CORREGIDO 2026-08-13]
   toast(`🟡 "${updated.name}" marcado como revisado`);
   renderList();
@@ -469,6 +471,7 @@ async function saveNew() {
   // [CORREGIDO 2026-08-13] Regenerar caché acá, con POIS ya incluyendo
   // el lugar nuevo — antes se disparaba desde adentro de
   // savePoiToFirestore, ANTES de este push.
+  syncAppStateWithPOIS(); // [NUEVO 2026-08-13] ver nota en firestore-sync.js — sin esto, el pin se dibuja en el mapa pero al tocarlo el panel no encuentra datos
   await regeneratePublicCache();
   makeMarker(p);
 
@@ -558,7 +561,7 @@ async function createShellPinsFromPrefixList() {
   // [CORREGIDO 2026-08-13] Una sola regeneración de caché al final,
   // con POIS ya con todos los pines-cascarón nuevos adentro — antes
   // se regeneraba (mal) adentro de cada savePoiToFirestore del loop.
-  if (created > 0) await regeneratePublicCache();
+  if (created > 0) { syncAppStateWithPOIS(); await regeneratePublicCache(); } // [NUEVO 2026-08-13] ver nota en firestore-sync.js
   textarea.value = '';
   renderList();
   toast(`✅ ${created} lugar(es) creado(s)` + (skipped ? `, ${skipped} omitido(s) (ya existían o nombre inválido)` : ''));
@@ -954,7 +957,7 @@ async function importFullPinsFromText() {
   if (btn) { btn.disabled = false; btn.textContent = '📥 Importar lugares completos'; }
   // [CORREGIDO 2026-08-13] Una sola regeneración de caché al final,
   // con POIS ya con todos los creados/actualizados de este lote.
-  if (created > 0 || updated > 0) await regeneratePublicCache();
+  if (created > 0 || updated > 0) { syncAppStateWithPOIS(); await regeneratePublicCache(); } // [NUEVO 2026-08-13] ver nota en firestore-sync.js
   textarea.value = '';
   renderList();
 
@@ -1125,7 +1128,7 @@ async function importImageLinksFromText() {
   if (btn) { btn.disabled = false; btn.textContent = '🖼️ Vincular imágenes'; }
   // [CORREGIDO 2026-08-13] Una sola regeneración de caché al final,
   // con POIS ya con todos los skins vinculados de este lote.
-  if (linked > 0) await regeneratePublicCache();
+  if (linked > 0) { syncAppStateWithPOIS(); await regeneratePublicCache(); } // [NUEVO 2026-08-13] ver nota en firestore-sync.js
   textarea.value = '';
   renderList();
 

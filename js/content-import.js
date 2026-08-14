@@ -110,7 +110,7 @@ async function importContentJSON(jsonText) {
   // con POIS ya con todos los creados/actualizados de este lote —
   // antes se regeneraba (mal) adentro de cada savePoiToFirestore
   // del loop, con POIS todavía sin ese ítem puntual.
-  if (creados > 0 || actualizados > 0) await regeneratePublicCache();
+  if (creados > 0 || actualizados > 0) { syncAppStateWithPOIS(); await regeneratePublicCache(); } // [NUEVO 2026-08-13] ver nota en firestore-sync.js
 
   renderList();
 

@@ -290,6 +290,7 @@ window.togglePublicClicks = function(id, checked) {
   if (!p) return;
   p.clicksPublicVisible = checked;
   savePoiToFirestore(p);
+  syncAppStateWithPOIS(); // [NUEVO 2026-08-13] ver nota en firestore-sync.js
   regeneratePublicCache(); // [CORREGIDO 2026-08-13] antes lo hacía savePoiToFirestore por dentro
   toast(checked ? '✅ El conteo ahora es visible al público' : '⭕ El conteo ya no es visible al público');
   // Este checkbox alimenta la barrita/filtro "purple" nueva — sin este
@@ -324,6 +325,7 @@ window.togglePoi = function(id, btn) {
   }
   if (!p.active && expandedId === id) { collapsePin(id); closePoiPanel(); }
   savePoiToFirestore(p); // sincroniza el estado activo/inactivo con la base de datos
+  syncAppStateWithPOIS(); // [NUEVO 2026-08-13] ver nota en firestore-sync.js
   regeneratePublicCache(); // [CORREGIDO 2026-08-13] antes lo hacía savePoiToFirestore por dentro
   toast(p.active ? `✅ "${p.name}" activado` : `⭕ "${p.name}" desactivado`);
 };
@@ -499,6 +501,7 @@ document.getElementById('mc-delete').addEventListener('click', () => {
   POIS = POIS.filter(x => x.id !== pendingDelId);
   removeMarker(pendingDelId);
   deletePoiFromFirestore(pendingDelId); // borra de verdad en la base de datos
+  syncAppStateWithPOIS(); // [NUEVO 2026-08-13] ver nota en firestore-sync.js — sin esto, AppState (y por lo tanto el panel) seguía viendo el pin borrado
   regeneratePublicCache(); // [CORREGIDO 2026-08-13] antes lo hacía deletePoiFromFirestore por dentro
   if (expandedId === pendingDelId) { closePoiPanel(); expandedId = null; }
   document.getElementById('modal-confirm').classList.remove('on');

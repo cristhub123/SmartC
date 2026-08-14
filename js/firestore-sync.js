@@ -13,17 +13,72 @@
    noche podrían agotar el límite gratis diario de Firestore.
 ═══════════════════════════════════════════ */
 
-/* === CARGAR TODOS LOS LUGARES AL ABRIR LA APP — 1 sola lectura === */
+/* [NUEVO 2026-08-13 — smartcityV3.0_fix-mapa-pines] NO BORRAR ESTA NOTA en
+   una limpieza futura de comentarios — documenta un fix central del proyecto.
+   ---------------------------------------------------------------------------
+   Mantiene AppState sincronizado con el array real POIS (declarado en
+   config.js). Hace falta porque `poi-panel.js` (el panel que se abre al
+   tocar un pin) lee EXCLUSIVAMENTE vía `AppState.getPoi()`/`getContent()` —
+   nunca lee POIS directo. Antes de este fix, AppState solo se hidrataba con
+   los 4 lugares fijos de `pois_cordoba.json` (vía `pois-loader.js`, ahora
+   desconectado — ver index.html), así que ningún pin real tenía datos para
+   mostrar en el panel, aunque se llegara a dibujar en el mapa.
+   `AppState.loadPois()` no transforma nada — guarda el arreglo tal cual
+   (shallow copy) — y `poi-panel.js` ya tiene fallback a los campos planos
+   legados (name/desc/hist/hours), que es exactamente el esquema real de
+   POIS. Por eso no hace falta ningún mapeo especial acá.
+   Se llama en cada punto donde POIS queda en su estado final — los mismos
+   puntos donde ya se llama `regeneratePublicCache()` (ver grep en
+   CAMBIOS.txt para la lista completa de call sites). */
+function syncAppStateWithPOIS() {
+  if (typeof AppState !== 'undefined' && typeof AppState.loadPois === 'function') {
+    AppState.loadPois(POIS);
+  }
+}
+
+/* [CORREGIDO 2026-08-13 — smartcityV3.0_fix-mapa-pines] NO BORRAR ESTA NOTA
+   en una limpieza futura de comentarios — documenta un fix central del
+   proyecto, con evidencia directa de Cris (capturas de Firestore).
+   ---------------------------------------------------------------------------
+   BUG CONFIRMADO CON EVIDENCIA DIRECTA: esta función confiaba ciegamente en
+   el documento `cache/all-pines` si existía, sin verificar nunca que
+   estuviera completo/actualizado respecto a la colección `pines` real. Cris
+   confirmó con capturas de Firestore: la colección `pines` tenía 11
+   documentos reales, pero el panel Admin (que arma su lista leyendo POIS,
+   hidratado acá) solo mostraba 5. Uno de los faltantes, `plaza-san-martin-
+   cba`, es un documento perfectamente válido y completo (nombre, coords,
+   imagen ya subida a Cloudinary) — descarta que sea un problema de datos:
+   es un problema de LECTURA. El caché quedó desactualizado en algún momento
+   de sesiones anteriores (antes del fix de orden/await de
+   `regeneratePublicCache()` de la sesión pasada) y, como el código solo
+   reconstruía el caché si el documento NO EXISTÍA en absoluto (nunca por
+   estar incompleto), quedó atascado así para siempre.
+   FIX: se deja de leer `cache/all-pines` para armar POIS. Se lee siempre en
+   vivo la colección `pines` completa, y de paso se regenera el caché en
+   cada carga (autosanándolo, por si en el futuro se quiere reintroducir la
+   lectura cacheada). A la escala actual del proyecto (~11 lugares, apuntando
+   a ~100) esto es 1 lectura extra por sesión, insignificante contra la
+   cuota gratis de Firestore (50.000 lecturas/día) — la optimización de
+   caché tenía sentido pensando en cientos de visitantes públicos por
+   noche, pero hoy cuesta más en bugs de lo que ahorra en cuota. Si más
+   adelante (cerca del lanzamiento público de noviembre) el tráfico real lo
+   justifica, se puede reintroducir la lectura cacheada — PERO hay que
+   resolver antes cómo invalidar el caché quando esté desactualizado (por
+   ejemplo comparando cantidad de documentos con una `count()` aggregation
+   query, que cuesta 1 sola lectura sin importar el tamaño de la colección),
+   no simplemente confiar en que existe. El código viejo queda comentado
+   abajo, no borrado, para esa reintroducción futura. */
 async function loadPOISFromFirestore() {
   try {
-    const cacheDoc = await db.collection('cache').doc('all-pines').get();
-    if (cacheDoc.exists && Array.isArray(cacheDoc.data().pois)) {
-      POIS = cacheDoc.data().pois;
-      return true;
-    }
-    // Primera vez que se usa la app (el caché todavía no existe):
-    // se lee la colección completa UNA vez, y de paso se genera
-    // el caché para que las próximas cargas ya sean baratas.
+    // [DESCONECTADO 2026-08-13 — no se lee más el caché para armar POIS,
+    // ver nota arriba. Se deja comentado, no borrado, para reintroducir
+    // esta optimización más adelante si el tráfico real lo justifica.]
+    // const cacheDoc = await db.collection('cache').doc('all-pines').get();
+    // if (cacheDoc.exists && Array.isArray(cacheDoc.data().pois)) {
+    //   POIS = cacheDoc.data().pois;
+    //   syncAppStateWithPOIS();
+    //   return true;
+    // }
     const snapshot = await db.collection('pines').get();
     const loaded = [];
     snapshot.forEach(doc => {
@@ -32,7 +87,8 @@ async function loadPOISFromFirestore() {
       loaded.push({ id: doc.id, ...data });
     });
     POIS = loaded;
-    await regeneratePublicCache();
+    syncAppStateWithPOIS(); // [NUEVO 2026-08-13] ver nota arriba
+    await regeneratePublicCache(); // autosana el caché en cada carga
     return true;
   } catch (err) {
     console.error('Error cargando lugares desde Firestore:', err);
@@ -141,6 +197,44 @@ async function deletePoiFromFirestore(id) {
     return false;
   }
 }
+
+/* [NUEVO 2026-08-13 — smartcityV3.0_fix-mapa-pines] NO BORRAR ESTA NOTA en
+   una limpieza futura de comentarios — documenta un bug real, distinto del
+   de arriba, encontrado de paso durante esta misma sesión.
+   ---------------------------------------------------------------------------
+   BUG ENCONTRADO: `AppState.updatePoi()` / `toggleSkinStatus()` /
+   `toggleClicksVisibility()` (js/app-state.js) — las 3 funciones que
+   `poi-panel.js` usa para persistir un cambio hecho DESDE EL PANEL de un
+   pin (editar texto, tocar un skin, tocar el "ojito") — llaman a
+   `FirestoreSync.savePoi(...)`. Ese objeto global `FirestoreSync` NUNCA
+   existió en el proyecto: este archivo solo exponía funciones sueltas
+   (`savePoiToFirestore`, `regeneratePublicCache`, etc.), nunca un objeto
+   con ese nombre. Resultado: cualquier edición hecha desde el panel de un
+   pin real quedaba SOLO en memoria (se veía bien hasta el próximo F5) y
+   nunca se guardaba en Firestore — sin ningún error visible para quien
+   editaba.
+   Por qué nunca se había notado: hasta el fix de arriba (AppState
+   hidratado con datos reales), el panel jamás tenía un pin real para
+   editar — solo los 4 de prueba del JSON viejo —, así que este camino de
+   código prácticamente nunca se ejecutaba con datos reales.
+   FIX: se agrega acá el objeto `FirestoreSync` que faltaba, como wrapper
+   sobre las funciones que ya existen — mismo patrón que usa el admin real
+   al guardar (pin-adjust.js): escribe en Firestore, actualiza POIS en
+   memoria, sincroniza AppState y regenera el caché público. */
+window.FirestoreSync = {
+  async savePoi(poi) {
+    if (!poi || !poi.id) return false;
+    const ok = await savePoiToFirestore(poi);
+    if (!ok) return false;
+
+    const idx = POIS.findIndex(p => p.id === poi.id);
+    if (idx === -1) POIS.push(poi); else POIS[idx] = poi;
+
+    syncAppStateWithPOIS();
+    await regeneratePublicCache();
+    return true;
+  },
+};
 
 /* ═══════════════════════════════════════════
    ZONAS — mismo patrón exacto que arriba (colección "zonas" +
