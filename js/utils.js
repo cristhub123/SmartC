@@ -88,6 +88,11 @@ function attachImageFallbackChain(imgEl, candidates, emojiEl) {
     idx++;
     if (idx < candidates.length) {
       imgEl.src = candidates[idx];
+      // Guardamos qué candidato terminó funcionando — lo usa
+      // markers.js para pedir la versión full-quality del MISMO
+      // candidato (mismo índice) cuando el pin se maximiza, en vez
+      // de asumir siempre el candidato 0.
+      imgEl.dataset.idx = String(idx);
     } else {
       imgEl.removeEventListener('error', tryNext);
       imgEl.style.display = 'none';
