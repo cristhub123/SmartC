@@ -5,6 +5,59 @@
 > en ella. Si un archivo listado como "revisado" fue modificado después,
 > vuelve a estar pendiente de verificación.
 
+## Sesión: 2026-08-15 (3ª) — Etapa 2 del plan de importación masiva: panel renderiza campos título+texto
+
+**Contexto:** Etapa 2 de `PLAN_IMPORTACION_MASIVA.md` (ver ese archivo
+para el plan completo). Objetivo puntual de esta sesión: que el panel
+público muestre los "campos internos" de cada lugar como bloques
+verticales de "título arriba / texto abajo", cantidad libre, sin
+ningún nombre de campo predefinido por el sistema.
+
+**Archivos revisados en profundidad esta sesión:** `js/poi-panel.js`
+(función `_render()` completa y `_renderMeta()`), `js/app-state.js`
+(función `getContent()`), `css/poi-panel.css` (bloque de metadatos).
+
+**Archivos modificados esta sesión:**
+- `js/poi-panel.js` — nueva función `_resolveFields(poi, rawContent)`:
+  resuelve los campos con fallback en cascada (1. `content[idioma].fields[]`
+  nuevo → 2. `custom_fields` viejo → 3. `poi.attrs` legado del admin →
+  4. `poi.hours` suelto como único campo "Horario", comportamiento
+  preexistente que se preservó). `_renderMeta()` reescrita: en vez de
+  imprimir el título como `tooltip` HTML (invisible salvo hover), ahora
+  crea un bloque por campo con el título visible arriba (`<p
+  class="poi-panel__field-title">`) y el texto abajo
+  (`<p class="poi-panel__field-text">`).
+- `css/poi-panel.css` — `.poi-panel__meta-row` pasó de fila horizontal
+  con chips separados por punto a columna vertical (`flex-direction:
+  column`); nuevas clases `.poi-panel__field-block` (con separador
+  `border-top` entre bloques, no antes del primero),
+  `.poi-panel__field-title` (mismo estilo que ya usaba
+  `.poi-panel__section-title`, reutiliza las variables de Tipografía)
+  y `.poi-panel__field-text` (mismo estilo que `.poi-panel__body`, con
+  `white-space: pre-wrap` para respetar saltos de línea del texto
+  cargado). Se eliminaron `.poi-panel__meta-item` y su pseudo-elemento
+  `::after` (el separador de punto), ya sin uso.
+
+**Lo que NO se tocó todavía (a propósito, es la Etapa 3):** ningún
+lugar del proyecto escribe hoy `content[idioma].fields[]` — el editor
+del admin (`_renderPinAttrsEditor`/`_readPinAttrsFromForm` en
+`pin-adjust.js`) sigue escribiendo `poi.attrs` (legado, sin idioma).
+Por eso el panel hoy en día seguirá mostrando el nivel 3 de fallback
+(`poi.attrs`) para todos los pines existentes hasta que se haga la
+Etapa 3 — es el comportamiento esperado, no un bug.
+
+**Pruebas/verificaciones realizadas:** `node --check js/poi-panel.js`
+sin errores de sintaxis. No se probó en navegador real (sin entorno
+con DOM en esta sesión) — pendiente que Cris lo pruebe en su entorno;
+como con el `poi.attrs` existente ya hay datos cargados en varios
+pines, debería verse el cambio visual (título visible en vez de
+tooltip) apenas se suba este ZIP, sin necesitar tocar el admin todavía.
+
+**Pendiente / próximo paso exacto:** Etapa 3 — reescribir el editor de
+campos del admin para que escriba directo a `content[idioma].fields[]`
+con selector de idioma, y migrar lo que hoy está en `poi.attrs`. Ver
+`PLAN_IMPORTACION_MASIVA.md` para el detalle completo.
+
 ## Sesión: 2026-08-15 (2ª) — banner del panel separado del pin + ojito recorre el pin maximizado
 
 **Pedido:** 2 cosas.

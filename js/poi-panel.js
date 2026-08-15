@@ -305,10 +305,7 @@ const PoiPanel = (function () {
       || poi.desc || poi.descripcion || poi.description
       || poi.hist || poi.historia
       || '';
-    const finalCustomFields = { ...((rawContent && rawContent.custom_fields) || {}) };
-    if (!finalCustomFields.horario && poi.hours) {
-      finalCustomFields.horario = poi.hours;
-    }
+    const finalFields = _resolveFields(poi, rawContent);
 
     // --- Imagen principal (versión "full", 1024px, skin activo del POI) ---
     _renderHeroImage(poi);
@@ -328,8 +325,8 @@ const PoiPanel = (function () {
       els.description.textContent = finalDescription;
     }
 
-    // --- Metadatos (custom_fields no vacíos, con fallback a poi.hours) ---
-    _renderMeta(finalCustomFields);
+    // --- Campos internos (título + texto, cantidad libre, sin nombres fijos) ---
+    _renderMeta(finalFields);
 
     // --- Botón de acción (solo visible/habilitado para admin) ---
     const isAdmin = _isAdminActive();
@@ -471,23 +468,85 @@ const PoiPanel = (function () {
     return parts.join(' · ');
   }
 
-  function _renderMeta(customFields) {
-    const els = _els;
-    const entries = Object.entries(customFields || {}).filter(([, v]) => v && String(v).trim() !== '');
+  /**
+   * Resuelve los "campos internos" de un lugar (título + texto, cantidad
+   * libre, SIN nombres de campo preestablecidos por el sistema — el
+   * título de cada campo lo define quien carga el contenido, nunca el
+   * código). Orden de prioridad, de más nuevo a más viejo:
+   *
+   *   1. content[idioma].fields[]  → [{title, text}, ...]  (esquema definitivo)
+   *   2. content[idioma].custom_fields  → {clave: valor}   (esquema intermedio,
+   *      ya en desuso; se sigue leyendo por compatibilidad con lo que se
+   *      haya cargado mientras existió)
+   *   3. poi.attrs  → [{l, v}, ...]  (editor viejo del admin, sin idioma
+   *      — se usa igual para cualquier idioma como último respaldo)
+   *   4. poi.hours suelto → un único campo "Horario" (comportamiento
+   *      legado que ya existía antes de este cambio, se preserva tal
+   *      cual para no romper pines viejos)
+   *
+   * Se usa el primer nivel que tenga contenido real; no se combinan.
+   */
+  function _resolveFields(poi, rawContent) {
+    if (rawContent && Array.isArray(rawContent.fields) && rawContent.fields.length) {
+      const fields = rawContent.fields
+        .filter((f) => f && (String(f.title || '').trim() || String(f.text || '').trim()))
+        .map((f) => ({ title: f.title || '', text: f.text || '' }));
+      if (fields.length) return fields;
+    }
 
+    if (rawContent && rawContent.custom_fields && typeof rawContent.custom_fields === 'object') {
+      const entries = Object.entries(rawContent.custom_fields)
+        .filter(([, v]) => v && String(v).trim() !== '')
+        .map(([key, value]) => ({ title: key, text: String(value) }));
+      if (entries.length) return entries;
+    }
+
+    if (Array.isArray(poi.attrs) && poi.attrs.length) {
+      const fromAttrs = poi.attrs
+        .filter((a) => a && String(a.l || '').trim() && String(a.v || '').trim())
+        .map((a) => ({ title: a.l, text: a.v }));
+      if (fromAttrs.length) return fromAttrs;
+    }
+
+    if (poi.hours) return [{ title: 'Horario', text: poi.hours }];
+
+    return [];
+  }
+
+  /**
+   * Renderiza los campos internos como bloques verticales
+   * "título arriba / texto abajo" — cantidad libre, sin límite.
+   * @param {Array<{title:string, text:string}>} fields
+   */
+  function _renderMeta(fields) {
+    const els = _els;
     els.metaRow.innerHTML = '';
-    if (entries.length === 0) {
+
+    if (!fields || fields.length === 0) {
       els.metaSection.hidden = true;
       return;
     }
 
     els.metaSection.hidden = false;
-    entries.forEach(([key, value]) => {
-      const span = document.createElement('span');
-      span.className = 'poi-panel__meta-item';
-      span.textContent = value;
-      span.title = key;
-      els.metaRow.appendChild(span);
+    fields.forEach((field) => {
+      const block = document.createElement('div');
+      block.className = 'poi-panel__field-block';
+
+      if (field.title) {
+        const titleEl = document.createElement('p');
+        titleEl.className = 'poi-panel__field-title';
+        titleEl.textContent = field.title;
+        block.appendChild(titleEl);
+      }
+
+      if (field.text) {
+        const textEl = document.createElement('p');
+        textEl.className = 'poi-panel__field-text';
+        textEl.textContent = field.text;
+        block.appendChild(textEl);
+      }
+
+      els.metaRow.appendChild(block);
     });
   }
 

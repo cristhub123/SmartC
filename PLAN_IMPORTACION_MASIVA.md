@@ -26,27 +26,38 @@
 
 ## ESTADO ACTUAL
 
-**Última etapa completada:** Etapa 1 — Modelo de datos definitivo (diseño).
+**Última etapa completada:** Etapa 2 — Panel público (`js/poi-panel.js`)
+ya renderiza los campos internos como bloques verticales "título arriba
+/ texto abajo", leyendo `content[idioma].fields[]` con fallback en
+cascada a `custom_fields` viejo, a `poi.attrs` legado, y a `poi.hours`.
 
-**Próxima etapa a hacer:** Etapa 2 — Reescribir el panel público
-(`js/poi-panel.js`) para que renderice `content[idioma].fields[]`.
+**Próxima etapa a hacer:** Etapa 3 — Admin: el editor de campos
+(`_renderPinAttrsEditor`/`_readPinAttrsFromForm` en `pin-adjust.js`)
+tiene que dejar de escribir `poi.attrs` (legado, sin idioma) y escribir
+directo a `content[idioma].fields[]`, con un selector de idioma dentro
+del editor (o 3 editores, uno por idioma — a decidir en esa etapa).
 
-**Archivos a chequear para arrancar la Etapa 2** (no hace falta nada más):
-- `js/poi-panel.js` — función `_renderMeta()` (línea ~474) y el bloque
-  que arma `finalCustomFields` dentro de `_render()` (línea ~308)
-- `js/app-state.js` — función `getContent()` (línea ~431), para saber
-  exactamente qué forma de objeto entrega hoy
+**Archivos a chequear para arrancar la Etapa 3** (no hace falta nada más):
+- `js/pin-adjust.js` — funciones `_renderPinAttrsEditor()`,
+  `_readPinAttrsFromForm()` (línea ~614 en adelante), y los puntos
+  donde `saveNew()`/`saveEdit()` arman el objeto `attrs` que mandan a
+  Firestore
+- `index.html` — markup de `a-attrs-wrap`/`e-attrs-wrap` (tabs
+  Nuevo/Editar), para ver cómo está armado el HTML que hay que adaptar
+- `js/poi-panel.js` — función `_resolveFields()` (agregada en la
+  Etapa 2), para saber exactamente qué forma de dato espera leer del
+  lado del panel
 - La sección "Modelo de datos definitivo" de este archivo, más abajo
 
-**Nada del código de producción fue tocado todavía.** Esta primera
-entrega es solo este archivo de plan.
+**Ver el registro completo de la Etapa 2 más abajo** para el detalle
+línea por línea de qué se cambió y qué fallback quedó armado.
 
 ---
 
 ## PLAN GENERAL (etapas)
 
 - [x] **Etapa 1** — Definir el modelo de datos definitivo (diseño, sin código)
-- [ ] **Etapa 2** — Panel público: renderizar `content[idioma].fields[]` (título+texto, cantidad libre, sin nombres fijos)
+- [x] **Etapa 2** — Panel público: renderizar `content[idioma].fields[]` (título+texto, cantidad libre, sin nombres fijos)
 - [ ] **Etapa 3** — Admin: editor de campos que escribe directo a `content[idioma].fields[]`, con selector de idioma
 - [ ] **Etapa 4** — Migración de datos viejos: pines con `attrs` pasan a `content.es.fields[]`
 - [ ] **Etapa 5** — Importador de texto masivo: aceptar bloques ES/EN/PT con campos numerados libres
@@ -168,4 +179,49 @@ el título se pone como `tooltip` HTML, invisible salvo hover — hay que
 cambiar eso a un elemento de texto visible). Mantener el fallback a
 `poi.hours` que ya existe. Archivos involucrados: `js/poi-panel.js`,
 posiblemente `css/poi-panel.css` para el estilo de los bloques nuevos.
+
+---
+
+### Etapa 2 — Panel público renderiza campos título+texto (2026-08-15)
+
+**Qué se pidió:** lo que quedó anotado como próximo paso en la Etapa 1
+(ver arriba).
+
+**Qué se hizo:** en `js/poi-panel.js`, nueva función `_resolveFields(poi,
+rawContent)` con fallback en cascada: (1) `content[idioma].fields[]`
+— el esquema definitivo, array libre de `{title, text}` — (2)
+`custom_fields` (objeto, esquema intermedio ya en desuso, se sigue
+leyendo por si quedó algo cargado con esa forma) — (3) `poi.attrs`
+(array `{l,v}`, el que escribe HOY el editor del admin, sin idioma —
+este es el nivel que efectivamente se usa mientras no se haga la Etapa
+3) — (4) `poi.hours` suelto como único campo "Horario" (comportamiento
+legado preexistente, se preservó tal cual). `_renderMeta()` reescrita
+para crear un bloque por campo con el título como texto visible arriba
+(antes era un `tooltip` HTML invisible salvo hover) y el texto abajo,
+sin límite de cantidad. CSS actualizado en `css/poi-panel.css`: la fila
+horizontal de chips pasó a columna vertical con separador entre
+bloques, reutilizando las variables de la pestaña Tipografía que ya
+existían (`--pines-section-*`/`--pines-body-*`) para que el estilo se
+mantenga consistente con el resto del panel.
+
+**Resultado:** `node --check js/poi-panel.js` sin errores. No probado
+en navegador real (sin entorno con DOM en esta sesión) — Cris debería
+ver el cambio apenas suba este ZIP: los pines que ya tienen `attrs`
+cargado van a mostrar el título visible en vez de solo al pasar el
+mouse, sin necesitar ningún cambio en el admin todavía.
+
+**Desvíos del plan original:** ninguno — se hizo tal cual quedó
+planteado en la Etapa 1.
+
+**Archivos tocados:** `js/poi-panel.js`, `css/poi-panel.css`,
+`AI_SESSION.md` (nueva entrada de sesión).
+
+**Qué falta / próximo paso exacto:** Etapa 3 — el editor de campos del
+admin (`pin-adjust.js`) sigue escribiendo `poi.attrs` (nivel 3 del
+fallback), no `content[idioma].fields[]` (nivel 1, el definitivo).
+Mientras no se haga la Etapa 3, el panel funciona pero sin
+multi-idioma real en los campos (todos los idiomas ven el mismo
+`poi.attrs`, vía fallback). Archivos a tocar: `js/pin-adjust.js`
+(`_renderPinAttrsEditor`/`_readPinAttrsFromForm`/`saveNew`/`saveEdit`),
+`index.html` (markup del editor en las tabs Nuevo/Editar).
 
