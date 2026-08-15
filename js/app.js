@@ -36,7 +36,20 @@ async function init() {
   await loadFeaturesFromFirestore();
 
   // 4. Build all markers
-  POIS.forEach(makeMarker);
+  // [2026-08-15] try/catch por-POI agregado como defensa adicional: un
+  // solo POI con datos raros (más allá de lat/lng, cualquier excepción
+  // inesperada) ya NO puede cortar el resto de init() — antes, si
+  // makeMarker() tiraba una excepción para CUALQUIER poi, el resto de
+  // esta función (incluida la definición de window.panToPoiCenter, más
+  // abajo) nunca llegaba a ejecutarse. Ver la nota completa en
+  // js/markers.js/makeMarker() para la causa real que se encontró.
+  POIS.forEach(poi => {
+    try {
+      makeMarker(poi);
+    } catch (err) {
+      console.error('[init] No se pudo crear el marcador de', poi && poi.id, '— se sigue con el resto:', err);
+    }
+  });
 
   // 3. Build category filter bar
   if (typeof updateFilterBar === 'function') updateFilterBar();

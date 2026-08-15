@@ -124,6 +124,30 @@ function wirePinImageFallback(id) {
 }
 
 function makeMarker(poi) {
+  // [2026-08-15] CAUSA RAÍZ REAL del "el mapa no se mueve" — encontrada
+  // recién ahora, gracias a la consola que mandó Cris: el error real es
+  // "Uncaught (in promise) Error: Invalid LatLng object: (NaN, NaN)"
+  // en leaflet.min.js, y aparece YA AL CARGAR LA PÁGINA, antes de tocar
+  // ningún pin. Causa: algún POI (típicamente un pin-cascarón creado por
+  // la lista de prefijos o por importación masiva — quedan con
+  // `lat:null, lng:null` a propósito hasta que se les carga ubicación
+  // real, ver Entrega 2) llega hasta acá y `L.marker([null,null])` tira
+  // esa excepción de Leaflet. Como `POIS.forEach(makeMarker)` (app.js)
+  // NO tenía ningún try/catch, esa excepción CORTABA EL FOREACH ENTERO
+  // — y con él, todo el resto de `init()` (app.js), incluida la línea
+  // que define `window.panToPoiCenter`. Por ESO nunca se ejecutaba: la
+  // función ni siquiera llegaba a EXISTIR, sin importar qué tan bien
+  // estuviera el resto de la cadena del click (que sí estaba bien).
+  // Fix acá (capa 1): si el POI no tiene lat/lng numéricos válidos, se
+  // omite su marcador con un aviso claro, en vez de romper todo lo que
+  // viene después. Fix en app.js (capa 2, defensa adicional): el forEach
+  // ahora también tiene try/catch por si aparece cualquier otro caso no
+  // contemplado acá.
+  if (typeof poi.lat !== 'number' || typeof poi.lng !== 'number' || Number.isNaN(poi.lat) || Number.isNaN(poi.lng)) {
+    console.warn('[makeMarker] POI sin lat/lng válidos — se omite su marcador (normal en un pin-cascarón sin ubicación cargada todavía):', poi.id, '— lat:', poi.lat, '— lng:', poi.lng);
+    return;
+  }
+
   const icon = L.divIcon({
     className: '',
     html: makePinHTML(poi),
