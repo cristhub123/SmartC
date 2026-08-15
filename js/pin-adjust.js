@@ -1,3 +1,13 @@
+/*
+AI PROJECT NOTE:
+Before modifying this file, consult /AI_RULES.md.
+
+If AI_RULES.md has already been reviewed during the current session,
+check /AI_SESSION.md instead of unnecessarily rereading the entire rules file.
+
+After modifying this file, update /AI_SESSION.md with the change and verification performed.
+*/
+
 /* pin-adjust.js — expand scale, per-POI offset, pinch-to-zoom */
 /* ═══════════════════════════════════════════════════════════
    EXPAND SIZE INDEPENDIENTE — desacopla tamaño en mapa del expandido
@@ -137,6 +147,14 @@ async function saveEdit() {
     country, province, city,
     address:   document.getElementById('e-address')?.value.trim() || POIS[idx].address || '',
     imgB64:    window._editImgB64  !== undefined ? window._editImgB64  : POIS[idx].imgB64,
+    // Imagen banner del panel — [NUEVO 2026-08-15] campo totalmente
+    // aparte de imgB64/skins (esos son la imagen del PIN). Vive en su
+    // propia carpeta de Cloudinary (".../banner/", ver
+    // CloudinaryAdmin.buildFolder) y solo la lee poi-panel.js para el
+    // banner del panel — nunca el mapa/marcador.
+    banner: window._editBannerImg !== undefined
+      ? (window._editBannerImg ? { url: window._editBannerImg } : null)
+      : (POIS[idx].banner || null),
     pinScale:   _eScale ? parseInt(_eScale.value)  : (POIS[idx].pinScale   ?? 100),
     pinOffsetX: _eOffX  ? parseInt(_eOffX.value)   : (POIS[idx].pinOffsetX ?? 0),
     pinOffsetY: _eOffY  ? parseInt(_eOffY.value)   : (POIS[idx].pinOffsetY ?? 0),
@@ -234,6 +252,7 @@ async function saveEdit() {
   switchTab('list');
   editingId = null;
   window._editImgB64 = null; window._editImgAlt1 = null; window._editImgAlt2 = null; window._editImgAlt3 = null;
+  window._editBannerImg = null;
   map.setView([lat, lng], Math.max(map.getZoom(), 16), {animate:true});
 }
 
@@ -299,6 +318,12 @@ function resetAddTab() {
   const mainWrap = document.getElementById('iu-add');       if (mainWrap) mainWrap.classList.remove('has-img');
   window._addImgB64 = null;
 
+  // Imagen banner del panel — [NUEVO 2026-08-15] aparte de la del pin.
+  const bannerPrev = document.getElementById('img-prev-banner-add'); if (bannerPrev) bannerPrev.innerHTML = '🖼️';
+  const bannerLbl  = document.getElementById('img-lbl-banner-add');  if (bannerLbl)  bannerLbl.textContent = 'Subir imagen banner';
+  const bannerWrap = document.getElementById('iu-banner-add');       if (bannerWrap) bannerWrap.classList.remove('has-img');
+  window._addBannerImg = null;
+
   // Variantes — [MIGRADO 2026-08-13] ahora son slots dinámicos sin
   // límite (ver js/img-slots.js). reset() sin argumentos = arranca
   // con 1 slot vacío, como un pin nuevo sin ninguna variante todavía.
@@ -309,7 +334,7 @@ function resetAddTab() {
   // se hubiera tocado "Cargar". (Los inputs de las variantes se
   // recrean solos desde cero en AltSlotsAdd.reset(), no hace falta
   // limpiarlos acá.)
-  ['img-input-add', 'img-url-add']
+  ['img-input-add', 'img-url-add', 'img-input-banner-add', 'img-url-banner-add']
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
 
   if (typeof _renderPinAttrsEditor === 'function') _renderPinAttrsEditor('a-attrs-wrap', []);
@@ -436,6 +461,8 @@ async function saveNew() {
     icon: addEmoji, lat, lng, address,
     country, province, city: cityCode,
     imgB64:  window._addImgB64  || null,
+    // Imagen banner del panel — [NUEVO 2026-08-15] ver nota igual en saveEdit().
+    banner:  window._addBannerImg ? { url: window._addBannerImg } : null,
     pinScale: 100, pinOffsetX: 0, pinOffsetY: 0,
     desc:  document.getElementById('a-desc').value.trim(),
     hist:  document.getElementById('a-hist').value.trim() || 'Sin datos históricos.',

@@ -1,3 +1,13 @@
+/*
+AI PROJECT NOTE:
+Before modifying this file, consult /AI_RULES.md.
+
+If AI_RULES.md has already been reviewed during the current session,
+check /AI_SESSION.md instead of unnecessarily rereading the entire rules file.
+
+After modifying this file, update /AI_SESSION.md with the change and verification performed.
+*/
+
 /* admin.js — admin panel, switchTab, pickMode, toast, swipe */
 /* ═══════════════════════════════════════════
    ADMIN PANEL
@@ -419,6 +429,26 @@ window.startEdit = function(id) {
   // directo de poi.skins y recrea tantos slots como variantes "altN"
   // tenga el lugar, más uno vacío al final.
   if (typeof AltSlotsEdit !== 'undefined' && AltSlotsEdit) AltSlotsEdit.reset(p.skins);
+
+  // Imagen banner del panel — [NUEVO 2026-08-15] campo aparte de
+  // p.imgB64/p.skins (ver nota de cabecera del bloque de uploaders en
+  // utils.js). Vive en p.banner.url.
+  const bannerPrev = document.getElementById('img-prev-banner-edit');
+  const bannerLbl  = document.getElementById('img-lbl-banner-edit');
+  const bannerWrap = document.getElementById('iu-banner-edit');
+  if (bannerPrev && bannerLbl && bannerWrap) {
+    if (p.banner && p.banner.url) {
+      bannerPrev.innerHTML = `<img src="${p.banner.url}" alt="banner">`;
+      bannerLbl.textContent = 'Imagen actual — clic para cambiar';
+      bannerWrap.classList.add('has-img');
+      window._editBannerImg = p.banner.url;
+    } else {
+      bannerPrev.innerHTML = '🖼️';
+      bannerLbl.textContent = 'Cambiar imagen banner';
+      bannerWrap.classList.remove('has-img');
+      window._editBannerImg = null;
+    }
+  }
 
   document.getElementById('e-lat').value  = p.lat;
   document.getElementById('e-lng').value  = p.lng;

@@ -1,3 +1,13 @@
+/*
+AI PROJECT NOTE:
+Before modifying this file, consult /AI_RULES.md.
+
+If AI_RULES.md has already been reviewed during the current session,
+check /AI_SESSION.md instead of unnecessarily rereading the entire rules file.
+
+After modifying this file, update /AI_SESSION.md with the change and verification performed.
+*/
+
 /**
  * ============================================================================
  * js/cloudinary-admin.js
@@ -49,12 +59,20 @@ const CloudinaryAdmin = (function () {
   /**
    * Arma la carpeta destino en Cloudinary según la ubicación del POI.
    * Si no se pasa alguno de los 3 campos, cae al default de Córdoba.
+   * [2026-08-15] Segundo parámetro `subfolder` agregado: por defecto
+   * sigue siendo "images" (carpeta de las imágenes del PIN, sin tocar
+   * nada de lo que ya funcionaba) — pero ahora también acepta
+   * "banner" para las imágenes del banner del panel de cada lugar,
+   * que viven en una carpeta HERMANA separada, nunca mezclada con la
+   * de los pines: `.../{país}/{prov}/{ciudad}/banner/` en vez de
+   * `.../{país}/{prov}/{ciudad}/images/`.
    * @param {{country?: string, state?: string, city?: string}} location
+   * @param {'images'|'banner'} [subfolder='images']
    * @returns {string}
    */
-  function buildFolder(location) {
+  function buildFolder(location, subfolder) {
     const loc = { ...DEFAULT_LOCATION, ...(location || {}) };
-    return `smartcity/media/${loc.country}/${loc.state}/${loc.city}/images`;
+    return `smartcity/media/${loc.country}/${loc.state}/${loc.city}/${subfolder || 'images'}`;
   }
 
   /**

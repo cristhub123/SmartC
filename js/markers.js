@@ -1,3 +1,13 @@
+/*
+AI PROJECT NOTE:
+Before modifying this file, consult /AI_RULES.md.
+
+If AI_RULES.md has already been reviewed during the current session,
+check /AI_SESSION.md instead of unnecessarily rereading the entire rules file.
+
+After modifying this file, update /AI_SESSION.md with the change and verification performed.
+*/
+
 /* markers.js — makeMarker, removeMarker */
 /* ═══════════════════════════════════════════
    URLS DE IMAGEN — SOLO LO REALMENTE GUARDADO
@@ -77,6 +87,11 @@ function swapPinToFullQuality(id) {
     // Si mientras cargaba el usuario ya cerró este pin o abrió otro,
     // no lo reemplazamos — evita pisar el thumb de un pin distinto.
     if (typeof expandedId === 'undefined' || expandedId !== id) return;
+    // [2026-08-15] Si mientras cargaba el usuario ya usó el ojito para
+    // pasar a otra imagen (ver cyclePinExpandedImage), no lo pisamos —
+    // esta carga era solo para mostrar la primera (main) al maximizar,
+    // y llegar tarde no debe retroceder la que el usuario ya eligió.
+    if (el.dataset.userCycled === '1') return;
     if (!el.dataset.thumbSrc) el.dataset.thumbSrc = el.src;
     el.src = fullUrl;
     el.dataset.qualitySwapped = 'full';
@@ -89,6 +104,57 @@ function restorePinThumbQuality(id) {
   if (!el || el.dataset.qualitySwapped !== 'full') return;
   if (el.dataset.thumbSrc) el.src = el.dataset.thumbSrc;
   delete el.dataset.qualitySwapped;
+  // [2026-08-15] Limpieza del estado del ojito (ver cyclePinExpandedImage)
+  // para que la próxima vez que se maximice este pin arranque de nuevo
+  // en la primera imagen (main), no donde había quedado la vez anterior.
+  delete el.dataset.userCycled;
+  delete el.dataset.skinIndex;
+}
+
+/* ═══════════════════════════════════════════
+   OJITO 👁 — RECORRE LAS IMÁGENES ACTIVAS SOBRE EL PIN MAXIMIZADO
+   ---------------------------------------------
+   [NUEVO 2026-08-15] Antes el ojito cambiaba la imagen "hero" del
+   panel (js/poi-panel.js) — eso quedó descartado: el panel ahora
+   tiene su propia imagen banner, independiente (poi.banner.url, ver
+   utils.js). El ojito pasó a controlar la imagen MAXIMIZADA del pin
+   en el mapa (el mismo recuadro que agranda swapPinToFullQuality):
+   cada click avanza a la siguiente imagen ACTIVA del lugar (mismo
+   criterio que getActiveSkinList — respeta el toggle "Imagen activa"
+   de cada slot en js/img-slots.js, nunca muestra una desactivada), en
+   loop. Lo llama el botón del ojito en poi-panel.js.
+   @param {string} id - id del POI (debe ser el pin actualmente expandido)
+   @returns {{index: number, total: number}|null} nueva posición, o
+     null si no hay pin expandido o no hay más de 1 imagen para recorrer.
+   ═══════════════════════════════════════════ */
+function cyclePinExpandedImage(id) {
+  if (typeof expandedId === 'undefined' || expandedId !== id) return null;
+  const el = document.querySelector(`#pw-${id} .pin-img`);
+  if (!el) return null;
+
+  // Se usa el POI fresco de AppState (si está disponible) en vez del
+  // guardado en `markers[id].poi`, para respetar el toggle de
+  // "Imagen activa" tal como está AHORA — no como estaba cuando se
+  // dibujó el marcador por última vez.
+  const poi = (typeof AppState !== 'undefined' && AppState.getPoi)
+    ? (AppState.getPoi(id) || (markers[id] && markers[id].poi))
+    : (markers[id] && markers[id].poi);
+  if (!poi) return null;
+
+  const list = (typeof getActiveSkinList === 'function') ? getActiveSkinList(poi) : [];
+  if (list.length <= 1) return null; // nada para recorrer
+
+  const currentIdx = parseInt(el.dataset.skinIndex || '0', 10);
+  const nextIdx = (currentIdx + 1) % list.length;
+  const nextUrl = list[nextIdx].url;
+
+  if (!el.dataset.thumbSrc) el.dataset.thumbSrc = el.src; // por si se clickea antes de que termine el swap inicial
+  el.src = nextUrl;
+  el.dataset.qualitySwapped = 'full';
+  el.dataset.skinIndex = String(nextIdx);
+  el.dataset.userCycled = '1';
+
+  return { index: nextIdx, total: list.length };
 }
 
 /* ═══════════════════════════════════════════

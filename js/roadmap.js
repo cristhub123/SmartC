@@ -1,3 +1,13 @@
+/*
+AI PROJECT NOTE:
+Before modifying this file, consult /AI_RULES.md.
+
+If AI_RULES.md has already been reviewed during the current session,
+check /AI_SESSION.md instead of unnecessarily rereading the entire rules file.
+
+After modifying this file, update /AI_SESSION.md with the change and verification performed.
+*/
+
 /* roadmap.js — roadmap system */
 /* ═══════════════════════════════════════════════════════════
    ROADMAP SYSTEM

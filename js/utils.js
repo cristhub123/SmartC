@@ -1,3 +1,13 @@
+/*
+AI PROJECT NOTE:
+Before modifying this file, consult /AI_RULES.md.
+
+If AI_RULES.md has already been reviewed during the current session,
+check /AI_SESSION.md instead of unnecessarily rereading the entire rules file.
+
+After modifying this file, update /AI_SESSION.md with the change and verification performed.
+*/
+
 /* ═══════════════════════════════════════════
    DISTANCIA ENTRE 2 PUNTOS (fórmula de Haversine)
    ---------------------------------------------
@@ -113,6 +123,8 @@ function attachImageFallbackChain(imgEl, candidates, emojiEl) {
 ═══════════════════════════════════════════ */
 window._addImgB64  = null;
 window._editImgB64 = null;
+window._addBannerImg  = null; // [NUEVO 2026-08-15] imagen banner del panel — ver sección de uploaders más abajo
+window._editBannerImg = null;
 
 /* === CREDENCIALES CLOUDINARY (públicas, no sensibles — el preset
    "unsigned" está pensado para usarse así, directo desde el navegador) === */
@@ -140,11 +152,11 @@ const CLOUDINARY_UPLOAD_PRESET = 'smartcity_pines_01';
    La carpeta sigue siendo dinámica vía `CloudinaryAdmin.buildFolder()`
    según país/provincia/ciudad. */
 async function uploadToCloudinary(file, opts = {}) {
-  const { location, folder: folderOverride, publicId: publicIdOverride } = opts;
+  const { location, folder: folderOverride, publicId: publicIdOverride, subfolder } = opts;
 
   const hasCloudinaryAdmin = typeof CloudinaryAdmin !== 'undefined';
   const folder = folderOverride
-    || (hasCloudinaryAdmin ? CloudinaryAdmin.buildFolder(location) : 'smartcity/media/arg/p-cba/c-cba/images');
+    || (hasCloudinaryAdmin ? CloudinaryAdmin.buildFolder(location, subfolder) : `smartcity/media/arg/p-cba/c-cba/${subfolder || 'images'}`);
 
   // Nombre real preservado: se usa el nombre del archivo (sin
   // extensión) tal cual lo trae `file.name`, salvo que se pase un
@@ -248,12 +260,52 @@ function _locationForUpload(formPrefix) {
   };
 }
 
-function _uploadCtx(formPrefix, skin) {
+/* [2026-08-15] Tercer parámetro `subfolder` agregado — por defecto
+   'images' (no cambia nada de lo que ya usaban main/alt), pero el
+   uploader del banner del panel lo llama con 'banner' para que la
+   imagen vaya a la carpeta hermana `.../banner/` en vez de mezclarse
+   con las imágenes del pin. Ver CloudinaryAdmin.buildFolder. */
+function _uploadCtx(formPrefix, skin, subfolder) {
   return () => ({
     slug: _slugForUpload(formPrefix),
     skin,
     location: _locationForUpload(formPrefix),
+    subfolder: subfolder || 'images',
   });
+}
+
+/* ═══════════════════════════════════════════
+   LISTA DE SKINS ACTIVOS DE UN POI — FUENTE ÚNICA
+   ---------------------------------------------
+   [2026-08-15] Antes esta lógica vivía duplicada/privada dentro de
+   js/poi-panel.js (`_getActiveSkinList`), usada solo para decidir qué
+   imagen mostraba el banner del panel. Se movió acá, como función
+   global, porque ahora la necesitan DOS lugares distintos:
+     1) js/markers.js — para que el "ojito" recorra estas mismas
+        imágenes sobre el PIN maximizado en el mapa (no en el panel).
+     2) js/poi-panel.js — para pintar el contador del ojito ("2/4").
+   Criterio (sin cambios respecto a la versión anterior):
+     - "main" siempre se considera activo (fallback obligatorio).
+     - Un skin sin campo `active` explícito se toma como activo (dato
+       legado, de antes de que existiera el toggle en img-slots.js).
+     - Se filtran los skins que el admin apagó desde ese toggle.
+     - Si el POI no tiene `skins` pero sí `imgB64` (esquema viejo), se
+       devuelve una sola entrada con esa imagen.
+   NUNCA incluye `poi.banner` — esa es una imagen aparte, ajena a este
+   recorrido (ver _renderHeroImage en poi-panel.js).
+   @param {Object} poi
+   @returns {{name: string, url: string}[]}
+   ═══════════════════════════════════════════ */
+function getActiveSkinList(poi) {
+  const skins = (poi && poi.skins) || {};
+  const list = Object.keys(skins)
+    .filter((name) => name === 'main' || skins[name].active !== false)
+    .filter((name) => !!skins[name].url)
+    .map((name) => ({ name, url: skins[name].url }));
+
+  if (list.length > 0) return list;
+  if (poi && poi.imgB64) return [{ name: 'main', url: poi.imgB64 }];
+  return [];
 }
 
 function applyImgB64(url, prevId, lblId, wrapperId, filename, onLoad) {
@@ -430,6 +482,41 @@ setupImgUploader(
 );
 setupUrlLoader('img-url-add',  'img-url-load-add',  'img-prev-add',  'img-lbl-add',  'iu-add',  b64 => { window._addImgB64  = b64; }, _uploadCtx('add', 'main'));
 setupUrlLoader('img-url-edit', 'img-url-load-edit', 'img-prev-edit', 'img-lbl-edit', 'iu-edit', b64 => { window._editImgB64 = b64; }, _uploadCtx('edit', 'main'));
+
+/* === IMAGEN BANNER DEL PANEL — [NUEVO 2026-08-15] ===
+   Completamente aparte de la imagen del pin (arriba) y de las
+   variantes/alt (js/img-slots.js). Se sube a la carpeta HERMANA
+   `.../banner/` (ver CloudinaryAdmin.buildFolder), nunca a
+   `.../images/` — por eso el 3er argumento 'banner' en _uploadCtx.
+   Guarda en window._addBannerImg / window._editBannerImg; pin-adjust.js
+   los vuelca en `poi.banner.url` al guardar (saveNew/saveEdit). Si se
+   deja vacío, el panel público simplemente no muestra banner (0px de
+   alto, ver css/poi-panel.css .poi-panel__hero[hidden]) — nunca cae
+   de vuelta a la imagen del pin. */
+if (document.getElementById('img-input-banner-add')) {
+  setupImgUploader(
+    'img-input-banner-add', 'img-prev-banner-add', 'img-lbl-banner-add', 'img-clear-banner-add', 'iu-banner-add',
+    'Subir imagen banner',
+    url => { window._addBannerImg = url; },
+    _uploadCtx('add', 'banner', 'banner')
+  );
+  setupUrlLoader('img-url-banner-add', 'img-url-load-banner-add', 'img-prev-banner-add', 'img-lbl-banner-add', 'iu-banner-add',
+    url => { window._addBannerImg = url; },
+    _uploadCtx('add', 'banner', 'banner')
+  );
+}
+if (document.getElementById('img-input-banner-edit')) {
+  setupImgUploader(
+    'img-input-banner-edit', 'img-prev-banner-edit', 'img-lbl-banner-edit', 'img-clear-banner-edit', 'iu-banner-edit',
+    'Cambiar imagen banner',
+    url => { window._editBannerImg = url; },
+    _uploadCtx('edit', 'banner', 'banner')
+  );
+  setupUrlLoader('img-url-banner-edit', 'img-url-load-banner-edit', 'img-prev-banner-edit', 'img-lbl-banner-edit', 'iu-banner-edit',
+    url => { window._editBannerImg = url; },
+    _uploadCtx('edit', 'banner', 'banner')
+  );
+}
 // Alt images (variantes) — [MIGRADO 2026-08-13] antes eran 3 uploaders
 // fijos acá (alt1/2/3, guardaban en window._addImgAlt1/2/3, un campo
 // legado `imgAlt1/2/3` que nunca se mostraba en ningún lado público).

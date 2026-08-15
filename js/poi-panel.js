@@ -1,3 +1,13 @@
+/*
+AI PROJECT NOTE:
+Before modifying this file, consult /AI_RULES.md.
+
+If AI_RULES.md has already been reviewed during the current session,
+check /AI_SESSION.md instead of unnecessarily rereading the entire rules file.
+
+After modifying this file, update /AI_SESSION.md with the change and verification performed.
+*/
+
 /**
  * ============================================================================
  * js/poi-panel.js
@@ -52,15 +62,24 @@
  *   - [2026-08-14] El "ojito" cambió de función: ya no controla la
  *     visibilidad pública del contador de clicks (esa función quedó
  *     huérfana en AppState.toggleClicksVisibility, sin UI que la
- *     dispare — pendiente de decidir dónde va). Ahora el ojito es un
- *     control público: cada click avanza a la siguiente imagen activa
- *     del lugar (`_heroSkinIndex` sobre `_getActiveSkinList`), en
- *     loop. Ver `_renderEyeBadge` / el listener de `eyeBtn`.
- *   - Al abrir un POI se carga su imagen "full" (1024px) desde la URL
- *     real ya guardada en el POI (`poi.skins[skin].url`/`poi.imgB64`,
- *     ver `_renderHeroImage`). El centrado del mapa sobre el pin NO
- *     se hace desde este archivo — queda unificado en
- *     `window.panToPoiCenter` (js/app.js), llamado por js/cluster.js.
+ *     dispare — pendiente de decidir dónde va).
+ *   - [2026-08-15] El "ojito" cambió de función OTRA VEZ: ya NO toca
+ *     la imagen de este panel. Ahora recorre las imágenes ACTIVAS del
+ *     lugar (mismo criterio que antes, `getActiveSkinList` — ver
+ *     js/utils.js) sobre el PIN MAXIMIZADO en el mapa, en loop (ver
+ *     `cyclePinExpandedImage` en js/markers.js). El banner de este
+ *     panel (`_renderHeroImage`) pasó a ser una imagen APARTE y fija
+ *     (`poi.banner.url`), que el ojito no toca para nada.
+ *   - [2026-08-15] Banner del panel: ya NO usa ninguna imagen del pin
+ *     (`poi.skins`/`poi.imgB64`) — usa `poi.banner.url`, un campo
+ *     separado subido a una carpeta distinta de Cloudinary
+ *     (".../banner/", ver CloudinaryAdmin.buildFolder y el bloque de
+ *     uploaders "Imagen banner del panel" en utils.js/index.html). Si
+ *     no hay banner cargado, el hueco queda en 0px de alto (ya
+ *     funcionaba así, ver css/poi-panel.css `.poi-panel__hero[hidden]`).
+ *   - El centrado del mapa sobre el pin NO se hace desde este archivo
+ *     — queda unificado en `window.panToPoiCenter` (js/app.js),
+ *     llamado por js/cluster.js.
  *   - ID unificado: `poi.id` ahora ES el slug limpio (ej.
  *     "alto-paz-tower"), el mismo valor usado en el mapa y en el
  *     nombre de archivo de Cloudinary. `AppState.getPoi` normaliza
@@ -90,15 +109,11 @@ const PoiPanel = (function () {
   let _panelState = 'closed'; // 'closed' | 'peek' | 'full'
   let _unsubscribers = [];
 
-  // Índice del skin actualmente mostrado en la imagen "hero" del panel,
-  // dentro de la lista de skins ACTIVOS del POI abierto (ver
-  // _getActiveSkinList). Lo recorre el ojito (_renderEyeBadge +
-  // el click de eyeBtn): cada click avanza uno, y al pasar del
-  // último vuelve al primero. Se resetea a 0 cada vez que se abre
-  // un POI nuevo (ver open()), NO en cada _render() — así un
-  // cambio de idioma o un re-render por edición no reinicia la
-  // imagen que el usuario ya venía mirando.
-  let _heroSkinIndex = 0;
+  // [2026-08-15] _heroSkinIndex se eliminó: el ojito YA NO cambia la
+  // imagen hero de este panel (ver _renderHeroImage, ahora usa
+  // poi.banner.url) — pasó a recorrer la imagen maximizada del PIN en
+  // el mapa (js/markers.js, cyclePinExpandedImage). El índice/total
+  // que muestra el badge del ojito (_renderEyeBadge) se lee de ahí.
 
   // Tamaño ABIERTO del panel — YA NO es un breakpoint de ancho fijo
   // (antes 1024px) ni un peek fijo en px (antes 300px). Ahora sale de
@@ -325,29 +340,22 @@ const PoiPanel = (function () {
   }
 
   /**
-   * Carga la imagen principal/maximizada del POI (tamaño "full", 1024px)
-   * a partir de la URL real ya guardada en el POI (`poi.skins[skin].url`
-   * o `poi.imgB64`). Usa el skin activo del POI (`poi.active_skin`),
-   * con fallback a "main". No adivina ninguna URL — si no hay ninguna
-   * guardada, no se muestra imagen.
+   * Carga la imagen BANNER del panel — [REESCRITO 2026-08-15].
+   * Ya NO usa las imágenes del pin (`poi.skins`/`poi.imgB64`): esas
+   * son harina de otro costal, el mismo edificio/ícono que se ve en
+   * el mapa. El banner es una imagen APARTE, guardada en
+   * `poi.banner.url`, subida a una carpeta distinta de Cloudinary
+   * (".../banner/", ver CloudinaryAdmin.buildFolder y el bloque de
+   * uploaders en utils.js). No hay lista ni ojito acá: es una sola
+   * imagen fija por lugar. Si no existe, no se intenta mostrar nada
+   * — el banner queda en display:none / 0 alto (ver CSS) y el texto
+   * sube pegado al título, nunca cae de vuelta a la imagen del pin.
    * @param {Object} poi
    */
   function _renderHeroImage(poi) {
     const els = _els;
+    const url = (poi.banner && poi.banner.url) || '';
 
-    // La imagen mostrada depende de _heroSkinIndex, que el ojito va
-    // avanzando (ver _renderEyeBadge / el click de eyeBtn). Siempre
-    // full 1024px porque las URLs guardadas en skins[*].url /
-    // poi.imgB64 son las reales subidas a Cloudinary — la versión
-    // recortada 150x150 solo la usa el pin chico en el mapa
-    // (js/markers.js), nunca este panel.
-    const list = _getActiveSkinList(poi);
-    if (_heroSkinIndex >= list.length) _heroSkinIndex = 0; // por si se desactivó un skin mientras estaba seleccionado
-    const url = list[_heroSkinIndex] ? list[_heroSkinIndex].url : '';
-
-    // Ocultación estricta: si no hay ninguna URL posible, ni se
-    // intenta cargar — el banner queda en display:none / 0 alto
-    // (ver CSS) y el texto se pega directo debajo del título.
     if (!url) {
       els.hero.hidden = true;
       els.heroImage.removeAttribute('src');
@@ -402,35 +410,37 @@ const PoiPanel = (function () {
   }
 
   /**
-   * Devuelve la lista ordenada de skins ACTIVOS de un POI (los que se
-   * pueden mostrar al público — filtra los que el admin desactivó
-   * desde el toggle que ahora vive en el panel de edición, ver
-   * js/img-slots.js). Cada entrada es { name, url }.
-   *
-   * - "main" siempre se considera activo (regla de negocio: nunca se
-   *   puede desactivar, es el fallback obligatorio).
-   * - Un skin sin campo `active` explícito se toma como activo (dato
-   *   legado, antes de que existiera el toggle).
-   * - Si el POI no tiene `skins` pero sí `imgB64` (esquema viejo), se
-   *   devuelve una sola entrada con esa imagen.
+   * [2026-08-15] La lista de skins activos ahora es una función
+   * GLOBAL compartida (ver js/utils.js, `getActiveSkinList`) — la
+   * necesita también js/markers.js para el recorrido del ojito sobre
+   * el pin maximizado. Este wrapper se deja solo para no tener que
+   * tocar cada llamado interno de este archivo.
    * @param {Object} poi
    * @returns {{name: string, url: string}[]}
    */
   function _getActiveSkinList(poi) {
-    const skins = poi.skins || {};
-    const list = Object.keys(skins)
-      .filter((name) => name === 'main' || skins[name].active !== false)
-      .filter((name) => !!skins[name].url)
-      .map((name) => ({ name, url: skins[name].url }));
-
-    if (list.length > 0) return list;
-    if (poi.imgB64) return [{ name: 'main', url: poi.imgB64 }];
-    return [];
+    return (typeof getActiveSkinList === 'function') ? getActiveSkinList(poi) : [];
   }
 
   /**
-   * Pinta el "ojito": ahora es el control público para recorrer las
-   * imágenes activas del lugar. Muestra "posición/total" (ej. "2/4")
+   * Lee, del pin maximizado en el mapa, qué posición de la lista de
+   * imágenes activas está mostrando ahora mismo (ver
+   * js/markers.js — cyclePinExpandedImage guarda esto en
+   * dataset.skinIndex del <img> del pin). 0 si todavía no se movió de
+   * la primera imagen (o si el pin no está en el DOM por algún motivo).
+   * @param {string} poiId
+   * @returns {number}
+   */
+  function _getExpandedPinIndex(poiId) {
+    const el = document.querySelector(`#pw-${poiId} .pin-img`);
+    return el ? parseInt(el.dataset.skinIndex || '0', 10) : 0;
+  }
+
+  /**
+   * Pinta el "ojito": el control público para recorrer las imágenes
+   * activas del lugar SOBRE EL PIN MAXIMIZADO en el mapa —
+   * [REESCRITO 2026-08-15] ya no toca la imagen banner de este panel
+   * (ver _renderHeroImage). Muestra "posición/total" (ej. "2/4")
    * cuando hay más de una imagen activa disponible; se oculta el
    * contador si solo hay una (o ninguna), ya que no hay nada para
    * recorrer. El brillo (`eyeglow`, definido por shadow-eye.js) se
@@ -442,10 +452,11 @@ const PoiPanel = (function () {
     const els = _els;
     const list = _getActiveSkinList(poi);
     const hasMultiple = list.length > 1;
+    const idx = hasMultiple ? _getExpandedPinIndex(poi.id) : 0;
 
     els.eyeIcon.style.opacity = hasMultiple ? '1' : '0.35';
     els.eyeIcon.style.animation = hasMultiple ? 'eyeglow 2s ease-in-out infinite' : 'none';
-    els.eyeCount.textContent = hasMultiple ? `${_heroSkinIndex + 1}/${list.length}` : '';
+    els.eyeCount.textContent = hasMultiple ? `${idx + 1}/${list.length}` : '';
     els.eyeCount.style.color = 'var(--eye-glow-color, #60a5fa)';
 
     els.eyeBtn.style.cursor = hasMultiple ? 'pointer' : 'default';
@@ -585,15 +596,19 @@ const PoiPanel = (function () {
     });
 
     els.eyeBtn.addEventListener('click', () => {
-      // Público: pasa a la siguiente imagen activa del lugar, en loop.
+      // [REESCRITO 2026-08-15] Público: pasa a la siguiente imagen
+      // activa del lugar, en loop — pero ahora sobre el PIN
+      // MAXIMIZADO en el mapa (js/markers.js), no sobre el banner de
+      // este panel (que es una imagen aparte, fija, ver
+      // _renderHeroImage). El pin siempre está expandido mientras el
+      // panel está abierto (lo hace pinClick en js/cluster.js), así
+      // que alcanza con pedirle a markers.js que avance su imagen.
       if (!_currentPoiId) return;
+      if (typeof cyclePinExpandedImage !== 'function') return;
+      const result = cyclePinExpandedImage(_currentPoiId);
+      if (!result) return; // nada para recorrer, o el pin no está expandido
       const poi = AppState.getPoi(_currentPoiId);
-      if (!poi) return;
-      const list = _getActiveSkinList(poi);
-      if (list.length <= 1) return; // nada para recorrer
-      _heroSkinIndex = (_heroSkinIndex + 1) % list.length;
-      _renderHeroImage(poi);
-      _renderEyeBadge(poi);
+      if (poi) _renderEyeBadge(poi);
     });
 
     document.addEventListener('app:languageChanged', (e) => {
@@ -764,9 +779,6 @@ const PoiPanel = (function () {
     _ensureDom();
     _bindAppStateEvents();
     _applyPanelSizeVars(); // por si cambiaron los sliders o giró la pantalla desde el último open()
-
-    // Nuevo POI => arranca mostrando su primera imagen activa.
-    if (poiId !== _currentPoiId) _heroSkinIndex = 0;
 
     _currentPoiId = poiId;
     _isEditMode = false;

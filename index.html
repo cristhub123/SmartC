@@ -1,4 +1,13 @@
 <!DOCTYPE html>
+<!--
+AI PROJECT NOTE:
+Before modifying this file, consult /AI_RULES.md.
+
+If AI_RULES.md has already been reviewed during the current session,
+check /AI_SESSION.md instead of unnecessarily rereading the entire rules file.
+
+After modifying this file, update /AI_SESSION.md with the change and verification performed.
+-->
 <html lang="es">
 <head>
   <meta charset="UTF-8">
@@ -398,8 +407,27 @@ imagenes:
       </div>
       <div class="fg">
         <label class="fl">Imágenes alternativas (para el ojito 👁)</label>
-        <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Cada imagen es una variante visual del edificio. Se activan desde el panel del lugar. Sin límite: se agrega un cuadro nuevo automáticamente cada vez que usás el último.</div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Cada imagen es una variante visual del edificio. Se activan desde acá mismo (toggle) y el ojito las recorre sobre el PIN maximizado en el mapa. Sin límite: se agrega un cuadro nuevo automáticamente cada vez que usás el último.</div>
         <div id="alt-slots-add" style="display:flex;flex-direction:column;gap:8px"></div>
+      </div>
+      <div class="fg">
+        <label class="fl">Imagen banner del panel</label>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Imagen aparte de la del pin — es la que se ve arriba del todo al abrir el panel de este lugar. Se guarda en una carpeta de Cloudinary distinta (".../banner/"). Si no cargás ninguna, el panel simplemente no muestra banner.</div>
+        <div class="img-uploader" id="iu-banner-add">
+          <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" id="img-input-banner-add">
+          <div class="img-uploader-inner">
+            <div class="img-preview-box" id="img-prev-banner-add">🖼️</div>
+            <div class="img-uploader-text">
+              <strong id="img-lbl-banner-add">Subir imagen banner</strong>
+              <span>Formato panorámico recomendado. Máx 5 MB.</span>
+            </div>
+          </div>
+          <button class="img-clear" id="img-clear-banner-add" type="button">✕</button>
+        </div>
+        <div class="url-input-row">
+          <input class="fi url-fi" id="img-url-banner-add" type="url" placeholder="O pegá el link de Dropbox / Drive / URL directa">
+          <button class="url-load-btn" id="img-url-load-banner-add" type="button">Cargar</button>
+        </div>
       </div>
       <div class="fg">
         <label class="fl">Ícono de respaldo (si no hay imagen)</label>
@@ -1075,8 +1103,27 @@ imagenes:
       </div>
       <div class="fg">
         <label class="fl">Imágenes alternativas (ojito 👁)</label>
-        <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Podés agregar o cambiar variantes en cualquier momento. Sin límite: se agrega un cuadro nuevo automáticamente cada vez que usás el último.</div>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Podés agregar o cambiar variantes en cualquier momento. El ojito las recorre sobre el PIN maximizado en el mapa. Sin límite: se agrega un cuadro nuevo automáticamente cada vez que usás el último.</div>
         <div id="alt-slots-edit" style="display:flex;flex-direction:column;gap:8px"></div>
+      </div>
+      <div class="fg">
+        <label class="fl">Imagen banner del panel</label>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Imagen aparte de la del pin — es la que se ve arriba del todo al abrir el panel de este lugar. Se guarda en una carpeta de Cloudinary distinta (".../banner/"). Si no cargás ninguna, el panel simplemente no muestra banner.</div>
+        <div class="img-uploader" id="iu-banner-edit">
+          <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" id="img-input-banner-edit">
+          <div class="img-uploader-inner">
+            <div class="img-preview-box" id="img-prev-banner-edit">🖼️</div>
+            <div class="img-uploader-text">
+              <strong id="img-lbl-banner-edit">Subir imagen banner</strong>
+              <span>Formato panorámico recomendado.</span>
+            </div>
+          </div>
+          <button class="img-clear" id="img-clear-banner-edit" type="button">✕</button>
+        </div>
+        <div class="url-input-row">
+          <input class="fi url-fi" id="img-url-banner-edit" type="url" placeholder="O pegá el link de Dropbox / Drive / URL directa">
+          <button class="url-load-btn" id="img-url-load-banner-edit" type="button">Cargar</button>
+        </div>
       </div>
       <div class="fg">
         <label class="fl">Ícono de respaldo</label>
