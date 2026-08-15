@@ -552,6 +552,24 @@ imagenes:
         </div>
       </div>
 
+      <div class="divider"><span>PANEL DE INFORMACIÓN DEL LUGAR</span></div>
+      <div class="fg">
+        <label class="fl">Expansión en pantallas verticales</label>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:4px">% del ALTO de pantalla que ocupa el panel al abrirse (bottom sheet, desde abajo)</div>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:4px">
+          <input type="range" id="g-panel-pct-portrait" min="0" max="100" value="45" style="flex:1;accent-color:var(--accent)">
+          <span id="g-panel-pct-portrait-val" style="font-family:var(--font-m);font-size:12px;min-width:36px;text-align:right">45%</span>
+        </div>
+      </div>
+      <div class="fg">
+        <label class="fl">Expansión en pantallas cuadradas/horizontales</label>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:4px">% del ANCHO de pantalla que ocupa el panel al abrirse (barra lateral, incluye desktop)</div>
+        <div style="display:flex;gap:10px;align-items:center;margin-top:4px">
+          <input type="range" id="g-panel-pct-landscape" min="0" max="100" value="34" style="flex:1;accent-color:var(--accent)">
+          <span id="g-panel-pct-landscape-val" style="font-family:var(--font-m);font-size:12px;min-width:36px;text-align:right">34%</span>
+        </div>
+      </div>
+
       <div class="divider"><span>SOMBRA DEL PIN</span></div>
       <div class="fg">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
