@@ -143,7 +143,11 @@ function makeMarker(poi) {
       const el = document.getElementById('pw-' + _poiId);
       if (el && !el._clickBound) {
         el._clickBound = true;
-        el.addEventListener('click', e => { e.stopPropagation(); pinClick(_poiId); });
+        el.addEventListener('click', e => {
+          e.stopPropagation();
+          console.log('[markers.js] click detectado en el pin', _poiId); // [2026-08-15] diagnóstico temporal
+          pinClick(_poiId);
+        });
       }
       wirePinImageFallback(_poiId);
     });

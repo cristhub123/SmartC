@@ -62,8 +62,28 @@ function pinClick(poi) {
     // panToPoiCenter() nunca se llegaba a ejecutar — esa era la causa
     // real de que el mapa no se moviera nunca. Fix: usar `markers`
     // (la variable real) en vez de `window.markers`.
+    // [2026-08-15] DIAGNÓSTICO TEMPORAL: el fix de window.markers→markers
+    // era correcto (confirmado leyendo el código), pero Cris reportó que
+    // el mapa TODAVÍA no se mueve después de aplicarlo — así que hay algo
+    // más en la cadena que no se puede diagnosticar a ciegas sin ver la
+    // consola real del navegador. Se agregan estos console.log/console.error
+    // puntuales (no cambian ningún comportamiento, solo dejan rastro) para
+    // que la próxima prueba diga EXACTAMENTE en qué paso se corta: si no
+    // aparece ni el primer log, el problema es anterior a esto (el click
+    // no está llegando acá); si aparece el primero pero no "params" de
+    // panToPoiCenter, el problema está en la condición de abajo; si
+    // aparecen todos los logs pero el mapa no se mueve, el problema está
+    // DENTRO de panToPoiCenter (app.js) — que también quedó instrumentada.
+    console.log('[pinClick] click en pin', poiId, '— markers existe:', typeof markers !== 'undefined', '— entrada en markers:', typeof markers !== 'undefined' ? !!markers[poiId] : 'n/a', '— panToPoiCenter existe:', typeof panToPoiCenter === 'function');
+
     if (typeof panToPoiCenter === 'function' && typeof markers !== 'undefined' && markers[poiId]) {
-      panToPoiCenter(markers[poiId].poi);
+      try {
+        panToPoiCenter(markers[poiId].poi);
+      } catch (err) {
+        console.error('[pinClick] panToPoiCenter tiró un error:', err);
+      }
+    } else {
+      console.warn('[pinClick] NO se llamó a panToPoiCenter — revisar la condición de arriba con los valores logueados.');
     }
 
     requestAnimationFrame(() => {

@@ -162,10 +162,18 @@ async function init() {
   //       `map.setView(...)` — el método más básico y más probado de
   //       Leaflet para animar el centro del mapa.
   window.panToPoiCenter = function(poi) {
+    // [2026-08-15] DIAGNÓSTICO TEMPORAL — ver misma nota en js/cluster.js.
+    console.log('[panToPoiCenter] llamada con poi:', poi && poi.id, '— lat/lng:', poi && poi.lat, poi && poi.lng);
+    if (!poi || typeof poi.lat !== 'number' || typeof poi.lng !== 'number') {
+      console.warn('[panToPoiCenter] poi sin lat/lng numéricos — no se puede centrar. poi recibido:', poi);
+      return;
+    }
+
     const vw = window.innerWidth, vh = window.innerHeight;
     const area = (window.PoiPanel && typeof window.PoiPanel.getOpenAreaPx === 'function')
       ? window.PoiPanel.getOpenAreaPx()
       : null;
+    console.log('[panToPoiCenter] vw/vh:', vw, vh, '— area (tamaño real del panel):', area);
 
     // Punto de la pantalla (relativo al viewport) donde debe quedar
     // el pin: el centro de la porción que NO tapa el panel.
@@ -185,17 +193,27 @@ async function init() {
       targetY = vh * 0.5;
     }
 
-    const rect = map.getContainer().getBoundingClientRect();
+    const mapEl = (typeof map !== 'undefined') ? map : null;
+    if (!mapEl) {
+      console.error('[panToPoiCenter] la variable global "map" no existe en este scope — no se puede centrar.');
+      return;
+    }
+
+    const rect = mapEl.getContainer().getBoundingClientRect();
     const targetPx = L.point(targetX - rect.left, targetY - rect.top);
-    const pinPx = map.latLngToContainerPoint([poi.lat, poi.lng]);
-    const centerPx = map.latLngToContainerPoint(map.getCenter());
+    const pinPx = mapEl.latLngToContainerPoint([poi.lat, poi.lng]);
+    const centerPx = mapEl.latLngToContainerPoint(mapEl.getCenter());
+    console.log('[panToPoiCenter] target (donde debe quedar el pin):', targetPx, '— pin ahora en:', pinPx, '— centro actual del mapa en px:', centerPx);
 
     // Nuevo centro = centro actual desplazado exactamente lo mismo
     // que hace falta mover el pin (pinPx → targetPx) — así, al
     // recentrar el mapa ahí, el pin cae justo en targetPx.
     const newCenterPx = centerPx.add(pinPx.subtract(targetPx));
-    const newCenterLatLng = map.containerPointToLatLng(newCenterPx);
-    map.setView(newCenterLatLng, map.getZoom(), { animate: true, duration: .4 });
+    const newCenterLatLng = mapEl.containerPointToLatLng(newCenterPx);
+    console.log('[panToPoiCenter] nuevo centro calculado (lat/lng):', newCenterLatLng, '— centro actual (lat/lng):', mapEl.getCenter(), '— zoom actual:', mapEl.getZoom());
+
+    mapEl.setView(newCenterLatLng, mapEl.getZoom(), { animate: true, duration: .4 });
+    console.log('[panToPoiCenter] map.setView() ejecutado sin tirar excepción.');
   };
 }
 
