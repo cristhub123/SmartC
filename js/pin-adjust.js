@@ -893,9 +893,28 @@ map.getContainer().addEventListener('touchend', function(e) {
      campos:
        Descripción: texto...
        Dato curioso: texto...
+     campos_en:
+       Description: text...
+       Fun fact: text...
+     campos_pt:
+       Descrição: texto...
      imagenes:
        cabildo-cba_main_01.webp
        cabildo-cba_night_01.webp
+
+   [Etapa 5, 2026-08-15] "campos:" (sin sufijo) = español, cantidad
+   libre de título+texto, igual que siempre. Se agregan "campos_en:"
+   y "campos_pt:" opcionales, mismo formato, para cargar los otros 2
+   idiomas en el mismo bloque si ya se tienen traducidos. Cualquiera
+   de los 3 puede faltar — un pin puede entrar solo con "campos:" (ES)
+   y completarse en EN/PT más adelante con otra importación o a mano
+   desde el admin.
+   Los 3 van directo a `content[idioma].fields[]` (esquema definitivo
+   de la Etapa 1/3) — este importador YA NO escribe `poi.attrs`
+   (legado). Al ACTUALIZAR un pin existente, un idioma que no aparece
+   en el bloque de texto (ej. no se puso "campos_pt:") NO se toca —
+   se preservan los campos que ya tenía cargados en ese idioma, no se
+   pisan con una lista vacía.
 
    Si un lugar del texto ya existe (mismo id/slug), se ACTUALIZA en
    vez de duplicarse. Un error en un bloque puntual no frena a los
@@ -971,11 +990,26 @@ function parsePinBulkText(text) {
   const pins = [];
   const errors = [];
 
+  // Mapea la clave de sección tal como la escribe Cris en el texto al
+  // idioma interno del modelo de datos (content[idioma].fields[]).
+  const FIELD_SECTION_TO_LANG = {
+    campos: 'es',
+    campos_es: 'es',
+    campos_en: 'en',
+    campos_pt: 'pt',
+  };
+
   blocks.forEach((block, blockIndex) => {
     try {
       const lines = block.split('\n');
-      const data = { tags: [], attrs: [], images: [] };
-      let section = null; // null | 'campos' | 'imagenes'
+      // [Etapa 5] `fields` reemplaza al viejo `attrs` plano: ahora es
+      // un objeto por idioma. `providedLangs` registra qué idiomas
+      // aparecieron de verdad en este bloque de texto (aunque sea con
+      // 0 campos válidos adentro) — se usa después, al actualizar un
+      // pin ya existente, para no pisar con vacío un idioma que ni
+      // siquiera se mencionó en esta importación puntual.
+      const data = { tags: [], images: [], fields: { es: [], en: [], pt: [] }, providedLangs: new Set() };
+      let section = null; // null | 'es' | 'en' | 'pt' | 'imagenes'
 
       for (const rawLine of lines) {
         const line = rawLine.replace(/\r$/, '');
@@ -989,7 +1023,11 @@ function parsePinBulkText(text) {
           const key = m[1].trim().toLowerCase();
           const value = m[2].trim();
 
-          if (key === 'campos') { section = 'campos'; continue; }
+          if (FIELD_SECTION_TO_LANG[key]) {
+            section = FIELD_SECTION_TO_LANG[key];
+            data.providedLangs.add(section);
+            continue;
+          }
           if (key === 'imagenes' || key === 'imágenes') { section = 'imagenes'; continue; }
           section = null;
 
@@ -1002,9 +1040,9 @@ function parsePinBulkText(text) {
         }
 
         // Línea indentada: pertenece a la sección activa.
-        if (section === 'campos') {
+        if (section === 'es' || section === 'en' || section === 'pt') {
           const m = line.trim().match(/^(.+?):\s*(.*)$/);
-          if (m) data.attrs.push({ l: m[1].trim(), v: m[2].trim() });
+          if (m) data.fields[section].push({ title: m[1].trim(), text: m[2].trim() });
         } else if (section === 'imagenes') {
           const filename = line.trim();
           if (filename) data.images.push(filename);
@@ -1051,7 +1089,12 @@ function parsePinBulkText(text) {
         skins,
         pinScale: 100, pinOffsetX: 0, pinOffsetY: 0,
         desc: '', hist: '',
-        attrs: data.attrs.filter(a => a.l),
+        // [Etapa 5] `_bulkFields`/`_bulkProvidedLangs` son temporales
+        // — no se guardan en Firestore tal cual, `importFullPinsFromText`
+        // los convierte a `content[idioma].fields[]` (fusionando con
+        // lo ya existente en un update) y los borra antes de guardar.
+        _bulkFields: data.fields,
+        _bulkProvidedLangs: [...data.providedLangs],
         soc: [], tags: data.tags,
         phone: '', hours: '',
         active: false, // igual que la creación por lista simple: nace apagado
@@ -1087,6 +1130,26 @@ async function importFullPinsFromText() {
   let created = 0, updated = 0;
   for (const p of pins) {
     const existingIdx = POIS.findIndex(x => x.id === p.id);
+
+    // [Etapa 5] Convertir los campos crudos del parser a
+    // `content[idioma].fields[]` recién acá, porque acá es donde se
+    // sabe si el pin ya existía. Un idioma que NO apareció en el
+    // bloque de texto (ej. el admin solo puso "campos:"/ES) no se
+    // toca — se preserva lo que ese idioma ya tuviera cargado en
+    // Firestore, en vez de pisarlo con una lista vacía.
+    const existingContent = existingIdx !== -1 ? POIS[existingIdx].content : null;
+    const fieldsByLang = { es: [], en: [], pt: [] };
+    PIN_FIELD_LANGS.forEach((lang) => {
+      if (p._bulkProvidedLangs.includes(lang)) {
+        fieldsByLang[lang] = p._bulkFields[lang];
+      } else if (existingContent && existingContent[lang] && Array.isArray(existingContent[lang].fields)) {
+        fieldsByLang[lang] = existingContent[lang].fields;
+      }
+    });
+    p.content = _buildContentWithFields(existingContent, fieldsByLang);
+    delete p._bulkFields;
+    delete p._bulkProvidedLangs;
+
     if (existingIdx !== -1 && POIS[existingIdx].reviewed) {
       // Ya estaba revisado y ahora la importación le cambia datos —
       // la barrita dorada pasa a "mitad" (mismo criterio que un

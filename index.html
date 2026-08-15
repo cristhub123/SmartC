@@ -266,7 +266,11 @@ After modifying this file, update /AI_SESSION.md with the change and verificatio
         Pegá uno o varios lugares con toda su info — cada uno separado por
         una línea <code>### PIN</code>. Si un lugar ya existe (mismo
         nombre), se actualiza en vez de duplicarse. Usa la Ubicación
-        Activa de la pestaña 🌎 Ubicaciones.
+        Activa de la pestaña 🌎 Ubicaciones. <code>campos:</code> es
+        español; <code>campos_en:</code>/<code>campos_pt:</code> son
+        opcionales, mismo formato, para cargar los otros idiomas si ya
+        los tenés traducidos. Un idioma que no pongas en el bloque no
+        se toca (no se borra lo que ya tenía cargado).
       </p>
       <textarea class="fi" id="bulk-full-text" rows="10" style="width:100%;resize:vertical;margin-bottom:8px;font-family:var(--font-m);font-size:12px" placeholder="### PIN
 nombre: cabildo-cba
@@ -277,6 +281,8 @@ tags: cultura, historia
 campos:
   Descripción: Edificio colonial frente a la Plaza San Martín...
   Dato curioso: Bajo sus arcos funcionó la primera cárcel de la ciudad.
+campos_en:
+  Description: Colonial building facing Plaza San Martín...
 imagenes:
   cabildo-cba_main_01.webp
   cabildo-cba_night_01.webp"></textarea>

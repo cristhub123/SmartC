@@ -26,34 +26,42 @@
 
 ## ESTADO ACTUAL
 
-**Última etapa completada:** Etapa 3 — Admin: el editor de campos
-(`js/pin-adjust.js`) ahora escribe directo a `content[idioma].fields[]`,
-con selector de idioma ES/EN/PT dentro del editor. `AppState.getContent()`
-(`js/app-state.js`) también se corrigió para no descartar `fields[]`
-al armar el objeto de contenido — sin ese arreglo la Etapa 3 quedaba
-sin efecto visible en el panel.
+**Última etapa completada:** Etapa 5 — el importador de texto masivo
+(`parsePinBulkText`/`importFullPinsFromText` en `js/pin-adjust.js`)
+acepta bloques `campos:`(ES) / `campos_en:` / `campos_pt:` y escribe
+directo a `content[idioma].fields[]`, preservando por idioma lo que no
+se mencione en el bloque al actualizar un pin existente. Ya no escribe
+`poi.attrs`.
 
-**Próxima etapa a hacer:** Etapa 4 — Migración de datos viejos: pines
-que solo tienen `attrs` (sin `content.es.fields`) pasan a
-`content.es.fields[]`.
+**⚠️ Aviso pendiente para Cris (no bloquea la Etapa 6, pero hay que
+tenerlo presente):** el importador guarda el documento completo en
+Firestore (`merge:false`) al actualizar un pin — campos del pin que el
+bloque de texto no vuelve a mencionar (categoría, banner, pinScale/
+offsets) pueden perderse al reimportar. Esto es previo a la Etapa 5,
+no se tocó. Ver el aviso completo en el registro de la Etapa 5 más
+abajo.
 
-**Archivos a chequear para arrancar la Etapa 4** (no hace falta nada más):
-- `js/pin-adjust.js` — función `_buildContentWithFields()` (nueva,
-  Etapa 3) y el editor `_renderPinFieldsEditor()`/`_readPinFieldsFromForm()`,
-  para saber la forma exacta de `content[idioma].fields[]` que hay que
-  producir al migrar
-- Decidir en esa etapa: ¿migración automática al primer `saveEdit()`
-  de cada pin viejo (server-side, sin acción manual), o un botón /
-  script aparte que recorra todos los pines de una y convierta
-  `attrs` → `content.es.fields` de una sola vez? Ninguna de las dos
-  vías está implementada todavía.
-- `js/poi-panel.js` — función `_resolveFields()` (Etapa 2): mientras
-  no se migre un pin, sigue leyendo `poi.attrs` como nivel 3 del
-  fallback, así que el panel no se rompe aunque la migración tarde
+**Próxima etapa a hacer:** Etapa 6 — Validación previa a importar: hoy
+`importFullPinsFromText()` parsea y guarda todo de una, y recién
+después muestra qué se creó/actualizó/qué falló. La Etapa 6 es separar
+eso en 2 pasos: primero parsear y mostrar un reporte de qué se va a
+hacer (cuántos pines nuevos, cuántos existentes se van a pisar, y con
+qué, más los errores de formato) SIN escribir nada en Firestore
+todavía, y recién con una confirmación aparte del admin se ejecuta el
+guardado real.
+
+**Archivos a chequear para arrancar la Etapa 6** (no hace falta nada más):
+- `js/pin-adjust.js` — `parsePinBulkText()` y `importFullPinsFromText()`
+  (Etapa 5), para separar la parte de "parsear y armar el reporte" de
+  la parte de "efectivamente guardar en Firestore"
+- `index.html` — sección "Importar lugares completos" (línea ~265 en
+  adelante), para agregar el paso de previsualización/confirmación
+  antes del botón de importar definitivo
 - La sección "Modelo de datos definitivo" de este archivo, más abajo
 
-**Ver el registro completo de la Etapa 3 más abajo** para el detalle
-línea por línea de qué se cambió.
+**Ver el registro completo de la Etapa 5 más abajo** para el detalle
+línea por línea de qué se cambió, incluido el aviso importante sobre
+qué SÍ y qué NO se preserva al reimportar un pin existente.
 
 ---
 
@@ -62,8 +70,8 @@ línea por línea de qué se cambió.
 - [x] **Etapa 1** — Definir el modelo de datos definitivo (diseño, sin código)
 - [x] **Etapa 2** — Panel público: renderizar `content[idioma].fields[]` (título+texto, cantidad libre, sin nombres fijos)
 - [x] **Etapa 3** — Admin: editor de campos que escribe directo a `content[idioma].fields[]`, con selector de idioma
-- [ ] **Etapa 4** — Migración de datos viejos: pines con `attrs` pasan a `content.es.fields[]`
-- [ ] **Etapa 5** — Importador de texto masivo: aceptar bloques ES/EN/PT con campos numerados libres
+- [x] **Etapa 4** — ~~Migración de datos viejos~~ DESCARTADA (2026-08-15): pines actuales son solo de prueba, no hace falta migrar; ver registro de la Etapa 4 más abajo para el motivo completo
+- [x] **Etapa 5** — Importador de texto masivo: aceptar bloques ES/EN/PT con campos numerados libres
 - [ ] **Etapa 6** — Validación previa a importar (reporte antes de escribir en Firestore)
 - [ ] **Etapa 7** — Selector de idioma global (sacarlo del panel, notificar a toda la app)
 - [ ] **Etapa 8** — Prueba real end-to-end con 3-5 lugares en los 3 idiomas, antes de la carga masiva definitiva
@@ -297,4 +305,119 @@ lista por separado.
 **Qué falta / próximo paso exacto:** Etapa 4 — migración de pines
 viejos (`attrs` sin `content.es.fields`) a `content.es.fields[]`. Ver
 detalle en "ESTADO ACTUAL" arriba.
+
+---
+
+### Etapa 4 — DESCARTADA, no se hace (2026-08-15)
+
+**Qué se pidió:** seguir con la Etapa 4 tal como quedó planteada en la
+Etapa 3 (migrar pines viejos de `attrs` a `content.es.fields[]`).
+
+**Qué se hizo:** antes de programar nada, Cris aclaró que todos los
+pines que existen hoy en Firestore son solo de prueba (para verificar
+que el sistema nuevo funciona) — no le importa perderlos y los puede
+borrar de Cloudinary/Firestore cuando quiera. La carga real de datos
+todavía no arrancó. Se evaluó que la Etapa 4, tal como está definida,
+solo sirve para esos pines de prueba actuales: no es una función que
+vaya a necesitar ningún otro sistema del proyecto a futuro, porque
+tanto el editor manual (Etapa 3, ya hecho) como el importador masivo
+(Etapa 5, próximo paso) escriben directo a `content[idioma].fields[]`
+desde el vamos, sin pasar nunca por `attrs`. El panel público sigue
+funcionando bien para pines viejos gracias al fallback de la Etapa 2,
+así que no migrar no rompe nada.
+
+**Resultado:** Etapa 4 descartada del plan. Ningún archivo de código
+fue modificado — solo este documento de plan.
+
+**Desvíos del plan original:** se elimina la Etapa 4 del orden
+original de 8 etapas. Si en el futuro Cris decide que sí hace falta
+migrar pines (por ejemplo si ya cargó datos reales con `attrs` antes
+de terminar de leer este documento), esta decisión se puede reabrir
+sin problema — no se borró nada, `attrs` nunca se tocó.
+
+**Archivos tocados:** ninguno (solo este archivo de plan).
+
+**Qué falta / próximo paso exacto:** Etapa 5 — Importador de texto
+masivo, escribiendo directo a `content[idioma].fields[]`. Ver detalle
+en "ESTADO ACTUAL" arriba.
+
+---
+
+### Etapa 5 — Importador de texto masivo con ES/EN/PT (2026-08-15)
+
+**Qué se pidió:** lo que quedó anotado como próximo paso en la Etapa 4
+(ver arriba) — que `parsePinBulkText`/`importFullPinsFromText` en
+`js/pin-adjust.js` acepten bloques con campos en los 3 idiomas y
+escriban directo a `content[idioma].fields[]`, en vez de al viejo
+`poi.attrs` plano.
+
+**Qué se hizo:** en `js/pin-adjust.js`:
+- El formato de texto se extendió: la sección `campos:` (sin sufijo)
+  sigue siendo español, igual que siempre — no cambia nada para texto
+  ya escrito antes. Se agregaron `campos_en:` y `campos_pt:`
+  opcionales, mismo formato título+texto indentado, cantidad libre.
+  Cualquiera de los 3 puede faltar en un bloque.
+- `parsePinBulkText()` ahora arma `data.fields = {es:[], en:[], pt:[]}`
+  (en vez del viejo `data.attrs` plano) y además registra en
+  `data.providedLangs` qué idiomas aparecieron de verdad en el texto
+  (aunque hayan quedado con 0 campos válidos). Esto se guarda
+  temporalmente en cada pin parseado como `_bulkFields`/
+  `_bulkProvidedLangs`.
+- `importFullPinsFromText()` — recién en este punto (donde ya se sabe
+  si el pin es nuevo o ya existía en `POIS`) convierte eso a
+  `content[idioma].fields[]` con `_buildContentWithFields()` (la misma
+  función de la Etapa 3): para cada idioma, si apareció en el bloque
+  de texto usa lo que se acaba de parsear; si NO apareció, conserva lo
+  que ese idioma ya tenía cargado en Firestore (no lo pisa con una
+  lista vacía). Los campos temporales `_bulkFields`/
+  `_bulkProvidedLangs` se borran antes de guardar — nunca llegan a
+  Firestore.
+- El importador YA NO escribe `poi.attrs` en absoluto, ni para pines
+  nuevos ni para actualizaciones (regla 4 del modelo de datos).
+- `index.html`: se actualizó el texto de ayuda y el placeholder del
+  textarea del formulario "Importar lugares completos" para mostrar el
+  nuevo formato con `campos_en:`.
+
+**⚠️ Punto importante para Cris — leer antes de usar el importador
+para actualizar pines existentes:** esta herramienta (`importFullPinsFromText`,
+el botón "📥 Importar lugares completos") guarda el documento COMPLETO
+en Firestore con `merge:false` — es decir, cuando actualiza un pin que
+ya existía, reemplaza TODO el documento por lo que hay en `p` (esto ya
+era así antes de esta etapa, no es un cambio nuevo). La única
+excepción que se armó en esta etapa es específicamente `content[idioma].fields`:
+ahí sí se preserva por idioma lo que no se mencionó en el bloque de
+texto. Pero otros campos del pin que el bloque de texto no vuelve a
+escribir explícitamente (ej. categoría, banner, `pinScale`/offsets del
+pin en el mapa) SÍ pueden perderse al reimportar un pin ya existente
+con este botón — ese comportamiento es previo a esta etapa y quedó
+igual, no se tocó. Si en algún momento pensás usar este importador
+para actualizar (no solo crear) lugares que ya tengan esos datos
+cargados a mano desde el admin, avisá para revisarlo antes — no es
+parte del alcance de la Etapa 5, pero es bueno tenerlo anotado para no
+llevarse una sorpresa.
+
+**Resultado:** `node --check js/pin-adjust.js` sin errores. Se probó
+`parsePinBulkText()` con un bloque de prueba en Node (fuera del
+navegador, sin Firestore real) con `campos:`+`campos_en:` y sin
+`campos_pt:` — el resultado fue el esperado: `es` y `en` con sus
+campos, `pt` vacío y ausente de `providedLangs` (para que en un update
+no se pise). No probado en navegador real ni contra Firestore real en
+esta sesión — a validar por Cris: importar un pin nuevo con los 3
+idiomas, después reimportar el mismo bloque cambiando solo
+`campos_en:` y confirmar en el panel que ES y PT no se alteraron.
+
+**Desvíos del plan original:** ninguno en el alcance pedido. Se
+identificó (no se corrigió, ver aviso arriba) que el importador
+reemplaza el documento completo en Firestore al actualizar, más allá
+del tratamiento especial que se le dio a `content[idioma].fields` acá.
+
+**Archivos tocados:** `js/pin-adjust.js`, `index.html`.
+
+**Qué falta / próximo paso exacto:** Etapa 6 — Validación previa a
+importar: mostrar un reporte de qué se va a crear/actualizar/qué
+errores hay ANTES de escribir nada en Firestore (hoy `importFullPinsFromText`
+guarda directo y recién después muestra el reporte). Archivos a tocar:
+`js/pin-adjust.js` (`parsePinBulkText`, `importFullPinsFromText`),
+`index.html` (agregar el paso de previsualización/confirmación en la
+UI antes del botón de importar definitivo).
 
