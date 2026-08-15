@@ -30,8 +30,15 @@
  * NOTAS DE ESTA REVISIÓN:
  *   - Se eliminó por completo el overlay de fondo: el mapa ya no se
  *     oscurece cuando el panel está abierto.
- *   - En desktop (>=1024px) el panel se comporta como sidebar fijo a
- *     la izquierda (sin drag); en mobile sigue siendo bottom sheet.
+ *   - El panel usa 2 tamaños abiertos CONFIGURABLES desde Admin >
+ *     Global > "Panel de información" (globalSettings.panelPctPortrait
+ *     / panelPctLandscape, ver js/admin-global.js): en pantallas
+ *     verticales sigue siendo bottom sheet (arrastrable) con su alto
+ *     abierto = panelPctPortrait% de la altura; en pantallas
+ *     cuadradas/horizontales (INCLUYE desktop, ya no hay un
+ *     breakpoint de ancho fijo) es un sidebar fijo a la izquierda sin
+ *     drag, con ancho = panelPctLandscape% del ancho. Ver
+ *     _applyPanelSizeVars() / getOpenAreaPx().
  *   - El botón "Editar" del footer solo se muestra si hay una sesión
  *     de administrador activa (`window.isAdminActive`).
  *   - `_render()` hace fallback a los campos legados del POI
@@ -93,16 +100,65 @@ const PoiPanel = (function () {
   // imagen que el usuario ya venía mirando.
   let _heroSkinIndex = 0;
 
-  // Breakpoint desktop: por encima de esto el panel es sidebar fijo
-  // (sin drag); por debajo, bottom sheet arrastrable. Debe coincidir
-  // con el media query usado en css/poi-panel.css.
-  const DESKTOP_MEDIA_QUERY = '(min-width: 1024px)';
-  const _desktopMql = (typeof window !== 'undefined' && window.matchMedia)
-    ? window.matchMedia(DESKTOP_MEDIA_QUERY)
-    : { matches: false, addEventListener: () => {}, addListener: () => {} };
+  // Tamaño ABIERTO del panel — YA NO es un breakpoint de ancho fijo
+  // (antes 1024px) ni un peek fijo en px (antes 300px). Ahora sale de
+  // 2 sliders configurables en Admin > Global > "Panel de
+  // información" (ver js/admin-global.js: globalSettings.panelPctPortrait
+  // / globalSettings.panelPctLandscape), aplicados como % de pantalla:
+  //   - panelPctPortrait  → % del ALTO en pantallas verticales
+  //     (alto > ancho): el panel sigue siendo bottom sheet, pero su
+  //     tamaño abierto ("peek", el que usa por defecto al abrir un
+  //     POI) ahora es ese % de vh en vez de un fijo 300px.
+  //   - panelPctLandscape → % del ANCHO en pantallas cuadradas u
+  //     horizontales (ancho >= alto, INCLUYE desktop): el panel pasa
+  //     a comportarse como sidebar fijo a la izquierda (sin drag),
+  //     con ese % de vw en vez del fijo 380px de antes.
+  // El criterio de orientación (`_isLandscapeScreen`) es el MISMO que
+  // usa window.panToPoiCenter (js/app.js) — de hecho ese archivo lee
+  // el tamaño real acá vía `getOpenAreaPx()` para que el centrado del
+  // mapa y el tamaño visual del panel NUNCA queden desincronizados.
+  function _panelPctPortrait() {
+    const gs = (typeof globalSettings !== 'undefined') ? globalSettings : {};
+    return (gs.panelPctPortrait != null) ? gs.panelPctPortrait : 45;
+  }
+  function _panelPctLandscape() {
+    const gs = (typeof globalSettings !== 'undefined') ? globalSettings : {};
+    return (gs.panelPctLandscape != null) ? gs.panelPctLandscape : 34;
+  }
+  function _isLandscapeScreen() {
+    return window.innerWidth >= window.innerHeight;
+  }
+  function _portraitOpenPx() {
+    return Math.round(window.innerHeight * (_panelPctPortrait() / 100));
+  }
+  function _landscapeOpenPx() {
+    return Math.round(window.innerWidth * (_panelPctLandscape() / 100));
+  }
+  // Reemplaza al viejo _isDesktop()/matchMedia(min-width:1024px): el
+  // criterio ahora es de orientación, no de ancho fijo — ver nota de
+  // arriba.
+  function _isSideMode() {
+    return _isLandscapeScreen();
+  }
+  // Vuelca el % configurado a variables CSS reales (px) + al atributo
+  // data-orientation que decide qué set de reglas CSS aplica (ver
+  // css/poi-panel.css). Se llama al crear el DOM, al abrir un POI (por
+  // si cambiaron los sliders o giró la pantalla desde la última vez)
+  // y en cada resize mientras el panel exista.
+  function _applyPanelSizeVars() {
+    document.documentElement.style.setProperty('--poi-panel-peek-visible', _portraitOpenPx() + 'px');
+    document.documentElement.style.setProperty('--poi-panel-side-width', _landscapeOpenPx() + 'px');
+    if (_els) _els.panel.setAttribute('data-orientation', _isLandscapeScreen() ? 'landscape' : 'portrait');
+  }
 
-  function _isDesktop() {
-    return _desktopMql.matches;
+  /** Tamaño real (en px) que ocupa el panel ahora mismo, y de qué
+   *  lado/eje — lo consume window.panToPoiCenter (js/app.js) para
+   *  centrar el pin exactamente en la porción libre real, sin
+   *  duplicar la lectura de globalSettings en 2 archivos distintos. */
+  function getOpenAreaPx() {
+    return _isLandscapeScreen()
+      ? { mode: 'landscape', px: _landscapeOpenPx() }
+      : { mode: 'portrait',  px: _portraitOpenPx() };
   }
 
   // Referencias DOM (se crean una sola vez, ver _ensureDom)
@@ -186,6 +242,7 @@ const PoiPanel = (function () {
     };
 
     _bindStaticEvents();
+    _applyPanelSizeVars();
     return _els;
   }
 
@@ -484,7 +541,6 @@ const PoiPanel = (function () {
   // --------------------------------------------------------------------
 
   const SNAP = Object.freeze({ FULL: 'full', PEEK: 'peek', CLOSED: 'closed' });
-  const PEEK_VISIBLE_PX = 300;
 
   // Umbral de sensibilidad: un arrastre de solo 30-40px alcanza para
   // cambiar de estado (subir/bajar/cerrar el panel). Antes se pedía
@@ -545,13 +601,22 @@ const PoiPanel = (function () {
         setLang(e.detail.lang);
       }
     });
+
+    // Recalcula tamaño abierto + orientación al rotar/redimensionar
+    // (ej. girar el celular, o pasar de ventana angosta a ancha en
+    // desktop) — con rAF para no recalcular en cada pixel del resize.
+    let _resizeRAF = null;
+    window.addEventListener('resize', () => {
+      if (_resizeRAF) cancelAnimationFrame(_resizeRAF);
+      _resizeRAF = requestAnimationFrame(_applyPanelSizeVars);
+    });
   }
 
   function _currentTranslateY() {
     const els = _els;
     const height = els.panel.getBoundingClientRect().height;
     if (_panelState === SNAP.FULL) return 0;
-    if (_panelState === SNAP.PEEK) return height - PEEK_VISIBLE_PX;
+    if (_panelState === SNAP.PEEK) return height - _portraitOpenPx();
     return height; // closed
   }
 
@@ -563,7 +628,7 @@ const PoiPanel = (function () {
    * scroll de texto normal, sin interferir con el panel.
    */
   function _onPointerDown(e) {
-    if (_isDesktop()) return; // en desktop el panel es sidebar fijo, no se arrastra
+    if (_isSideMode()) return; // en modo lateral (landscape) el panel es sidebar fijo, no se arrastra
 
     const els = _els;
     const height = els.panel.getBoundingClientRect().height;
@@ -698,6 +763,7 @@ const PoiPanel = (function () {
   function open(poiId, initialState) {
     _ensureDom();
     _bindAppStateEvents();
+    _applyPanelSizeVars(); // por si cambiaron los sliders o giró la pantalla desde el último open()
 
     // Nuevo POI => arranca mostrando su primera imagen activa.
     if (poiId !== _currentPoiId) _heroSkinIndex = 0;
@@ -742,6 +808,7 @@ const PoiPanel = (function () {
     close,
     setLang,
     getCurrentPoiId,
+    getOpenAreaPx,
   };
 })();
 

@@ -35,18 +35,31 @@ function pinClick(poi) {
     if (typeof expandedId !== 'undefined' && expandedId !== null && typeof collapsePin === 'function') {
       collapsePin(expandedId);
     }
-    if (typeof expandPin === 'function') expandPin(poiId);
 
-    window.PoiPanel.open(poiId);
-
-    // Centrado suave del mapa en el pin — mismo delay que usaba el
-    // pinClick original, para dar tiempo a que el pin termine de
-    // agrandarse antes de mover el mapa.
+    // [2026-08-14] Secuencia de las 3 acciones del click en un pin,
+    // pedida explícitamente por Cris: no hace falta que sean 100%
+    // simultáneas — de hecho separarlas por un frame cada una es
+    // mejor para el rendimiento en celulares de gama baja — pero la
+    // diferencia debe ser mínima (imperceptible) y el ORDEN importa:
+    //   1) el mapa arranca a desplazarse hacia el pin (es la
+    //      animación más "pesada", conviene que sea la primera en
+    //      empezar a trabajar);
+    //   2) el pin hace el pop (maximiza + swap a imagen full
+    //      quality), un frame después;
+    //   3) el panel de info se abre, otro frame después.
+    // Antes el orden era pop → panel → (recién 50ms después) paneo,
+    // exactamente al revés de lo pedido.
     if (typeof panToPoiCenter === 'function' && window.markers && window.markers[poiId]) {
-      requestAnimationFrame(() => {
-        setTimeout(() => panToPoiCenter(window.markers[poiId].poi), 50);
-      });
+      panToPoiCenter(window.markers[poiId].poi);
     }
+
+    requestAnimationFrame(() => {
+      if (typeof expandPin === 'function') expandPin(poiId);
+
+      requestAnimationFrame(() => {
+        window.PoiPanel.open(poiId);
+      });
+    });
   } else if (typeof window.openPoiPanel === 'function') {
     window.openPoiPanel(poiId);
   }

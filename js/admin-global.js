@@ -12,6 +12,13 @@ const globalSettings = {
   expandScale:  3.2,
   eyeGlowColor: '#60a5fa',
   nameSize:     26,
+  // [2026-08-14] % de pantalla que ocupa el panel de info del lugar
+  // al abrirse — separado por orientación real de pantalla (no por
+  // ancho fijo), ver js/poi-panel.js (_applyPanelSizeVars /
+  // getOpenAreaPx) y js/app.js (panToPoiCenter, que lee este mismo
+  // valor para saber dónde centrar el pin en la porción libre).
+  panelPctPortrait:  45, // % del ALTO en pantallas verticales (bottom sheet)
+  panelPctLandscape: 34, // % del ANCHO en pantallas cuadradas/horizontales, incluye desktop (sidebar)
 };
 
 /* Build filter string: glow first (underneath), then solid border */
@@ -156,6 +163,22 @@ document.getElementById('g-name-size').addEventListener('input', function() {
   document.documentElement.style.setProperty('--pp-name-size', this.value + 'px');
 });
 
+// [2026-08-14] Sliders de tamaño del panel de info — se aplican en
+// vivo (no hace falta tocar "Aplicar apariencia global"): el panel
+// lee _applyPanelSizeVars() cada vez que se abre un lugar, y
+// panToPoiCenter (app.js) lee el mismo valor vía
+// PoiPanel.getOpenAreaPx(), así que alcanza con actualizar
+// globalSettings acá — el guardado a Firestore sigue yendo con el
+// resto de "Apariencia global" al tocar el botón "Aplicar".
+document.getElementById('g-panel-pct-portrait').addEventListener('input', function() {
+  document.getElementById('g-panel-pct-portrait-val').textContent = this.value + '%';
+  globalSettings.panelPctPortrait = parseInt(this.value);
+});
+document.getElementById('g-panel-pct-landscape').addEventListener('input', function() {
+  document.getElementById('g-panel-pct-landscape-val').textContent = this.value + '%';
+  globalSettings.panelPctLandscape = parseInt(this.value);
+});
+
 // Color presets (data-target="solid"|"glow"|"eyeglow"|"newcat")
 document.querySelectorAll('.color-preset').forEach(el => {
   el.addEventListener('click', () => {
@@ -222,6 +245,9 @@ function initGlobalTab() {
   setSlider('g-name-size',    'g-name-size-val',    globalSettings.nameSize,              'px');
   const esEl = document.getElementById('g-expand-scale-val');
   if (esEl) esEl.textContent = globalSettings.expandScale.toFixed(1) + '×';
+
+  setSlider('g-panel-pct-portrait',  'g-panel-pct-portrait-val',  globalSettings.panelPctPortrait,  '%');
+  setSlider('g-panel-pct-landscape', 'g-panel-pct-landscape-val', globalSettings.panelPctLandscape, '%');
 
   const solidColor = document.getElementById('g-solid-color');
   const solidHex   = document.getElementById('g-solid-hex');

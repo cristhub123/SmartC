@@ -132,52 +132,70 @@ async function init() {
   //    js/poi-panel.js: antes había 2 sistemas de centrado corriendo
   //    en paralelo y se pisaban entre sí a mitad de animación).
   //
-  //    [2026-08-14] Revisado el supuesto de la versión anterior: la
-  //    rama "cuadrada/horizontal" asumía que el panel se comportaba
-  //    como un sidebar lateral (partía la pantalla en 2 mitades
-  //    horizontales) por DEBAJO de 1024px — pero eso es falso, el
-  //    CSS real (css/poi-panel.css) solo pasa a sidebar lateral a
-  //    partir de 1024px. Por debajo de eso el panel es SIEMPRE un
-  //    bottom sheet centrado horizontalmente (izq/der libres y
-  //    simétricos), sin importar si la pantalla es vertical,
-  //    cuadrada u horizontal. Además, el panel abre por defecto en
-  //    estado "peek" (300px visibles desde abajo, no la mitad de la
-  //    pantalla — ver PEEK_VISIBLE_PX en js/poi-panel.js), así que
-  //    el hueco libre real es `alto - 300px`, no la mitad del alto.
-  //    Ahora hay solo 2 regímenes reales, alineados con el único
-  //    breakpoint que existe de verdad en el CSS:
+  //    [2026-08-14 v2] 2 correcciones sobre la versión anterior:
   //
-  //    - Por debajo de 1024px (bottom sheet, cualquier aspect
-  //      ratio): centrado horizontal simple (mitad del ancho, ya que
-  //      el panel no empuja el mapa hacia ningún costado) y vertical
-  //      en el centro del hueco que deja libre el peek (300px) desde
-  //      abajo.
-  //    - Desktop (≥1024px, panel lateral REAL de 380px fijo a la
-  //      izquierda): vertical exacto (50% del alto) y horizontal
-  //      centrado en el hueco real que deja el sidebar (desde 380px
-  //      hasta el borde derecho).
-  const DESKTOP_PANEL_WIDTH = 380;
-  const DESKTOP_BREAKPOINT_PX = 1024;
-  const SHEET_PEEK_VISIBLE_PX = 300; // debe coincidir con PEEK_VISIBLE_PX / --poi-panel-peek-visible en poi-panel.js/css
-
+  //    1) FUENTE ÚNICA DE VERDAD: antes esta función tenía sus propias
+  //       constantes fijas (peek 300px, sidebar 380px, breakpoint
+  //       1024px) que podían desincronizarse del tamaño REAL del
+  //       panel (ej. si alguien cambiaba una sola de las 2 copias).
+  //       Ahora el tamaño abierto del panel es configurable desde
+  //       Admin > Global > "Panel de información" (2 sliders, % de
+  //       pantalla, uno para vertical y otro para horizontal/cuadrada
+  //       — ver globalSettings.panelPctPortrait/panelPctLandscape en
+  //       js/admin-global.js) y este helper lee el hueco libre real
+  //       directo de `PoiPanel.getOpenAreaPx()` (js/poi-panel.js) —
+  //       nunca vuelve a calcular el % por su cuenta, así el panel
+  //       visual y el centrado del mapa NUNCA quedan desincronizados.
+  //
+  //    2) MÉTODO DE PANEO MÁS ROBUSTO: la versión anterior usaba
+  //       `map.panBy([dx,dy], {..., noMoveStart:true})`. Cris reportó
+  //       que el mapa no se movía nada al tocar un pin. No se pudo
+  //       reproducir en un entorno con navegador real para confirmar
+  //       la causa exacta, pero `panBy` tiene un camino interno donde,
+  //       si el offset calculado da inválido (por ejemplo NaN en
+  //       algún caso límite de timing), Leaflet directamente no anima
+  //       nada y sale en silencio, sin ningún error en consola. Se
+  //       cambió a un método más directo y más simple de razonar:
+  //       en vez de pedirle al mapa "moveté X píxeles", se calcula
+  //       la coordenada geográfica exacta que debería quedar en el
+  //       centro para que el pin caiga en el punto deseado, y se usa
+  //       `map.setView(...)` — el método más básico y más probado de
+  //       Leaflet para animar el centro del mapa.
   window.panToPoiCenter = function(poi) {
     const vw = window.innerWidth, vh = window.innerHeight;
-    const isDesktop = vw >= DESKTOP_BREAKPOINT_PX;
+    const area = (window.PoiPanel && typeof window.PoiPanel.getOpenAreaPx === 'function')
+      ? window.PoiPanel.getOpenAreaPx()
+      : null;
 
+    // Punto de la pantalla (relativo al viewport) donde debe quedar
+    // el pin: el centro de la porción que NO tapa el panel.
     let targetX, targetY;
-    if (isDesktop) {
-      targetX = DESKTOP_PANEL_WIDTH + (vw - DESKTOP_PANEL_WIDTH) * 0.5;
+    if (area && area.mode === 'landscape') {
+      // Panel lateral fijo a la izquierda, ancho = area.px.
+      targetX = area.px + (vw - area.px) * 0.5;
       targetY = vh * 0.5;
-    } else {
+    } else if (area) {
+      // Bottom sheet, alto visible = area.px, desde abajo.
       targetX = vw * 0.5;
-      targetY = (vh - SHEET_PEEK_VISIBLE_PX) * 0.5;
+      targetY = (vh - area.px) * 0.5;
+    } else {
+      // Defensivo: si por algún motivo PoiPanel todavía no cargó,
+      // centrado simple en toda la pantalla en vez de romper.
+      targetX = vw * 0.5;
+      targetY = vh * 0.5;
     }
 
-    const rect  = map.getContainer().getBoundingClientRect();
+    const rect = map.getContainer().getBoundingClientRect();
+    const targetPx = L.point(targetX - rect.left, targetY - rect.top);
     const pinPx = map.latLngToContainerPoint([poi.lat, poi.lng]);
-    const dx = pinPx.x - (targetX - rect.left);
-    const dy = pinPx.y - (targetY - rect.top);
-    map.panBy([dx, dy], { animate: true, duration: .4, noMoveStart: true });
+    const centerPx = map.latLngToContainerPoint(map.getCenter());
+
+    // Nuevo centro = centro actual desplazado exactamente lo mismo
+    // que hace falta mover el pin (pinPx → targetPx) — así, al
+    // recentrar el mapa ahí, el pin cae justo en targetPx.
+    const newCenterPx = centerPx.add(pinPx.subtract(targetPx));
+    const newCenterLatLng = map.containerPointToLatLng(newCenterPx);
+    map.setView(newCenterLatLng, map.getZoom(), { animate: true, duration: .4 });
   };
 }
 
