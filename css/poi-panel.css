@@ -25,8 +25,15 @@
   --poi-panel-shadow: 0 -8px 30px rgba(15, 23, 42, 0.12);
   --poi-panel-transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
 
-  --poi-panel-peek-visible: 300px;  /* alto visible en estado "peek" */
-  --poi-panel-full-top-gap: 8vh;    /* deja 92% de pantalla cubierto en "full" */
+  /* [2026-08-14] Estos 2 valores YA NO son fijos — son solo el
+     fallback antes de que js/poi-panel.js corra por primera vez
+     (_applyPanelSizeVars). En cuanto el panel se crea, estas mismas
+     variables se sobreescriben en :root con el % configurado en
+     Admin > Global > "Panel de información"
+     (globalSettings.panelPctPortrait / panelPctLandscape). */
+  --poi-panel-peek-visible: 300px;  /* alto visible en pantallas verticales (bottom sheet) */
+  --poi-panel-side-width: 380px;    /* ancho visible en pantallas cuadradas/horizontales (sidebar) */
+  --poi-panel-full-top-gap: 8vh;    /* deja 92% de pantalla cubierto en "full", solo bottom sheet */
 }
 
 /* --------------------------------------------------------------------
@@ -328,46 +335,61 @@
    RESPONSIVE (mobile) — en pantallas angostas, el panel ocupa el 100%
    del ancho
    -------------------------------------------------------------------- */
+/* Ancho completo en celulares angostos EN MODO VERTICAL/bottom sheet
+   únicamente — se excluye data-orientation="landscape" a propósito:
+   una pantalla angosta pero horizontal (poco común, pero posible)
+   debe seguir usando --poi-panel-side-width, no saltar a 100% de
+   ancho y taparse todo el mapa. */
 @media (max-width: 480px) {
-  .poi-panel {
+  .poi-panel:not([data-orientation="landscape"]) {
     max-width: 100%;
   }
 }
 
 /* --------------------------------------------------------------------
-   DESKTOP / LAPTOP — el panel deja de ser Bottom Sheet y se convierte
-   en una barra lateral fija anclada a la izquierda. Debe coincidir
-   con DESKTOP_MEDIA_QUERY en js/poi-panel.js.
+   MODO LATERAL — pantallas cuadradas u horizontales (ancho >= alto,
+   INCLUYE desktop). El panel deja de ser Bottom Sheet y se convierte
+   en una barra lateral fija anclada a la izquierda, con ancho
+   configurable (--poi-panel-side-width, ver Admin > Global > "Panel
+   de información"). Ya NO es un @media de ancho fijo — el criterio
+   real es de ORIENTACIÓN, decidido en JS (js/poi-panel.js,
+   _isLandscapeScreen()) y volcado acá como atributo
+   data-orientation="landscape", para poder tratar igual una pantalla
+   cuadrada angosta que un desktop ancho (antes, por debajo de
+   1024px, una pantalla cuadrada quedaba en bottom sheet aunque el
+   cálculo de centrado del mapa ya asumiera sidebar — ver CAMBIOS.txt,
+   quedaba pendiente de decisión; ahora coinciden siempre).
    -------------------------------------------------------------------- */
-@media (min-width: 1024px) {
-  .poi-panel {
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 380px;
-    max-width: 380px;
-    height: 100vh;
-    border-radius: 0 var(--poi-panel-radius) var(--poi-panel-radius) 0;
-    box-shadow: 8px 0 30px rgba(15, 23, 42, 0.12);
+.poi-panel[data-orientation="landscape"] {
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: var(--poi-panel-side-width);
+  max-width: var(--poi-panel-side-width);
+  height: 100vh;
+  border-radius: 0 var(--poi-panel-radius) var(--poi-panel-radius) 0;
+  box-shadow: 8px 0 30px rgba(15, 23, 42, 0.12);
 
-    /* En desktop no hay drag: el panel entra/sale con un slide
-       horizontal simple en vez de translateY. */
-    transform: translateX(-100%);
-  }
+  /* En modo lateral no hay drag: el panel entra/sale con un slide
+     horizontal simple en vez de translateY. */
+  transform: translateX(-100%);
+}
 
-  /* "full" y "peek" se tratan igual en desktop: el sidebar está
-     simplemente abierto. Solo "closed" lo oculta. */
-  .poi-panel[data-state="full"],
-  .poi-panel[data-state="peek"] {
-    transform: translateX(0);
-  }
+/* "full" y "peek" se tratan igual en modo lateral: el sidebar está
+   simplemente abierto, a su ancho configurado. Solo "closed" lo
+   oculta. Estas reglas tienen más especificidad que las
+   [data-state="..."] de más arriba (2 atributos vs 1), así que
+   ganan sin necesitar !important. */
+.poi-panel[data-orientation="landscape"][data-state="full"],
+.poi-panel[data-orientation="landscape"][data-state="peek"] {
+  transform: translateX(0);
+}
 
-  .poi-panel[data-state="closed"] {
-    transform: translateX(-100%);
-  }
+.poi-panel[data-orientation="landscape"][data-state="closed"] {
+  transform: translateX(-100%);
+}
 
-  /* El drag handle no tiene sentido en un sidebar fijo. */
-  .poi-panel__handle-zone {
-    display: none;
-  }
+/* El drag handle no tiene sentido en un sidebar fijo. */
+.poi-panel[data-orientation="landscape"] .poi-panel__handle-zone {
+  display: none;
 }
