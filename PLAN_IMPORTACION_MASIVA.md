@@ -26,31 +26,34 @@
 
 ## ESTADO ACTUAL
 
-**Última etapa completada:** Etapa 2 — Panel público (`js/poi-panel.js`)
-ya renderiza los campos internos como bloques verticales "título arriba
-/ texto abajo", leyendo `content[idioma].fields[]` con fallback en
-cascada a `custom_fields` viejo, a `poi.attrs` legado, y a `poi.hours`.
+**Última etapa completada:** Etapa 3 — Admin: el editor de campos
+(`js/pin-adjust.js`) ahora escribe directo a `content[idioma].fields[]`,
+con selector de idioma ES/EN/PT dentro del editor. `AppState.getContent()`
+(`js/app-state.js`) también se corrigió para no descartar `fields[]`
+al armar el objeto de contenido — sin ese arreglo la Etapa 3 quedaba
+sin efecto visible en el panel.
 
-**Próxima etapa a hacer:** Etapa 3 — Admin: el editor de campos
-(`_renderPinAttrsEditor`/`_readPinAttrsFromForm` en `pin-adjust.js`)
-tiene que dejar de escribir `poi.attrs` (legado, sin idioma) y escribir
-directo a `content[idioma].fields[]`, con un selector de idioma dentro
-del editor (o 3 editores, uno por idioma — a decidir en esa etapa).
+**Próxima etapa a hacer:** Etapa 4 — Migración de datos viejos: pines
+que solo tienen `attrs` (sin `content.es.fields`) pasan a
+`content.es.fields[]`.
 
-**Archivos a chequear para arrancar la Etapa 3** (no hace falta nada más):
-- `js/pin-adjust.js` — funciones `_renderPinAttrsEditor()`,
-  `_readPinAttrsFromForm()` (línea ~614 en adelante), y los puntos
-  donde `saveNew()`/`saveEdit()` arman el objeto `attrs` que mandan a
-  Firestore
-- `index.html` — markup de `a-attrs-wrap`/`e-attrs-wrap` (tabs
-  Nuevo/Editar), para ver cómo está armado el HTML que hay que adaptar
-- `js/poi-panel.js` — función `_resolveFields()` (agregada en la
-  Etapa 2), para saber exactamente qué forma de dato espera leer del
-  lado del panel
+**Archivos a chequear para arrancar la Etapa 4** (no hace falta nada más):
+- `js/pin-adjust.js` — función `_buildContentWithFields()` (nueva,
+  Etapa 3) y el editor `_renderPinFieldsEditor()`/`_readPinFieldsFromForm()`,
+  para saber la forma exacta de `content[idioma].fields[]` que hay que
+  producir al migrar
+- Decidir en esa etapa: ¿migración automática al primer `saveEdit()`
+  de cada pin viejo (server-side, sin acción manual), o un botón /
+  script aparte que recorra todos los pines de una y convierta
+  `attrs` → `content.es.fields` de una sola vez? Ninguna de las dos
+  vías está implementada todavía.
+- `js/poi-panel.js` — función `_resolveFields()` (Etapa 2): mientras
+  no se migre un pin, sigue leyendo `poi.attrs` como nivel 3 del
+  fallback, así que el panel no se rompe aunque la migración tarde
 - La sección "Modelo de datos definitivo" de este archivo, más abajo
 
-**Ver el registro completo de la Etapa 2 más abajo** para el detalle
-línea por línea de qué se cambió y qué fallback quedó armado.
+**Ver el registro completo de la Etapa 3 más abajo** para el detalle
+línea por línea de qué se cambió.
 
 ---
 
@@ -58,7 +61,7 @@ línea por línea de qué se cambió y qué fallback quedó armado.
 
 - [x] **Etapa 1** — Definir el modelo de datos definitivo (diseño, sin código)
 - [x] **Etapa 2** — Panel público: renderizar `content[idioma].fields[]` (título+texto, cantidad libre, sin nombres fijos)
-- [ ] **Etapa 3** — Admin: editor de campos que escribe directo a `content[idioma].fields[]`, con selector de idioma
+- [x] **Etapa 3** — Admin: editor de campos que escribe directo a `content[idioma].fields[]`, con selector de idioma
 - [ ] **Etapa 4** — Migración de datos viejos: pines con `attrs` pasan a `content.es.fields[]`
 - [ ] **Etapa 5** — Importador de texto masivo: aceptar bloques ES/EN/PT con campos numerados libres
 - [ ] **Etapa 6** — Validación previa a importar (reporte antes de escribir en Firestore)
@@ -224,4 +227,74 @@ multi-idioma real en los campos (todos los idiomas ven el mismo
 `poi.attrs`, vía fallback). Archivos a tocar: `js/pin-adjust.js`
 (`_renderPinAttrsEditor`/`_readPinAttrsFromForm`/`saveNew`/`saveEdit`),
 `index.html` (markup del editor en las tabs Nuevo/Editar).
+
+---
+
+### Etapa 3 — Admin: editor de campos escribe `content[idioma].fields[]` (2026-08-15)
+
+**Qué se pidió:** lo que quedó anotado como próximo paso en la Etapa 2
+(ver arriba).
+
+**Qué se hizo:** en `js/pin-adjust.js` se reescribió por completo el
+bloque "CAMPOS DE INFORMACIÓN LIBRES POR PIN": se sacaron
+`_renderPinAttrsEditor()`/`_readPinAttrsFromForm()` (leían/escribían
+`poi.attrs`, sin idioma) y se agregaron en su lugar:
+- `_renderPinFieldsEditor(wrapId, content)` — inicializa el editor
+  (usado en los dos formularios, Nuevo y Editar) a partir de
+  `poi.content` completo, arrancando siempre en la pestaña ES.
+- Una barra de pestañas ES/EN/PT (`_renderPinFieldsLangTabs`),
+  insertada dinámicamente arriba de las filas, con contador de campos
+  por idioma. Al cambiar de pestaña se sincronizan primero las filas
+  visibles al estado en memoria (`_pinFieldsState`) antes de mostrar
+  el otro idioma — así no se pierde nada tipeado al ir y volver entre
+  idiomas sin guardar todavía.
+- `_readPinFieldsFromForm(wrapId)` — devuelve `{es:[...], en:[...],
+  pt:[...]}` ya filtrado (sin filas vacías), listo para mandar a
+  Firestore.
+- `_buildContentWithFields(existingContent, fieldsByLang)` — arma el
+  `content` final preservando `name`/`gancho`/`description`/
+  `custom_fields` que ya existieran por idioma (de otras etapas/
+  herramientas, ej. `cloudinary-admin.js`) y reemplazando solo
+  `fields[]`.
+
+`saveNew()` y `saveEdit()` ahora arman `content:
+_buildContentWithFields(...)` en vez de `attrs: ...`. En `saveEdit()`
+el campo `attrs` legado del pin YA NO se toca (queda igual que estaba,
+vía el spread `...POIS[idx]`), sigue sirviendo de fallback para pines
+no migrados. En `saveNew()` los pines nuevos nacen sin `attrs` en
+absoluto (regla 4 del modelo de datos).
+
+`js/admin.js` (`startEdit()`) se actualizó para llamar a
+`_renderPinFieldsEditor('e-attrs-wrap', p.content || {})` en vez de
+pasarle `p.attrs`.
+
+**Desvío del plan original (importante):** al revisar `js/app-state.js`
+(no estaba en la lista de archivos a chequear de la Etapa 2/3, pero
+hacía falta) se encontró que `AppState.getContent()` arma el objeto de
+contenido a mano campo por campo (`name`, `gancho`, `description`,
+`custom_fields`) y **no incluía `fields[]` en absoluto** — lo
+descartaba silenciosamente. Sin corregir esto, todo lo que escribiera
+el editor nuevo en `content[idioma].fields[]` nunca habría llegado a
+`js/poi-panel.js` (que lee vía `AppState.getContent()`), y la Etapa 3
+habría quedado sin efecto visible pese a estar "bien implementada" en
+el admin. Se agregó `fields` al objeto que devuelve `getContent()`,
+con la misma lógica de fallback a español que ya tenían `name`/
+`gancho`/`description`, pero sin mezclar arrays entre idiomas (si el
+idioma pedido no tiene campos cargados todavía, se usa el array
+completo de español; si los tiene, se usa tal cual, no se combinan
+entradas de los dos idiomas).
+
+**Resultado:** `node --check` sin errores en `js/pin-adjust.js`,
+`js/admin.js` y `js/app-state.js`. No probado en navegador real (sin
+entorno con DOM en esta sesión) — a validar por Cris: cargar 2-3
+campos en ES, cambiar a EN y cargar campos distintos, guardar, y
+confirmar en el panel público que el selector de idioma muestra cada
+lista por separado.
+
+**Archivos tocados:** `js/pin-adjust.js`, `js/admin.js`,
+`js/app-state.js`.
+
+**Qué falta / próximo paso exacto:** Etapa 4 — migración de pines
+viejos (`attrs` sin `content.es.fields`) a `content.es.fields[]`. Ver
+detalle en "ESTADO ACTUAL" arriba.
 

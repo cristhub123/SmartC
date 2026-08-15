@@ -160,7 +160,10 @@ async function saveEdit() {
     pinOffsetY: _eOffY  ? parseInt(_eOffY.value)   : (POIS[idx].pinOffsetY ?? 0),
     desc:      document.getElementById('e-desc').value.trim(),
     hist:      document.getElementById('e-hist').value.trim() || 'Sin datos históricos.',
-    attrs:     _readPinAttrsFromForm('e-attrs-wrap').filter(a => a.l.trim()),
+    // [Etapa 3] content[idioma].fields[] es ahora la fuente de verdad;
+    // `attrs` (legado) NO se toca acá — queda como estaba (ver spread
+    // `...POIS[idx]` más arriba) para que siga sirviendo de fallback.
+    content:   _buildContentWithFields(POIS[idx].content, _readPinFieldsFromForm('e-attrs-wrap')),
     soc:       document.getElementById('e-soc').value.split(',').map(s=>s.trim()).filter(Boolean),
     tags:      document.getElementById('e-tags').value.split(',').map(s=>s.trim()).filter(Boolean),
     phone:     (document.getElementById('e-phone')||{value:''}).value.trim(),
@@ -337,7 +340,7 @@ function resetAddTab() {
   ['img-input-add', 'img-url-add', 'img-input-banner-add', 'img-url-banner-add']
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
 
-  if (typeof _renderPinAttrsEditor === 'function') _renderPinAttrsEditor('a-attrs-wrap', []);
+  if (typeof _renderPinFieldsEditor === 'function') _renderPinFieldsEditor('a-attrs-wrap', {});
   if (typeof _renderAddCountrySelect === 'function') _renderAddCountrySelect(); // vuelve al default (Ubicación Activa)
   if (typeof buildMultiCatSelector === 'function') buildMultiCatSelector('cat-chips-add', []);
   if (typeof syncAddCoordDisplay === 'function') syncAddCoordDisplay();
@@ -466,7 +469,11 @@ async function saveNew() {
     pinScale: 100, pinOffsetX: 0, pinOffsetY: 0,
     desc:  document.getElementById('a-desc').value.trim(),
     hist:  document.getElementById('a-hist').value.trim() || 'Sin datos históricos.',
-    attrs: _readPinAttrsFromForm('a-attrs-wrap').filter(a => a.l.trim()),
+    // [Etapa 3] pin nuevo: nace directo con content[idioma].fields[],
+    // sin `attrs` (legado) — ver regla 4 del modelo de datos en
+    // PLAN_IMPORTACION_MASIVA.md ("attrs nunca fuente de verdad para
+    // pines nuevos").
+    content: _buildContentWithFields(null, _readPinFieldsFromForm('a-attrs-wrap')),
     soc:   document.getElementById('a-soc').value.split(',').map(s=>s.trim()).filter(Boolean),
     tags:  document.getElementById('a-tags').value.split(',').map(s=>s.trim()).filter(Boolean),
     phone: (document.getElementById('a-phone')||{value:''}).value.trim(),
@@ -600,60 +607,95 @@ async function createShellPinsFromPrefixList() {
 })();
 
 /* ═══════════════════════════════════════════════════════════
-   CAMPOS DE INFORMACIÓN LIBRES POR PIN — mismo concepto exacto que
-   ya existe para zonas (_renderZonaAttrsEditor en zones.js): título
-   y texto arbitrarios, cantidad libre, con "🗑" para quitar y
-   "➕ Agregar campo" para sumar uno nuevo en blanco. Se separó como
-   función genérica (recibe el id del contenedor) porque acá hace
-   falta en DOS formularios (Agregar y Editar), no en uno solo.
+   CAMPOS DE INFORMACIÓN LIBRES POR PIN — [REESCRITO Etapa 3,
+   2026-08-15] Ahora escriben directo a `content[idioma].fields[]`
+   (esquema definitivo, ver PLAN_IMPORTACION_MASIVA.md), en vez del
+   viejo `poi.attrs` sin idioma. Selector de idioma (ES/EN/PT) arriba
+   de las filas: cada idioma tiene su propia lista de campos,
+   independiente de los otros dos — un lugar puede tener 4 campos en
+   español y 2 en inglés sin problema.
+   `poi.attrs` (legado) queda intacto como fallback de compatibilidad
+   para pines viejos — este editor nuevo ya no lo lee ni lo escribe.
+   Se separó como función genérica (recibe el id del contenedor)
+   porque hace falta en DOS formularios (Agregar y Editar).
    ═══════════════════════════════════════════════════════════ */
 
+const PIN_FIELD_LANGS = ['es', 'en', 'pt'];
+const PIN_FIELD_LANG_LABELS = { es: 'ES', en: 'EN', pt: 'PT' };
+
+// Estado en memoria de cada editor (uno para 'a-attrs-wrap', otro para
+// 'e-attrs-wrap'): qué idioma está visible ahora mismo y los campos
+// acumulados de los 3 idiomas (los no-visibles no están en el DOM,
+// por eso hace falta guardarlos acá en vez de leerlos siempre del form).
+const _pinFieldsState = {
+  'a-attrs-wrap': { lang: 'es', data: { es: [], en: [], pt: [] } },
+  'e-attrs-wrap': { lang: 'es', data: { es: [], en: [], pt: [] } },
+};
+
 /**
- * Lee del formulario los pares [título, texto] tal como están ahora
- * en pantalla (incluye filas vacías — el filtrado se hace al guardar).
+ * Lee del DOM las filas título/texto tal como están ahora en pantalla
+ * (solo el idioma actualmente visible — incluye filas vacías, el
+ * filtrado se hace al guardar en Firestore).
  * @param {string} wrapId - 'a-attrs-wrap' o 'e-attrs-wrap'
- * @returns {Array<{l:string, v:string}>}
+ * @returns {Array<{title:string, text:string}>}
  */
-function _readPinAttrsFromForm(wrapId) {
-  const prefix = wrapId === 'a-attrs-wrap' ? 'a-al-' : 'e-al-';
-  const vprefix = wrapId === 'a-attrs-wrap' ? 'a-av-' : 'e-av-';
-  const count = document.querySelectorAll(`[id^="${prefix}"]`).length;
-  const attrs = [];
+function _readVisiblePinFieldRows(wrapId) {
+  const p = wrapId === 'a-attrs-wrap' ? 'a' : 'e';
+  const titlePrefix = `${p}-fl-`;
+  const textPrefix = `${p}-fv-`;
+  const count = document.querySelectorAll(`[id^="${titlePrefix}"]`).length;
+  const rows = [];
   for (let i = 0; i < count; i++) {
-    const l = document.getElementById(`${prefix}${i}`)?.value ?? '';
-    const v = document.getElementById(`${vprefix}${i}`)?.value ?? '';
-    attrs.push({ l, v });
+    const title = document.getElementById(`${titlePrefix}${i}`)?.value ?? '';
+    const text = document.getElementById(`${textPrefix}${i}`)?.value ?? '';
+    rows.push({ title, text });
   }
-  return attrs;
+  return rows;
+}
+
+/** Vuelca las filas visibles en pantalla al estado en memoria, antes
+ * de cambiar de idioma, agregar o quitar una fila. */
+function _syncVisiblePinFieldsIntoState(wrapId) {
+  const st = _pinFieldsState[wrapId];
+  st.data[st.lang] = _readVisiblePinFieldRows(wrapId);
 }
 
 /**
- * Dibuja el editor de campos de información dentro de `wrapId`
- * ('a-attrs-wrap' o 'e-attrs-wrap'), con sus filas + botón de
- * agregar. Misma lógica que `_renderZonaAttrsEditor` de zones.js,
- * adaptada para poder usarse en los dos formularios de pin.
- * @param {string} wrapId
- * @param {Array<{l:string, v:string}>} attrs
+ * Lee el estado completo (los 3 idiomas), sincronizando primero el
+ * idioma visible en pantalla. Filas totalmente vacías se descartan.
+ * @param {string} wrapId - 'a-attrs-wrap' o 'e-attrs-wrap'
+ * @returns {{es:Array<{title:string,text:string}>, en:Array, pt:Array}}
  */
-function _renderPinAttrsEditor(wrapId, attrs) {
+function _readPinFieldsFromForm(wrapId) {
+  _syncVisiblePinFieldsIntoState(wrapId);
+  const st = _pinFieldsState[wrapId];
+  const clean = (arr) => (arr || []).filter(f => (f.title || '').trim() || (f.text || '').trim());
+  return { es: clean(st.data.es), en: clean(st.data.en), pt: clean(st.data.pt) };
+}
+
+/** Dibuja las filas título/texto del idioma activo + botón "Agregar". */
+function _renderPinFieldRows(wrapId) {
   const wrap = document.getElementById(wrapId);
   if (!wrap) return;
-  const labelPrefix = wrapId === 'a-attrs-wrap' ? 'a-al-' : 'e-al-';
-  const valuePrefix = wrapId === 'a-attrs-wrap' ? 'a-av-' : 'e-av-';
-  const addBtnId = wrapId === 'a-attrs-wrap' ? 'btn-add-a-attr' : 'btn-add-e-attr';
+  const p = wrapId === 'a-attrs-wrap' ? 'a' : 'e';
+  const titlePrefix = `${p}-fl-`;
+  const textPrefix = `${p}-fv-`;
+  const addBtnId = `btn-add-${p}-field`;
+  const st = _pinFieldsState[wrapId];
+  const rows = st.data[st.lang] || [];
 
-  wrap.innerHTML = (attrs || []).map((a, i) => `
+  wrap.innerHTML = rows.map((f, i) => `
     <div style="display:flex;gap:7px;margin-bottom:7px;align-items:center">
-      <input class="fi" style="flex:0 0 110px;font-size:12px" value="${a.l || ''}" id="${labelPrefix}${i}" placeholder="Título (ej: Dato curioso)">
-      <input class="fi" style="flex:1;font-size:12px" value="${a.v || ''}" id="${valuePrefix}${i}" placeholder="Texto">
-      <button type="button" class="ibtn" data-remove-pin-attr="${i}" data-wrap="${wrapId}" title="Quitar este campo" style="flex:0 0 auto;padding:6px 9px;">🗑</button>
+      <input class="fi" style="flex:0 0 110px;font-size:12px" value="${f.title || ''}" id="${titlePrefix}${i}" placeholder="Título (ej: Dato curioso)">
+      <input class="fi" style="flex:1;font-size:12px" value="${f.text || ''}" id="${textPrefix}${i}" placeholder="Texto">
+      <button type="button" class="ibtn" data-remove-pin-field="${i}" title="Quitar este campo" style="flex:0 0 auto;padding:6px 9px;">🗑</button>
     </div>`).join('');
 
-  wrap.querySelectorAll('[data-remove-pin-attr]').forEach(btn => {
+  wrap.querySelectorAll('[data-remove-pin-field]').forEach(btn => {
     btn.addEventListener('click', () => {
-      const current = _readPinAttrsFromForm(wrapId);
-      current.splice(parseInt(btn.dataset.removePinAttr, 10), 1);
-      _renderPinAttrsEditor(wrapId, current);
+      _syncVisiblePinFieldsIntoState(wrapId);
+      st.data[st.lang].splice(parseInt(btn.dataset.removePinField, 10), 1);
+      _renderPinFieldRows(wrapId);
     });
   });
 
@@ -664,19 +706,96 @@ function _renderPinAttrsEditor(wrapId, attrs) {
     addBtn.type = 'button';
     addBtn.className = 'ibtn';
     addBtn.style.cssText = 'width:100%;margin-bottom:10px;';
-    addBtn.textContent = '➕ Agregar campo de información';
     wrap.parentNode.insertBefore(addBtn, wrap.nextSibling);
   }
+  addBtn.textContent = `➕ Agregar campo de información (${PIN_FIELD_LANG_LABELS[st.lang]})`;
   addBtn.onclick = () => {
-    const current = _readPinAttrsFromForm(wrapId);
-    current.push({ l: '', v: '' });
-    _renderPinAttrsEditor(wrapId, current);
+    _syncVisiblePinFieldsIntoState(wrapId);
+    st.data[st.lang].push({ title: '', text: '' });
+    _renderPinFieldRows(wrapId);
   };
 }
 
+/** Dibuja (o actualiza) la barra de pestañas ES/EN/PT arriba de las filas. */
+function _renderPinFieldsLangTabs(wrapId) {
+  const wrap = document.getElementById(wrapId);
+  if (!wrap) return;
+  const p = wrapId === 'a-attrs-wrap' ? 'a' : 'e';
+  const tabBarId = `${p}-fields-lang-tabs`;
+  const st = _pinFieldsState[wrapId];
+
+  let tabBar = document.getElementById(tabBarId);
+  if (!tabBar) {
+    tabBar = document.createElement('div');
+    tabBar.id = tabBarId;
+    tabBar.style.cssText = 'display:flex;gap:6px;margin-bottom:8px;';
+    wrap.parentNode.insertBefore(tabBar, wrap);
+  }
+  tabBar.innerHTML = PIN_FIELD_LANGS.map(lang => `
+    <button type="button" class="ibtn" data-pin-fields-lang="${lang}"
+      style="flex:1;padding:5px 0;font-size:11px;font-weight:${lang === st.lang ? '700' : '400'};
+      background:${lang === st.lang ? 'var(--accent, #0d9488)' : ''};
+      color:${lang === st.lang ? '#fff' : ''};">
+      ${PIN_FIELD_LANG_LABELS[lang]}${(st.data[lang] || []).length ? ` (${st.data[lang].length})` : ''}
+    </button>`).join('');
+
+  tabBar.querySelectorAll('[data-pin-fields-lang]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const newLang = btn.dataset.pinFieldsLang;
+      if (newLang === st.lang) return;
+      _syncVisiblePinFieldsIntoState(wrapId);
+      st.lang = newLang;
+      _renderPinFieldsLangTabs(wrapId);
+      _renderPinFieldRows(wrapId);
+    });
+  });
+}
+
+/**
+ * Inicializa/reinicia el editor de campos dentro de `wrapId`
+ * ('a-attrs-wrap' o 'e-attrs-wrap') con el contenido multi-idioma de
+ * un POI (o vacío, para el form de "Agregar"). Siempre arranca
+ * mostrando la pestaña ES.
+ * @param {string} wrapId
+ * @param {Object} [content] - `poi.content` tal como está en Firestore,
+ *   ej. `{ es: {fields:[...]}, en: {...}, pt: {...} }`. Cualquier
+ *   idioma ausente o sin `fields` arranca con lista vacía.
+ */
+function _renderPinFieldsEditor(wrapId, content) {
+  const c = content || {};
+  _pinFieldsState[wrapId] = {
+    lang: 'es',
+    data: {
+      es: (c.es && Array.isArray(c.es.fields)) ? c.es.fields.map(f => ({ ...f })) : [],
+      en: (c.en && Array.isArray(c.en.fields)) ? c.en.fields.map(f => ({ ...f })) : [],
+      pt: (c.pt && Array.isArray(c.pt.fields)) ? c.pt.fields.map(f => ({ ...f })) : [],
+    },
+  };
+  _renderPinFieldsLangTabs(wrapId);
+  _renderPinFieldRows(wrapId);
+}
+
+/**
+ * Arma el objeto `content` completo a mandar a Firestore, preservando
+ * `name`/`gancho`/`description`/`custom_fields` que ya existieran por
+ * idioma (esos campos son de otras etapas, este editor no los toca) y
+ * reemplazando únicamente `fields[]` con lo que se acaba de editar.
+ * @param {Object|null|undefined} existingContent - `poi.content` previo (o nada, pin nuevo)
+ * @param {{es:Array, en:Array, pt:Array}} fieldsByLang - resultado de `_readPinFieldsFromForm`
+ * @returns {Object} `content` listo para guardar
+ */
+function _buildContentWithFields(existingContent, fieldsByLang) {
+  const existing = existingContent || {};
+  const result = {};
+  PIN_FIELD_LANGS.forEach((lang) => {
+    result[lang] = { ...(existing[lang] || {}), fields: fieldsByLang[lang] || [] };
+  });
+  return result;
+}
+
 // El form de Agregar arranca vacío (sin pin todavía cargado) — se
-// dibuja una sola vez al cargar la página, con la lista en blanco.
-_renderPinAttrsEditor('a-attrs-wrap', []);
+// dibuja una sola vez al cargar la página.
+_renderPinFieldsEditor('a-attrs-wrap', {});
 
 /* ═══════════════════════════════════════════════════════════
    EXPAND CON ESCALA INDEPENDIENTE Y OFFSET POR POI

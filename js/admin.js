@@ -405,7 +405,9 @@ window.startEdit = function(id) {
   document.getElementById('e-tags').value = (p.tags||[]).join(', ');
   const _ePhone = document.getElementById('e-phone'); if (_ePhone) _ePhone.value = p.phone || '';
   const _eHours = document.getElementById('e-hours'); if (_eHours) _eHours.value = p.hours || '';
-  if (typeof _renderPinAttrsEditor === 'function') _renderPinAttrsEditor('e-attrs-wrap', p.attrs || []);
+  // [Etapa 3] precarga con content[idioma].fields[] (esquema nuevo),
+  // no con p.attrs (legado) — el editor nuevo ya no lo lee.
+  if (typeof _renderPinFieldsEditor === 'function') _renderPinFieldsEditor('e-attrs-wrap', p.content || {});
 
   // Main image
   const prev = document.getElementById('img-prev-edit');

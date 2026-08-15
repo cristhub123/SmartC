@@ -462,6 +462,16 @@ const AppState = (function () {
         ...(fallback && fallback.custom_fields ? fallback.custom_fields : {}),
         ...(requested.custom_fields || {}),
       },
+      // [Etapa 3, 2026-08-15] `fields[]` (esquema definitivo) no se
+      // combina campo a campo como `custom_fields` — es un array
+      // ordenado, no tiene sentido mezclar entradas de dos idiomas.
+      // Si el idioma pedido ya tiene fields cargados, se usan tal
+      // cual; si está vacío/ausente (todavía no se tradujo), se cae
+      // completo al array del idioma de fallback (regla 3 del modelo
+      // de datos: asimetría entre idiomas sin romper el panel).
+      fields: (Array.isArray(requested.fields) && requested.fields.length)
+        ? requested.fields
+        : ((fallback && Array.isArray(fallback.fields)) ? fallback.fields : []),
     };
   }
 
