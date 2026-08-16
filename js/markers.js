@@ -34,9 +34,22 @@ function slugify(str) {
    recorte 150x150 aparte, ver toThumbCandidateUrl) como de la
    imagen full-quality que se muestra al maximizar el pin (ver
    swapPinToFullQuality). Mismo orden de respaldo que antes. */
+/* [FIX 2026-08-16] Antes, si `poi.imgB64` estaba seteado, se devolvía
+   ÚNICAMENTE esa URL — sin ningún candidato de respaldo. Si esa imagen
+   rompía (Cloudinary caído, nombre mal escrito, carpeta equivocada),
+   no había a dónde caer: directo al ícono roto. Además, al ser una
+   lista de un solo elemento, quedaba en un orden totalmente distinto
+   al de getActiveSkinList (que sí recorre todas las variantes) —
+   causa directa del desfasaje entre "qué imagen se ve" y "qué dice el
+   ojito". Ahora se arma siempre la cadena completa (mismo orden que el
+   ojito, ver utils.js) y se antepone imgB64 solo si de verdad no está
+   ya reflejado ahí (caso de pines viejos con imgB64 legado pero sin
+   skins.main). */
 function resolvePinImageCandidates(poi) {
-  if (poi.imgB64) return [poi.imgB64];
-  return buildImageFallbackChain(poi, { forMap: true });
+  const chain = buildImageFallbackChain(poi, { forMap: true });
+  if (poi.imgB64 && !chain.includes(poi.imgB64)) return [poi.imgB64, ...chain];
+  if (chain.length > 0) return chain;
+  return poi.imgB64 ? [poi.imgB64] : [];
 }
 
 function toThumbCandidateUrl(url) {
@@ -144,16 +157,52 @@ function cyclePinExpandedImage(id) {
   const list = (typeof getActiveSkinList === 'function') ? getActiveSkinList(poi) : [];
   if (list.length <= 1) return null; // nada para recorrer
 
-  const currentIdx = parseInt(el.dataset.skinIndex || '0', 10);
-  const nextIdx = (currentIdx + 1) % list.length;
-  const nextUrl = list[nextIdx].url;
+  const startIdx = parseInt(el.dataset.skinIndex || '0', 10);
+  const nextIdx = (startIdx + 1) % list.length;
 
   if (!el.dataset.thumbSrc) el.dataset.thumbSrc = el.src; // por si se clickea antes de que termine el swap inicial
-  el.src = nextUrl;
-  el.dataset.qualitySwapped = 'full';
-  el.dataset.skinIndex = String(nextIdx);
-  el.dataset.userCycled = '1';
 
+  /* [FIX 2026-08-16] Antes se asignaba `el.src = nextUrl` directo, sin
+     precargar ni manejar el error: si esa variante en particular tenía
+     una URL rota (nombre huérfano del importador de texto, imagen que
+     todavía no se subió a Cloudinary, carpeta equivocada, etc.), el
+     pin se quedaba mostrando el ícono roto para siempre — nada la
+     reintentaba ni volvía a la imagen anterior, ni corregía el
+     contador del ojito. Ahora se precarga (mismo patrón que
+     swapPinToFullQuality) y, si una falla, se salta automáticamente a
+     la siguiente variante activa hasta encontrar una que cargue de
+     verdad o agotar la lista — nunca deja el pin roto. */
+  function tryLoad(idx, attempts) {
+    if (attempts >= list.length) {
+      // Ninguna imagen de la lista cargó: se vuelve al thumb conocido
+      // en vez de dejar el ícono roto puesto.
+      if (el.dataset.thumbSrc) el.src = el.dataset.thumbSrc;
+      el.dataset.skinIndex = String(startIdx);
+      console.warn(`[cyclePinExpandedImage] Ninguna imagen de "${id}" cargó — se vuelve al thumb.`);
+      if (typeof window.onPinImageCycled === 'function') window.onPinImageCycled(id);
+      return;
+    }
+    const candidate = list[idx];
+    const preload = new Image();
+    preload.onload = () => {
+      if (typeof expandedId === 'undefined' || expandedId !== id) return; // el usuario ya cerró/cambió de pin
+      el.src = candidate.url;
+      el.dataset.qualitySwapped = 'full';
+      el.dataset.skinIndex = String(idx);
+      el.dataset.userCycled = '1';
+      if (typeof window.onPinImageCycled === 'function') window.onPinImageCycled(id);
+    };
+    preload.onerror = () => {
+      console.warn(`[cyclePinExpandedImage] "${candidate.url}" no cargó — se prueba la siguiente imagen de "${id}".`);
+      tryLoad((idx + 1) % list.length, attempts + 1);
+    };
+    preload.src = candidate.url;
+  }
+  tryLoad(nextIdx, 0);
+
+  // Valor optimista para que el ojito responda al instante; si la
+  // precarga falla, window.onPinImageCycled corrige el contador solo
+  // (ver el hook en poi-panel.js).
   return { index: nextIdx, total: list.length };
 }
 

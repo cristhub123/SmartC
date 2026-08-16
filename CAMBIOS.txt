@@ -1028,3 +1028,85 @@ PENDIENTE (no pedido en esta tarea, queda anotado):
   carpeta banner/ todavía (sigue apuntando siempre a images/).
 - Probar en el entorno real (navegador + Firestore + Cloudinary) —
   esta sesión solo verificó sintaxis de los archivos JS.
+
+════════════════════════════════════════════════════════════════
+SMARTCITY — BUG DEL OJITO / VARIANTES HUÉRFANAS — SESIÓN 2026-08-16
+════════════════════════════════════════════════════════════════
+PEDIDO: Cris reportó el ojito desfasado (contador y foto mostrada
+no coinciden) en pines viejos (Complejo Alas III, 2 imágenes) y
+contadores imposibles (1/6 con 4 imágenes reales, 1/3 con 2) en
+Alto Paz Tower y Manzana Jesuítica — estos últimos dos venían de
+haber usado el importador de texto masivo (### PIN) para "vincular"
+imágenes de un pin ya existente.
+
+DIAGNÓSTICO (2 bugs distintos, confirmados leyendo el código):
+
+1) buildImageFallbackChain() (utils.js) solo reconocía nombres de
+   variante fijos: main/noche/alt1/alt2/alt3. Cualquier variante con
+   otro nombre —como las que arma parseImageFilename() a partir del
+   nombre de archivo del importador de texto (ej. "alt", "artdeco",
+   "medieval")— quedaba invisible para el pin del mapa y su cadena
+   de respaldo, PERO getActiveSkinList() (que usa el ojito) sí la
+   contaba porque lee todas las claves de poi.skins sin filtrar.
+   Dos fuentes de verdad distintas = contadores imposibles y orden
+   "random" (dependía de Object.keys(), no del orden de subida).
+
+2) El índice de arranque del ojito (dataset.skinIndex) nunca se
+   sincronizaba con la imagen que en verdad se estaba mostrando al
+   maximizar el pin (que sale de una función totalmente distinta,
+   resolvePinImageCandidates). Si "main" no resultaba ser la
+   posición 0 de getActiveSkinList(), el primer click del ojito no
+   cambiaba la imagen visible (porque casualmente apuntaba a la
+   misma que ya se veía) pero sí avanzaba el contador — de ahí el
+   desfasaje de +1 que describió Cris en Alas III.
+   Además, cyclePinExpandedImage() asignaba el `src` directo sin
+   precargar ni manejar error: si la URL de esa variante rompía, el
+   pin quedaba con el ícono roto para siempre, sin ningún reintento
+   ni vuelta atrás.
+
+FIX:
+- utils.js: nueva función _orderedSkinNames(skins) — único criterio
+  de orden (main, noche, alt1, alt2, alt3, y CUALQUIER otra variante
+  ordenada alfabéticamente al final), usado ahora tanto por
+  buildImageFallbackChain() como por getActiveSkinList(). Ya no
+  puede haber una variante visible para uno y no para el otro.
+- markers.js / resolvePinImageCandidates(): antes, si poi.imgB64
+  estaba seteado, devolvía SOLO esa URL (sin respaldo si rompía).
+  Ahora arma siempre la cadena completa (mismo orden que el ojito),
+  anteponiendo imgB64 solo si no está ya reflejado en skins (pines
+  legados).
+- markers.js / cyclePinExpandedImage(): reescrita para precargar
+  cada imagen (mismo patrón que swapPinToFullQuality) antes de
+  mostrarla. Si una falla, salta sola a la siguiente variante activa
+  hasta encontrar una que cargue o agotar la lista (nunca se queda
+  con el ícono roto pegado). Devuelve un valor optimista al toque
+  del click para que el ojito responda al instante; si la precarga
+  termina fallando y salta de imagen, avisa a poi-panel.js vía
+  window.onPinImageCycled para corregir el contador solo.
+- poi-panel.js: nuevo hook window.onPinImageCycled(id), que
+  repinta el contador del ojito si markers.js corrigió el índice
+  de forma asíncrona.
+
+IMPORTANTE — esto NO limpia los datos ya rotos:
+Alto Paz Tower y Manzana Jesuítica ya tienen en Firestore variantes
+"huérfanas" (alt, artdeco, medieval sueltos del importador de texto)
+que van a seguir sumando al contador del ojito hasta que se borren
+a mano — el fix de esta sesión evita que el problema vuelva a pasar
+y evita que el pin se quede roto, pero no borra basura ya guardada.
+Recomendación dada a Cris (no requiere acceso a Firestore, ya que
+no le importa perder esos 2 pines de prueba): borrar esos 2 pines
+desde el admin y recargarlos de cero, subiendo las imágenes SOLO
+por el uploader individual del panel (nunca por el bloque
+`imagenes:` del importador de texto masivo) — así el pin nace con
+skins limpios (main/alt1/alt2/...) sin residuos.
+
+PENDIENTE (no resuelto en esta sesión, anotado para más adelante):
+- El editor de slots del admin (img-slots.js / saveEdit()) solo
+  reconstruye variantes que matchean el patrón main/alt<N> — sigue
+  sin mostrar ni permitir borrar variantes con nombre "raro" (alt,
+  artdeco, medieval, etc.) si llegan a crearse de nuevo. Sería bueno
+  que el admin las muestre (aunque sea de solo lectura, con botón
+  "eliminar") para no depender de Firestore console.
+- No se probó en el entorno real (navegador + Firestore +
+  Cloudinary) — esta sesión solo verificó sintaxis de los archivos
+  JS con `node --check`.

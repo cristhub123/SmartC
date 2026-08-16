@@ -642,6 +642,19 @@ const PoiPanel = (function () {
     // global (js/lang-switcher.js), no acá — se sacó el bloque que
     // llamaba a AppState.setLanguage() por cada langBtn de este panel.
 
+    // [FIX 2026-08-16] cyclePinExpandedImage (markers.js) ahora precarga
+    // cada imagen antes de mostrarla y, si una falla, salta sola a la
+    // siguiente — cuando eso pasa, el índice real que terminó
+    // mostrándose puede no coincidir con el que se pintó al toque del
+    // click (que es optimista). Este hook deja que markers.js avise acá
+    // para repintar el contador con el valor correcto, sin que el
+    // usuario tenga que volver a tocar el ojito.
+    window.onPinImageCycled = (id) => {
+      if (id !== _currentPoiId) return;
+      const poi = AppState.getPoi(id);
+      if (poi) _renderEyeBadge(poi);
+    };
+
     els.eyeBtn.addEventListener('click', () => {
       // [REESCRITO 2026-08-15] Público: pasa a la siguiente imagen
       // activa del lugar, en loop — pero ahora sobre el PIN

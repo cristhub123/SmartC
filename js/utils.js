@@ -72,6 +72,29 @@ function getActivePanelThemeIds() {
    dejó el propio admin, sea por el uploader de a 1 o por la
    importación masiva). Si un skin no tiene URL guardada, se lo
    saltea — nunca se arma una URL a ciegas. */
+/* [FIX 2026-08-16] Antes esta lista era fija (`main, noche, alt1, alt2,
+   alt3`): cualquier variante con otro nombre —típicamente las que arma
+   el importador de texto masivo a partir del nombre del archivo, tipo
+   "alt" (sin número) o "artdeco"— quedaba totalmente invisible acá,
+   aunque sí existiera de verdad en `poi.skins` con una URL válida. El
+   resultado era que el pin del mapa nunca la mostraba ni la usaba de
+   respaldo, pero el ojito (que lee `poi.skins` completo sin filtrar
+   nombres, ver getActiveSkinList más abajo) sí la contaba — de ahí
+   contadores tipo "1/6" con solo 4 imágenes reales, y el pin cayendo al
+   ícono roto sin que hubiera ningún respaldo real registrado acá.
+   Ahora esta función arma el orden a partir de TODAS las claves de
+   `poi.skins`, usando exactamente el mismo criterio que
+   getActiveSkinList, para que las dos listas nunca puedan
+   desincronizarse otra vez. */
+function _orderedSkinNames(skins) {
+  const KNOWN_ORDER = ['main', 'noche', 'alt1', 'alt2', 'alt3'];
+  const known = KNOWN_ORDER.filter((n) => skins[n]);
+  const rest = Object.keys(skins)
+    .filter((n) => !KNOWN_ORDER.includes(n))
+    .sort();
+  return [...known, ...rest];
+}
+
 function buildImageFallbackChain(poi, { forMap = false, forPanel = false } = {}) {
   const skins = poi.skins || {};
   const chain = [];
@@ -85,7 +108,7 @@ function buildImageFallbackChain(poi, { forMap = false, forPanel = false } = {})
   if (forMap)   getActiveMapThemeIds().forEach(pushSkin);
   if (forPanel) getActivePanelThemeIds().forEach(pushSkin);
 
-  ['main', 'noche', 'alt1', 'alt2', 'alt3'].forEach(pushSkin);
+  _orderedSkinNames(skins).forEach(pushSkin);
 
   return chain;
 }
@@ -296,9 +319,16 @@ function _uploadCtx(formPrefix, skin, subfolder) {
    @param {Object} poi
    @returns {{name: string, url: string}[]}
    ═══════════════════════════════════════════ */
+/* [FIX 2026-08-16] Antes recorría `Object.keys(skins)` en el orden que
+   haya quedado guardado el documento (no garantizado, ni relacionado
+   al orden en que se subieron las imágenes) — ahora usa el mismo orden
+   canónico que buildImageFallbackChain (_orderedSkinNames), así "main"
+   siempre es la posición 0 acá igual que en el pin del mapa, y el
+   índice que arranca en 0 el ojito (ver markers.js) coincide siempre
+   con la imagen que en verdad se está mostrando al maximizar el pin. */
 function getActiveSkinList(poi) {
   const skins = (poi && poi.skins) || {};
-  const list = Object.keys(skins)
+  const list = _orderedSkinNames(skins)
     .filter((name) => name === 'main' || skins[name].active !== false)
     .filter((name) => !!skins[name].url)
     .map((name) => ({ name, url: skins[name].url }));
