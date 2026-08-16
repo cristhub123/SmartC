@@ -26,42 +26,42 @@
 
 ## ESTADO ACTUAL
 
-**Última etapa completada:** Etapa 5 — el importador de texto masivo
-(`parsePinBulkText`/`importFullPinsFromText` en `js/pin-adjust.js`)
-acepta bloques `campos:`(ES) / `campos_en:` / `campos_pt:` y escribe
-directo a `content[idioma].fields[]`, preservando por idioma lo que no
-se mencione en el bloque al actualizar un pin existente. Ya no escribe
-`poi.attrs`.
+**Última etapa completada:** Etapa 7 — el idioma pasó a ser una
+elección global de toda la app: `#lang-switcher` (3 botones ES/EN/PT)
+en el header público (`index.html`), manejado por `js/lang-switcher.js`
+(archivo nuevo), con persistencia en `localStorage`. Se sacó el
+selector que antes vivía dentro de cada panel individual
+(`js/poi-panel.js`).
 
-**⚠️ Aviso pendiente para Cris (no bloquea la Etapa 6, pero hay que
-tenerlo presente):** el importador guarda el documento completo en
-Firestore (`merge:false`) al actualizar un pin — campos del pin que el
-bloque de texto no vuelve a mencionar (categoría, banner, pinScale/
-offsets) pueden perderse al reimportar. Esto es previo a la Etapa 5,
-no se tocó. Ver el aviso completo en el registro de la Etapa 5 más
-abajo.
+**⚠️ Aviso pendiente para Cris, sigue en pie desde la Etapa 5/6 (no
+se tocó en la Etapa 7):** el importador de texto masivo reemplaza el
+documento completo al actualizar un pin existente — categoría, banner,
+descripción/historia vieja, teléfono, horario viejo, estado publicado
+y posición/tamaño del pin en el mapa se pueden perder al reimportar.
+El reporte de "Revisar antes de importar" (Etapa 6) avisa esto en rojo
+antes de confirmar, pero no lo soluciona. Ver el registro de la Etapa
+6 para el detalle completo.
 
-**Próxima etapa a hacer:** Etapa 6 — Validación previa a importar: hoy
-`importFullPinsFromText()` parsea y guarda todo de una, y recién
-después muestra qué se creó/actualizó/qué falló. La Etapa 6 es separar
-eso en 2 pasos: primero parsear y mostrar un reporte de qué se va a
-hacer (cuántos pines nuevos, cuántos existentes se van a pisar, y con
-qué, más los errores de formato) SIN escribir nada en Firestore
-todavía, y recién con una confirmación aparte del admin se ejecuta el
-guardado real.
+**Próxima etapa a hacer:** Etapa 8 — Prueba real end-to-end: cargar
+3-5 lugares reales (no de prueba) con contenido en los 3 idiomas
+usando el importador (Etapas 5/6), y confirmar en el navegador real
+que todo el circuito funciona junto: importar → ver en el panel en
+cada idioma vía el selector del header (Etapa 7) → editar un campo a
+mano desde el admin (Etapa 3) → reimportar el mismo lugar sin perder
+lo que no se tocó. Es una etapa de verificación con Cris en su entorno
+real, no de código nuevo de entrada — salvo que la prueba encuentre
+algo para corregir, en cuyo caso esa corrección se documenta como
+parte de esta misma etapa.
 
-**Archivos a chequear para arrancar la Etapa 6** (no hace falta nada más):
-- `js/pin-adjust.js` — `parsePinBulkText()` y `importFullPinsFromText()`
-  (Etapa 5), para separar la parte de "parsear y armar el reporte" de
-  la parte de "efectivamente guardar en Firestore"
-- `index.html` — sección "Importar lugares completos" (línea ~265 en
-  adelante), para agregar el paso de previsualización/confirmación
-  antes del botón de importar definitivo
-- La sección "Modelo de datos definitivo" de este archivo, más abajo
+**No hace falta ningún archivo puntual para arrancar la Etapa 8** — es
+una prueba guiada por Cris en su navegador, con los 3 formularios ya
+construidos (Editar en `js/admin.js`/`pin-adjust.js`, Importar en la
+sección "Importar lugares completos" de `index.html`, y el selector de
+idioma en el header). Si algo falla durante la prueba, ese es el punto
+de partida para la próxima sesión de código.
 
-**Ver el registro completo de la Etapa 5 más abajo** para el detalle
-línea por línea de qué se cambió, incluido el aviso importante sobre
-qué SÍ y qué NO se preserva al reimportar un pin existente.
+**Ver el registro completo de la Etapa 7 más abajo** para el detalle
+línea por línea de qué se cambió.
 
 ---
 
@@ -72,8 +72,8 @@ qué SÍ y qué NO se preserva al reimportar un pin existente.
 - [x] **Etapa 3** — Admin: editor de campos que escribe directo a `content[idioma].fields[]`, con selector de idioma
 - [x] **Etapa 4** — ~~Migración de datos viejos~~ DESCARTADA (2026-08-15): pines actuales son solo de prueba, no hace falta migrar; ver registro de la Etapa 4 más abajo para el motivo completo
 - [x] **Etapa 5** — Importador de texto masivo: aceptar bloques ES/EN/PT con campos numerados libres
-- [ ] **Etapa 6** — Validación previa a importar (reporte antes de escribir en Firestore)
-- [ ] **Etapa 7** — Selector de idioma global (sacarlo del panel, notificar a toda la app)
+- [x] **Etapa 6** — Validación previa a importar (reporte antes de escribir en Firestore)
+- [x] **Etapa 7** — Selector de idioma global (sacarlo del panel, notificar a toda la app)
 - [ ] **Etapa 8** — Prueba real end-to-end con 3-5 lugares en los 3 idiomas, antes de la carga masiva definitiva
 
 Este orden es el recomendado pero no es rígido: si al hacer una etapa
@@ -420,4 +420,168 @@ guarda directo y recién después muestra el reporte). Archivos a tocar:
 `js/pin-adjust.js` (`parsePinBulkText`, `importFullPinsFromText`),
 `index.html` (agregar el paso de previsualización/confirmación en la
 UI antes del botón de importar definitivo).
+
+---
+
+### Etapa 6 — Validación previa a importar, con reporte de "qué se pierde" (2026-08-15)
+
+**Qué se pidió:** lo que quedó anotado como próximo paso en la Etapa 5
+(ver arriba) — separar el importador en "parsear y mostrar reporte" y
+"guardar en Firestore", con confirmación del admin en el medio.
+
+**Qué se hizo:** en `js/pin-adjust.js`, `importFullPinsFromText()` se
+partió en 3 funciones:
+- `previewBulkFullImport()` — botón "🔍 Revisar antes de importar".
+  Parsea el texto (`parsePinBulkText`, sin cambios ahí) y arma el
+  reporte de previsualización, sin tocar Firestore. Lo parseado queda
+  guardado en `_pendingBulkFullImport` (variable de módulo) a la
+  espera de confirmación.
+- `_buildBulkImportPreviewHtml(pins, errors)` — arma el HTML del
+  reporte: cuántos pines son nuevos, cuántos van a actualizar uno
+  existente (comparando contra `POIS` en memoria), qué idiomas de
+  `campos_es`/`campos_en`/`campos_pt` trae cada bloque, cuántas
+  imágenes vincula.
+- `confirmBulkFullImport()` — botón "✅ Confirmar e importar", el
+  único lugar que ahora escribe en Firestore. Usa lo que quedó en
+  `_pendingBulkFullImport` (la conversión a `content[idioma].fields[]`
+  con `_buildContentWithFields`, igual que en la Etapa 5, se mudó acá
+  sin cambios de lógica).
+- `cancelBulkFullImport()` — botón "✖ Cancelar", descarta el pendiente
+  sin guardar nada ni borrar el texto tipeado.
+- Si el admin sigue editando el textarea DESPUÉS de pedir la vista
+  previa, un listener de `input` invalida automáticamente el pendiente
+  (`cancelBulkFullImport()`) — así nunca puede confirmar algo distinto
+  de lo que vio en el reporte.
+
+**Hallazgo importante — el reporte ahora avisa la pérdida de datos
+real, no solo la de `content.fields`:** al armar el reporte se
+revisó a fondo qué campos escribe `parsePinBulkText()` con valor fijo
+sin importar lo que el pin ya tuviera cargado, y son más de los que
+se había avisado en la Etapa 5. Además de categoría/banner (ya
+avisados), también se resetean SIEMPRE al reimportar: `desc`/`hist`
+(los campos "Descripción"/"Historia" del editor VIEJO, aparte de
+`campos_es`), `phone`, `hours` (el campo "Horario" viejo del editor,
+no confundir con un campo llamado "Horario" DENTRO de `campos_es`),
+`active` (**un pin ya publicado queda oculto** si se reimporta —
+posiblemente el más peligroso de todos), y `pinScale`/`pinOffsetX`/
+`pinOffsetY` (tamaño y posición del pin ajustados a mano en el mapa).
+El reporte de la Etapa 6 chequea los 9 campos y lista exactamente
+cuáles tiene cargados cada pin existente antes de que el admin
+confirme.
+
+**Lo que la Etapa 6 NO hace (a propósito, es solo el reporte, no la
+solución de fondo):** sigue sin arreglarse el motivo de fondo de por
+qué se pierden esos datos — `savePoiToFirestore()` reemplaza el
+documento completo (`merge:false`) en vez de fusionar solo lo que
+cambió. El reporte avisa antes de que pase, pero si el admin confirma
+igual, esos datos se pierden en Firestore lo mismo (en `POIS` local
+sí quedan, por el merge que hace `confirmBulkFullImport` en la línea
+`POIS[existingIdx] = {...POIS[existingIdx], ...p}` — pero eso es
+memoria del navegador, se pierde apenas se recarga la página y se
+vuelve a traer de Firestore). Si en algún momento se quiere resolver
+de raíz (que el importador SOLO pise lo que trae el bloque de texto y
+preserve todo lo demás, en vez de solo avisar), es un cambio aparte,
+más grande, a `savePoiToFirestore` o a cómo arma `p` este importador
+— no incluido acá.
+
+**Resultado:** `node --check js/pin-adjust.js` sin errores. Se probó
+`_buildBulkImportPreviewHtml()` en Node con un pin existente simulado
+(con categoría, banner, desc/hist, teléfono, horario, activo=true,
+pinScale/offset ajustados) y un pin nuevo en el mismo texto: el
+reporte separó bien "1 nuevo, 1 a actualizar, 1 con datos en riesgo" y
+listó los 8 campos en riesgo del pin existente correctamente. No
+probado en navegador real (sin DOM en esta sesión) — a validar por
+Cris: pegar un bloque que actualice un pin con categoría/banner
+cargados, click en "Revisar", confirmar que aparece el aviso en rojo
+ANTES de tocar "Confirmar e importar".
+
+**Desvíos del plan original:** ninguno en el alcance pedido. Se
+identificó (no se corrigió, ver arriba) que la lista de "qué se
+pierde" es más larga de lo que se había avisado en la Etapa 5 —
+`active`/`hours`/`phone`/`desc`/`hist`/`pinScale`/offsets, no solo
+categoría y banner.
+
+**Archivos tocados:** `js/pin-adjust.js`, `index.html` (agregado el
+recuadro de vista previa y los botones Confirmar/Cancelar debajo del
+botón principal, que ahora dice "🔍 Revisar antes de importar").
+
+**Qué falta / próximo paso exacto:** Etapa 7 — Selector de idioma
+global: sacar el idioma del panel individual y que sea una elección a
+nivel de toda la app (hoy cada panel arranca en `FALLBACK_LANG` fijo
+en `js/app-state.js`, línea 56). Archivos a chequear: `js/app-state.js`
+(`setLanguage`/`getLanguage`/`FALLBACK_LANG`), y dónde vive hoy
+cualquier selector de idioma en la interfaz pública (si existe) o si
+hay que crear uno nuevo.
+
+---
+
+### Etapa 7 — Selector de idioma global en el header (2026-08-16)
+
+**Qué se pidió:** lo que quedó anotado como próximo paso en la Etapa 6
+(ver arriba) — sacar el idioma del panel individual y que sea una
+elección a nivel de toda la app.
+
+**Qué se hizo:** se encontró que `AppState.setLanguage()`/`getLanguage()`
+y el evento `LANGUAGE_CHANGED` (con el que cualquier parte de la app
+se puede suscribir a cambios de idioma) ya existían de antes y
+funcionaban bien — lo único que faltaba era: (1) un control fuera del
+panel de un lugar puntual, visible siempre, y (2) que la elección
+persista entre visitas.
+
+- **`index.html`** — se agregó `#lang-switcher` (3 botones ES/EN/PT)
+  al `#header` público, entre la barra de búsqueda y el botón ⚙
+  Administrador. Vive en el header de TODA la app, no dentro de
+  ningún panel — el visitante lo ve y lo puede usar sin haber abierto
+  ningún pin todavía.
+- **`js/lang-switcher.js` (archivo nuevo)** — se encarga de: leer el
+  idioma guardado de una visita anterior desde `localStorage` (clave
+  `smartcity_lang`) y aplicarlo al cargar la página; guardar en
+  `localStorage` cada vez que el visitante cambia de idioma; resaltar
+  el botón activo; y mantenerse sincronizado vía
+  `AppState.EVENTS.LANGUAGE_CHANGED` por si el idioma cambiara desde
+  cualquier otro lugar de la app en el futuro. Se agregó al `<script>`
+  de `index.html` justo después de `js/app-state.js` (de quien
+  depende) y antes de todo lo demás.
+- **`css/base.css`** — estilo de `#lang-switcher`, mismo lenguaje
+  visual que `#btn-zonas`/`#btn-admin` (píldora blanca flotante con
+  sombra), con una variante angosta para pantallas chicas.
+- **`js/poi-panel.js`** — se sacó el selector ES/EN/PT que vivía
+  DENTRO del panel de cada lugar (los 3 botones en la fila de arriba,
+  al lado del ojito 👁️): se quitaron del template HTML del panel, de
+  `_els` (`langBtns`), del handler de click, y del código que
+  resaltaba el botón activo en `_render()`. El panel de un lugar sigue
+  leyendo `_currentLang` normal (vía `AppState.getContent`) para
+  pintarse en el idioma activo — solo se sacó el control para
+  cambiarlo desde ahí, ahora está únicamente en el header.
+
+**Resultado:** `node --check` sin errores en los 3 archivos JS
+tocados/agregados. Se armó un test de integración con `jsdom`
+(instalado temporalmente, desinstalado después de probar — no quedó
+como dependencia del proyecto) simulando el header real: confirmó que
+arranca en español, que al clickear "EN" cambia
+`AppState.getLanguage()`, resalta el botón correcto, y guarda
+`en` en `localStorage`. No probado en navegador real contra Firestore
+en esta sesión — a validar por Cris: abrir la página, cambiar a EN
+desde el header ANTES de abrir ningún pin, después abrir un pin y
+confirmar que ya se ve en inglés (si tiene `content.en.fields`
+cargado), cerrar y recargar la página entera, y confirmar que sigue
+en inglés (persistencia por `localStorage`).
+
+**Desvíos del plan original:** ninguno respecto a lo pedido. La
+`infraestructura` (`setLanguage`/`getLanguage`/evento) ya estaba
+hecha de antes de este plan — la Etapa 7 fue pura UI/persistencia,
+no hizo falta tocar la lógica de idioma de `js/app-state.js`.
+
+**Archivos tocados:** `index.html`, `css/base.css`, `js/poi-panel.js`.
+**Archivo nuevo:** `js/lang-switcher.js`.
+
+**Qué falta / próximo paso exacto:** Etapa 8 — Prueba real end-to-end:
+cargar 3-5 lugares reales (no de prueba) con contenido en los 3
+idiomas usando el importador de texto masivo (Etapas 5/6), y
+confirmar en el navegador real que todo el circuito funciona junto:
+importar → ver en el panel en cada idioma vía el selector del header
+→ editar un campo a mano desde el admin → reimportar el mismo lugar
+sin perder lo que no se tocó. Es una etapa de verificación con Cris en
+su entorno real, no de código nuevo — salvo que la prueba encuentre
+algo para corregir.
 

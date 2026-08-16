@@ -919,6 +919,14 @@ map.getContainer().addEventListener('touchend', function(e) {
    Si un lugar del texto ya existe (mismo id/slug), se ACTUALIZA en
    vez de duplicarse. Un error en un bloque puntual no frena a los
    demás — se reporta al final cuáles fallaron y por qué.
+
+   [Etapa 6, 2026-08-15] Flujo en 2 pasos, nada se escribe en
+   Firestore hasta confirmar: "🔍 Revisar antes de importar"
+   (`previewBulkFullImport`) solo parsea y muestra un reporte —
+   cuántos son nuevos, cuántos actualizan uno existente, y sobre todo
+   qué datos cargados a mano (categoría, banner, descripción/historia
+   del campo viejo, etc.) se van a perder en cada actualización. Recién
+   "✅ Confirmar e importar" (`confirmBulkFullImport`) graba de verdad.
    ═══════════════════════════════════════════════════════════ */
 
 /**
@@ -1090,7 +1098,7 @@ function parsePinBulkText(text) {
         pinScale: 100, pinOffsetX: 0, pinOffsetY: 0,
         desc: '', hist: '',
         // [Etapa 5] `_bulkFields`/`_bulkProvidedLangs` son temporales
-        // — no se guardan en Firestore tal cual, `importFullPinsFromText`
+        // — no se guardan en Firestore tal cual, `confirmBulkFullImport`
         // los convierte a `content[idioma].fields[]` (fusionando con
         // lo ya existente en un update) y los borra antes de guardar.
         _bulkFields: data.fields,
@@ -1107,8 +1115,76 @@ function parsePinBulkText(text) {
   return { pins, errors };
 }
 
-async function importFullPinsFromText() {
+// [Etapa 6] Guarda el resultado del parseo entre "Revisar" y
+// "Confirmar" — nada se escribe en Firestore hasta que el admin
+// aprieta el botón de confirmar viendo el reporte.
+let _pendingBulkFullImport = null;
+
+/**
+ * Compara cada pin recién parseado contra lo que YA existe en
+ * Firestore (si existe) y arma el HTML del reporte de previsualización:
+ * cuántos son nuevos, cuántos van a actualizar un pin existente, qué
+ * idiomas de `campos` se tocan en cada uno, y — el punto central de
+ * la Etapa 6 — qué datos ya cargados a mano en el admin (categoría,
+ * imagen banner, descripción/historia del campo viejo, teléfono,
+ * horario del campo viejo, si estaba publicado, posición/tamaño del
+ * pin en el mapa) se van a PERDER si se confirma, porque este
+ * importador reemplaza el pin entero al actualizar (ver aviso de la
+ * Etapa 5 en PLAN_IMPORTACION_MASIVA.md).
+ */
+function _buildBulkImportPreviewHtml(pins, errors) {
+  let newCount = 0, updateCount = 0, warnCount = 0;
+  const rows = pins.map((p) => {
+    const existing = POIS.find(x => x.id === p.id);
+    const langsProvided = p._bulkProvidedLangs || [];
+    const langsLabel = PIN_FIELD_LANGS
+      .map(l => langsProvided.includes(l) ? PIN_FIELD_LANG_LABELS[l] : null)
+      .filter(Boolean).join('/') || '(sin campos de texto en este bloque)';
+    const imgCount = Object.keys(p.skins || {}).length;
+
+    if (!existing) {
+      newCount++;
+      return `<div style="margin-bottom:6px">🆕 <strong>${p.name}</strong> — pin nuevo. Campos cargados: ${langsLabel}. Imágenes vinculadas: ${imgCount}.</div>`;
+    }
+
+    updateCount++;
+    const losses = [];
+    if (existing.category || (existing.categories && existing.categories.length)) losses.push('categoría');
+    if (existing.banner && existing.banner.url) losses.push('imagen banner');
+    if (existing.desc && existing.desc.trim()) losses.push('descripción (el campo viejo del editor, no "campos_es")');
+    if (existing.hist && existing.hist.trim() && existing.hist !== 'Sin datos históricos.') losses.push('historia');
+    if (existing.phone) losses.push('teléfono');
+    if (existing.hours) losses.push('horario (el campo viejo del editor)');
+    if (existing.active === true) losses.push('estado publicado (queda oculto/inactivo)');
+    if (existing.pinScale && existing.pinScale !== 100) losses.push('tamaño del pin ajustado en el mapa');
+    if ((existing.pinOffsetX && existing.pinOffsetX !== 0) || (existing.pinOffsetY && existing.pinOffsetY !== 0)) losses.push('posición del pin ajustada en el mapa');
+
+    let warnHtml = '';
+    if (losses.length) {
+      warnCount++;
+      warnHtml = `<div style="color:var(--danger,#e11d48);margin-top:2px">⚠️ ya existe y tiene <strong>${losses.join(', ')}</strong> cargado(s) a mano — se va(n) a perder si confirmás, porque este importador reemplaza el pin entero.</div>`;
+    }
+    return `<div style="margin-bottom:6px">✏️ <strong>${p.name}</strong> — ya existe, se actualiza. Campos que se tocan: ${langsLabel}. Imágenes en este bloque: ${imgCount}.${warnHtml}</div>`;
+  }).join('');
+
+  let html = `<div style="margin-bottom:8px"><strong>${newCount} pin(es) nuevo(s), ${updateCount} a actualizar${warnCount ? `, ${warnCount} con datos en riesgo de perderse` : ''}.</strong></div>`;
+  html += rows;
+  if (errors.length) {
+    html += `<div style="margin-top:8px;color:var(--danger,#e11d48)"><strong>${errors.length} error(es) — esos bloques NO se van a importar aunque confirmes:</strong><br>` + errors.map(e => `• ${e}`).join('<br>') + `</div>`;
+  }
+  return html;
+}
+
+/**
+ * Paso 1 (botón "🔍 Revisar antes de importar"): parsea el texto y
+ * muestra el reporte de previsualización, SIN tocar Firestore
+ * todavía. Guarda lo parseado en `_pendingBulkFullImport` a la espera
+ * de que el admin confirme o cancele.
+ */
+function previewBulkFullImport() {
   const textarea = document.getElementById('bulk-full-text');
+  const previewBox = document.getElementById('bulk-import-preview');
+  const confirmRow = document.getElementById('bulk-import-confirm-row');
   const report = document.getElementById('bulk-import-report');
   if (!textarea) return;
 
@@ -1118,13 +1194,34 @@ async function importFullPinsFromText() {
   }
 
   const { pins, errors } = parsePinBulkText(textarea.value || '');
-
   if (!pins.length && !errors.length) {
     toast('⚠️ Pegá al menos un lugar con el formato "### PIN"');
     return;
   }
 
-  const btn = document.getElementById('btn-bulk-full-import');
+  _pendingBulkFullImport = { pins, errors };
+  if (report) report.innerHTML = '';
+  if (previewBox) { previewBox.style.display = 'block'; previewBox.innerHTML = _buildBulkImportPreviewHtml(pins, errors); }
+  if (confirmRow) confirmRow.style.display = 'flex';
+}
+
+/**
+ * Paso 2 (botón "✅ Confirmar e importar"): recién acá se escribe en
+ * Firestore, usando lo que quedó guardado en `_pendingBulkFullImport`.
+ * Si el admin edita el textarea después de pedir la vista previa, el
+ * listener de `input` invalida este pendiente automáticamente (ver
+ * `wireBulkFullImportBtn`), así que lo que se confirma acá siempre es
+ * justo lo que se mostró en el reporte.
+ */
+async function confirmBulkFullImport() {
+  if (!_pendingBulkFullImport) return;
+  const { pins, errors } = _pendingBulkFullImport;
+  const textarea = document.getElementById('bulk-full-text');
+  const report = document.getElementById('bulk-import-report');
+  const previewBox = document.getElementById('bulk-import-preview');
+  const confirmRow = document.getElementById('bulk-import-confirm-row');
+
+  const btn = document.getElementById('btn-bulk-full-import-confirm');
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Importando...'; }
 
   let created = 0, updated = 0;
@@ -1134,7 +1231,7 @@ async function importFullPinsFromText() {
     // [Etapa 5] Convertir los campos crudos del parser a
     // `content[idioma].fields[]` recién acá, porque acá es donde se
     // sabe si el pin ya existía. Un idioma que NO apareció en el
-    // bloque de texto (ej. el admin solo puso "campos:"/ES) no se
+    // bloque de texto (ej. el admin solo puso "campos_es:") no se
     // toca — se preserva lo que ese idioma ya tuviera cargado en
     // Firestore, en vez de pisarlo con una lista vacía.
     const existingContent = existingIdx !== -1 ? POIS[existingIdx].content : null;
@@ -1163,7 +1260,7 @@ async function importFullPinsFromText() {
     else { POIS[existingIdx] = { ...POIS[existingIdx], ...p }; updated++; }
   }
 
-  if (btn) { btn.disabled = false; btn.textContent = '📥 Importar lugares completos'; }
+  if (btn) { btn.disabled = false; btn.textContent = '✅ Confirmar e importar'; }
   // [CORREGIDO 2026-08-13] Una sola regeneración de caché al final,
   // con POIS ya con todos los creados/actualizados de este lote.
   if (created > 0 || updated > 0) { syncAppStateWithPOIS(); await regeneratePublicCache(); } // [NUEVO 2026-08-13] ver nota en firestore-sync.js
@@ -1175,11 +1272,36 @@ async function importFullPinsFromText() {
       (errors.length ? `<br>⚠️ ${errors.length} aviso(s):<br>` + errors.map(e => `• ${e}`).join('<br>') : '');
   }
   toast(`✅ Importación terminada: ${created} creado(s), ${updated} actualizado(s)`);
+
+  _pendingBulkFullImport = null;
+  if (previewBox) { previewBox.style.display = 'none'; previewBox.innerHTML = ''; }
+  if (confirmRow) confirmRow.style.display = 'none';
+}
+
+/** Botón "✖ Cancelar": descarta el parseo pendiente sin tocar
+ * Firestore ni borrar lo que el admin tenía tipeado en el textarea. */
+function cancelBulkFullImport() {
+  _pendingBulkFullImport = null;
+  const previewBox = document.getElementById('bulk-import-preview');
+  const confirmRow = document.getElementById('bulk-import-confirm-row');
+  if (previewBox) { previewBox.style.display = 'none'; previewBox.innerHTML = ''; }
+  if (confirmRow) confirmRow.style.display = 'none';
 }
 
 (function wireBulkFullImportBtn() {
   const btn = document.getElementById('btn-bulk-full-import');
-  if (btn) btn.addEventListener('click', importFullPinsFromText);
+  if (btn) btn.addEventListener('click', previewBulkFullImport);
+  const confirmBtn = document.getElementById('btn-bulk-full-import-confirm');
+  if (confirmBtn) confirmBtn.addEventListener('click', confirmBulkFullImport);
+  const cancelBtn = document.getElementById('btn-bulk-full-import-cancel');
+  if (cancelBtn) cancelBtn.addEventListener('click', cancelBulkFullImport);
+  // [Etapa 6] Si el admin sigue editando el texto DESPUÉS de pedir la
+  // vista previa, esa vista previa queda vieja — se descarta para que
+  // no pueda confirmar algo distinto de lo que ve tipeado ahora.
+  const textarea = document.getElementById('bulk-full-text');
+  if (textarea) textarea.addEventListener('input', () => {
+    if (_pendingBulkFullImport) cancelBulkFullImport();
+  });
 })();
 
 

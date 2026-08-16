@@ -196,15 +196,10 @@ const PoiPanel = (function () {
       <div class="poi-panel__handle-zone" data-role="handle-zone">
         <div class="poi-panel__handle"></div>
       </div>
-      <div data-role="lang-row" style="display:flex;justify-content:space-between;align-items:center;gap:4px;padding:0 1.5rem 0.25rem;">
+      <div data-role="lang-row" style="display:flex;justify-content:flex-end;align-items:center;gap:4px;padding:0 1.5rem 0.25rem;">
         <button type="button" data-role="eye-btn" title="Ver otra imagen de este lugar" style="border:none;background:transparent;padding:2px 4px;border-radius:6px;cursor:pointer;font-size:1rem;line-height:1;display:flex;align-items:center;gap:4px;color:#94a3b8;">
           <span data-role="eye-icon">👁️</span><span data-role="eye-count" style="font-size:0.75rem;font-weight:700;"></span>
         </button>
-        <div style="display:flex;gap:4px;">
-          <button type="button" data-role="lang-btn" data-lang="es" style="border:none;background:transparent;font-size:0.75rem;font-weight:700;letter-spacing:0.04em;padding:2px 6px;border-radius:6px;cursor:pointer;color:#94a3b8;">ES</button>
-          <button type="button" data-role="lang-btn" data-lang="en" style="border:none;background:transparent;font-size:0.75rem;font-weight:700;letter-spacing:0.04em;padding:2px 6px;border-radius:6px;cursor:pointer;color:#94a3b8;">EN</button>
-          <button type="button" data-role="lang-btn" data-lang="pt" style="border:none;background:transparent;font-size:0.75rem;font-weight:700;letter-spacing:0.04em;padding:2px 6px;border-radius:6px;cursor:pointer;color:#94a3b8;">PT</button>
-        </div>
       </div>
       <div class="poi-panel__header" data-role="header">
         <p class="poi-panel__category" data-role="category"></p>
@@ -238,7 +233,6 @@ const PoiPanel = (function () {
     _els = {
       panel,
       handleZone: panel.querySelector('[data-role="handle-zone"]'),
-      langBtns: Array.from(panel.querySelectorAll('[data-role="lang-btn"]')),
       eyeBtn: panel.querySelector('[data-role="eye-btn"]'),
       eyeIcon: panel.querySelector('[data-role="eye-icon"]'),
       eyeCount: panel.querySelector('[data-role="eye-count"]'),
@@ -283,12 +277,10 @@ const PoiPanel = (function () {
 
     const rawContent = AppState.getContent(_currentPoiId, _currentLang);
 
-    // --- Selector de idioma: resalta el botón activo ---
-    els.langBtns.forEach((btn) => {
-      const isActive = btn.dataset.lang === _currentLang;
-      btn.style.color = isActive ? '#0d9488' : '#94a3b8';
-      btn.style.background = isActive ? 'rgba(13,148,136,0.08)' : 'transparent';
-    });
+    // [Etapa 7] El selector ES/EN/PT ya no vive acá — pasó al header
+    // global (js/lang-switcher.js). Este panel solo LEE `_currentLang`
+    // (vía AppState.getContent más arriba) para pintarse en el idioma
+    // activo; el resaltado del botón lo maneja el switcher del header.
 
     // --- Ojito: visibilidad pública del contador de clicks ---
     _renderEyeBadge(poi);
@@ -646,13 +638,9 @@ const PoiPanel = (function () {
       }
     });
 
-    els.langBtns.forEach((btn) => {
-      btn.addEventListener('click', () => {
-        AppState.setLanguage(btn.dataset.lang);
-        // El re-render llega solo vía AppState.EVENTS.LANGUAGE_CHANGED
-        // (ver _bindAppStateEvents), así que acá no hace falta nada más.
-      });
-    });
+    // [Etapa 7] El click de ES/EN/PT se maneja ahora en el header
+    // global (js/lang-switcher.js), no acá — se sacó el bloque que
+    // llamaba a AppState.setLanguage() por cada langBtn de este panel.
 
     els.eyeBtn.addEventListener('click', () => {
       // [REESCRITO 2026-08-15] Público: pasa a la siguiente imagen

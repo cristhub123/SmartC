@@ -260,6 +260,45 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
 #btn-admin:active { transform: scale(.95); }
 #btn-admin.active { background: var(--accent); color: white; }
 
+/* [Etapa 7, 2026-08-16] Selector de idioma global — vive en el header
+   público, no dentro del panel de un lugar puntual, para que el
+   visitante elija idioma aunque todavía no haya abierto ningún pin.
+   Mismo lenguaje visual que #btn-zonas/#btn-admin (píldora blanca
+   flotante). El estado activo (qué botón queda resaltado) lo pinta
+   js/lang-switcher.js, no CSS — así se sincroniza solo con
+   AppState.getLanguage() sin depender de una clase puesta a mano. */
+#lang-switcher {
+  height: 44px;
+  display: flex;
+  align-items: center;
+  background: rgba(255,255,255,0.95);
+  border-radius: 14px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.14);
+  padding: 0 4px;
+  gap: 2px;
+  flex-shrink: 0;
+}
+#lang-switcher button {
+  border: none;
+  background: transparent;
+  color: var(--text3);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  padding: 6px 8px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all .2s;
+  -webkit-tap-highlight-color: transparent;
+}
+#lang-switcher button:hover { background: rgba(58,140,79,.12); color: var(--text); }
+#lang-switcher button.active { background: var(--accent); color: white; }
+@media (max-width: 420px) {
+  /* En pantallas angostas el buscador ya ocupa casi todo — el
+     selector de idioma se recorta a solo la sigla, sin padding extra. */
+  #lang-switcher button { padding: 6px 6px; font-size: 11px; }
+}
+
 /* hide old logo */
 .logo { display: none !important; }
 
