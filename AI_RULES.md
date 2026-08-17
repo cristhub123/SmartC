@@ -69,7 +69,7 @@ se dibujaran. **No reactivar sin entender esa nota primero.**
 | Archivo | Rol |
 |---|---|
 | `firebase-init.js` | Config de Firebase + instancia `db` |
-| `firestore-sync.js` | Todas las lecturas/escrituras a Firestore (POIs, zonas, tipografía, ubicaciones, presets) |
+| `firestore-sync.js` | Todas las lecturas/escrituras a Firestore (POIs, zonas, tipografía, ubicaciones, presets); incluye guardados parciales con `merge:true` — `saveSkinsToFirestore` (solo `skins`) y `saveFieldsPartialToFirestore` (solo `content.<idioma>.fields`, Etapa 9) |
 | `app-state.js` | Módulo `AppState` — **fuente de verdad en memoria** de POIs/zonas/roadmap/skins, con sistema de eventos (`on`) |
 | `config.js` | Constantes (`LUCIDE`, `CAT`) + variables globales legacy: `POIS`, `markers`, `activeFilter`, `expandedId`, `currentPoi`, `pickCtx`, `editingId`, `pendingDelId`, emojis |
 | `map.js` | Instancia `map` de Leaflet |

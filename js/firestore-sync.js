@@ -194,6 +194,43 @@ async function saveSkinsToFirestore(id, skinsPartial, mainUrl) {
   }
 }
 
+/* === GUARDADO PARCIAL — SOLO LOS CAMPOS DE TEXTO DE UN IDIOMA
+   (no toca el resto del pin) ===
+   [NUEVO Etapa 9, 2026-08-16] Hermana de `saveSkinsToFirestore` de
+   arriba, mismo patrón: en vez de reemplazar el documento entero
+   (`merge:false`, lo que hace `savePoiToFirestore`), usa `merge:true`
+   y manda ÚNICAMENTE la ruta `content.<idioma>.fields`, con notación
+   de punto anidada. Firestore solo toca esa ruta puntual — el resto
+   de `content` (otros idiomas, `name`/`gancho`/`description` de ese
+   mismo idioma si los hubiera) y el resto del documento (`skins`,
+   `banner`, `lat`, `lng`, `tags`, `category`, etc.) quedan exactamente
+   como estaban. La usa `importTextoFieldsFromText` en pin-adjust.js
+   (importador `### TEXTO`, para actualizar solo título y/o texto de
+   un campo puntual sin arriesgar el resto del pin).
+   @param {string} id - id/slug del pin
+   @param {string} idioma - 'es' | 'en' | 'pt'
+   @param {Array<{id:string, title:string, text:string}>} fields - array
+     COMPLETO de fields de ESE idioma (ya mergeado en memoria antes de
+     llamar a esta función — Firestore no puede parchear un elemento
+     puntual dentro de un array, solo reemplazar el array completo en
+     esa ruta) */
+async function saveFieldsPartialToFirestore(id, idioma, fields) {
+  try {
+    await db.collection('pines').doc(id).set(
+      { content: { [idioma]: { fields } } },
+      { merge: true }
+    );
+    // Ídem saveSkinsToFirestore — no regenera el caché público acá.
+    // El que llama (importTextoFieldsFromText) lo hace una sola vez al
+    // final, con POIS ya actualizado del todo.
+    return true;
+  } catch (err) {
+    console.error('Error guardando campos de texto en Firestore:', err);
+    toast('⚠️ No se pudieron guardar los campos de texto. Probá de nuevo (¿iniciaste sesión?).');
+    return false;
+  }
+}
+
 /* === BORRAR UN LUGAR DE FIRESTORE === */
 async function deletePoiFromFirestore(id) {
   try {

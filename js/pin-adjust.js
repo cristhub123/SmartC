@@ -636,19 +636,31 @@ const _pinFieldsState = {
  * Lee del DOM las filas título/texto tal como están ahora en pantalla
  * (solo el idioma actualmente visible — incluye filas vacías, el
  * filtrado se hace al guardar en Firestore).
+ * [Etapa 9, 2026-08-16] El input de `id` no se muestra en pantalla
+ * (es un dato interno, no algo que Cris tenga que tipear) — por eso
+ * acá se recupera por posición desde el estado en memoria
+ * (`_pinFieldsState`), que sí lo conserva desde que se cargó el pin
+ * o desde que `_ensureFieldIds` se lo asignó en un guardado anterior.
+ * El orden de las filas en el DOM siempre coincide con el del array
+ * de estado (agregar hace `push`, quitar hace `splice` en ambos a la
+ * vez), así que leer por índice es seguro.
  * @param {string} wrapId - 'a-attrs-wrap' o 'e-attrs-wrap'
- * @returns {Array<{title:string, text:string}>}
+ * @returns {Array<{id?:string, title:string, text:string}>}
  */
 function _readVisiblePinFieldRows(wrapId) {
   const p = wrapId === 'a-attrs-wrap' ? 'a' : 'e';
   const titlePrefix = `${p}-fl-`;
   const textPrefix = `${p}-fv-`;
+  const st = _pinFieldsState[wrapId];
+  const prevRows = (st && st.data && st.data[st.lang]) || [];
   const count = document.querySelectorAll(`[id^="${titlePrefix}"]`).length;
   const rows = [];
   for (let i = 0; i < count; i++) {
     const title = document.getElementById(`${titlePrefix}${i}`)?.value ?? '';
     const text = document.getElementById(`${textPrefix}${i}`)?.value ?? '';
-    rows.push({ title, text });
+    const row = { title, text };
+    if (prevRows[i] && prevRows[i].id) row.id = prevRows[i].id;
+    rows.push(row);
   }
   return rows;
 }
@@ -776,10 +788,53 @@ function _renderPinFieldsEditor(wrapId, content) {
 }
 
 /**
+ * [Etapa 9, 2026-08-16] Calcula el próximo id disponible para un
+ * campo nuevo dentro de UN array de fields de UN idioma de UN pin
+ * (`campo-01`, `campo-02`... dos dígitos). Mira los ids YA asignados
+ * en ese array (pueden tener huecos si se borró alguno en el medio)
+ * y devuelve el siguiente al más alto. Si no hay ninguno con id
+ * todavía, arranca en `campo-01`.
+ * @param {Array<{id?:string}>} existingFields
+ * @returns {string}
+ */
+function _nextFieldId(existingFields) {
+  let max = 0;
+  (existingFields || []).forEach((f) => {
+    const m = f && typeof f.id === 'string' && f.id.match(/^campo-(\d+)$/);
+    if (m) max = Math.max(max, parseInt(m[1], 10));
+  });
+  return `campo-${String(max + 1).padStart(2, '0')}`;
+}
+
+/**
+ * [Etapa 9, 2026-08-16] Recorre un array de fields de un idioma y le
+ * asigna `id` a cualquier campo que todavía no lo tenga, respetando
+ * el id de los que ya lo tienen (nunca se reasigna un id existente,
+ * ni se cambia el orden). Es el único lugar del proyecto donde se
+ * generan ids nuevos de campo — lo usan tanto el editor manual del
+ * admin (`_buildContentWithFields`, más abajo) como el importador
+ * `### PIN` (que arma fields sin id todavía en `parsePinBulkText`).
+ * @param {Array<{id?:string, title?:string, text?:string}>} fields
+ * @returns {Array<{id:string, title:string, text:string}>} copia nueva, con id en todos
+ */
+function _ensureFieldIds(fields) {
+  const result = [];
+  (fields || []).forEach((f) => {
+    if (f && f.id) { result.push({ ...f }); return; }
+    result.push({ ...f, id: _nextFieldId(result) });
+  });
+  return result;
+}
+
+/**
  * Arma el objeto `content` completo a mandar a Firestore, preservando
  * `name`/`gancho`/`description`/`custom_fields` que ya existieran por
  * idioma (esos campos son de otras etapas, este editor no los toca) y
  * reemplazando únicamente `fields[]` con lo que se acaba de editar.
+ * [Etapa 9, 2026-08-16] Antes de guardar, cada array de fields pasa
+ * por `_ensureFieldIds` — así todo campo (nuevo o ya existente) queda
+ * con un `id` estable, sin importar si vino del editor manual o del
+ * importador `### PIN`.
  * @param {Object|null|undefined} existingContent - `poi.content` previo (o nada, pin nuevo)
  * @param {{es:Array, en:Array, pt:Array}} fieldsByLang - resultado de `_readPinFieldsFromForm`
  * @returns {Object} `content` listo para guardar
@@ -788,7 +843,7 @@ function _buildContentWithFields(existingContent, fieldsByLang) {
   const existing = existingContent || {};
   const result = {};
   PIN_FIELD_LANGS.forEach((lang) => {
-    result[lang] = { ...(existing[lang] || {}), fields: fieldsByLang[lang] || [] };
+    result[lang] = { ...(existing[lang] || {}), fields: _ensureFieldIds(fieldsByLang[lang] || []) };
   });
   return result;
 }
@@ -1473,6 +1528,283 @@ async function importImageLinksFromText() {
 (function wireBulkImageLinkBtn() {
   const btn = document.getElementById('btn-bulk-img-link');
   if (btn) btn.addEventListener('click', importImageLinksFromText);
+})();
+
+
+/* ═══════════════════════════════════════════════════════════
+   [NUEVO Etapa 9, 2026-08-16] ACTUALIZAR SOLO TEXTO DE CAMPOS
+   PUNTUALES (sin pisar nombre/coordenadas/imágenes/otros campos)
+   ---------------------------------------------------------------
+   Mismo espíritu que "### IMG" arriba: el lugar tiene que existir
+   ya, y esto NO crea ni reemplaza el pin — solo toca, DENTRO de un
+   idioma puntual de un pin puntual, el título y/o el texto de campos
+   puntuales identificados por su `id` estable (`campo-01`, `campo-02`,
+   etc. — ver `_nextFieldId`/`_ensureFieldIds` más arriba). Cualquier
+   otro campo de ese mismo idioma que no se mencione queda intacto,
+   en su misma posición. Vía `saveFieldsPartialToFirestore`
+   (merge:true sobre `content.<idioma>.fields`), nada fuera de esa
+   ruta puntual se toca — ni `skins`, ni `banner`, ni coordenadas, ni
+   tags, ni categoría, ni los otros 2 idiomas.
+
+   Formato (bloques separados por "### TEXTO", siempre UN pin y UN
+   idioma por bloque — para actualizar varios idiomas de un mismo pin,
+   son varios bloques seguidos; se pueden mezclar bloques de pines
+   distintos uno atrás del otro en el mismo textarea):
+
+     ### TEXTO
+     id: alto-paz-tower-cba
+     idioma: es
+     campo-02:
+       titulo: Arquitectura renovada de Morini Arquitectos
+       texto: Su moderno diseño fue recientemente premiado por...
+     campo-05:
+       texto: Solo cambio el texto de este campo, el título queda igual.
+
+   Si ponés los dos (`titulo:`/`texto:`) se actualizan ambos; si
+   ponés solo uno, el otro queda exactamente como estaba. Si el
+   `campo-NN` todavía no existe en ese idioma, se crea nuevo con ese
+   id — para eso hacen falta `titulo:` Y `texto:` los dos (no tiene
+   sentido crear un campo con solo la mitad); si falta alguno, se
+   reporta el aviso y se saltea ese campo puntual (el resto del
+   bloque sigue procesándose normalmente).
+   ═══════════════════════════════════════════════════════════ */
+
+/**
+ * Parsea el texto de actualización de campos en bloques "### TEXTO".
+ * No lanza excepción por un bloque puntual mal formado — lo reporta
+ * en `errors` y sigue con los demás.
+ * @param {string} text
+ * @returns {{items: Array<{pinId:string, idioma:string, campos:Array<{campoId:string, hasTitulo:boolean, titulo:string, hasTexto:boolean, texto:string}>}>, errors: Array<string>}}
+ */
+function parseTextoBulkText(text) {
+  const blocks = text.split(/^###\s*TEXTO\s*$/mi).map(b => b.trim()).filter(Boolean);
+  const items = [];
+  const errors = [];
+
+  blocks.forEach((block, blockIndex) => {
+    try {
+      const lines = block.split('\n');
+      let pinId = null;
+      let idioma = null;
+      const campos = [];
+      let currentCampo = null;
+
+      for (const rawLine of lines) {
+        const line = rawLine.replace(/\r$/, '');
+        if (!line.trim()) continue;
+        const isIndented = /^\s{2,}/.test(line);
+
+        if (!isIndented) {
+          const m = line.match(/^([a-zA-Z0-9áéíóúñ_-]+)\s*:\s*(.*)$/i);
+          if (!m) continue;
+          const key = m[1].trim().toLowerCase();
+          const value = m[2].trim();
+
+          const campoMatch = key.match(/^campo-(\d+)$/);
+          if (campoMatch) {
+            currentCampo = {
+              campoId: `campo-${campoMatch[1].padStart(2, '0')}`,
+              hasTitulo: false, titulo: '',
+              hasTexto: false, texto: '',
+            };
+            campos.push(currentCampo);
+            continue;
+          }
+          currentCampo = null;
+
+          if (key === 'id') pinId = value;
+          else if (key === 'idioma') idioma = value.toLowerCase();
+          continue;
+        }
+
+        // Línea indentada: título/texto del campo activo.
+        if (currentCampo) {
+          const m = line.trim().match(/^(titulo|título|texto)\s*:\s*(.*)$/i);
+          if (!m) continue;
+          const k = m[1].toLowerCase();
+          if (k === 'titulo' || k === 'título') { currentCampo.titulo = m[2]; currentCampo.hasTitulo = true; }
+          else { currentCampo.texto = m[2]; currentCampo.hasTexto = true; }
+        }
+      }
+
+      if (!pinId) { errors.push(`Bloque #${blockIndex + 1}: falta "id:" — se saltea.`); return; }
+      if (!idioma || !PIN_FIELD_LANGS.includes(idioma)) {
+        errors.push(`Bloque #${blockIndex + 1} ("${pinId}"): falta "idioma:" válido (es/en/pt) — se saltea.`);
+        return;
+      }
+      if (!campos.length) { errors.push(`"${pinId}"/${idioma}: no tiene ningún "campo-NN:" — se saltea.`); return; }
+
+      const existing = POIS.find(x => x.id === pinId);
+      if (!existing) {
+        errors.push(`"${pinId}": no existe ningún lugar con ese ID todavía — creálo primero (o revisá que esté bien escrito).`);
+        return;
+      }
+
+      items.push({ pinId, idioma, campos });
+    } catch (err) {
+      errors.push(`Bloque #${blockIndex + 1}: error inesperado (${err.message}) — se saltea.`);
+    }
+  });
+
+  return { items, errors };
+}
+
+/**
+ * Guarda las actualizaciones parseadas: para cada combinación
+ * pin+idioma que aparece en el texto, arma el array de fields final
+ * en memoria (actualizando/creando solo los `campo-NN` mencionados,
+ * dejando el resto intacto) y lo manda con `saveFieldsPartialToFirestore`
+ * (una sola escritura por pin+idioma, aunque haya varios bloques del
+ * mismo pin+idioma en el mismo texto). Actualiza POIS en memoria +
+ * AppState (para refrescar el panel si está abierto) + re-renderiza.
+ */
+async function importTextoFieldsFromText() {
+  const textarea = document.getElementById('bulk-texto-text');
+  const report = document.getElementById('bulk-texto-report');
+  if (!textarea) return;
+
+  const { items, errors } = parseTextoBulkText(textarea.value || '');
+
+  if (!items.length && !errors.length) {
+    toast('⚠️ Pegá al menos un bloque con el formato "### TEXTO"');
+    return;
+  }
+
+  const btn = document.getElementById('btn-bulk-texto');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Actualizando...'; }
+
+  // Un array de fields "en construcción" por cada combinación
+  // pin+idioma que aparece en el texto — así, si el mismo pin+idioma
+  // aparece en más de un bloque, se acumulan los cambios y se escribe
+  // en Firestore una sola vez al final, no una vez por bloque.
+  const pending = new Map(); // key `${pinId}::${idioma}` -> Array<field>
+  const touchedKeys = [];
+
+  for (const item of items) {
+    const key = `${item.pinId}::${item.idioma}`;
+    if (!pending.has(key)) {
+      const idx = POIS.findIndex(x => x.id === item.pinId);
+      const existingFields = (idx !== -1 && POIS[idx].content && POIS[idx].content[item.idioma] && Array.isArray(POIS[idx].content[item.idioma].fields))
+        ? POIS[idx].content[item.idioma].fields.map(f => ({ ...f }))
+        : [];
+      pending.set(key, existingFields);
+      touchedKeys.push(key);
+    }
+    const fields = pending.get(key);
+
+    for (const campo of item.campos) {
+      const fIdx = fields.findIndex(f => f.id === campo.campoId);
+      if (fIdx !== -1) {
+        if (campo.hasTitulo) fields[fIdx].title = campo.titulo;
+        if (campo.hasTexto) fields[fIdx].text = campo.texto;
+      } else if (campo.hasTitulo && campo.hasTexto) {
+        fields.push({ id: campo.campoId, title: campo.titulo, text: campo.texto });
+      } else {
+        errors.push(`"${item.pinId}"/${item.idioma}: "${campo.campoId}" no existe todavía y falta ${campo.hasTitulo ? 'el texto' : 'el título'} para crearlo — se saltea.`);
+      }
+    }
+  }
+
+  let updated = 0;
+  for (const key of touchedKeys) {
+    const [pinId, idioma] = key.split('::');
+    const fields = pending.get(key);
+    const ok = await saveFieldsPartialToFirestore(pinId, idioma, fields);
+    if (!ok) { errors.push(`"${pinId}"/${idioma}: no se pudo guardar en Firestore.`); continue; }
+
+    const idx = POIS.findIndex(x => x.id === pinId);
+    let mergedContent = { [idioma]: { fields } };
+    if (idx !== -1) {
+      const existingContent = POIS[idx].content || {};
+      mergedContent = { ...existingContent, [idioma]: { ...(existingContent[idioma] || {}), fields } };
+      POIS[idx].content = mergedContent;
+    }
+    // Igual que en `importImageLinksFromText`: avisarle a AppState del
+    // cambio para que, si el panel de este lugar está abierto en ese
+    // momento, se refresque solo (evento POI_UPDATED). El documento ya
+    // quedó guardado arriba con `saveFieldsPartialToFirestore`
+    // (merge:true, solo esa ruta) — este `updatePoi` es nada más para
+    // la UI en vivo.
+    if (typeof AppState !== 'undefined' && typeof AppState.updatePoi === 'function') {
+      AppState.updatePoi({ id: pinId, content: mergedContent });
+    }
+    updated++;
+  }
+
+  if (btn) { btn.disabled = false; btn.textContent = '🔤 Actualizar solo texto'; }
+  if (updated > 0) { syncAppStateWithPOIS(); await regeneratePublicCache(); }
+  textarea.value = '';
+  renderList();
+
+  if (report) {
+    report.innerHTML = `✅ ${updated} combinación(es) pin/idioma actualizada(s).` +
+      (errors.length ? `<br>⚠️ ${errors.length} aviso(s):<br>` + errors.map(e => `• ${e}`).join('<br>') : '');
+  }
+  toast(`✅ Actualización de texto terminada: ${updated} actualizada(s)`);
+}
+
+(function wireBulkTextoBtn() {
+  const btn = document.getElementById('btn-bulk-texto');
+  if (btn) btn.addEventListener('click', importTextoFieldsFromText);
+})();
+
+
+/* ═══════════════════════════════════════════════════════════
+   [NUEVO Etapa 9, 2026-08-16] MIGRACIÓN — asignar `id` a campos que
+   ya existían antes de esta etapa (creados por el editor manual o
+   por "### PIN" en sesiones/versiones previas, cuando `fields[]`
+   todavía no tenía `id`). Es un botón de un solo uso (se puede
+   apretar más de una vez sin problema, es idempotente — pines/idiomas
+   ya migrados se saltean sin escribir nada), pensado para correr una
+   vez antes de empezar a usar "### TEXTO" sobre pines viejos.
+
+   Recorre POIS en memoria; para cada pin y cada idioma cuyo `fields[]`
+   tenga algún elemento sin `id`, le asigna `campo-01`, `campo-02`...
+   en el ORDEN en que ya estaban guardados (no reordena ni toca
+   título/texto), vía `_ensureFieldIds` (la misma función que usa el
+   editor manual y "### PIN"), y guarda SOLO esa ruta con
+   `saveFieldsPartialToFirestore` — no toca nombre, coordenadas,
+   imágenes ni ningún otro campo del pin.
+   ═══════════════════════════════════════════════════════════ */
+async function migrateFieldIds() {
+  const btn = document.getElementById('btn-migrate-field-ids');
+  const report = document.getElementById('migrate-field-ids-report');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Migrando...'; }
+
+  let migratedCount = 0, skippedCount = 0;
+  const errors = [];
+
+  for (const poi of POIS) {
+    if (!poi.content) continue;
+    for (const lang of PIN_FIELD_LANGS) {
+      const langContent = poi.content[lang];
+      if (!langContent || !Array.isArray(langContent.fields) || !langContent.fields.length) continue;
+      const needsMigration = langContent.fields.some(f => !f || !f.id);
+      if (!needsMigration) { skippedCount++; continue; }
+
+      const migratedFields = _ensureFieldIds(langContent.fields);
+      const ok = await saveFieldsPartialToFirestore(poi.id, lang, migratedFields);
+      if (!ok) { errors.push(`"${poi.id}"/${lang}: no se pudo guardar en Firestore.`); continue; }
+
+      poi.content[lang] = { ...langContent, fields: migratedFields };
+      migratedCount++;
+    }
+  }
+
+  if (btn) { btn.disabled = false; btn.textContent = '🔧 Asignar IDs a campos existentes'; }
+  if (migratedCount > 0) { syncAppStateWithPOIS(); await regeneratePublicCache(); }
+  renderList();
+
+  if (report) {
+    report.innerHTML = `✅ ${migratedCount} combinación(es) pin/idioma migrada(s), ${skippedCount} ya estaban al día.` +
+      (errors.length ? `<br>⚠️ ${errors.length} aviso(s):<br>` + errors.map(e => `• ${e}`).join('<br>') : '');
+  }
+  toast(`✅ Migración de IDs terminada: ${migratedCount} migrada(s)`);
+}
+
+(function wireMigrateFieldIdsBtn() {
+  const btn = document.getElementById('btn-migrate-field-ids');
+  if (btn) btn.addEventListener('click', migrateFieldIds);
 })();
 
 

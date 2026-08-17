@@ -257,6 +257,19 @@ After modifying this file, update /AI_SESSION.md with the change and verificatio
         </div>
       </div>
 
+      <div class="divider" style="margin-top:14px"><span>MIGRACIÓN: IDS DE CAMPOS DE TEXTO (correr una vez)</span></div>
+      <p style="font-size:11px;color:var(--text3);margin-bottom:8px">
+        Antes de usar "Actualizar solo texto" (más abajo) sobre lugares
+        cargados en sesiones anteriores, corré esto una vez: le asigna
+        un identificador propio (<code>campo-01</code>, <code>campo-02</code>...)
+        a cada campo de texto que todavía no lo tenga, sin cambiar su
+        título, texto ni orden. No hace falta repetirlo para lugares
+        nuevos (ya nacen con id) ni corrrerlo dos veces por las dudas —
+        los que ya están migrados se saltean solos.
+      </p>
+      <div id="migrate-field-ids-report" style="font-size:12px;color:var(--text3);margin-bottom:8px"></div>
+      <button class="btn-primary" id="btn-migrate-field-ids" style="width:100%;margin-bottom:14px">🔧 Asignar IDs a campos existentes</button>
+
       <div class="divider" style="margin-top:14px"><span>CREAR LUGARES DESDE LISTA DE PREFIJOS</span></div>
       <p style="font-size:11px;color:var(--text3);margin-bottom:8px">
         Pegá los nombres separados por coma. Se crea un lugar por cada uno,
@@ -313,6 +326,31 @@ imagenes:
   cabildo-cba_night_01.webp"></textarea>
       <div id="bulk-img-link-report" style="font-size:12px;color:var(--text3);margin-bottom:8px"></div>
       <button class="btn-primary" id="btn-bulk-img-link" style="width:100%;margin-bottom:14px">🖼️ Vincular imágenes</button>
+
+      <div class="divider" style="margin-top:14px"><span>ACTUALIZAR SOLO TEXTO DE UN CAMPO PUNTUAL</span></div>
+      <p style="font-size:11px;color:var(--text3);margin-bottom:8px">
+        Para corregir o completar el título y/o el texto de UN campo
+        puntual (o de varios pines a la vez) sin tocar nada más del
+        lugar — ni nombre, ni coordenadas, ni imágenes, ni los demás
+        campos. El lugar tiene que existir ya. Identificá el campo por
+        su <code>campo-NN</code> (si viene de una sesión anterior, corré
+        primero la migración de arriba). Cada bloque separado por
+        <code>### TEXTO</code> es de UN lugar y UN idioma — para
+        actualizar varios idiomas del mismo lugar, poné varios bloques
+        seguidos. Si un <code>campo-NN</code> no existe todavía, se crea
+        (necesita <code>titulo:</code> y <code>texto:</code> los dos); si
+        ya existe, poné solo el que querés cambiar y el otro queda igual.
+      </p>
+      <textarea class="fi" id="bulk-texto-text" rows="8" style="width:100%;resize:vertical;margin-bottom:8px;font-family:var(--font-m);font-size:12px" placeholder="### TEXTO
+id: cabildo-cba
+idioma: es
+campo-02:
+  titulo: Arquitectura renovada
+  texto: Su fachada fue restaurada en 2019...
+campo-05:
+  texto: Solo cambio el texto de este campo, el título queda igual."></textarea>
+      <div id="bulk-texto-report" style="font-size:12px;color:var(--text3);margin-bottom:8px"></div>
+      <button class="btn-primary" id="btn-bulk-texto" style="width:100%;margin-bottom:14px">🔤 Actualizar solo texto</button>
 
       <div class="import-warning" id="import-warning">
         ⚠️ Esto va a <strong>reemplazar</strong> todos los lugares actuales.<br>

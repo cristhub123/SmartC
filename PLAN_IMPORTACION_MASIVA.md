@@ -26,21 +26,27 @@
 
 ## ESTADO ACTUAL
 
-**Última etapa completada:** Etapa 7 — el idioma pasó a ser una
-elección global de toda la app: `#lang-switcher` (3 botones ES/EN/PT)
-en el header público (`index.html`), manejado por `js/lang-switcher.js`
-(archivo nuevo), con persistencia en `localStorage`. Se sacó el
-selector que antes vivía dentro de cada panel individual
-(`js/poi-panel.js`).
+**Última etapa completada:** Etapa 9 — cada campo de `fields[]` tiene
+ahora un `id` estable (`campo-01`, `campo-02`...) dentro de su idioma,
+y hay un tercer importador de texto, `### TEXTO`, para actualizar
+título y/o texto de un campo puntual (de uno o varios pines a la vez)
+sin tocar nada más del pin. Se hizo fuera de orden respecto al plan
+original (la Etapa 8, prueba end-to-end, sigue pendiente — ver abajo)
+porque Cris lo pidió puntualmente como plan aparte y después pidió
+ejecutarlo directo.
 
 **⚠️ Aviso pendiente para Cris, sigue en pie desde la Etapa 5/6 (no
-se tocó en la Etapa 7):** el importador de texto masivo reemplaza el
-documento completo al actualizar un pin existente — categoría, banner,
-descripción/historia vieja, teléfono, horario viejo, estado publicado
-y posición/tamaño del pin en el mapa se pueden perder al reimportar.
-El reporte de "Revisar antes de importar" (Etapa 6) avisa esto en rojo
-antes de confirmar, pero no lo soluciona. Ver el registro de la Etapa
-6 para el detalle completo.
+se tocó en la Etapa 7 ni en la 9):** el importador de texto masivo
+(`### PIN`) reemplaza el documento completo al actualizar un pin
+existente — categoría, banner, descripción/historia vieja, teléfono,
+horario viejo, estado publicado y posición/tamaño del pin en el mapa
+se pueden perder al reimportar. El reporte de "Revisar antes de
+importar" (Etapa 6) avisa esto en rojo antes de confirmar, pero no lo
+soluciona. `### TEXTO` (Etapa 9) es justamente la herramienta a usar
+en su lugar cuando lo único que se quiere tocar es el texto de un
+campo — no reemplaza `### PIN`, es un camino alternativo más seguro
+para ese caso puntual. Ver el registro de la Etapa 6 para el detalle
+completo del aviso original.
 
 **Próxima etapa a hacer:** Etapa 8 — Prueba real end-to-end: cargar
 3-5 lugares reales (no de prueba) con contenido en los 3 idiomas
@@ -48,19 +54,23 @@ usando el importador (Etapas 5/6), y confirmar en el navegador real
 que todo el circuito funciona junto: importar → ver en el panel en
 cada idioma vía el selector del header (Etapa 7) → editar un campo a
 mano desde el admin (Etapa 3) → reimportar el mismo lugar sin perder
-lo que no se tocó. Es una etapa de verificación con Cris en su entorno
-real, no de código nuevo de entrada — salvo que la prueba encuentre
-algo para corregir, en cuyo caso esa corrección se documenta como
-parte de esta misma etapa.
+lo que no se tocó. Con la Etapa 9 ya hecha, conviene sumar a esa
+prueba: correr la migración de IDs una vez, después actualizar el
+texto de un campo puntual con `### TEXTO` y confirmar en el panel que
+el resto de los campos de ese pin no cambió. Es una etapa de
+verificación con Cris en su entorno real, no de código nuevo de
+entrada — salvo que la prueba encuentre algo para corregir, en cuyo
+caso esa corrección se documenta como parte de esta misma etapa.
 
 **No hace falta ningún archivo puntual para arrancar la Etapa 8** — es
-una prueba guiada por Cris en su navegador, con los 3 formularios ya
-construidos (Editar en `js/admin.js`/`pin-adjust.js`, Importar en la
-sección "Importar lugares completos" de `index.html`, y el selector de
-idioma en el header). Si algo falla durante la prueba, ese es el punto
-de partida para la próxima sesión de código.
+una prueba guiada por Cris en su navegador, con los formularios ya
+construidos (Editar en `js/admin.js`/`pin-adjust.js`, los 3 importadores
+de texto en `index.html` — `### PIN`/`### IMG`/`### TEXTO` —, el botón
+de migración de IDs, y el selector de idioma en el header). Si algo
+falla durante la prueba, ese es el punto de partida para la próxima
+sesión de código.
 
-**Ver el registro completo de la Etapa 7 más abajo** para el detalle
+**Ver el registro completo de la Etapa 9 más abajo** para el detalle
 línea por línea de qué se cambió.
 
 ---
@@ -75,6 +85,7 @@ línea por línea de qué se cambió.
 - [x] **Etapa 6** — Validación previa a importar (reporte antes de escribir en Firestore)
 - [x] **Etapa 7** — Selector de idioma global (sacarlo del panel, notificar a toda la app)
 - [ ] **Etapa 8** — Prueba real end-to-end con 3-5 lugares en los 3 idiomas, antes de la carga masiva definitiva
+- [x] **Etapa 9** — IDs estables por campo (`campo-01`, `campo-02`...) + importador `### TEXTO` para actualizar solo título/texto de un campo puntual, sin tocar el resto del pin. Hecha fuera de orden (Etapa 8 sigue pendiente), a pedido explícito de Cris.
 
 Este orden es el recomendado pero no es rígido: si al hacer una etapa
 aparece algo que obliga a reordenar, se documenta en el registro de esa
@@ -99,12 +110,20 @@ poi = {
       gancho: "...",
       description: "...",
       fields: [
-        { title: "...", text: "..." },
-        { title: "...", text: "..." },
+        { id: "campo-01", title: "...", text: "..." },
+        { id: "campo-02", title: "...", text: "..." },
         // cantidad LIBRE — puede haber 0, 1, 5 o 12. Nunca un
         // límite fijo en el código, y NUNCA un título predefinido
         // tipo "Dato curioso"/"Horario" — el título lo escribe
         // quien carga el contenido, campo por campo.
+        // [Etapa 9, 2026-08-16] `id` (`campo-01`, `campo-02`...) es
+        // estable por campo, vive DENTRO de este array (no es único
+        // entre pines ni entre idiomas de un mismo pin) — permite
+        // referenciar "el campo 2 de este idioma" desde el importador
+        // `### TEXTO` sin depender de su posición. Lo asigna
+        // `_ensureFieldIds()` (pin-adjust.js) automáticamente cada vez
+        // que se crea un campo nuevo, desde donde sea (editor manual,
+        // `### PIN`, o la migración de un solo uso).
       ]
     },
     en: { name, gancho, description, fields: [...] },
@@ -585,3 +604,105 @@ sin perder lo que no se tocó. Es una etapa de verificación con Cris en
 su entorno real, no de código nuevo — salvo que la prueba encuentre
 algo para corregir.
 
+---
+
+### Etapa 9 — IDs estables por campo + importador `### TEXTO` (2026-08-16)
+
+**Qué se pidió:** independiente del orden del plan original (la Etapa
+8 — prueba end-to-end — seguía pendiente), Cris pidió en un chat
+aparte poder actualizar el título y/o el texto de UN campo puntual de
+UN pin (o de varios a la vez) pegando un bloque de texto corto, sin
+arriesgar nombre, coordenadas, categoría, tags, imágenes ni los demás
+campos de esos pines. Primero se armó el plan (documento aparte,
+`plan-ids-campos-texto-smartcity.md`, entregado sin tocar código) y
+después, en un mensaje posterior, pidió explícitamente ejecutarlo.
+
+**Diagnóstico confirmado antes de tocar nada:** `content[idioma].fields`
+era (y sigue siendo) un array simple `{title, text}` sin ningún
+identificador propio — se identificaban solo por posición. El
+importador `### PIN` reemplaza el array de fields completo por
+idioma al actualizar (no campo por campo). No había forma de decir
+"cambiame el campo 2, dejá el resto como está".
+
+**Qué se hizo:**
+
+- **`js/pin-adjust.js`:**
+  - `_nextFieldId(existingFields)` — calcula el próximo id libre
+    (`campo-01`, `campo-02`... dos dígitos) mirando los ids ya usados
+    en ESE array (de un idioma de un pin), tolera huecos.
+  - `_ensureFieldIds(fields)` — recorre un array de fields y le asigna
+    `id` a cualquiera que no lo tenga todavía, sin tocar los que ya
+    tienen (ni su id, ni su orden). Es el único lugar que genera ids
+    nuevos.
+  - `_buildContentWithFields()` (la usan `saveNew`, `saveEdit` y
+    `confirmBulkFullImport`) ahora pasa cada array de fields por
+    `_ensureFieldIds()` antes de guardar — así CUALQUIER campo nuevo,
+    venga del editor manual del admin o de `### PIN`, nace con id.
+  - `_readVisiblePinFieldRows()` (editor manual) — el `id` no se
+    muestra en pantalla (no es algo que Cris tenga que tipear), así
+    que se recupera por posición desde `_pinFieldsState` al leer las
+    filas del DOM, para no perderlo al releer título/texto tipeados.
+  - **Nuevo importador `### TEXTO`:** `parseTextoBulkText(text)`
+    parsea bloques `### TEXTO` (un pin + un idioma por bloque, formato
+    `campo-NN:` con `titulo:`/`texto:` indentados debajo, cualquiera de
+    los dos opcional salvo para crear un campo nuevo). No lanza
+    excepción por bloque mal formado, reporta y sigue.
+    `importTextoFieldsFromText()` arma, por cada combinación pin+idioma
+    que aparece en el texto, el array final de fields (actualiza el
+    campo si el id ya existe, lo crea si no y trae título+texto
+    completos, reporta aviso y lo saltea si no) y lo guarda con
+    `saveFieldsPartialToFirestore` — una sola escritura por
+    combinación pin+idioma, aunque el texto tenga varios bloques de la
+    misma. Actualiza `POIS` en memoria y llama a `AppState.updatePoi`
+    (mismo patrón que `importImageLinksFromText` para refrescar el
+    panel en vivo si está abierto en ese momento) antes de regenerar
+    el caché público una sola vez al final.
+  - **Migración de un solo uso:** `migrateFieldIds()` — recorre `POIS`,
+    para cada pin+idioma con algún campo sin `id` le asigna
+    `campo-01`, `campo-02`... en el orden en que ya estaban guardados
+    (vía `_ensureFieldIds`) y guarda solo esa ruta. Idempotente — se
+    puede correr más de una vez sin problema, lo ya migrado se
+    saltea.
+- **`js/firestore-sync.js`:** nueva `saveFieldsPartialToFirestore(id,
+  idioma, fields)` — hermana de `saveSkinsToFirestore`, mismo patrón:
+  `merge:true` sobre la ruta puntual `content.<idioma>.fields`, no
+  toca nada más del documento (ni otros idiomas, ni `skins`/`banner`/
+  coordenadas/tags/categoría).
+- **`index.html`:** tres bloques nuevos en la pestaña Importar — el
+  botón de migración ("🔧 Asignar IDs a campos existentes", arriba de
+  todo, con su explicación de que es de un solo uso), y la caja
+  "🔤 Actualizar solo texto" (`### TEXTO`) debajo de "Vincular
+  imágenes", con placeholder de ejemplo y texto de ayuda.
+- **`js/poi-panel.js`:** sin cambios — se confirmó que `_resolveFields`
+  ya lee cada field como `{title, text}` e ignora cualquier propiedad
+  extra (`id` no rompe nada ahí).
+
+**Resultado:** `node --check` sin errores en `js/pin-adjust.js` y
+`js/firestore-sync.js`. Se probó en Node (fuera del navegador, sin
+Firestore real) `_ensureFieldIds` (ids secuenciales nuevos + respeto
+de ids ya asignados, incluso con huecos) y `parseTextoBulkText` (bloque
+con 2 pines válidos + 1 pin inexistente correctamente descartado y
+reportado; un `campo-NN` con solo `texto:` reconocido como "no trae
+título"). También se simuló la lógica de merge completa (actualizar
+solo título de un campo dejando su texto intacto, crear un campo
+nuevo con título+texto completos, y rechazar con aviso un intento de
+crear un campo con solo la mitad de los datos) con los resultados
+esperados. No probado en navegador real contra Firestore (sin entorno
+con DOM/Firestore en esta sesión) — a validar por Cris: correr la
+migración una vez, después actualizar con `### TEXTO` solo el texto de
+un campo existente y confirmar en el panel público que el título de
+ese campo y el resto de los campos del pin no cambiaron un carácter.
+
+**Desvíos del plan original (`plan-ids-campos-texto-smartcity.md`):**
+ninguno de fondo. Un detalle que el plan no explicitaba y se resolvió
+al implementar: el refresco en vivo del panel público si está abierto
+en el momento de la actualización — se siguió el mismo patrón ya
+usado por `importImageLinksFromText` (llamar a `AppState.updatePoi`
+después de guardar con merge parcial), en vez de dejarlo sin resolver.
+
+**Archivos tocados:** `js/pin-adjust.js`, `js/firestore-sync.js`,
+`index.html`, `PLAN_IMPORTACION_MASIVA.md`, `AI_SESSION.md`.
+
+**Qué falta / próximo paso exacto:** retomar la Etapa 8 (prueba real
+end-to-end, ver "ESTADO ACTUAL" arriba), ahora incluyendo la migración
+de IDs y `### TEXTO` en la prueba guiada por Cris.

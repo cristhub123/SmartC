@@ -5,6 +5,81 @@
 > en ella. Si un archivo listado como "revisado" fue modificado después,
 > vuelve a estar pendiente de verificación.
 
+## Sesión: 2026-08-16 — Etapa 9: IDs estables por campo + importador `### TEXTO`
+
+**Contexto:** en un chat previo (sin acceso al entorno de archivos en
+ese momento) se armó y entregó el plan completo como documento
+descargable (`plan-ids-campos-texto-smartcity.md`), sin tocar código.
+En esta sesión, con el ZIP subido, Cris pidió ejecutarlo directo.
+
+**Pedido:** poder actualizar título y/o texto de UN campo puntual de
+UN pin (o de varios a la vez) pegando un bloque corto de texto, sin
+tocar nombre/coordenadas/categoría/tags/imágenes de esos pines ni los
+demás campos que no se mencionan.
+
+**Archivos revisados en profundidad esta sesión:** `js/pin-adjust.js`
+completo (bloque "CAMPOS DE INFORMACIÓN LIBRES POR PIN", el editor
+manual ES/EN/PT, `parsePinBulkText`/`confirmBulkFullImport` de
+`### PIN`, `parseImageLinkText`/`importImageLinksFromText` de
+`### IMG` como referencia de patrón), `js/firestore-sync.js` completo
+(`savePoiToFirestore`, `saveSkinsToFirestore`, `regeneratePublicCache`,
+el objeto `FirestoreSync` que envuelve `AppState.updatePoi`),
+`js/app-state.js` (`updatePoi`, `loadPois`, `getContent`),
+`js/poi-panel.js` (`_resolveFields`, para confirmar que un `id` extra
+en cada field no rompe nada), `index.html` (markup completo de la
+pestaña Importar), `PLAN_IMPORTACION_MASIVA.md` completo (para
+mantener la numeración de etapas y el modelo de datos consistentes).
+
+**Archivos modificados esta sesión:**
+- `js/pin-adjust.js` — `_nextFieldId()`/`_ensureFieldIds()` (nuevas);
+  `_buildContentWithFields()` ahora asigna id a todo campo nuevo antes
+  de guardar (cubre editor manual y `### PIN` desde un único lugar);
+  `_readVisiblePinFieldRows()` ajustada para no perder el `id` de un
+  campo ya existente al releer título/texto del DOM (el id no se
+  muestra en pantalla); nuevo importador `### TEXTO`
+  (`parseTextoBulkText`/`importTextoFieldsFromText`); nueva migración
+  de un solo uso `migrateFieldIds()` (botón aparte, idempotente).
+- `js/firestore-sync.js` — nueva `saveFieldsPartialToFirestore(id,
+  idioma, fields)`, hermana de `saveSkinsToFirestore`, `merge:true`
+  sobre `content.<idioma>.fields` únicamente.
+- `index.html` — botón de migración + caja "🔤 Actualizar solo texto"
+  (`### TEXTO`) en la pestaña Importar.
+- `PLAN_IMPORTACION_MASIVA.md` — nueva Etapa 9 (registro completo),
+  `ESTADO ACTUAL` y checklist actualizados, `id` sumado al modelo de
+  datos definitivo.
+
+**Hallazgo importante durante la implementación (no estaba en el plan
+original tal cual, se resolvió al escribir el código):** el editor
+manual del admin (`_renderPinFieldRows`) no muestra el `id` en pantalla
+— solo título y texto. Si `_readVisiblePinFieldRows()` reconstruía las
+filas leyendo SOLO esos 2 inputs, el `id` que un campo ya tenía se
+perdía en cuanto el admin abría "Editar" y volvía a guardar sin tocar
+nada — reasignando ids nuevos en cada guardado y rompiendo la
+estabilidad que es el objetivo central de esta etapa. Se resolvió
+recuperando el `id` por posición desde el estado en memoria
+(`_pinFieldsState`), que sí lo conserva.
+
+**Pruebas/verificaciones realizadas:** `node --check` sin errores en
+`js/pin-adjust.js` y `js/firestore-sync.js`. Se extrajeron las
+funciones puras nuevas (`_nextFieldId`, `_ensureFieldIds`,
+`parseTextoBulkText`) a un script de Node aparte y se probaron con
+casos concretos: asignación secuencial de ids nuevos, respeto de ids
+ya existentes con huecos, un bloque `### TEXTO` con 2 pines válidos +
+1 inexistente (correctamente descartado y reportado), un campo con
+solo `texto:` (reconocido como "sin título"). También se simuló la
+lógica completa de merge (actualizar solo un campo del array dejando
+los demás intactos, crear un campo nuevo con datos completos, rechazar
+la creación de uno con datos a medias) con resultados correctos. No
+probado en navegador real ni contra Firestore real en esta sesión (sin
+entorno con DOM en esta sesión) — pendiente que Cris lo pruebe en su
+entorno: correr la migración una vez, después usar `### TEXTO` sobre
+un pin con campos migrados y confirmar en el panel público que solo
+cambió lo mencionado en el bloque.
+
+**Pendiente / próximo paso exacto:** ver "ESTADO ACTUAL" de
+`PLAN_IMPORTACION_MASIVA.md` — retomar la Etapa 8 (prueba real
+end-to-end), sumando la migración de IDs y `### TEXTO` a esa prueba.
+
 ## Sesión: 2026-08-15 (3ª) — Etapa 2 del plan de importación masiva: panel renderiza campos título+texto
 
 **Contexto:** Etapa 2 de `PLAN_IMPORTACION_MASIVA.md` (ver ese archivo
