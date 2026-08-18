@@ -30,6 +30,18 @@ function pinClick(poi) {
 
   const poiId = typeof poi === 'string' ? poi : (poi.id || poi.slug);
 
+  // [NUEVO 2026-08-18] Si había otro panel/menú abierto (dropdown de
+  // zonas, panel de info de una zona), se cierra YA MISMO, antes de
+  // arrancar la secuencia de abajo (paneo del mapa → maximizar pin →
+  // abrir panel). A propósito no se usa OverlayManager.beforeOpen acá:
+  // esa secuencia ya tiene su propio escalonado (ver los
+  // requestAnimationFrame más abajo) y no debe retrasarse esperando
+  // los 50ms del OverlayManager — el cierre del otro overlay corre en
+  // paralelo, no antes. Ver js/overlay-manager.js y js/poi-panel.js
+  // (mismo mecanismo, usado ahí sí con el delay porque no tiene una
+  // secuencia propia que proteger).
+  if (window.OverlayManager) window.OverlayManager.closeOthers('poiPanel');
+
   if (window.PoiPanel && typeof window.PoiPanel.open === 'function') {
     // Si el panel ya estaba abierto para el mismo POI, lo cierra (y
     // colapsa el pin agrandado); si no, lo abre.

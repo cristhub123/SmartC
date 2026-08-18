@@ -157,8 +157,28 @@ function cyclePinExpandedImage(id) {
   const list = (typeof getActiveSkinList === 'function') ? getActiveSkinList(poi) : [];
   if (list.length <= 1) return null; // nada para recorrer
 
-  const startIdx = parseInt(el.dataset.skinIndex || '0', 10);
-  const nextIdx = (startIdx + 1) % list.length;
+  /* [FIX 2026-08-18] Antes se confiaba ciegamente en
+     `el.dataset.skinIndex` como "posición actual dentro de `list`".
+     Reportado por Cris: con pocas imágenes activas (ej. 2 de 10
+     cargadas), el ojito podía necesitar muchos clicks para volver a
+     la primera — señal de que ese índice guardado no correspondía en
+     realidad a la imagen que se estaba viendo (puede desalinearse si
+     la imagen mostrada al maximizar el pin vino de un candidato de
+     respaldo que no es el primero de `list`, ver resolvePinImageCandidates,
+     que no filtra por activo). Ahora, antes de avanzar, se busca la
+     posición REAL comparando la URL puesta ahora mismo en el <img>
+     contra `list`: si coincide con alguna, se avanza desde ahí (caso
+     normal); si NO coincide con ninguna activa (el índice guardado
+     estaba desalineado o quedó fuera de rango), se salta directo a la
+     PRIMERA imagen activa en vez de sumar 1 a un número que no
+     significa nada — así un solo click siempre lleva a una imagen
+     realmente disponible, nunca hacen falta N clicks para reengancharse. */
+  const matchIdx = list.findIndex((c) => c.url === el.src);
+  const storedIdx = parseInt(el.dataset.skinIndex || '-1', 10);
+  const startIdx = matchIdx >= 0
+    ? matchIdx
+    : (storedIdx >= 0 && storedIdx < list.length ? storedIdx : -1);
+  const nextIdx = startIdx === -1 ? 0 : (startIdx + 1) % list.length;
 
   if (!el.dataset.thumbSrc) el.dataset.thumbSrc = el.src; // por si se clickea antes de que termine el swap inicial
 

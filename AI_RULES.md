@@ -27,6 +27,7 @@ firestore-sync.js     → funciones de lectura/escritura Firestore
 app-state.js          → módulo AppState (fuente de verdad de datos en memoria)
 settings-sync.js
 config.js             → constantes + variables globales legacy (markers, POIS, etc.)
+overlay-manager.js    → módulo OverlayManager (exclusividad entre paneles/menús)
 scroll-hints.js
 map.js                → crea `map` (instancia Leaflet)
 markers.js            → makeMarker, pinClick (legacy, ver nota abajo), expandPin/collapsePin (base)
@@ -72,6 +73,7 @@ se dibujaran. **No reactivar sin entender esa nota primero.**
 | `firestore-sync.js` | Todas las lecturas/escrituras a Firestore (POIs, zonas, tipografía, ubicaciones, presets); incluye guardados parciales con `merge:true` — `saveSkinsToFirestore` (solo `skins`) y `saveFieldsPartialToFirestore` (solo `content.<idioma>.fields`, Etapa 9) |
 | `app-state.js` | Módulo `AppState` — **fuente de verdad en memoria** de POIs/zonas/roadmap/skins, con sistema de eventos (`on`) |
 | `config.js` | Constantes (`LUCIDE`, `CAT`) + variables globales legacy: `POIS`, `markers`, `activeFilter`, `expandedId`, `currentPoi`, `pickCtx`, `editingId`, `pendingDelId`, emojis |
+| `overlay-manager.js` | Módulo `OverlayManager` — registro central de paneles/menús flotantes (panel de un pin, dropdown de zonas, panel de info de zona) para que abrir uno cierre los demás ya mismo, sin esperar su animación de salida (ver sección 12) |
 | `map.js` | Instancia `map` de Leaflet |
 | `markers.js` | Dibuja pines en el mapa (`makeMarker`), resuelve URLs de imagen (thumb/full), `pinClick` (legacy, no se usa — ver sección 6), `expandPin`/`collapsePin` base |
 | `poi-panel.js` | Módulo `PoiPanel` — panel público que se abre al tocar un pin (lee de `AppState`, no de `markers`) |
@@ -260,7 +262,45 @@ parámetro (`'images'` por defecto, `'banner'` para el banner) — cualquier
 código nuevo que arme una carpeta de Cloudinary debe pasar el subfolder
 correcto en vez de asumir `images`.
 
-## 11. Ver también
+## 11. Exclusividad entre paneles/menús (⚠️ patrón obligatorio para overlays nuevos)
+
+**[2026-08-18]** Cuando hay un panel/menú flotante abierto (panel de un
+pin, dropdown de zonas, panel de info de una zona) y el usuario dispara
+la apertura de OTRO, el primero debe cerrarse YA MISMO, sin que nadie
+espere a que termine su animación de salida (0.35s/0.4s según el panel)
+para que el segundo arranque. Este comportamiento vive centralizado en
+`js/overlay-manager.js` (módulo `OverlayManager`) — **no reimplementar
+esta lógica de "cerrar lo otro antes de abrir" a mano en un archivo
+nuevo**, usar el patrón ya establecido:
+
+1. Cada panel/menú se registra UNA vez, al cargar su script, con su
+   propio id: `OverlayManager.register('miId', { isOpen, close })`.
+   Ver los 3 registros ya hechos: `'poiPanel'` (`js/poi-panel.js`),
+   `'zonasDropdown'` y `'zonaInfoPanel'` (ambos en `js/zones.js`).
+2. Antes de abrirse a sí mismo, en vez de abrir directo, se llama a
+   `OverlayManager.beforeOpen('miId', () => { <abrir de verdad> })`.
+   Cierra cualquier otro overlay abierto de inmediato y, solo si había
+   algo para cerrar, espera 50ms antes de disparar la apertura real
+   (así el cruce se ve escalonado, no un salto brusco). Sin nada
+   abierto, abre sin demora. Ver `open()` en `poi-panel.js` y
+   `openZonaPanel()`/`toggleZonasDropdown()` en `zones.js`.
+3. **Excepción deliberada:** `js/cluster.js` (`pinClick`) NO usa
+   `beforeOpen` para toda su secuencia — llama a
+   `OverlayManager.closeOthers('poiPanel')` una sola vez, al principio,
+   y deja que la secuencia ya establecida (paneo del mapa → maximizar
+   pin → abrir panel, con sus propios `requestAnimationFrame`
+   encadenados) siga corriendo sin el delay de 50ms. Fue un pedido
+   explícito de Cris: al tocar un pin con el menú de zonas abierto, el
+   paneo del mapa debe arrancar de inmediato, no 50ms después. Si se
+   agrega un overlay nuevo que SÍ deba respetar ese delay al abrirse
+   con un pin ya abierto, usar `beforeOpen` ahí (no en `cluster.js`).
+
+Cualquier panel/menú flotante nuevo que se agregue a futuro (otro
+dropdown, otro bottom sheet, etc.) debe registrarse acá siguiendo el
+mismo patrón — si no se registra, no participa de la exclusividad y
+puede quedar superpuesto con otro panel abierto.
+
+## 12. Ver también
 
 `AI_SESSION.md` — memoria de trabajo temporal de la sesión actual (qué se
 revisó, qué se modificó, qué queda pendiente). Revisarlo antes de releer

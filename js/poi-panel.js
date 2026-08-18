@@ -412,11 +412,15 @@ const PoiPanel = (function () {
   }
 
   /**
-   * Lee, del pin maximizado en el mapa, qué posición de la lista de
-   * imágenes activas está mostrando ahora mismo (ver
+   * [2026-08-18] Sin uso desde que _renderEyeBadge dejó de mostrar el
+   * numerito "posición/total" (a pedido de Cris — el contador
+   * confundía con pocas imágenes activas de un total mayor cargado).
+   * Se deja la función (no se borra): sigue siendo la forma correcta
+   * de leer, del pin maximizado en el mapa, qué posición de la lista
+   * de imágenes activas está mostrando ahora mismo (ver
    * js/markers.js — cyclePinExpandedImage guarda esto en
-   * dataset.skinIndex del <img> del pin). 0 si todavía no se movió de
-   * la primera imagen (o si el pin no está en el DOM por algún motivo).
+   * dataset.skinIndex del <img> del pin) — útil si se reactiva el
+   * contador o se necesita ese dato para otra cosa más adelante.
    * @param {string} poiId
    * @returns {number}
    */
@@ -441,12 +445,17 @@ const PoiPanel = (function () {
     const els = _els;
     const list = _getActiveSkinList(poi);
     const hasMultiple = list.length > 1;
-    const idx = hasMultiple ? _getExpandedPinIndex(poi.id) : 0;
 
     els.eyeIcon.style.opacity = hasMultiple ? '1' : '0.35';
     els.eyeIcon.style.animation = hasMultiple ? 'eyeglow 2s ease-in-out infinite' : 'none';
-    els.eyeCount.textContent = hasMultiple ? `${idx + 1}/${list.length}` : '';
-    els.eyeCount.style.color = 'var(--eye-glow-color, #60a5fa)';
+    // [2026-08-18] El numerito "1/10" se saca de la vista a pedido de
+    // Cris: con pocas imágenes activas de un total mayor cargado, el
+    // número confundía más de lo que ayudaba (no queda claro contra
+    // qué total real cuenta). El ojito sigue funcionando igual —el
+    // brillo (eyeglow) ya avisa "hay más para ver"— solo deja de
+    // mostrarse el contador. `eyeCount` queda vacío en vez de borrado
+    // del DOM por si se decide reactivarlo más adelante.
+    els.eyeCount.textContent = '';
 
     els.eyeBtn.style.cursor = hasMultiple ? 'pointer' : 'default';
     els.eyeBtn.title = hasMultiple ? 'Ver otra imagen de este lugar' : '';
@@ -671,6 +680,64 @@ const PoiPanel = (function () {
       if (poi) _renderEyeBadge(poi);
     });
 
+    // [NUEVO 2026-08-18] Doble click / doble tap en cualquier parte
+    // del panel pasa al "próximo" estado: peek → full, full → peek
+    // (aproximadamente a la mitad, el mismo tamaño con el que abre
+    // por defecto). No hace nada estando cerrado (no debería ser
+    // posible tocarlo cerrado, pero por las dudas no rompe).
+    // Se ignoran los dobles clicks sobre botones/inputs/links (para
+    // no interferir con "Editar"/el ojito/selección de texto en modo
+    // edición) y mientras _isEditMode está activo, donde un doble
+    // click debe poder seleccionar una palabra en los campos como en
+    // cualquier formulario.
+    function _isInteractiveTarget(target) {
+      return !!(target && target.closest && target.closest('button, a, input, textarea, select, [contenteditable="true"]'));
+    }
+    let _lastDoubleActivateAt = 0;
+    function _toggleStateOnDoubleActivate() {
+      // Guard: evita que el 'dblclick' nativo y la detección manual de
+      // doble-tap de abajo disparen el toggle 2 veces para el mismo
+      // gesto (algunos navegadores móviles sintetizan AMBOS eventos
+      // para un mismo doble tap) — eso se vería como "no pasó nada"
+      // porque el segundo toggle deshace al primero.
+      const now = Date.now();
+      if (now - _lastDoubleActivateAt < 250) return;
+      _lastDoubleActivateAt = now;
+
+      if (_panelState === SNAP.PEEK) {
+        _snapTo(SNAP.FULL);
+      } else if (_panelState === SNAP.FULL) {
+        _snapTo(SNAP.PEEK);
+      }
+    }
+    els.panel.addEventListener('dblclick', (e) => {
+      if (_isEditMode || _isInteractiveTarget(e.target)) return;
+      _toggleStateOnDoubleActivate();
+    });
+    // Fallback manual para doble TAP táctil: en algunos navegadores/
+    // condiciones el 'dblclick' sintético de un doble tap no llega de
+    // forma confiable (a diferencia del doble click de mouse, que
+    // siempre es nativo). Se mide tiempo+distancia entre 2 pointerup
+    // consecutivos de tipo touch.
+    let _lastTapAt = 0;
+    let _lastTapX = 0;
+    let _lastTapY = 0;
+    els.panel.addEventListener('pointerup', (e) => {
+      if (e.pointerType !== 'touch') return;
+      if (_isEditMode || _isInteractiveTarget(e.target)) return;
+      const now = Date.now();
+      const dx = Math.abs(e.clientX - _lastTapX);
+      const dy = Math.abs(e.clientY - _lastTapY);
+      if (now - _lastTapAt < 350 && dx < 30 && dy < 30) {
+        _toggleStateOnDoubleActivate();
+        _lastTapAt = 0; // no encadenar un 3er tap como otro "doble"
+      } else {
+        _lastTapAt = now;
+        _lastTapX = e.clientX;
+        _lastTapY = e.clientY;
+      }
+    });
+
     document.addEventListener('app:languageChanged', (e) => {
       if (e.detail && e.detail.lang) {
         setLang(e.detail.lang);
@@ -836,21 +903,36 @@ const PoiPanel = (function () {
    * @param {'peek'|'full'} [initialState='peek']
    */
   function open(poiId, initialState) {
-    _ensureDom();
-    _bindAppStateEvents();
-    _applyPanelSizeVars(); // por si cambiaron los sliders o giró la pantalla desde el último open()
+    function _openNow() {
+      _ensureDom();
+      _bindAppStateEvents();
+      _applyPanelSizeVars(); // por si cambiaron los sliders o giró la pantalla desde el último open()
 
-    _currentPoiId = poiId;
-    _isEditMode = false;
-    _render();
-    _snapTo(initialState === SNAP.FULL ? SNAP.FULL : SNAP.PEEK);
+      _currentPoiId = poiId;
+      _isEditMode = false;
+      _render();
+      _snapTo(initialState === SNAP.FULL ? SNAP.FULL : SNAP.PEEK);
 
-    // El centrado del mapa sobre el pin YA NO se hace acá: queda a
-    // cargo exclusivo de window.panToPoiCenter (js/app.js), llamado
-    // desde js/cluster.js con el delay de 50ms tras el click. Tener
-    // dos sistemas de centrado corriendo en paralelo (este panel +
-    // panToPoiCenter) era justamente lo que rompía el centrado: el
-    // segundo interrumpía al primero a mitad de animación.
+      // El centrado del mapa sobre el pin YA NO se hace acá: queda a
+      // cargo exclusivo de window.panToPoiCenter (js/app.js), llamado
+      // desde js/cluster.js con el delay de 50ms tras el click. Tener
+      // dos sistemas de centrado corriendo en paralelo (este panel +
+      // panToPoiCenter) era justamente lo que rompía el centrado: el
+      // segundo interrumpía al primero a mitad de animación.
+    }
+
+    // [NUEVO 2026-08-18] Si había otro panel/menú abierto (ej. el
+    // dropdown de zonas) que js/cluster.js no haya cerrado ya de
+    // antemano, lo cierra ya mismo y recién abre este 50ms después
+    // (ver js/overlay-manager.js). Cuando el que llama (cluster.js)
+    // ya se encargó de cerrar todo antes de esta llamada, acá no
+    // queda nada para cerrar y `_openNow` corre sin ninguna demora
+    // extra — no se acumulan dos delays.
+    if (window.OverlayManager) {
+      window.OverlayManager.beforeOpen('poiPanel', _openNow);
+    } else {
+      _openNow();
+    }
   }
 
   /** Cierra el panel y limpia el estado de edición. */
@@ -873,6 +955,19 @@ const PoiPanel = (function () {
   /** @returns {string|null} id del POI actualmente abierto, o null */
   function getCurrentPoiId() {
     return _currentPoiId;
+  }
+
+  // [NUEVO 2026-08-18] Registro en OverlayManager (js/overlay-manager.js):
+  // permite que abrir OTRO panel/menú (ej. el dropdown de zonas) cierre
+  // este panel ya mismo, sin esperar su transición de salida. `open()`
+  // ya no llama a `close()`/`_snapTo()` directo — pasa por `_openNow`
+  // envuelta en `OverlayManager.beforeOpen`, que a su vez llama acá a
+  // `close` si hiciera falta cerrar algún otro overlay primero.
+  if (window.OverlayManager) {
+    window.OverlayManager.register('poiPanel', {
+      isOpen: () => _panelState !== SNAP.CLOSED,
+      close,
+    });
   }
 
   return {

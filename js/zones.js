@@ -592,22 +592,38 @@ function navigateToZona(z) {
   if (typeof incrementZonaClicks === 'function') incrementZonaClicks(z.id);
 }
 
+// [NUEVO 2026-08-18] La apertura REAL (el toggle de clases que dispara
+// la transición CSS) quedó separada en `_openZonaPanelNow`/
+// `_openZonasDropdownNow`. `openZonaPanel`/`toggleZonasDropdown` (las
+// que llama el resto del código) pasan por
+// `OverlayManager.beforeOpen`: si había otro panel/menú abierto (ej.
+// el panel de un pin), lo cierra ya mismo y recién 50ms después
+// dispara la apertura real acá — así el cruce entre ambos se ve
+// simultáneo/escalonado en vez de esperar a que termine de cerrarse
+// el anterior. Ver js/overlay-manager.js.
 function openZonaPanel(z) {
   closeZonasDropdown();
-  lastZonaId = z.id;
-  document.getElementById('zp-name').textContent = z.name;
-  const body = document.getElementById('zp-body');
-  const tags = z.tags.map(t => `<span class="zp-tag">${t}</span>`).join('');
-  const attrs = z.attrs.map(a =>
-    `<div class="zp-attr"><span class="zp-attr-label">${a.l}</span><span class="zp-attr-val">${a.v}</span></div>`
-  ).join('');
-  body.innerHTML = `
-    <div class="zp-tag-row">${tags}</div>
-    ${attrs}
-    <button class="zp-go-btn" id="zp-go">📍 Ir a ${z.name}</button>`;
-  document.getElementById('zp-go').addEventListener('click', () => navigateToZona(z));
-  document.getElementById('zona-panel').classList.add('open');
-  document.getElementById('map').classList.add('zona-blur');
+  function _openZonaPanelNow() {
+    lastZonaId = z.id;
+    document.getElementById('zp-name').textContent = z.name;
+    const body = document.getElementById('zp-body');
+    const tags = z.tags.map(t => `<span class="zp-tag">${t}</span>`).join('');
+    const attrs = z.attrs.map(a =>
+      `<div class="zp-attr"><span class="zp-attr-label">${a.l}</span><span class="zp-attr-val">${a.v}</span></div>`
+    ).join('');
+    body.innerHTML = `
+      <div class="zp-tag-row">${tags}</div>
+      ${attrs}
+      <button class="zp-go-btn" id="zp-go">📍 Ir a ${z.name}</button>`;
+    document.getElementById('zp-go').addEventListener('click', () => navigateToZona(z));
+    document.getElementById('zona-panel').classList.add('open');
+    document.getElementById('map').classList.add('zona-blur');
+  }
+  if (window.OverlayManager) {
+    window.OverlayManager.beforeOpen('zonaInfoPanel', _openZonaPanelNow);
+  } else {
+    _openZonaPanelNow();
+  }
 }
 
 function closeZonaPanel() {
@@ -616,15 +632,45 @@ function closeZonaPanel() {
 }
 
 function toggleZonasDropdown() {
-  zonasOpen = !zonasOpen;
-  document.getElementById('zonas-dropdown').classList.toggle('open', zonasOpen);
-  document.getElementById('btn-zonas').classList.toggle('open', zonasOpen);
+  // El cierre (usuario vuelve a tocar "zonas" con el dropdown ya
+  // abierto) no pasa por el OverlayManager — no hay nada que
+  // escalonar, es un cierre directo como siempre fue.
+  if (zonasOpen) {
+    closeZonasDropdown();
+    return;
+  }
+  function _openZonasDropdownNow() {
+    zonasOpen = true;
+    document.getElementById('zonas-dropdown').classList.add('open');
+    document.getElementById('btn-zonas').classList.add('open');
+  }
+  if (window.OverlayManager) {
+    window.OverlayManager.beforeOpen('zonasDropdown', _openZonasDropdownNow);
+  } else {
+    _openZonasDropdownNow();
+  }
 }
 
 function closeZonasDropdown() {
   zonasOpen = false;
   document.getElementById('zonas-dropdown').classList.remove('open');
   document.getElementById('btn-zonas').classList.remove('open');
+}
+
+// [NUEVO 2026-08-18] Registro en OverlayManager (ver js/poi-panel.js
+// para el mismo patrón aplicado al panel de un pin). Se registran acá
+// mismo, al cargar el script — no dependen de que exista ningún DOM
+// dinámico todavía, `document.getElementById` de arriba ya sirve
+// porque `zona-panel`/`zonas-dropdown` vienen fijos en index.html.
+if (window.OverlayManager) {
+  window.OverlayManager.register('zonasDropdown', {
+    isOpen: () => zonasOpen,
+    close: closeZonasDropdown,
+  });
+  window.OverlayManager.register('zonaInfoPanel', {
+    isOpen: () => document.getElementById('zona-panel').classList.contains('open'),
+    close: closeZonaPanel,
+  });
 }
 
 // Wire

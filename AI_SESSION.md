@@ -5,6 +5,111 @@
 > en ella. Si un archivo listado como "revisado" fue modificado después,
 > vuelve a estar pendiente de verificación.
 
+## Sesión: 2026-08-18 — exclusividad de paneles, ojito y doble-click en panel
+
+**Pedido (3 cosas, sin relación entre sí):**
+1. Si hay un panel/menú abierto (panel de un pin, dropdown de zonas,
+   panel de info de zona) y el usuario abre otro, el primero debe
+   cerrarse YA MISMO — no esperar a que termine su animación de salida
+   para que el segundo arranque. Con ejemplo concreto: pin abierto →
+   toca "zonas" → el panel del pin empieza a cerrarse y 50ms después
+   (mientras el panel del pin sigue cerrándose) el menú de zonas
+   empieza a abrirse. Al revés (zonas abierto → toca un pin): zonas se
+   cierra ya mismo, pero la secuencia YA establecida de ese click (ver
+   `js/cluster.js`: paneo del mapa → maximizar pin → abrir panel) debe
+   arrancar de inmediato, sin esperar los 50ms — pedido explícito de
+   Cris de no tocar ese orden ni agregarle demora.
+2. El "ojito" del panel (cicla imágenes activas sobre el pin
+   maximizado, ver `cyclePinExpandedImage` en `js/markers.js`): con
+   pocas imágenes activas de un total mayor cargado (ej. 2 de 10),
+   Cris reportó que hacían falta ~10 clicks para volver a la primera
+   imagen — percibido como bug de la página. Además, pidió sacar de la
+   vista el numerito "1/10" (o el que sea) del badge del ojito, por
+   ahora, porque confunde más de lo que ayuda.
+3. Doble click (desktop) o doble tap (mobile) en cualquier parte del
+   panel de un pin (esté abierto al tamaño "peek" o "full") debe
+   pasarlo al otro estado — full→peek, peek→full.
+
+**Archivos revisados en profundidad esta sesión:** `js/cluster.js`
+completo, `js/poi-panel.js` completo, `js/markers.js` completo,
+`js/zones.js` completo, `js/img-slots.js` completo, `js/utils.js`
+(`buildImageFallbackChain`, `_orderedSkinNames`, `getActiveSkinList`),
+`css/poi-panel.css` y `css/base.css` (transiciones de `#zona-panel`,
+`#zonas-dropdown`, `.poi-panel[data-state]` — confirmado que todo el
+abrir/cerrar de estos 3 paneles es 100% CSS-transition, no bloqueante
+por JS, condición necesaria para que el mecanismo de exclusividad
+funcione sin tocar animaciones existentes).
+
+**Archivos creados/modificados esta sesión:**
+- `js/overlay-manager.js` (**NUEVO**) — módulo `OverlayManager`:
+  `register(id, {isOpen, close})`, `closeOthers(exceptId)`,
+  `beforeOpen(id, openFn)` (cierra otros ya mismo; si cerró alguno,
+  espera 50ms antes de `openFn`, si no, abre directo). Sin dependencia
+  de ningún panel concreto — solo orquesta timing. Agregado a
+  `index.html` justo después de `config.js` (antes de que cualquier
+  panel lo use).
+- `js/poi-panel.js` — `open()` reescrita: la apertura real quedó en
+  `_openNow()` interna, invocada vía
+  `OverlayManager.beforeOpen('poiPanel', _openNow)`. Registro del
+  panel en `OverlayManager` (`isOpen`/`close`) al final del módulo.
+  `_renderEyeBadge()` ya no pinta el numerito (`eyeCount.textContent`
+  queda siempre `''`) — se deja `_getExpandedPinIndex` sin uso, con
+  nota, por si se reactiva el contador más adelante. Nuevo bloque en
+  `_bindStaticEvents()`: listener `dblclick` en `els.panel` +
+  fallback manual de doble-tap táctil por `pointerup` (con guard de
+  250ms entre ambos para que un mismo gesto no dispare el toggle 2
+  veces), ambos ignorando `_isEditMode` y targets interactivos
+  (botones/inputs/links).
+- `js/markers.js` — `cyclePinExpandedImage()`: antes de avanzar,
+  busca la posición REAL comparando `el.src` contra las URLs de
+  `list` (imágenes activas); si no matchea ninguna (índice guardado
+  desalineado o fuera de rango), salta directo a la primera activa en
+  vez de sumar 1 a un índice que no correspondía a nada — 1 click
+  siempre lleva a una imagen realmente disponible.
+- `js/zones.js` — `openZonaPanel()` y `toggleZonasDropdown()`: la
+  apertura real quedó en funciones internas (`_openZonaPanelNow`/
+  `_openZonasDropdownNow`), invocadas vía `OverlayManager.beforeOpen`.
+  Registro de `'zonasDropdown'` y `'zonaInfoPanel'` en
+  `OverlayManager` al final del bloque de zonas.
+- `js/cluster.js` — al principio de `pinClick()`, una sola línea:
+  `OverlayManager.closeOthers('poiPanel')` (cierre inmediato de otros
+  overlays, sin el delay de 50ms — ver punto 3 del pedido y sección 11
+  de `AI_RULES.md`).
+- `index.html` — agregado `<script src="js/overlay-manager.js" defer>`.
+- `AI_RULES.md` — nueva sección 11 (patrón de `OverlayManager`,
+  obligatorio para overlays nuevos), fila en la tabla de archivos,
+  entrada en el orden de carga de scripts.
+
+**Nota sobre el punto 2 (ojito):** al revisar el código antes de
+tocarlo, se encontró que `getActiveSkinList`/`buildImageFallbackChain`
+ya habían sido corregidas en una sesión anterior (comentarios
+`[FIX 2026-08-16]` ya presentes en el ZIP) para que la lista de
+"imágenes activas" que cuenta el ojito y la cadena de respaldo del pin
+en el mapa usen el mismo criterio/orden. El fix de esta sesión ataca
+específicamente la posible causa restante: que el ÍNDICE guardado
+(`dataset.skinIndex`) quedara desalineado de la imagen realmente
+mostrada — por eso ahora se recalcula comparando la URL puesta en el
+`<img>` contra la lista activa en cada click, en vez de confiar en el
+número guardado.
+
+**Pruebas/verificaciones realizadas:** `node --check` sin errores en
+los 5 archivos JS tocados/creados
+(`overlay-manager.js`, `poi-panel.js`, `markers.js`, `zones.js`,
+`cluster.js`). No se probó en navegador real (sin entorno con DOM en
+esta sesión) — pendiente que Cris lo pruebe en su entorno: (a) abrir
+un pin y tocar "zonas" y viceversa, confirmando el cruce
+simultáneo/escalonado sin saltos; (b) un lugar con pocas imágenes
+activas de un total mayor, confirmar que el ojito cicla en pocos
+clicks y que el numerito ya no se ve; (c) doble click en desktop y
+doble tap en mobile sobre el panel de un pin, en ambos tamaños.
+
+**Pendiente / próximo paso exacto:** ninguno de estos 3 pedidos forma
+parte de `PLAN_IMPORTACION_MASIVA.md` — son cambios de UI aparte. Si
+Cris reporta algo raro al probar, lo primero a revisar es la consola
+del navegador (no hay ningún `console.log`/`console.error` nuevo
+agregado a propósito esta vez, salvo los ya existentes de
+`OverlayManager.closeOthers` si un `close()` registrado tira error).
+
 ## Sesión: 2026-08-16 — Etapa 9: IDs estables por campo + importador `### TEXTO`
 
 **Contexto:** en un chat previo (sin acceso al entorno de archivos en
