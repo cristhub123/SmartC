@@ -34,6 +34,7 @@ markers.js            → makeMarker, pinClick (legacy, ver nota abajo), expandP
 poi-panel.js           → módulo PoiPanel (panel público de cada lugar)
 admin.js               → panel admin: tabs, listado, filtros, toasts
 admin-auth.js
+user-auth.js            → módulo UserAuth (login/registro público: usuario_comun / dueno_negocio, Etapa 1 de PLAN_USUARIOS_EVENTOS.md)
 cloudinary-admin.js    → módulo CloudinaryAdmin (armado de documento + upload)
 utils.js               → helpers de imagen/upload, CLOUDINARY_CLOUD_NAME/PRESET
 img-slots.js           → AltSlotsAdd / AltSlotsEdit (slots de imagen ilimitados)
@@ -79,6 +80,7 @@ se dibujaran. **No reactivar sin entender esa nota primero.**
 | `poi-panel.js` | Módulo `PoiPanel` — panel público que se abre al tocar un pin (lee de `AppState`, no de `markers`) |
 | `admin.js` | Panel admin: tabs, listado de lugares, filtros por barritas, toasts, modo "pickear en mapa" |
 | `admin-auth.js` | Login/logout de Firebase Auth para el admin |
+| `user-auth.js` | Módulo `UserAuth` — login/registro PÚBLICO (email+contraseña y Google) con 2 roles: `usuario_comun`/`dueno_negocio`, guardados en `usuarios/{uid}`. Separado del admin — ver Etapa 1 de `PLAN_USUARIOS_EVENTOS.md` |
 | `admin-global.js` | Configuración global (contorno de pin, dim, glow) aplicada a todos los marcadores |
 | `cloudinary-admin.js` | Módulo `CloudinaryAdmin` — arma el documento Firestore de un POI y sube a Cloudinary |
 | `utils.js` | Helpers de imagen (fallback chain, upload a Cloudinary), `CLOUDINARY_CLOUD_NAME`/`CLOUDINARY_UPLOAD_PRESET` |
@@ -300,7 +302,30 @@ dropdown, otro bottom sheet, etc.) debe registrarse acá siguiendo el
 mismo patrón — si no se registra, no participa de la exclusividad y
 puede quedar superpuesto con otro panel abierto.
 
-## 12. Ver también
+## 12. Sistema de usuarios/roles públicos (Etapa 1, PLAN_USUARIOS_EVENTOS.md)
+
+**[2026-08-19]** Nueva colección Firestore `usuarios/{uid}` (id = uid
+de Firebase Auth): `{ uid, email, nombre, rol, creadoEn }`, con
+`rol` = `usuario_comun` o `dueno_negocio`. Vive en `js/user-auth.js`
+(módulo `UserAuth`, expuesto en `window.UserAuth` con
+`getCurrentUser()`, `getCurrentUserProfile()`, `isLoggedIn()`,
+`hasRole(rol)`) — cualquier etapa futura que necesite saber quién
+está logueado y con qué rol debe leer de ahí, no reimplementar el
+`onAuthStateChanged` propio.
+
+Es un login **separado** del de administrador (`admin-auth.js`): usa
+el mismo proyecto de Firebase Auth, pero es una sesión y un botón de
+header distintos (`#btn-user-account` vs `#btn-admin`). Loguearse
+como admin no implica tener un doc en `usuarios`, y viceversa.
+
+Las reglas de seguridad de Firestore para esta colección **no están
+en el repo** (este proyecto no tiene un archivo `firestore.rules`
+versionado — se gestionan a mano desde la consola de Firebase). Ver
+`FIRESTORE_RULES_NOTES.md` en la raíz del proyecto para el texto
+sugerido a pegar ahí; no asumir que ya están aplicadas solo porque el
+código de `user-auth.js` ya funciona.
+
+## 13. Ver también
 
 `AI_SESSION.md` — memoria de trabajo temporal de la sesión actual (qué se
 revisó, qué se modificó, qué queda pendiente). Revisarlo antes de releer

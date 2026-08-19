@@ -51,6 +51,7 @@ After modifying this file, update /AI_SESSION.md with the change and verificatio
     <button type="button" data-lang-switch="en">EN</button>
     <button type="button" data-lang-switch="pt">PT</button>
   </div>
+  <button id="btn-user-account" title="Ingresar / Registrarme">👤</button>
   <button id="btn-admin" title="Administrador">⚙</button>
 </div>
 <div id="search-results"></div>
@@ -133,6 +134,72 @@ After modifying this file, update /AI_SESSION.md with the change and verificatio
     <input id="admin-login-pass"  type="password" placeholder="Contraseña" autocomplete="current-password">
     <button id="admin-login-btn" class="btn-primary">Ingresar</button>
     <p id="admin-login-error"></p>
+  </div>
+</div>
+
+<!-- [Etapa 1, PLAN_USUARIOS_EVENTOS.md] LOGIN/REGISTRO PÚBLICO —
+     usuario común / dueño de negocio. Separado del login de
+     administrador (#admin-login-overlay) — ver js/user-auth.js -->
+<div id="user-auth-overlay">
+  <div id="user-auth-box">
+    <button id="user-auth-close" class="btn-x" title="Cerrar">✕</button>
+
+    <div id="user-auth-tabs">
+      <button id="user-auth-tab-login" class="user-auth-tab active">Ingresar</button>
+      <button id="user-auth-tab-register" class="user-auth-tab">Crear cuenta</button>
+    </div>
+
+    <!-- Tab: Ingresar -->
+    <div id="user-auth-pane-login" class="user-auth-pane on">
+      <input id="user-auth-login-email" type="email" placeholder="Correo electrónico" autocomplete="username">
+      <input id="user-auth-login-pass" type="password" placeholder="Contraseña" autocomplete="current-password">
+      <button id="user-auth-login-btn" class="btn-primary">Ingresar</button>
+      <div class="user-auth-divider"><span>o</span></div>
+      <button id="user-auth-google-btn" class="user-auth-google-btn">Continuar con Google</button>
+      <p id="user-auth-login-error" class="user-auth-error"></p>
+    </div>
+
+    <!-- Tab: Crear cuenta -->
+    <div id="user-auth-pane-register" class="user-auth-pane">
+      <input id="user-auth-register-nombre" type="text" placeholder="Tu nombre" autocomplete="name">
+      <input id="user-auth-register-email" type="email" placeholder="Correo electrónico" autocomplete="username">
+      <input id="user-auth-register-pass" type="password" placeholder="Contraseña (mín. 6 caracteres)" autocomplete="new-password">
+      <div class="user-auth-rol-picker">
+        <label class="user-auth-rol-opt">
+          <input type="radio" name="user-auth-rol" value="usuario_comun" checked>
+          <span>Usuario</span>
+          <small>Explorar lugares y eventos</small>
+        </label>
+        <label class="user-auth-rol-opt">
+          <input type="radio" name="user-auth-rol" value="dueno_negocio">
+          <span>Dueño de negocio</span>
+          <small>Administrar mi pin/negocio</small>
+        </label>
+      </div>
+      <button id="user-auth-register-btn" class="btn-primary">Crear cuenta</button>
+      <p id="user-auth-register-error" class="user-auth-error"></p>
+    </div>
+
+    <!-- Paso extra solo cuando Google Sign-In crea una cuenta nueva
+         (no se puede elegir el rol antes del popup de Google) -->
+    <div id="user-auth-google-role-step" class="user-auth-pane">
+      <p class="user-auth-google-role-intro">¡Hola, <span id="user-auth-google-role-name"></span>! Elegí con qué tipo de cuenta querés seguir:</p>
+      <div class="user-auth-rol-picker">
+        <label class="user-auth-rol-opt">
+          <input type="radio" name="user-auth-google-rol" value="usuario_comun" checked>
+          <span>Usuario</span>
+          <small>Explorar lugares y eventos</small>
+        </label>
+        <label class="user-auth-rol-opt">
+          <input type="radio" name="user-auth-google-rol" value="dueno_negocio">
+          <span>Dueño de negocio</span>
+          <small>Administrar mi pin/negocio</small>
+        </label>
+      </div>
+      <button id="user-auth-google-role-confirm-btn" class="btn-primary">Confirmar</button>
+      <button id="user-auth-google-role-cancel-btn" class="user-auth-cancel-btn">Cancelar</button>
+      <p id="user-auth-google-role-error" class="user-auth-error"></p>
+    </div>
   </div>
 </div>
 
@@ -1332,6 +1399,7 @@ campo-05:
   <!-- 4. Admin panel (defines switchTab) -->
   <script src="js/admin.js" defer></script>
   <script src="js/admin-auth.js" defer></script>
+  <script src="js/user-auth.js" defer></script>
 
   <!-- 5. Utilities -->
   <script src="js/cloudinary-admin.js" defer></script>

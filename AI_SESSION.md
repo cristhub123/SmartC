@@ -5,6 +5,40 @@
 > en ella. Si un archivo listado como "revisado" fue modificado después,
 > vuelve a estar pendiente de verificación.
 
+## Sesión: 2026-08-19 — Etapa 1 de PLAN_USUARIOS_EVENTOS.md: login/registro público con roles
+
+**Contexto:** primera etapa de un plan nuevo (`PLAN_USUARIOS_EVENTOS.md`,
+ya venía armado de un chat de diseño previo, sin código). Ver ese
+archivo para el plan completo (7 etapas) — esta sesión hizo solo la
+Etapa 1.
+
+**Pedido:** habilitar en la app pública (no el admin) registro/login
+con email+contraseña y con Google, para 2 tipos de cuenta:
+`usuario_comun` y `dueno_negocio`.
+
+**Archivos revisados en profundidad esta sesión:** `js/admin-auth.js`
+completo (patrón a extender, no reemplazar), `js/firebase-init.js`,
+`index.html` (bloque `#admin-login-overlay` y header público),
+`css/base.css` (estilos de `#admin-login-overlay`/`#btn-admin` y
+variables de color disponibles — se detectó que `--muted` NO existe
+en este proyecto, se usó `--text3` en su lugar).
+
+**Archivos creados/modificados:** ver el detalle completo en la
+entrada de Etapa 1 dentro de `PLAN_USUARIOS_EVENTOS.md` (sección
+"REGISTRO POR ETAPA") — no se repite acá para no duplicar.
+
+**Pruebas/verificaciones realizadas:** `node --check js/user-auth.js`
+sin errores; script de verificación aparte confirmando que todos los
+`id` referenciados desde `user-auth.js` existen en `index.html` sin
+duplicados. No se probó en navegador real ni contra Firebase real
+(sin entorno con DOM/Firestore en esta sesión).
+
+**Pendiente / próximo paso exacto:** ver "ESTADO ACTUAL" de
+`PLAN_USUARIOS_EVENTOS.md` — Etapa 2 (panel del dueño de
+pin/negocio). Antes de arrancarla, confirmar con Cris que probó la
+Etapa 1 en su entorno y que habilitó Google como proveedor en
+Firebase Console si quiere usar ese botón.
+
 ## Sesión: 2026-08-18 — exclusividad de paneles, ojito y doble-click en panel
 
 **Pedido (3 cosas, sin relación entre sí):**
