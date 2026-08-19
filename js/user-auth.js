@@ -81,14 +81,28 @@ function _userRoleLabel(rol) {
   return rol || '—';
 }
 
-/* Click en el botón de cuenta del header: si hay sesión, confirma
-   cierre; si no, abre el panel de login/registro. */
+/* Click en el botón de cuenta del header: si hay sesión, abre el
+   mini panel de cuenta (nombre/rol + accesos); si no, el login. */
 function onUserAccountButtonClick() {
   if (_currentUser) {
-    if (confirm('¿Cerrar sesión de tu cuenta?')) doUserLogout();
+    showUserAccountOverlay();
     return;
   }
   showUserAuth();
+}
+
+/* [Etapa 2, PLAN_USUARIOS_EVENTOS.md] Mini panel de cuenta — desde acá
+   un dueño de negocio accede a "Mis lugares" (js/owner-panel.js). */
+function showUserAccountOverlay() {
+  const label = (_currentUserProfile && _currentUserProfile.nombre) || _currentUser.email || 'Cuenta';
+  document.getElementById('user-account-name').textContent = label;
+  document.getElementById('user-account-role').textContent = _userRoleLabel(_currentUserProfile && _currentUserProfile.rol);
+  document.getElementById('user-account-owner-btn').style.display =
+    (_currentUserProfile && _currentUserProfile.rol === 'dueno_negocio') ? 'block' : 'none';
+  document.getElementById('user-account-overlay').classList.add('on');
+}
+function hideUserAccountOverlay() {
+  document.getElementById('user-account-overlay').classList.remove('on');
 }
 
 /* ── Overlay de login/registro (2 tabs) ── */
@@ -265,6 +279,15 @@ window.UserAuth = {
 };
 
 document.getElementById('btn-user-account').addEventListener('click', onUserAccountButtonClick);
+document.getElementById('user-account-close').addEventListener('click', hideUserAccountOverlay);
+document.getElementById('user-account-logout-btn').addEventListener('click', () => { hideUserAccountOverlay(); doUserLogout(); });
+document.getElementById('user-account-owner-btn').addEventListener('click', () => {
+  hideUserAccountOverlay();
+  if (window.OwnerPanel) OwnerPanel.open();
+});
+document.getElementById('user-account-overlay').addEventListener('click', e => {
+  if (e.target.id === 'user-account-overlay') hideUserAccountOverlay();
+});
 document.getElementById('user-auth-tab-login').addEventListener('click', () => switchUserAuthTab('login'));
 document.getElementById('user-auth-tab-register').addEventListener('click', () => switchUserAuthTab('register'));
 document.getElementById('user-auth-login-btn').addEventListener('click', doUserLogin);

@@ -168,6 +168,13 @@ async function saveEdit() {
     tags:      document.getElementById('e-tags').value.split(',').map(s=>s.trim()).filter(Boolean),
     phone:     (document.getElementById('e-phone')||{value:''}).value.trim(),
     hours:     (document.getElementById('e-hours')||{value:''}).value.trim(),
+    // [Etapa 2, PLAN_USUARIOS_EVENTOS.md] UID del dueño de negocio
+    // asignado a este pin (o null si no tiene). Si el campo no está
+    // en el DOM por algún motivo, se conserva el valor que ya tenía
+    // el pin en vez de borrarlo por accidente.
+    ownerId: document.getElementById('e-owner-uid')
+      ? (document.getElementById('e-owner-uid').value.trim() || null)
+      : (POIS[idx].ownerId || null),
   };
 
   // Skins — [MIGRADO 2026-08-13] igual que en saveNew, pero acá hay
@@ -478,6 +485,8 @@ async function saveNew() {
     tags:  document.getElementById('a-tags').value.split(',').map(s=>s.trim()).filter(Boolean),
     phone: (document.getElementById('a-phone')||{value:''}).value.trim(),
     hours: (document.getElementById('a-hours')||{value:''}).value.trim(),
+    // [Etapa 2, PLAN_USUARIOS_EVENTOS.md] UID del dueño de negocio, si se cargó uno.
+    ownerId: (document.getElementById('a-owner-uid')||{value:''}).value.trim() || null,
     events: [], iconCyber:'🔵', iconWinter:'❄️', iconZombie:'☣️',
     active: true,
   };

@@ -405,6 +405,8 @@ window.startEdit = function(id) {
   document.getElementById('e-tags').value = (p.tags||[]).join(', ');
   const _ePhone = document.getElementById('e-phone'); if (_ePhone) _ePhone.value = p.phone || '';
   const _eHours = document.getElementById('e-hours'); if (_eHours) _eHours.value = p.hours || '';
+  // [Etapa 2, PLAN_USUARIOS_EVENTOS.md] UID del dueño de negocio asignado (si tiene)
+  const _eOwner = document.getElementById('e-owner-uid'); if (_eOwner) _eOwner.value = p.ownerId || '';
   // [Etapa 3] precarga con content[idioma].fields[] (esquema nuevo),
   // no con p.attrs (legado) — el editor nuevo ya no lo lee.
   if (typeof _renderPinFieldsEditor === 'function') _renderPinFieldsEditor('e-attrs-wrap', p.content || {});
