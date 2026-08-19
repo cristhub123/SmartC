@@ -35,6 +35,7 @@ poi-panel.js           → módulo PoiPanel (panel público de cada lugar)
 admin.js               → panel admin: tabs, listado, filtros, toasts
 admin-auth.js
 user-auth.js            → módulo UserAuth (login/registro público: usuario_comun / dueno_negocio, Etapa 1 de PLAN_USUARIOS_EVENTOS.md)
+owner-panel.js          → módulo OwnerPanel (panel del dueño de negocio: sus pines, edición acotada, Etapa 2 de PLAN_USUARIOS_EVENTOS.md)
 cloudinary-admin.js    → módulo CloudinaryAdmin (armado de documento + upload)
 utils.js               → helpers de imagen/upload, CLOUDINARY_CLOUD_NAME/PRESET
 img-slots.js           → AltSlotsAdd / AltSlotsEdit (slots de imagen ilimitados)
@@ -81,6 +82,7 @@ se dibujaran. **No reactivar sin entender esa nota primero.**
 | `admin.js` | Panel admin: tabs, listado de lugares, filtros por barritas, toasts, modo "pickear en mapa" |
 | `admin-auth.js` | Login/logout de Firebase Auth para el admin |
 | `user-auth.js` | Módulo `UserAuth` — login/registro PÚBLICO (email+contraseña y Google) con 2 roles: `usuario_comun`/`dueno_negocio`, guardados en `usuarios/{uid}`. Separado del admin — ver Etapa 1 de `PLAN_USUARIOS_EVENTOS.md` |
+| `owner-panel.js` | Módulo `OwnerPanel` — panel del dueño de negocio: lista sus pines (`ownerId` == su uid) y edita SOLO `desc/hist/phone/hours/tags/content.es`. Ver Etapa 2 de `PLAN_USUARIOS_EVENTOS.md` |
 | `admin-global.js` | Configuración global (contorno de pin, dim, glow) aplicada a todos los marcadores |
 | `cloudinary-admin.js` | Módulo `CloudinaryAdmin` — arma el documento Firestore de un POI y sube a Cloudinary |
 | `utils.js` | Helpers de imagen (fallback chain, upload a Cloudinary), `CLOUDINARY_CLOUD_NAME`/`CLOUDINARY_UPLOAD_PRESET` |
@@ -325,7 +327,39 @@ versionado — se gestionan a mano desde la consola de Firebase). Ver
 sugerido a pegar ahí; no asumir que ya están aplicadas solo porque el
 código de `user-auth.js` ya funciona.
 
-## 13. Ver también
+## 13. Panel del dueño de negocio + colección "admins" (Etapa 2, PLAN_USUARIOS_EVENTOS.md)
+
+**[2026-08-19]** Cada pin puede tener un campo `ownerId` (uid de
+Firebase Auth del dueño de negocio asignado, o `null` si no tiene).
+Se asigna a mano desde el admin: campo "Dueño de negocio (UID)" en
+las tabs Nuevo (`a-owner-uid`) y Editar (`e-owner-uid`) de
+`index.html` — el admin le pide el UID al dueño (visible en Firebase
+Console → Authentication → Users) y lo pega ahí. No hay lookup
+automático por email: las reglas de Firestore de la colección
+`usuarios` (Etapa 1) solo dejan que cada quien lea su propio
+documento, así que el admin no puede buscar el uid de otra persona
+por email desde el cliente.
+
+`js/owner-panel.js` (módulo `OwnerPanel`, `OwnerPanel.open()`) es el
+panel que ve el dueño logueado: lista sus pines (`where('ownerId',
+'==', uid)`) y deja editar SOLO `desc`, `hist`, `phone`, `hours`,
+`tags` y `content.es.fields` — nunca nombre, categoría, coordenadas,
+imágenes, ID ni el propio `ownerId`. Se abre desde el mini panel de
+cuenta (`#user-account-overlay` en `js/user-auth.js`, botón "🏠 Mis
+lugares", solo visible si `UserAuth.hasRole('dueno_negocio')`).
+
+**⚠️ Dependencia crítica con las reglas de Firestore:** a partir de
+esta etapa, "usuario logueado" ya NO es sinónimo de "admin" (antes
+solo el admin se logueaba). Se agregó la colección `admins/{uid}`
+(gestionada a mano en la consola, nunca desde el cliente) para que
+las reglas puedan distinguir un admin real de un dueño de negocio
+cualquiera. **Si las reglas de Firestore no están actualizadas al
+esquema de `FIRESTORE_RULES_NOTES.md` con la colección `admins`
+creada, o bien el admin pierde acceso de escritura, o bien cualquier
+dueño logueado podría editar pines ajenos** — no asumir que esto ya
+está aplicado solo porque el código de esta etapa está en el repo.
+
+## 14. Ver también
 
 `AI_SESSION.md` — memoria de trabajo temporal de la sesión actual (qué se
 revisó, qué se modificó, qué queda pendiente). Revisarlo antes de releer

@@ -38,26 +38,42 @@
 
 ## ESTADO ACTUAL
 
-**Última etapa completada:** Etapa 1 — Roles base: registro/login de
-usuario común y dueño de pin/negocio (ver detalle en "REGISTRO POR
-ETAPA" más abajo).
+**Última etapa completada:** Etapa 2 — Panel del dueño de pin/negocio
+(ver detalle en "REGISTRO POR ETAPA" más abajo).
 
-**Próxima etapa a hacer:** Etapa 2 — Panel del dueño de pin/negocio
-(ver y editar sus propios pines).
+**Próxima etapa a hacer:** Etapa 3 — Colección `eventos` vinculada a
+un pin existente + moderación (pendiente/aprobado).
 
 **Contexto que ya existe en el proyecto y hay que seguir usando (no
 crear de nuevo):**
 - `js/admin-auth.js` sigue siendo el login de administrador — no se
   tocó, sigue siendo su propio nivel separado.
-- `js/user-auth.js` (nuevo, Etapa 1) — módulo `UserAuth`, expuesto en
+- `js/user-auth.js` (Etapa 1) — módulo `UserAuth`, expuesto en
   `window.UserAuth` con `getCurrentUser()`, `getCurrentUserProfile()`,
-  `isLoggedIn()`, `hasRole(rol)`. La Etapa 2 debe leer el usuario
-  logueado desde acá, no reimplementar el `onAuthStateChanged`.
+  `isLoggedIn()`, `hasRole(rol)`. Cualquier etapa nueva debe leer el
+  usuario logueado desde acá, no reimplementar el `onAuthStateChanged`.
+- `js/owner-panel.js` (Etapa 2) — módulo `OwnerPanel`
+  (`OwnerPanel.open()`), panel del dueño de negocio: lista sus pines
+  (`ownerId` == su uid) y edita solo `desc/hist/phone/hours/tags/
+  content.es.fields`. Se abre desde `#user-account-owner-btn` (mini
+  panel de cuenta en `js/user-auth.js`).
 - Colección Firestore `usuarios/{uid}` con `{ uid, email, nombre,
   rol, creadoEn }` — ya existe y se llena desde el registro público.
-- Reglas de seguridad de Firestore para `usuarios`: sugeridas en
-  `FIRESTORE_RULES_NOTES.md`, **todavía no confirmado si Cris ya las
-  pegó en la consola de Firebase** — no asumir que están activas.
+- Campo `ownerId` en `pines/{pinId}` (uid del dueño asignado, o
+  `null`) — se asigna a mano desde el admin (campos `a-owner-uid`/
+  `e-owner-uid` en `index.html`), no hay lookup automático por email.
+- **Colección `admins/{uid}`** (Etapa 2) — marca qué UIDs son admins
+  de verdad. Necesaria para que las reglas de Firestore puedan
+  distinguir un admin real de un dueño de negocio cualquiera (desde
+  la Etapa 1, "logueado" ya no es sinónimo de "admin"). Se crea a
+  mano en la consola — ver `FIRESTORE_RULES_NOTES.md`.
+- Reglas de seguridad de Firestore: versión completa y actualizada
+  (con `admins`, `usuarios`, y el `ownerId` de `pines`) en
+  `FIRESTORE_RULES_NOTES.md` — **todavía no confirmado si Cris ya las
+  publicó en la consola de Firebase, ni si ya creó su propio documento
+  en `admins`**. No asumir que están activas: sin el documento en
+  `admins`, publicar estas reglas le rompe al propio Cris el acceso
+  de escritura del panel admin.
 - Falta que Cris habilite el proveedor "Google" en Firebase Console →
   Authentication → Sign-in method, si todavía no lo hizo (el botón
   "Continuar con Google" ya está en el código, pero no funciona sin
@@ -69,7 +85,7 @@ crear de nuevo):**
 
 - [x] Etapa 1 — Roles base: registro/login de usuario común y dueño
       de pin/negocio (email/contraseña + Google)
-- [ ] Etapa 2 — Panel del dueño de pin/negocio (ver y editar sus
+- [x] Etapa 2 — Panel del dueño de pin/negocio (ver y editar sus
       propios pines)
 - [ ] Etapa 3 — Colección `eventos` vinculada a un pin existente +
       moderación (pendiente/aprobado)
@@ -139,6 +155,80 @@ dueño de negocio, (c) cerrar sesión y volver a entrar con esa cuenta,
 proveedor) y confirmar que pide el rol antes de terminar, (e) Google
 Sign-In con una cuenta ya registrada y confirmar que entra directo
 sin pedir rol de nuevo.
+
+### Etapa 2 — Panel del dueño de pin/negocio (2026-08-19)
+
+**Qué se hizo:** panel donde un usuario logueado con rol
+`dueno_negocio` ve sus propios pines (`ownerId` == su uid) y edita un
+subconjunto acotado de campos, sin acceso al resto del admin ni a
+pines de otros dueños. Del lado del admin, se agregó la forma de
+asignar el dueño a un pin.
+
+**Archivos creados:**
+- `js/owner-panel.js` — módulo `OwnerPanel`: lista de pines propios
+  (query `where('ownerId','==',uid)`), edición de `desc`, `hist`,
+  `phone`, `hours`, `tags` y `content.es.fields` (editor simple de
+  título+texto, propio, independiente del editor del admin), guardado
+  parcial con `merge:true` (no toca el resto del documento ni otros
+  idiomas), y sincronización con `POIS`/`AppState` en memoria si el
+  pin ya estaba cargado en la sesión pública.
+
+**Archivos modificados:**
+- `index.html` — campo "Dueño de negocio (UID)" en las tabs Nuevo
+  (`a-owner-uid`) y Editar (`e-owner-uid`) del admin; mini panel de
+  cuenta nuevo (`#user-account-overlay`, nombre/rol + botón "🏠 Mis
+  lugares" solo si el rol es `dueno_negocio` + cerrar sesión);
+  overlay del panel del dueño (`#owner-panel-overlay`); script
+  `js/owner-panel.js` agregado después de `user-auth.js`.
+- `js/admin.js` — `startEdit()` precarga `e-owner-uid` con
+  `p.ownerId`.
+- `js/pin-adjust.js` — `saveEdit()`/`saveNew()` incluyen `ownerId` al
+  guardar (en `saveEdit`, si el campo no está en el DOM por algún
+  motivo, se conserva el valor previo del pin en vez de borrarlo).
+- `js/user-auth.js` — `onUserAccountButtonClick()` ahora abre el mini
+  panel de cuenta en vez de un `confirm()` directo de logout; desde
+  ahí un dueño accede a "Mis lugares" (`OwnerPanel.open()`).
+- `css/base.css` — estilos de `#user-account-overlay`,
+  `#owner-panel-overlay` y el editor de campos del dueño.
+- `AI_RULES.md` — nueva sección 13 (panel del dueño + colección
+  `admins`), entrada en la tabla de archivos, orden de scripts.
+- `FIRESTORE_RULES_NOTES.md` — **reescrito**: agrega la colección
+  `admins/{uid}` (necesaria porque desde la Etapa 1 "logueado" ya no
+  es sinónimo de "admin") y la regla de `pines` que deja al dueño
+  actualizar SOLO su propio pin y SOLO esos campos.
+
+**Modelo de datos:** `pines/{pinId}.ownerId` (uid del dueño, o
+`null`). `admins/{uid}` (documento marcador, cualquier contenido,
+gestionado a mano en la consola — nunca desde el cliente).
+
+**⚠️ Pendiente OBLIGATORIO de Cris antes de que esta etapa funcione
+de forma segura (no es código, son pasos manuales en Firebase):**
+1. Crear su propio documento en la colección `admins` (con su UID de
+   admin como ID del documento) — ver instrucciones paso a paso en
+   `FIRESTORE_RULES_NOTES.md`. **Si publica las reglas nuevas sin
+   hacer esto primero, pierde su propio acceso de escritura como
+   admin.**
+2. Publicar las reglas actualizadas de `FIRESTORE_RULES_NOTES.md`.
+3. Para probar el panel del dueño: crear (o convertir) una cuenta de
+   prueba con rol `dueno_negocio` desde el registro público, copiarle
+   el UID desde Firebase Console → Authentication → Users, y
+   pegárselo a algún pin de prueba en el campo "Dueño de negocio
+   (UID)" del admin.
+
+**Pruebas realizadas:** `node --check` sin errores en `owner-panel.js`,
+`user-auth.js`, `admin.js` y `pin-adjust.js`; verificación automática
+de que todos los `id` nuevos usados desde JS existen una sola vez en
+`index.html`; balance de llaves `{}` verificado en `css/base.css`. No
+probado en navegador real ni contra Firebase real (sin entorno con
+DOM/Firestore en esta sesión) — pendiente que Cris pruebe en su
+entorno, después de los 3 pasos de arriba: (a) asignar un pin de
+prueba a un dueño, (b) loguearse como ese dueño y confirmar que "Mis
+lugares" muestra solo ese pin, (c) editar desc/hist/teléfono/horario/
+tags/campos y confirmar que se guarda y que el resto del pin (nombre,
+categoría, coordenadas, imágenes) no se toca, (d) confirmar que un
+usuario `usuario_comun` (sin rol de dueño) NO ve el botón "Mis
+lugares", (e) confirmar que el admin sigue pudiendo editar/crear/
+borrar pines con normalidad después de publicar las reglas nuevas.
 
 ---
 

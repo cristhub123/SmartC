@@ -5,6 +5,50 @@
 > en ella. Si un archivo listado como "revisado" fue modificado después,
 > vuelve a estar pendiente de verificación.
 
+## Sesión: 2026-08-19 (continuación) — Etapa 2 de PLAN_USUARIOS_EVENTOS.md: panel del dueño de pin/negocio
+
+**Contexto:** continuación de la sesión de Etapa 1 (mismo día, mismo
+hilo). Cris confirmó en el medio que probó Etapa 1 en su entorno (los
+lugares dejaron de verse tras una primera versión de reglas de
+Firestore con wildcard; se corrigió con reglas explícitas por
+colección — ver historial de reglas en `FIRESTORE_RULES_NOTES.md` y
+en [[smartcity]] de la memoria del asistente) y habilitó el proveedor
+Google en Firebase Authentication.
+
+**Pedido:** seguir con la Etapa 2 del plan — panel del dueño de
+negocio.
+
+**Hallazgo importante de esta sesión (no pedido explícitamente, pero
+necesario):** la regla vieja de `pines` (`allow write: if
+request.auth != null`) dejaba de ser segura apenas existieran cuentas
+públicas no-admin (Etapa 1) — se agregó la colección `admins/{uid}`
+para distinguir un admin real de un dueño de negocio cualquiera. Ver
+detalle completo en la entrada de Etapa 2 de `PLAN_USUARIOS_EVENTOS.md`
+(sección "REGISTRO POR ETAPA") — no se repite acá para no duplicar.
+
+**Archivos revisados en profundidad esta sesión:** `js/firestore-sync.js`
+completo (patrones de guardado parcial con `merge:true` a reusar),
+`js/pin-adjust.js` (`saveEdit`/`saveNew`, esquema real de campos de un
+pin: `name, category, lat, lng, desc, hist, content, tags, phone,
+hours, skins, banner`), `js/admin.js` (`startEdit`), `index.html`
+(markup de las tabs Nuevo/Editar del admin y de los overlays de
+Etapa 1).
+
+**Archivos creados/modificados:** ver el detalle completo en la
+entrada de Etapa 2 dentro de `PLAN_USUARIOS_EVENTOS.md`.
+
+**Pruebas/verificaciones realizadas:** `node --check` sin errores en
+los 4 archivos JS tocados/creados; verificación automática de IDs
+nuevos sin duplicados/faltantes en `index.html`; balance de llaves en
+`css/base.css`. No se probó en navegador real ni contra Firebase real.
+
+**Pendiente / próximo paso exacto:** ver "ESTADO ACTUAL" de
+`PLAN_USUARIOS_EVENTOS.md` — Etapa 3 (colección `eventos` +
+moderación). **Antes de arrancarla**, Cris tiene 3 pasos manuales
+obligatorios en Firebase (crear su doc en `admins`, publicar las
+reglas nuevas, asignar un pin de prueba a un dueño) — ver el aviso
+completo en la entrada de Etapa 2 del plan.
+
 ## Sesión: 2026-08-19 — Etapa 1 de PLAN_USUARIOS_EVENTOS.md: login/registro público con roles
 
 **Contexto:** primera etapa de un plan nuevo (`PLAN_USUARIOS_EVENTOS.md`,

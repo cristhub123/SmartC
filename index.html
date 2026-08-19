@@ -203,6 +203,65 @@ After modifying this file, update /AI_SESSION.md with the change and verificatio
   </div>
 </div>
 
+<!-- [Etapa 2, PLAN_USUARIOS_EVENTOS.md] Mini panel de cuenta — se abre
+     al tocar #btn-user-account YA logueado (nombre/rol + accesos). -->
+<div id="user-account-overlay">
+  <div id="user-account-box">
+    <button id="user-account-close" class="btn-x" title="Cerrar">✕</button>
+    <div id="user-account-name"></div>
+    <div id="user-account-role"></div>
+    <button id="user-account-owner-btn" class="btn-primary" style="display:none">🏠 Mis lugares</button>
+    <button id="user-account-logout-btn" class="user-auth-cancel-btn">Cerrar sesión</button>
+  </div>
+</div>
+
+<!-- [Etapa 2, PLAN_USUARIOS_EVENTOS.md] Panel del dueño de negocio —
+     lista sus pines (ownerId == su uid) y permite editar SOLO
+     contenido (no ubicación/categoría/imágenes/ID). Ver js/owner-panel.js -->
+<div id="owner-panel-overlay">
+  <div id="owner-panel-box">
+    <button id="owner-panel-close" class="btn-x" title="Cerrar">✕</button>
+    <div id="owner-panel-header">
+      <button id="owner-panel-back-btn" style="display:none">← Volver</button>
+      <h3>Mis lugares</h3>
+    </div>
+
+    <div id="owner-panel-list"></div>
+    <p id="owner-panel-empty" style="display:none">Todavía no tenés ningún lugar asignado. Pasale tu UID (Firebase Console → Authentication → Users, o pedíselo a quien administra la app) para que te lo asignen.</p>
+
+    <div id="owner-panel-form">
+      <h4 id="owner-edit-name"></h4>
+      <div class="fg">
+        <label class="fl">Descripción corta</label>
+        <textarea class="fta" id="owner-edit-desc" rows="3"></textarea>
+      </div>
+      <div class="fg">
+        <label class="fl">Historia / Trivia</label>
+        <textarea class="fta" id="owner-edit-hist" rows="3"></textarea>
+      </div>
+      <div class="fg">
+        <label class="fl">Teléfono</label>
+        <input class="fi" id="owner-edit-phone" type="tel" placeholder="Ej: +54 351 123-4567">
+      </div>
+      <div class="fg">
+        <label class="fl">Horario</label>
+        <input class="fi" id="owner-edit-hours" type="text" placeholder="Ej: Lun–Vie 9–18hs, Sáb 10–14hs">
+      </div>
+      <div class="fg">
+        <label class="fl">Tags / Subcategorías (separados por coma)</label>
+        <input class="fi" id="owner-edit-tags" type="text" placeholder="Ej: Comida árabe, Sin TACC, Delivery">
+      </div>
+      <div class="fg">
+        <label class="fl">Campos de información (título + texto)</label>
+        <div id="owner-edit-fields-wrap"></div>
+        <button type="button" id="owner-edit-add-field-btn" class="owner-panel-add-field-btn">+ Agregar campo</button>
+      </div>
+      <button id="owner-panel-save-btn" class="btn-primary">Guardar cambios</button>
+      <p id="owner-panel-error" class="user-auth-error"></p>
+    </div>
+  </div>
+</div>
+
 <div id="admin">
 
   <div class="admin-hd">
@@ -578,6 +637,11 @@ campo-05:
       <div class="fg">
         <label class="fl">Tags / Subcategorías (separados por coma)</label>
         <input class="fi" id="a-tags" type="text" placeholder="Ej: Comida árabe, Sin TACC, Delivery, Vista al río">
+      </div>
+      <div class="fg">
+        <label class="fl">Dueño de negocio (UID, opcional)</label>
+        <input class="fi" id="a-owner-uid" type="text" placeholder="UID de Firebase Auth — dejar vacío si no tiene dueño">
+        <p style="font-size:11px;color:var(--text3);margin-top:4px">El dueño se registra en la app pública (botón 👤) y te pasa su UID — lo ves en Firebase Console → Authentication → Users. Le da acceso a editar SOLO este pin desde su propio panel (Etapa 2, PLAN_USUARIOS_EVENTOS.md).</p>
       </div>
       <div class="divider"><span>UBICACIÓN EN EL MAPA</span></div>
       <div class="fg">
@@ -1275,6 +1339,11 @@ campo-05:
         <label class="fl">Tags / Subcategorías</label>
         <input class="fi" id="e-tags" type="text" placeholder="Ej: Comida árabe, Sin TACC, Delivery">
       </div>
+      <div class="fg">
+        <label class="fl">Dueño de negocio (UID, opcional)</label>
+        <input class="fi" id="e-owner-uid" type="text" placeholder="UID de Firebase Auth — dejar vacío si no tiene dueño">
+        <p style="font-size:11px;color:var(--text3);margin-top:4px">El dueño se registra en la app pública (botón 👤) y te pasa su UID — lo ves en Firebase Console → Authentication → Users. Le da acceso a editar SOLO este pin desde su propio panel (Etapa 2, PLAN_USUARIOS_EVENTOS.md).</p>
+      </div>
       <div class="divider"><span>UBICACIÓN</span></div>
       <div class="fg">
         <label class="fl">🔍 Buscar nueva dirección</label>
@@ -1400,6 +1469,7 @@ campo-05:
   <script src="js/admin.js" defer></script>
   <script src="js/admin-auth.js" defer></script>
   <script src="js/user-auth.js" defer></script>
+  <script src="js/owner-panel.js" defer></script>
 
   <!-- 5. Utilities -->
   <script src="js/cloudinary-admin.js" defer></script>
