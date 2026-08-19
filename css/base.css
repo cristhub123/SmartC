@@ -260,6 +260,24 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
 #btn-admin:active { transform: scale(.95); }
 #btn-admin.active { background: var(--accent); color: white; }
 
+/* [Etapa 1, PLAN_USUARIOS_EVENTOS.md] Botón "mi cuenta" del header
+   público — mismo lenguaje visual que #btn-admin/#btn-zonas */
+#btn-user-account {
+  height: 44px; width: 44px; padding: 0;
+  background: rgba(255,255,255,0.95);
+  color: var(--text);
+  border: none; border-radius: 14px;
+  font-size: 17px;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: all .2s;
+  -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
+  box-shadow: 0 4px 16px rgba(0,0,0,.14);
+}
+#btn-user-account:hover { background: var(--accent); color: white; box-shadow: 0 6px 20px rgba(58,140,79,.3); }
+#btn-user-account:active { transform: scale(.95); }
+#btn-user-account.logged-in { background: var(--accent); color: white; }
+
 /* [Etapa 7, 2026-08-16] Selector de idioma global — vive en el header
    público, no dentro del panel de un lugar puntual, para que el
    visitante elija idioma aunque todavía no haya abierto ningún pin.
@@ -1224,6 +1242,88 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
 }
 #admin-login-box input:focus { outline: none; border-color: var(--accent); }
 #admin-login-error { color: #d9432b; font-size: 13px; min-height: 16px; margin: 0; }
+
+/* [Etapa 1, PLAN_USUARIOS_EVENTOS.md] LOGIN/REGISTRO PÚBLICO —
+   mismo patrón visual que #admin-login-overlay (overlay + caja
+   centrada), con tabs y selector de tipo de cuenta agregados. */
+#user-auth-overlay {
+  position: fixed; inset: 0; z-index: 1300;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+  opacity: 0; pointer-events: none;
+  transition: opacity .2s;
+}
+#user-auth-overlay.on { opacity: 1; pointer-events: all; }
+#user-auth-overlay::before {
+  content: ''; position: absolute; inset: 0;
+  background: rgba(0,0,0,.5);
+  backdrop-filter: blur(4px);
+}
+#user-auth-box {
+  position: relative; background: rgba(255,255,255,0.98);
+  border-radius: var(--r-lg); padding: 26px 24px;
+  width: 100%; max-width: 340px;
+  box-shadow: var(--shadow-panel);
+  border: 1px solid rgba(0,0,0,.06);
+  display: flex; flex-direction: column; gap: 10px;
+}
+#user-auth-close {
+  position: absolute; top: 10px; right: 10px;
+  background: none; border: none; cursor: pointer;
+  font-size: 16px; color: var(--text3); padding: 4px;
+}
+#user-auth-tabs { display: flex; gap: 6px; margin-bottom: 4px; }
+.user-auth-tab {
+  flex: 1; padding: 9px 6px; border: none; border-radius: var(--r-sm);
+  background: rgba(0,0,0,.05); color: var(--text3);
+  font-family: var(--font-b); font-size: 13px; font-weight: 700;
+  cursor: pointer; transition: all .15s;
+}
+.user-auth-tab.active { background: var(--accent); color: white; }
+.user-auth-pane { display: none; flex-direction: column; gap: 10px; }
+.user-auth-pane.on { display: flex; }
+.user-auth-pane input[type="text"],
+.user-auth-pane input[type="email"],
+.user-auth-pane input[type="password"] {
+  padding: 12px 14px; border-radius: var(--r-sm);
+  border: 1px solid var(--border2); font-size: 14px; font-family: var(--font-b);
+  width: 100%; box-sizing: border-box;
+}
+.user-auth-pane input:focus { outline: none; border-color: var(--accent); }
+.user-auth-error { color: #d9432b; font-size: 13px; min-height: 16px; margin: 0; text-align: center; }
+.user-auth-divider {
+  display: flex; align-items: center; gap: 8px;
+  color: var(--text3); font-size: 12px; margin: 2px 0;
+}
+.user-auth-divider::before, .user-auth-divider::after {
+  content: ''; flex: 1; height: 1px; background: var(--border2);
+}
+.user-auth-google-btn {
+  padding: 11px 14px; border-radius: var(--r-sm);
+  border: 1px solid var(--border2); background: white;
+  font-family: var(--font-b); font-size: 14px; font-weight: 600;
+  cursor: pointer; transition: all .15s;
+}
+.user-auth-google-btn:hover { background: rgba(0,0,0,.03); }
+.user-auth-rol-picker { display: flex; flex-direction: column; gap: 8px; }
+.user-auth-rol-opt {
+  display: grid;
+  grid-template-columns: auto 1fr; grid-template-rows: auto auto;
+  column-gap: 10px; align-items: center;
+  padding: 10px 12px; border-radius: var(--r-sm);
+  border: 1px solid var(--border2); cursor: pointer;
+  transition: all .15s;
+}
+.user-auth-rol-opt:has(input:checked) { border-color: var(--accent); background: rgba(58,140,79,.06); }
+.user-auth-rol-opt input[type="radio"] { grid-row: 1 / 3; }
+.user-auth-rol-opt span { font-family: var(--font-b); font-size: 14px; font-weight: 700; }
+.user-auth-rol-opt small { font-size: 12px; color: var(--text3); }
+.user-auth-google-role-intro { font-size: 14px; text-align: center; margin: 0 0 4px; }
+.user-auth-cancel-btn {
+  background: none; border: none; color: var(--text3);
+  font-family: var(--font-b); font-size: 13px; cursor: pointer;
+  padding: 4px;
+}
 #modal-confirm::before {
   content: ''; position: absolute; inset: 0;
   background: rgba(0,0,0,.4);
