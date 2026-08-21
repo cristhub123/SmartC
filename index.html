@@ -639,9 +639,9 @@ campo-05:
         <input class="fi" id="a-tags" type="text" placeholder="Ej: Comida árabe, Sin TACC, Delivery, Vista al río">
       </div>
       <div class="fg">
-        <label class="fl">Dueño de negocio (UID, opcional)</label>
-        <input class="fi" id="a-owner-uid" type="text" placeholder="UID de Firebase Auth — dejar vacío si no tiene dueño">
-        <p style="font-size:11px;color:var(--text3);margin-top:4px">El dueño se registra en la app pública (botón 👤) y te pasa su UID — lo ves en Firebase Console → Authentication → Users. Le da acceso a editar SOLO este pin desde su propio panel (Etapa 2, PLAN_USUARIOS_EVENTOS.md).</p>
+        <label class="fl">Dueño de negocio (mail, opcional)</label>
+        <input class="fi" id="a-owner-email" type="text" placeholder="ej. juan@mail.com — dejar vacío si no tiene dueño">
+        <p style="font-size:11px;color:var(--text3);margin-top:4px">El dueño tiene que haberse registrado antes en la app pública (botón 👤). Escribí acá el mismo mail con el que se registró y el sistema le da acceso a editar SOLO este pin desde su propio panel (Etapa 2, PLAN_USUARIOS_EVENTOS.md).</p>
       </div>
       <div class="divider"><span>UBICACIÓN EN EL MAPA</span></div>
       <div class="fg">
@@ -1340,9 +1340,9 @@ campo-05:
         <input class="fi" id="e-tags" type="text" placeholder="Ej: Comida árabe, Sin TACC, Delivery">
       </div>
       <div class="fg">
-        <label class="fl">Dueño de negocio (UID, opcional)</label>
-        <input class="fi" id="e-owner-uid" type="text" placeholder="UID de Firebase Auth — dejar vacío si no tiene dueño">
-        <p style="font-size:11px;color:var(--text3);margin-top:4px">El dueño se registra en la app pública (botón 👤) y te pasa su UID — lo ves en Firebase Console → Authentication → Users. Le da acceso a editar SOLO este pin desde su propio panel (Etapa 2, PLAN_USUARIOS_EVENTOS.md).</p>
+        <label class="fl">Dueño de negocio (mail, opcional)</label>
+        <input class="fi" id="e-owner-email" type="text" placeholder="ej. juan@mail.com — dejar vacío si no tiene dueño">
+        <p id="e-owner-current" style="font-size:11px;color:var(--text3);margin-top:4px"></p>
       </div>
       <div class="divider"><span>UBICACIÓN</span></div>
       <div class="fg">

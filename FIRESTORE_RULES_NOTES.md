@@ -65,7 +65,13 @@ service cloud.firestore {
     // Colección "usuarios" (Etapa 1): cada quien lee/crea solo su
     // propio perfil, y no puede cambiarse el rol a sí mismo.
     match /usuarios/{uid} {
-      allow read: if request.auth != null && request.auth.uid == uid;
+      // [Actualizado 2026-08-21] Se agrega que un admin también pueda
+      // leer cualquier perfil (antes solo el propio dueño de la cuenta
+      // podía) — necesario para que el admin pueda asignar el dueño de
+      // un pin buscando por MAIL en vez de pedir el UID a mano.
+      allow read: if request.auth != null &&
+        (request.auth.uid == uid ||
+         exists(/databases/$(database)/documents/admins/$(request.auth.uid)));
       allow create: if request.auth != null && request.auth.uid == uid
                     && request.resource.data.uid == uid;
       allow update: if request.auth != null && request.auth.uid == uid
