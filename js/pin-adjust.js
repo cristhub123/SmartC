@@ -109,6 +109,23 @@ function _applyEditIdLockState() {
 })();
 
 // ÚNICA definición final de saveEdit — incluye todos los campos
+/**
+ * [Mejora asignación de dueño por email, 2026-08-21]
+ * Busca en Firestore ("usuarios", campo `email`) la cuenta registrada
+ * con ese mail y devuelve su UID, o null si no existe ninguna.
+ * Requiere que las reglas de Firestore permitan a los admins leer la
+ * colección "usuarios" (ver FIRESTORE_RULES_NOTES.md, bloque
+ * actualizado) — sin eso, esta consulta falla con error de permisos.
+ */
+async function _resolveOwnerEmailToUid(email) {
+  const snap = await db.collection('usuarios')
+    .where('email', '==', email)
+    .limit(1)
+    .get();
+  if (snap.empty) return null;
+  return snap.docs[0].id; // el id del doc "usuarios/{uid}" ES el uid
+}
+
 async function saveEdit() {
   if (editingId === null) return;
   const idx = POIS.findIndex(x => x.id === editingId);
@@ -168,14 +185,30 @@ async function saveEdit() {
     tags:      document.getElementById('e-tags').value.split(',').map(s=>s.trim()).filter(Boolean),
     phone:     (document.getElementById('e-phone')||{value:''}).value.trim(),
     hours:     (document.getElementById('e-hours')||{value:''}).value.trim(),
-    // [Etapa 2, PLAN_USUARIOS_EVENTOS.md] UID del dueño de negocio
-    // asignado a este pin (o null si no tiene). Si el campo no está
-    // en el DOM por algún motivo, se conserva el valor que ya tenía
-    // el pin en vez de borrarlo por accidente.
-    ownerId: document.getElementById('e-owner-uid')
-      ? (document.getElementById('e-owner-uid').value.trim() || null)
-      : (POIS[idx].ownerId || null),
   };
+
+  // [Mejora asignación de dueño por email, 2026-08-21] El campo ahora
+  // pide el MAIL del dueño, no el UID — se resuelve acá antes de
+  // guardar. Si el campo quedó vacío, se saca el dueño (ownerId: null).
+  // Si tiene texto pero no existe ninguna cuenta registrada con ese
+  // mail, se corta el guardado con un aviso claro en vez de guardar
+  // un ownerId incorrecto o dejar el pin sin dueño por error.
+  const _eOwnerEmailInput = document.getElementById('e-owner-email');
+  if (_eOwnerEmailInput) {
+    const email = _eOwnerEmailInput.value.trim();
+    if (!email) {
+      updated.ownerId = null;
+    } else {
+      const uid = await _resolveOwnerEmailToUid(email);
+      if (!uid) {
+        toast(`⚠️ No hay ninguna cuenta registrada con el mail "${email}" — pedile al dueño que se registre primero desde la app (botón 👤)`);
+        return;
+      }
+      updated.ownerId = uid;
+    }
+  } else {
+    updated.ownerId = POIS[idx].ownerId || null;
+  }
 
   // Skins — [MIGRADO 2026-08-13] igual que en saveNew, pero acá hay
   // que preservar lo que ya existía y NO está bajo control de este
@@ -485,11 +518,29 @@ async function saveNew() {
     tags:  document.getElementById('a-tags').value.split(',').map(s=>s.trim()).filter(Boolean),
     phone: (document.getElementById('a-phone')||{value:''}).value.trim(),
     hours: (document.getElementById('a-hours')||{value:''}).value.trim(),
-    // [Etapa 2, PLAN_USUARIOS_EVENTOS.md] UID del dueño de negocio, si se cargó uno.
-    ownerId: (document.getElementById('a-owner-uid')||{value:''}).value.trim() || null,
     events: [], iconCyber:'🔵', iconWinter:'❄️', iconZombie:'☣️',
     active: true,
   };
+
+  // [Mejora asignación de dueño por email, 2026-08-21] Mismo criterio
+  // que en saveEdit(): el campo pide el mail, se resuelve acá antes
+  // de guardar; si no existe cuenta con ese mail, se corta el guardado.
+  const _aOwnerEmailInput = document.getElementById('a-owner-email');
+  if (_aOwnerEmailInput) {
+    const email = _aOwnerEmailInput.value.trim();
+    if (!email) {
+      p.ownerId = null;
+    } else {
+      const uid = await _resolveOwnerEmailToUid(email);
+      if (!uid) {
+        toast(`⚠️ No hay ninguna cuenta registrada con el mail "${email}" — pedile al dueño que se registre primero desde la app (botón 👤)`);
+        return;
+      }
+      p.ownerId = uid;
+    }
+  } else {
+    p.ownerId = null;
+  }
 
   // Skins — [MIGRADO 2026-08-13] la imagen principal + las variantes
   // (slots dinámicos de AltSlotsAdd) se guardan en `poi.skins`, el

@@ -405,8 +405,27 @@ window.startEdit = function(id) {
   document.getElementById('e-tags').value = (p.tags||[]).join(', ');
   const _ePhone = document.getElementById('e-phone'); if (_ePhone) _ePhone.value = p.phone || '';
   const _eHours = document.getElementById('e-hours'); if (_eHours) _eHours.value = p.hours || '';
-  // [Etapa 2, PLAN_USUARIOS_EVENTOS.md] UID del dueño de negocio asignado (si tiene)
-  const _eOwner = document.getElementById('e-owner-uid'); if (_eOwner) _eOwner.value = p.ownerId || '';
+  // [Mejora asignación de dueño por email, 2026-08-21] El campo de mail
+  // arranca SIEMPRE vacío (solo se completa si querés CAMBIAR el dueño).
+  // Abajo se muestra en texto quién es el dueño actual, resuelto desde
+  // su UID guardado (requiere permiso de lectura de "usuarios" para
+  // admins en las reglas de Firestore — ver FIRESTORE_RULES_NOTES.md).
+  const _eOwnerEmail = document.getElementById('e-owner-email'); if (_eOwnerEmail) _eOwnerEmail.value = '';
+  const _eOwnerCurrent = document.getElementById('e-owner-current');
+  if (_eOwnerCurrent) {
+    if (!p.ownerId) {
+      _eOwnerCurrent.textContent = 'Sin dueño asignado actualmente.';
+    } else {
+      _eOwnerCurrent.textContent = 'Buscando dueño actual…';
+      db.collection('usuarios').doc(p.ownerId).get()
+        .then(snap => {
+          _eOwnerCurrent.textContent = snap.exists
+            ? `Dueño actual: ${snap.data().email || '(sin mail en su perfil)'}`
+            : 'Dueño actual: cuenta no encontrada (UID guardado sin perfil de usuario).';
+        })
+        .catch(() => { _eOwnerCurrent.textContent = 'No se pudo consultar el dueño actual (revisá permisos de Firestore).'; });
+    }
+  }
   // [Etapa 3] precarga con content[idioma].fields[] (esquema nuevo),
   // no con p.attrs (legado) — el editor nuevo ya no lo lee.
   if (typeof _renderPinFieldsEditor === 'function') _renderPinFieldsEditor('e-attrs-wrap', p.content || {});
