@@ -43,6 +43,22 @@ After modifying this file, update /AI_SESSION.md with the change and verificatio
    ═══════════════════════════════════════════════════════════ */
 
 /**
+ * Extrae el nombre de archivo real (con extensión) del final de una
+ * URL de Cloudinary, para mostrarlo tal cual en el editor del admin
+ * (ej. de ".../images/caca-cba_carpetabierta2_01.jpeg" → devuelve
+ * "caca-cba_carpetabierta2_01.jpeg"). Devuelve null si la URL no
+ * tiene una forma reconocible.
+ * @param {string} url
+ * @returns {string|null}
+ */
+function prevUrlFileName(url) {
+  if (!url) return null;
+  const clean = url.split('?')[0].split('#')[0];
+  const last = clean.split('/').pop();
+  return last || null;
+}
+
+/**
  * Crea un manejador de slots dinámicos para un contenedor.
  * @param {string} containerId - id del <div> donde van los slots.
  * @param {'add'|'edit'} formPrefix - qué formulario alimenta.
@@ -104,7 +120,7 @@ function createAltSlotManager(containerId, formPrefix) {
       <input type="file" accept="image/*" id="${ids.inputId}">
       <div class="img-uploader-inner">
         <div class="img-preview-box" id="${ids.prevId}">${slotNum}</div>
-        <div class="img-uploader-text"><strong id="${ids.lblId}">Variante ${slotNum}</strong><span>PNG recomendado</span></div>
+        <div class="img-uploader-text"><strong id="${ids.lblId}">Variante ${slotNum}</strong><span>WebP recomendado</span></div>
       </div>
       <button class="img-clear" id="${ids.clearId}" type="button">✕</button>
     `;
@@ -155,7 +171,14 @@ function createAltSlotManager(containerId, formPrefix) {
 
     if (prefillUrl) {
       document.getElementById(ids.prevId).innerHTML = `<img src="${prefillUrl}" alt="variante">`;
-      document.getElementById(ids.lblId).textContent = `Variante ${slotNum} cargada — clic para cambiar`;
+      // Nombre completo del archivo real (ej. "caca-cba_carpetabierta2_01.jpeg"),
+      // extraído de la URL de Cloudinary, para que el admin sepa qué
+      // imagen es cada una sin adivinar por el número de slot. Si por
+      // algún motivo la URL no trae un nombre de archivo reconocible,
+      // se cae al nombre de variante como respaldo.
+      const fileMatch = prevUrlFileName(prefillUrl);
+      const fullName = fileMatch || v;
+      document.getElementById(ids.lblId).textContent = `${fullName} — clic para cambiar`;
       wrap.classList.add('has-img');
       state.hasImg = true;
       state.url = prefillUrl;
@@ -164,10 +187,13 @@ function createAltSlotManager(containerId, formPrefix) {
 
   /**
    * Reinicia el contenedor. Si se pasa `prefillSkins` (el `poi.skins`
-   * de un lugar existente), precarga sus variantes "altN" en orden;
-   * variantes con otro nombre (ej. "noche", vinculadas por texto) NO
-   * se muestran acá — se preservan igual al guardar, solo que este
-   * editor visual no las administra.
+   * de un lugar existente), precarga TODAS sus variantes salvo "main"
+   * (que tiene su propio cuadro de "imagen principal" aparte) — sin
+   * importar cómo se llame la variante, para que el admin pueda ver
+   * y leer el nombre completo de cada imagen cargada para ese pin,
+   * las haya subido por acá, por texto de importación masiva, o
+   * como sea. Solo afecta qué se MUESTRA en este editor; no cambia
+   * cómo se suben imágenes nuevas ni toca nada en Cloudinary.
    * @param {Object} [prefillSkins]
    */
   function reset(prefillSkins) {
@@ -175,8 +201,8 @@ function createAltSlotManager(containerId, formPrefix) {
     slots = [];
 
     const altEntries = Object.entries(prefillSkins || {})
-      .filter(([k]) => /^alt\d+$/.test(k))
-      .sort((a, b) => parseInt(a[0].slice(3), 10) - parseInt(b[0].slice(3), 10));
+      .filter(([k]) => k !== 'main')
+      .sort((a, b) => a[0].localeCompare(b[0]));
 
     if (altEntries.length === 0) {
       _addSlot(null, null);
