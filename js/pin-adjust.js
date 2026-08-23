@@ -1094,10 +1094,36 @@ function _buildBulkImageUrl(filename) {
         city:     window.ACTIVE_LOCATION?.cityCode,
       })
     : '';
-  // NOTA: para GIFs animados no conviene forzar f_auto (puede
-  // convertir a otro formato y perder la animación) — se usa
-  // q_auto solamente, que es seguro para cualquier formato.
-  return `https://res.cloudinary.com/${cloudName}/image/upload/q_auto/${folder}/${filename}`;
+  // [2026-08-21] q_auto (compresión automática) es seguro para
+  // cualquier formato, así que se aplica siempre. f_auto (conversión
+  // automática de formato) NO conviene para GIFs animados (puede
+  // convertir a otro formato y perder la animación), así que solo se
+  // agrega cuando la extensión del archivo no es .gif.
+  const ext = (filename.match(/\.([a-zA-Z0-9]+)$/) || [])[1]?.toLowerCase() || '';
+  const isGif = ext === 'gif';
+  const transform = isGif ? 'q_auto' : 'f_auto,q_auto';
+  return `https://res.cloudinary.com/${cloudName}/image/upload/${transform}/${folder}/${filename}`;
+}
+
+/**
+ * Resuelve el texto libre de "categoria:" (ej. "cultura") al id
+ * interno real de la categoría (ej. "culture"), buscando tanto por
+ * id como por label, sin importar mayúsculas/acentos. Devuelve
+ * `{id, label}` o `null` si no matchea ninguna categoría existente
+ * (builtin o custom) — en ese caso el bloque no se descarta, solo
+ * queda sin categoría y se avisa en el reporte de errores.
+ * @param {string} value
+ * @returns {{id:string, label:string}|null}
+ */
+function _resolveBulkCategory(value) {
+  if (!value) return null;
+  const norm = s => (s || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+  const target = norm(value);
+  const all = (typeof getAllCats === 'function') ? getAllCats() : CAT;
+  for (const [id, cfg] of Object.entries(all)) {
+    if (norm(id) === target || norm(cfg.label) === target) return { id, label: cfg.label };
+  }
+  return null;
 }
 
 /**
@@ -1159,6 +1185,8 @@ function parsePinBulkText(text) {
           else if (key === 'lat') data.lat = parseFloat(value);
           else if (key === 'lng' || key === 'lon') data.lng = parseFloat(value);
           else if (key === 'tags') data.tags = value.split(',').map(s => s.trim()).filter(Boolean);
+          else if (key === 'categoria' || key === 'categoría') data.categoria = value;
+          else if (key === 'direccion' || key === 'dirección') data.direccion = value;
           continue;
         }
 
@@ -1198,13 +1226,21 @@ function parsePinBulkText(text) {
         };
       });
 
+      const catResolved = _resolveBulkCategory(data.categoria);
+      if (data.categoria && !catResolved) {
+        errors.push(`"${data.nombre}": categoría "${data.categoria}" no existe — se guarda sin categoría.`);
+      }
+
       pins.push({
         id,
         name: data.titulo || data.nombre,
-        category: '', categories: [], categoryLabel: '',
+        category: catResolved ? catResolved.id : '',
+        categories: catResolved ? [catResolved.id] : [],
+        categoryLabel: catResolved ? catResolved.label : '',
         icon: '📍',
         lat: isNaN(data.lat) ? null : data.lat,
         lng: isNaN(data.lng) ? null : data.lng,
+        address: data.direccion || '',
         country:  window.ACTIVE_LOCATION?.countryCode  || '',
         province: window.ACTIVE_LOCATION?.provinceCode || '',
         city:     window.ACTIVE_LOCATION?.cityCode      || '',
