@@ -16,7 +16,7 @@ After modifying this file, update /AI_SESSION.md with the change and verificatio
 
   <!-- Leaflet -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" defer></script>
 
   <!-- Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Nunito:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -581,7 +581,7 @@ campo-05:
           <button class="img-clear" id="img-clear-add" type="button">✕</button>
         </div>
         <div class="url-input-row">
-          <input class="fi url-fi" id="img-url-add" type="url" placeholder="O pegá el link de Dropbox / Drive / URL directa">
+          <input class="fi url-fi" id="img-url-add" type="url" placeholder="Pegá el link (Dropbox/Drive) o el nombre de archivo ya subido a Cloudinary">
           <button class="url-load-btn" id="img-url-load-add" type="button">Cargar</button>
         </div>
       </div>
@@ -1282,7 +1282,7 @@ campo-05:
           <button class="img-clear" id="img-clear-edit" type="button">✕</button>
         </div>
         <div class="url-input-row">
-          <input class="fi url-fi" id="img-url-edit" type="url" placeholder="O pegá el link de Dropbox / Drive / URL directa">
+          <input class="fi url-fi" id="img-url-edit" type="url" placeholder="Pegá el link (Dropbox/Drive) o el nombre de archivo ya subido a Cloudinary">
           <button class="url-load-btn" id="img-url-load-edit" type="button">Cargar</button>
         </div>
       </div>
@@ -1427,9 +1427,9 @@ campo-05:
 
   <!-- 1. Namespace + data constants (no DOM, no functions) -->
   <!-- Firebase SDK (compat — funciona con scripts sueltos, sin build) -->
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js" defer></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js" defer></script>
   <script src="js/firebase-init.js" defer></script>
   <script src="js/firestore-sync.js" defer></script>
 
