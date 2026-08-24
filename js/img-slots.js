@@ -172,7 +172,10 @@ function createAltSlotManager(containerId, formPrefix) {
   function _syncWindowVar() {
     const out = {};
     slots.forEach(s => {
-      if (s.hasImg && s.url) out[s.variant] = { url: s.url, active: s.active !== false, order: s.order };
+      if (s.hasImg && s.url) {
+        out[s.variant] = { url: s.url, active: s.active !== false };
+        if (typeof s.order === 'number') out[s.variant].order = s.order;
+      }
     });
     window[formPrefix === 'edit' ? '_editAltSkins' : '_addAltSkins'] = out;
   }

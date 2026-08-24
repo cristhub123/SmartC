@@ -227,7 +227,9 @@ async function saveEdit() {
   }
   const altSkins = (typeof AltSlotsEdit !== 'undefined' && AltSlotsEdit) ? AltSlotsEdit.getSkins() : {};
   Object.entries(altSkins).forEach(([variant, { url, active, order }]) => {
-    skins[variant] = existingSkins[variant] ? { ...existingSkins[variant], url, active, order } : { url, style: variant, active, order };
+    const base = existingSkins[variant] ? { ...existingSkins[variant], url, active } : { url, style: variant, active };
+    if (typeof order === 'number') base.order = order; else delete base.order;
+    skins[variant] = base;
   });
   updated.skins = skins;
 
@@ -548,7 +550,8 @@ async function saveNew() {
   if (p.imgB64) skins.main = { url: p.imgB64, style: 'main', active: true };
   const altSkins = (typeof AltSlotsAdd !== 'undefined' && AltSlotsAdd) ? AltSlotsAdd.getSkins() : {};
   Object.entries(altSkins).forEach(([variant, { url, active, order }]) => {
-    skins[variant] = { url, style: variant, active, order };
+    skins[variant] = { url, style: variant, active };
+    if (typeof order === 'number') skins[variant].order = order;
   });
   if (Object.keys(skins).length > 0) p.skins = skins;
 
@@ -1231,12 +1234,17 @@ function parsePinBulkText(text) {
         // Si el nombre de archivo resuelve a la variante "main" (ej.
         // "..._main_01.ext"), no lleva "order" — ese campo no aplica
         // para la principal, que siempre se muestra primero sin él.
+        // [FIX 2026-08-24] Firestore rechaza cualquier campo con
+        // valor `undefined` en el documento entero — antes esto
+        // escribía `order: undefined` para "main" y tiraba abajo el
+        // guardado completo del pin. Ahora directamente no se
+        // incluye la clave cuando no aplica.
         skins[parsed.variant] = {
           url: _buildBulkImageUrl(filename),
           style: parsed.variant,
           active: true,
-          order: parsed.variant === 'main' ? undefined : _bulkOrder++,
         };
+        if (parsed.variant !== 'main') skins[parsed.variant].order = _bulkOrder++;
       });
 
       const catResolved = _resolveBulkCategory(data.categoria);
