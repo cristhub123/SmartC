@@ -833,6 +833,16 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   font-size: 9px; font-weight: 700; line-height: 1;
   padding: 2px 4px; border-radius: 4px;
 }
+.img-grid-thumb--main {
+  border-color: #eab308; cursor: default;
+}
+.img-grid-thumb--main:hover { border-color: #eab308; }
+.img-grid-thumb--main .img-grid-badge { background: #eab308; color: #1a1a1a; }
+.img-grid-main-tag {
+  position: absolute; bottom: 3px; right: 3px;
+  color: #eab308; font-size: 12px; text-shadow: 0 1px 2px rgba(0,0,0,.5);
+}
+.img-order-hint { font-size: 10px; font-weight: 400; color: var(--text3); }
 
 /* Panel de opciones compartido — un solo bloque, muestra los
    controles de la miniatura seleccionada en .img-grid (el resto de
