@@ -228,8 +228,8 @@ async function saveEdit() {
     skins.main = existingSkins.main ? { ...existingSkins.main, url: updated.imgB64 } : { url: updated.imgB64, style: 'main', active: true };
   }
   const altSkins = (typeof AltSlotsEdit !== 'undefined' && AltSlotsEdit) ? AltSlotsEdit.getSkins() : {};
-  Object.entries(altSkins).forEach(([variant, { url, active }]) => {
-    skins[variant] = existingSkins[variant] ? { ...existingSkins[variant], url, active } : { url, style: variant, active };
+  Object.entries(altSkins).forEach(([variant, { url, active, order }]) => {
+    skins[variant] = existingSkins[variant] ? { ...existingSkins[variant], url, active, order } : { url, style: variant, active, order };
   });
   updated.skins = skins;
 
@@ -549,8 +549,8 @@ async function saveNew() {
   const skins = {};
   if (p.imgB64) skins.main = { url: p.imgB64, style: 'main', active: true };
   const altSkins = (typeof AltSlotsAdd !== 'undefined' && AltSlotsAdd) ? AltSlotsAdd.getSkins() : {};
-  Object.entries(altSkins).forEach(([variant, { url, active }]) => {
-    skins[variant] = { url, style: variant, active };
+  Object.entries(altSkins).forEach(([variant, { url, active, order }]) => {
+    skins[variant] = { url, style: variant, active, order };
   });
   if (Object.keys(skins).length > 0) p.skins = skins;
 
@@ -1213,6 +1213,7 @@ function parsePinBulkText(text) {
       const id = slug;
 
       const skins = {};
+      let _bulkOrder = 1; // orden de exhibición al público = orden en que se listaron bajo "imagenes:"
       data.images.forEach(filename => {
         const parsed = parseImageFilename(filename);
         if (!parsed) {
@@ -1223,6 +1224,7 @@ function parsePinBulkText(text) {
           url: _buildBulkImageUrl(filename),
           style: parsed.variant,
           active: true,
+          order: _bulkOrder++,
         };
       });
 

@@ -59,16 +59,37 @@ function prevUrlFileName(url) {
 }
 
 /**
- * Crea un manejador de slots dinámicos para un contenedor.
- * @param {string} containerId - id del <div> donde van los slots.
- * @param {'add'|'edit'} formPrefix - qué formulario alimenta.
- * @returns {{reset: Function, getSkins: Function}|null}
+ * [NUEVO 2026-08-24] GRILLA + PANEL COMPARTIDO — reemplaza el listado
+ * vertical ("chorizo") de antes: uno por uno, uploader+URL+toggle
+ * apilados. Ahora cada variante es una miniatura clickeable dentro de
+ * una grilla (varias por fila, según ancho del panel admin); al
+ * clickear una, el panel de opciones de abajo (uploader+URL+"Orden"+
+ * "Imagen activa") pasa a controlar esa imagen puntual — un solo
+ * panel compartido, no uno repetido por variante.
+ *
+ * "Orden" es un campo nuevo (`skin.order`, número) que define en qué
+ * posición se le muestra esa imagen al público (ojito del mapa,
+ * panel del lugar) — ver mismo criterio en `_orderedSkinNames` de
+ * utils.js, que ahora respeta este campo. Al cargar una imagen nueva
+ * se le asigna automáticamente el menor número libre entre las que
+ * ya tiene ESE pin (relleno de huecos, no solo "siguiente al
+ * máximo"). Si el admin le tipea a mano un número ya usado por otra
+ * imagen del mismo pin, las dos intercambian su orden (nunca quedan
+ * dos con el mismo número).
  */
 function createAltSlotManager(containerId, formPrefix) {
   const container = document.getElementById(containerId);
   if (!container) return null;
 
-  let slots = []; // [{ variant, hasImg, url, ids }]
+  let slots = []; // [{ variant, hasImg, url, active, order, ids, detailEl }]
+  let selectedVariant = null;
+
+  const gridEl = document.createElement('div');
+  gridEl.className = 'img-grid';
+  const panelEl = document.createElement('div');
+  panelEl.className = 'img-slot-panel';
+  container.appendChild(gridEl);
+  container.appendChild(panelEl);
 
   function _nextAutoVariant() {
     let max = 0;
@@ -79,9 +100,21 @@ function createAltSlotManager(containerId, formPrefix) {
     return `alt${max + 1}`;
   }
 
+  /** Menor número entero >=1 no usado todavía por ninguna otra imagen cargada de este pin. */
+  function _nextFreeOrder(excludeState) {
+    const used = new Set(
+      slots.filter(s => s.hasImg && s !== excludeState && typeof s.order === 'number').map(s => s.order)
+    );
+    let n = 1;
+    while (used.has(n)) n++;
+    return n;
+  }
+
   function _syncWindowVar() {
     const out = {};
-    slots.forEach(s => { if (s.hasImg && s.url) out[s.variant] = { url: s.url, active: s.active !== false }; });
+    slots.forEach(s => {
+      if (s.hasImg && s.url) out[s.variant] = { url: s.url, active: s.active !== false, order: s.order };
+    });
     window[formPrefix === 'edit' ? '_editAltSkins' : '_addAltSkins'] = out;
   }
 
@@ -90,17 +123,53 @@ function createAltSlotManager(containerId, formPrefix) {
     if (!last || last.hasImg) _addSlot(null, null);
   }
 
+  /** Repinta la grilla de miniaturas: ordenadas por `order`, la que no tiene imagen siempre al final. */
+  function _renderGrid() {
+    gridEl.innerHTML = '';
+    const sorted = slots.slice().sort((a, b) => {
+      if (a.hasImg && b.hasImg) return (a.order || 0) - (b.order || 0);
+      if (a.hasImg) return -1;
+      if (b.hasImg) return 1;
+      return 0;
+    });
+    sorted.forEach(s => {
+      const cell = document.createElement('div');
+      const classes = ['img-grid-thumb'];
+      if (!s.hasImg) classes.push('img-grid-thumb--add');
+      if (s.hasImg && s.active === false) classes.push('img-grid-thumb--inactive');
+      if (s.variant === selectedVariant) classes.push('is-selected');
+      cell.className = classes.join(' ');
+      cell.title = s.hasImg ? (prevUrlFileName(s.url) || s.variant) : 'Agregar imagen';
+      cell.innerHTML = s.hasImg
+        ? `<img src="${s.url}" alt="">
+           <span class="img-grid-badge">${s.order || ''}</span>
+           ${s.active === false ? '<span class="img-grid-off">OFF</span>' : ''}`
+        : `<span class="img-grid-plus">+</span>`;
+      cell.addEventListener('click', () => _selectSlot(s.variant));
+      gridEl.appendChild(cell);
+    });
+  }
+
+  function _selectSlot(variant) {
+    selectedVariant = variant;
+    slots.forEach(s => { if (s.detailEl) s.detailEl.classList.toggle('is-selected', s.variant === variant); });
+    _renderGrid();
+  }
+
   /**
-   * Agrega un slot al final del contenedor.
-   * @param {string|null} variant - nombre fijo (ej. "alt2") si viene
-   *   de un pin ya cargado, o null para autogenerar el próximo libre.
-   * @param {string|null} prefillUrl - URL ya guardada, si la hay.
-   * @param {boolean} [prefillActive=true] - si el skin ya guardado
-   *   estaba activo (`skin.active !== false`) o lo desactivó el admin.
+   * Agrega un slot. Si `variant` es null se autogenera el próximo
+   * nombre interno libre (`altN`, ver `_nextAutoVariant` — es el ID
+   * técnico usado como clave en `poi.skins`, no el número de orden
+   * visible). `prefillOrder` es el número de orden visible/público a
+   * precargar (si el skin ya lo traía guardado) o su posición en la
+   * lista si es un skin legado sin ese campo.
+   * @param {string|null} variant
+   * @param {string|null} prefillUrl
+   * @param {boolean} [prefillActive=true]
+   * @param {number} [prefillOrder]
    */
-  function _addSlot(variant, prefillUrl, prefillActive) {
+  function _addSlot(variant, prefillUrl, prefillActive, prefillOrder) {
     const v = variant || _nextAutoVariant();
-    const slotNum = slots.length + 2; // +2: el slot 1 visual es "principal", que va aparte
     const ids = {
       variant: v,
       wrapId:   `iu-${v}-${formPrefix}-dyn`,
@@ -111,7 +180,12 @@ function createAltSlotManager(containerId, formPrefix) {
       urlId:    `img-url-${v}-${formPrefix}-dyn`,
       urlBtnId: `img-url-load-${v}-${formPrefix}-dyn`,
       toggleId: `img-active-${v}-${formPrefix}-dyn`,
+      orderId:  `img-order-${v}-${formPrefix}-dyn`,
     };
+
+    const detailEl = document.createElement('div');
+    detailEl.className = 'img-slot-detail';
+    detailEl.id = `detail-${v}-${formPrefix}-dyn`;
 
     const wrap = document.createElement('div');
     wrap.className = 'img-uploader';
@@ -119,8 +193,8 @@ function createAltSlotManager(containerId, formPrefix) {
     wrap.innerHTML = `
       <input type="file" accept="image/*" id="${ids.inputId}">
       <div class="img-uploader-inner">
-        <div class="img-preview-box" id="${ids.prevId}">${slotNum}</div>
-        <div class="img-uploader-text"><strong id="${ids.lblId}">Variante ${slotNum}</strong><span>WebP recomendado</span></div>
+        <div class="img-preview-box" id="${ids.prevId}">🏙️</div>
+        <div class="img-uploader-text"><strong id="${ids.lblId}">Nueva imagen</strong><span>WebP recomendado</span></div>
       </div>
       <button class="img-clear" id="${ids.clearId}" type="button">✕</button>
     `;
@@ -129,6 +203,16 @@ function createAltSlotManager(containerId, formPrefix) {
     urlRow.innerHTML = `
       <input class="fi url-fi" id="${ids.urlId}" type="url" placeholder="O pegá el link de la imagen (Cloudinary, Dropbox, etc.)">
       <button class="url-load-btn" id="${ids.urlBtnId}" type="button">Cargar</button>
+    `;
+    // Fila de "Orden" — número visible que decide en qué posición se
+    // muestra esta imagen al público (ojito/panel). Independiente del
+    // toggle "activa".
+    const orderRow = document.createElement('div');
+    orderRow.className = 'za-row img-slot-order-row';
+    orderRow.style.marginTop = '4px';
+    orderRow.innerHTML = `
+      <span class="za-name">Orden de exhibición</span>
+      <input type="number" min="1" step="1" class="fi img-order-input" id="${ids.orderId}">
     `;
     // Toggle "Activo" — controla si esta imagen se muestra al público
     // (antes vivía, sin protección de admin, en el panel público del
@@ -140,12 +224,36 @@ function createAltSlotManager(containerId, formPrefix) {
       <span class="za-name">Imagen activa (visible al público)</span>
       <button class="za-toggle" id="${ids.toggleId}" type="button" aria-pressed="true"></button>
     `;
-    container.appendChild(wrap);
-    container.appendChild(urlRow);
-    container.appendChild(activeRow);
+    detailEl.appendChild(wrap);
+    detailEl.appendChild(urlRow);
+    detailEl.appendChild(orderRow);
+    detailEl.appendChild(activeRow);
+    panelEl.appendChild(detailEl);
 
-    const state = { variant: v, hasImg: false, url: null, active: prefillActive !== false, ids };
+    const state = {
+      variant: v, hasImg: false, url: null,
+      active: prefillActive !== false,
+      order: (typeof prefillOrder === 'number' ? prefillOrder : undefined),
+      ids, detailEl,
+    };
     slots.push(state);
+
+    const orderInput = document.getElementById(ids.orderId);
+    function _paintOrder() { orderInput.value = state.hasImg ? (state.order || '') : ''; }
+    _paintOrder();
+    orderInput.addEventListener('change', () => {
+      const val = parseInt(orderInput.value, 10);
+      if (!state.hasImg) return; // no aplica hasta que haya imagen
+      if (!val || val < 1) { _paintOrder(); return; }
+      if (val === state.order) return;
+      // Si otra imagen de este mismo pin ya tiene ese número, se
+      // intercambian — nunca quedan dos con el mismo orden.
+      const conflict = slots.find(s => s !== state && s.hasImg && s.order === val);
+      if (conflict) conflict.order = state.order;
+      state.order = val;
+      _renderGrid();
+      _syncWindowVar();
+    });
 
     const toggleBtn = document.getElementById(ids.toggleId);
     function _paintToggle() {
@@ -156,32 +264,42 @@ function createAltSlotManager(containerId, formPrefix) {
     toggleBtn.addEventListener('click', () => {
       state.active = !state.active;
       _paintToggle();
+      _renderGrid();
       _syncWindowVar();
     });
 
     function onLoad(url) {
+      const wasEmpty = !state.hasImg;
       state.hasImg = !!url;
       state.url = url;
+      if (state.hasImg && wasEmpty && typeof state.order !== 'number') {
+        // Imagen nueva: ocupa el próximo número libre (relleno de huecos).
+        state.order = _nextFreeOrder(state);
+      }
+      if (!state.hasImg) state.order = undefined; // se limpió: libera su número para la próxima
+      _paintOrder();
       _ensureTrailingEmptySlot();
+      if (state.hasImg) selectedVariant = state.variant; // seguir viendo el panel de la que se acaba de cargar
+      _renderGrid();
+      _selectSlot(selectedVariant);
       _syncWindowVar();
     }
 
-    setupImgUploader(ids.inputId, ids.prevId, ids.lblId, ids.clearId, ids.wrapId, `Variante ${slotNum}`, onLoad, _uploadCtx(formPrefix, v));
+    setupImgUploader(ids.inputId, ids.prevId, ids.lblId, ids.clearId, ids.wrapId, 'Nueva imagen', onLoad, _uploadCtx(formPrefix, v));
     setupUrlLoader(ids.urlId, ids.urlBtnId, ids.prevId, ids.lblId, ids.wrapId, onLoad, _uploadCtx(formPrefix, v));
 
     if (prefillUrl) {
       document.getElementById(ids.prevId).innerHTML = `<img src="${prefillUrl}" alt="variante">`;
       // Nombre completo del archivo real (ej. "caca-cba_carpetabierta2_01.jpeg"),
       // extraído de la URL de Cloudinary, para que el admin sepa qué
-      // imagen es cada una sin adivinar por el número de slot. Si por
-      // algún motivo la URL no trae un nombre de archivo reconocible,
-      // se cae al nombre de variante como respaldo.
+      // imagen es cada una sin adivinar por el número de slot.
       const fileMatch = prevUrlFileName(prefillUrl);
-      const fullName = fileMatch || v;
-      document.getElementById(ids.lblId).textContent = `${fullName} — clic para cambiar`;
+      document.getElementById(ids.lblId).textContent = `${fileMatch || v} — clic para cambiar`;
       wrap.classList.add('has-img');
       state.hasImg = true;
       state.url = prefillUrl;
+      if (typeof state.order !== 'number') state.order = _nextFreeOrder(state); // red de seguridad, no debería disparar (reset ya asigna order)
+      _paintOrder();
     }
   }
 
@@ -192,28 +310,48 @@ function createAltSlotManager(containerId, formPrefix) {
    * importar cómo se llame la variante, para que el admin pueda ver
    * y leer el nombre completo de cada imagen cargada para ese pin,
    * las haya subido por acá, por texto de importación masiva, o
-   * como sea. Solo afecta qué se MUESTRA en este editor; no cambia
-   * cómo se suben imágenes nuevas ni toca nada en Cloudinary.
+   * como sea. El orden inicial de la grilla respeta `skin.order` si
+   * ya lo tenía guardado (mismo criterio que `_orderedSkinNames` en
+   * utils.js); si no lo tenía (skin legado), se le asigna uno según
+   * su posición actual, para que arranque siempre con un número
+   * concreto en pantalla.
    * @param {Object} [prefillSkins]
    */
   function reset(prefillSkins) {
     container.innerHTML = '';
+    gridEl.innerHTML = '';
+    panelEl.innerHTML = '';
+    container.appendChild(gridEl);
+    container.appendChild(panelEl);
     slots = [];
+    selectedVariant = null;
 
     const altEntries = Object.entries(prefillSkins || {})
       .filter(([k]) => k !== 'main')
-      .sort((a, b) => a[0].localeCompare(b[0]));
+      .sort((a, b) => {
+        const oa = a[1] && typeof a[1].order === 'number' ? a[1].order : null;
+        const ob = b[1] && typeof b[1].order === 'number' ? b[1].order : null;
+        if (oa !== null && ob !== null) return oa - ob;
+        if (oa !== null) return -1;
+        if (ob !== null) return 1;
+        return a[0].localeCompare(b[0]);
+      });
 
     if (altEntries.length === 0) {
       _addSlot(null, null);
     } else {
-      altEntries.forEach(([variant, skin]) => _addSlot(variant, skin && skin.url, skin && skin.active));
+      altEntries.forEach(([variant, skin], idx) => {
+        const order = (skin && typeof skin.order === 'number') ? skin.order : (idx + 1);
+        _addSlot(variant, skin && skin.url, skin && skin.active, order);
+      });
       _ensureTrailingEmptySlot();
     }
+    selectedVariant = (slots.find(s => s.hasImg) || slots[0]).variant;
+    _selectSlot(selectedVariant);
     _syncWindowVar();
   }
 
-  /** @returns {Object} mapa {variant: {url, active}} de los slots con imagen cargada */
+  /** @returns {Object} mapa {variant: {url, active, order}} de los slots con imagen cargada */
   function getSkins() {
     _syncWindowVar();
     return window[formPrefix === 'edit' ? '_editAltSkins' : '_addAltSkins'] || {};

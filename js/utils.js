@@ -86,13 +86,29 @@ function getActivePanelThemeIds() {
    `poi.skins`, usando exactamente el mismo criterio que
    getActiveSkinList, para que las dos listas nunca puedan
    desincronizarse otra vez. */
+/* [NUEVO 2026-08-24] Ahora respeta `skin.order` (número asignado
+   desde el gestor de imágenes del admin — ver img-slots.js) cuando
+   existe: define en qué posición se muestra cada imagen al público
+   (ojito del mapa, panel del lugar). "main" y "noche" se siguen
+   priorizando primero SIEMPRE, como antes (compatibilidad con el
+   sistema de tema día/noche). El resto se ordena por `order`
+   ascendente; los skins legado que nunca pasaron por el gestor nuevo
+   (sin ese campo) caen al criterio viejo, alfabético, al final —
+   deben coincidir el mismo comparador en img-slots.js si se toca. */
 function _orderedSkinNames(skins) {
-  const KNOWN_ORDER = ['main', 'noche', 'alt1', 'alt2', 'alt3'];
-  const known = KNOWN_ORDER.filter((n) => skins[n]);
+  const PRIORITY = ['main', 'noche'];
+  const priorityNames = PRIORITY.filter((n) => skins[n]);
   const rest = Object.keys(skins)
-    .filter((n) => !KNOWN_ORDER.includes(n))
-    .sort();
-  return [...known, ...rest];
+    .filter((n) => !PRIORITY.includes(n))
+    .sort((a, b) => {
+      const oa = skins[a] && typeof skins[a].order === 'number' ? skins[a].order : null;
+      const ob = skins[b] && typeof skins[b].order === 'number' ? skins[b].order : null;
+      if (oa !== null && ob !== null) return oa - ob;
+      if (oa !== null) return -1;
+      if (ob !== null) return 1;
+      return a.localeCompare(b);
+    });
+  return [...priorityNames, ...rest];
 }
 
 function buildImageFallbackChain(poi, { forMap = false, forPanel = false } = {}) {
@@ -154,6 +170,20 @@ window._editBannerImg = null;
 const CLOUDINARY_CLOUD_NAME    = 's92q7vch';
 const CLOUDINARY_UPLOAD_PRESET = 'smartcity_pines_01';
 
+/* [2026-08-21] Preset separado para el BANNER del panel. Uploads
+   unsigned NO pueden pedir transformaciones por parámetro (Cloudinary
+   las rechaza) — la única forma de que Cloudinary redimensione/
+   comprima una imagen de PIN al subirla (y así no gastar cuota
+   guardando el original grande en paralelo) es una "incoming
+   transformation" configurada en el preset desde la consola. Como esa
+   transformación aplica a TODO lo que use ese preset, y el banner NO
+   debe redimensionarse/recortarse (es rectangular, no cuadrado), el
+   banner tiene su propio preset SIN esa transformación.
+   "smartcity_pines_01" (CLOUDINARY_UPLOAD_PRESET) ya tiene configurado
+   en la consola el límite c_limit,w_1024,h_1024 — "smartcity_banner_01"
+   es unsigned y sin ninguna transformación. */
+const CLOUDINARY_UPLOAD_PRESET_BANNER = 'smartcity_banner_01';
+
 /* [LIMPIEZA 2026-08-12] `DEFAULT_IMG_FOLDER` ('ar/cordoba') y la
    fórmula que la usaba (`cloudinaryImageUrl` en markers.js) quedaron
    eliminadas — ya no existe ningún camino del código que arme una
@@ -187,9 +217,15 @@ async function uploadToCloudinary(file, opts = {}) {
   // por Ctrl+V, que no tiene nombre de archivo real).
   const publicId = publicIdOverride || (file.name || '').replace(/\.[^./\\]+$/, '');
 
+  // [2026-08-21] El preset determina si esta subida lleva la incoming
+  // transformation de resize (solo el preset de PIN debe tenerla —
+  // ver nota junto a CLOUDINARY_UPLOAD_PRESET_BANNER más arriba).
+  const isBanner = (opts.subfolder || 'images') === 'banner';
+  const uploadPreset = isBanner ? CLOUDINARY_UPLOAD_PRESET_BANNER : CLOUDINARY_UPLOAD_PRESET;
+
   const formData = new FormData();
   formData.append('file', file);
-  formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+  formData.append('upload_preset', uploadPreset);
   formData.append('folder', folder);
 
   if (publicId) {
