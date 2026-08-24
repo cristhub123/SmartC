@@ -791,6 +791,57 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
 .img-uploader--name-ok   { outline: 7px solid var(--green);   outline-offset: 2px; }
 .img-uploader--name-bad  { outline: 7px solid #ef4444;        outline-offset: 2px; }
 
+/* [NUEVO 2026-08-24] Grilla de miniaturas del gestor de imágenes por
+   pin (reemplaza el listado vertical de un uploader completo por
+   variante). Ancho fijo por celda con auto-fill: en el panel angosto
+   del admin arma ~4-5 columnas solo, sin necesitar breakpoints. */
+.img-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.img-grid-thumb {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  border-radius: var(--r-sm);
+  border: 2px solid var(--border);
+  overflow: hidden;
+  cursor: pointer;
+  background: var(--surface2);
+  transition: border-color .15s, transform .1s;
+  -webkit-tap-highlight-color: transparent;
+}
+.img-grid-thumb:hover { border-color: var(--accent); }
+.img-grid-thumb.is-selected { border-color: var(--accent); border-width: 3px; }
+.img-grid-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.img-grid-thumb--add {
+  display: flex; align-items: center; justify-content: center;
+  border-style: dashed;
+}
+.img-grid-thumb--inactive img { opacity: .4; }
+.img-grid-plus { font-size: 22px; color: var(--text3); font-weight: 300; }
+.img-grid-badge {
+  position: absolute; top: 3px; left: 3px;
+  background: rgba(0,0,0,.65); color: #fff;
+  font-size: 10px; font-weight: 700; line-height: 1;
+  padding: 3px 5px; border-radius: 999px; min-width: 14px; text-align: center;
+}
+.img-grid-off {
+  position: absolute; bottom: 3px; right: 3px;
+  background: #ef4444; color: #fff;
+  font-size: 9px; font-weight: 700; line-height: 1;
+  padding: 2px 4px; border-radius: 4px;
+}
+
+/* Panel de opciones compartido — un solo bloque, muestra los
+   controles de la miniatura seleccionada en .img-grid (el resto de
+   los .img-slot-detail quedan armados en el DOM pero ocultos). */
+.img-slot-panel { position: relative; }
+.img-slot-detail { display: none; }
+.img-slot-detail.is-selected { display: block; }
+.img-slot-order-row .img-order-input { width: 60px; text-align: center; padding: 4px 6px; flex: none; }
+
 /* Geocoder search — see full styles in bottom block */
 .geocoder-input { flex: 1; }
 .geocoder-result {
