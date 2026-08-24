@@ -471,7 +471,22 @@ function setupUrlLoader(urlInputId, loadBtnId, prevId, lblId, wrapperId, onLoad,
 
   async function loadUrl(rawUrl) {
     let url = rawUrl.trim();
-    if (!url) { toast('⚠️ Pegá un URL primero'); return; }
+    if (!url) { toast('⚠️ Pegá un URL o un nombre de archivo primero'); return; }
+
+    // [NUEVO 2026-08-24] Si lo que se pegó NO es un link (no arranca
+    // con http/https), se lo trata como nombre de archivo o public ID
+    // de Cloudinary ya subido — se arma la URL completa sola, con la
+    // misma Ubicación Activa y lógica que usa el importador de texto
+    // de Lugares (`_buildBulkImageUrl`). Si pegaron el public ID
+    // completo con carpetas (ej. "smartcity/media/.../images/foo"),
+    // se toma solo el último tramo — la carpeta se reconstruye desde
+    // la Ubicación Activa, no desde lo pegado.
+    if (!/^https?:\/\//i.test(url) && !url.startsWith('data:')) {
+      const bareName = url.split('/').pop();
+      if (bareName && typeof _buildBulkImageUrl === 'function') {
+        url = _buildBulkImageUrl(bareName);
+      }
+    }
 
     // === CLAVE: si el link ya es de Cloudinary, se usa TAL CUAL ===
     // No hay que descargarlo ni volver a subirlo — eso es lo que
@@ -537,17 +552,17 @@ function setupUrlLoader(urlInputId, loadBtnId, prevId, lblId, wrapperId, onLoad,
 setupImgUploader(
   'img-input-add', 'img-prev-add', 'img-lbl-add', 'img-clear-add', 'iu-add',
   'Subir imagen del edificio',
-  b64 => { window._addImgB64 = b64; },
+  b64 => { window._addImgB64 = b64; if (typeof AltSlotsAdd !== 'undefined' && AltSlotsAdd) AltSlotsAdd.refreshMainCell(); },
   _uploadCtx('add', 'main')
 );
 setupImgUploader(
   'img-input-edit', 'img-prev-edit', 'img-lbl-edit', 'img-clear-edit', 'iu-edit',
   'Cambiar imagen',
-  b64 => { window._editImgB64 = b64; },
+  b64 => { window._editImgB64 = b64; if (typeof AltSlotsEdit !== 'undefined' && AltSlotsEdit) AltSlotsEdit.refreshMainCell(); },
   _uploadCtx('edit', 'main')
 );
-setupUrlLoader('img-url-add',  'img-url-load-add',  'img-prev-add',  'img-lbl-add',  'iu-add',  b64 => { window._addImgB64  = b64; }, _uploadCtx('add', 'main'));
-setupUrlLoader('img-url-edit', 'img-url-load-edit', 'img-prev-edit', 'img-lbl-edit', 'iu-edit', b64 => { window._editImgB64 = b64; }, _uploadCtx('edit', 'main'));
+setupUrlLoader('img-url-add',  'img-url-load-add',  'img-prev-add',  'img-lbl-add',  'iu-add',  b64 => { window._addImgB64  = b64; if (typeof AltSlotsAdd !== 'undefined' && AltSlotsAdd) AltSlotsAdd.refreshMainCell(); }, _uploadCtx('add', 'main'));
+setupUrlLoader('img-url-edit', 'img-url-load-edit', 'img-prev-edit', 'img-lbl-edit', 'iu-edit', b64 => { window._editImgB64 = b64; if (typeof AltSlotsEdit !== 'undefined' && AltSlotsEdit) AltSlotsEdit.refreshMainCell(); }, _uploadCtx('edit', 'main'));
 
 /* === IMAGEN BANNER DEL PANEL — [NUEVO 2026-08-15] ===
    Completamente aparte de la imagen del pin (arriba) y de las

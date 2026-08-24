@@ -100,14 +100,73 @@ function createAltSlotManager(containerId, formPrefix) {
     return `alt${max + 1}`;
   }
 
-  /** Menor número entero >=1 no usado todavía por ninguna otra imagen cargada de este pin. */
+  /**
+   * Menor número entero >=2 no usado todavía por ninguna otra imagen
+   * de este pin. El 1 queda SIEMPRE reservado para la imagen
+   * principal (la del cuadro "IMAGEN DEL PIN" de arriba) — nunca lo
+   * ocupa una imagen de la grilla automáticamente.
+   */
   function _nextFreeOrder(excludeState) {
     const used = new Set(
       slots.filter(s => s.hasImg && s !== excludeState && typeof s.order === 'number').map(s => s.order)
     );
-    let n = 1;
+    let n = 2;
     while (used.has(n)) n++;
     return n;
+  }
+
+  function _currentMainUrl() {
+    return window[formPrefix === 'edit' ? '_editImgB64' : '_addImgB64'] || null;
+  }
+
+  /**
+   * El admin escribió "1" en el orden de una imagen de la grilla:
+   * quiere que ESA pase a ser la principal (ej. porque el sistema
+   * cargó otra por error). Se intercambia el contenido: la imagen de
+   * este slot pasa al cuadro "IMAGEN DEL PIN" de arriba, y lo que
+   * antes era la principal (si había algo) baja a ocupar este mismo
+   * slot como una imagen más de la lista, con el próximo número
+   * libre. No hace falta tocar nada en `saveNew`/`saveEdit`: ambos
+   * ya leen `window._addImgB64`/`_editImgB64` para la principal, que
+   * es justo lo que esta función actualiza.
+   * @param {Object} altState
+   */
+  function _promoteToMain(altState) {
+    const mainVar   = formPrefix === 'edit' ? '_editImgB64' : '_addImgB64';
+    const mainPrevId = formPrefix === 'edit' ? 'img-prev-edit' : 'img-prev-add';
+    const mainLblId  = formPrefix === 'edit' ? 'img-lbl-edit'  : 'img-lbl-add';
+    const mainWrapId = formPrefix === 'edit' ? 'iu-edit' : 'iu-add';
+
+    const oldMainUrl = _currentMainUrl();
+    const newMainUrl = altState.url;
+
+    window[mainVar] = newMainUrl;
+    const mainPrev = document.getElementById(mainPrevId);
+    const mainLbl  = document.getElementById(mainLblId);
+    const mainWrap = document.getElementById(mainWrapId);
+    if (mainPrev) mainPrev.innerHTML = newMainUrl ? `<img src="${newMainUrl}" alt="principal">` : '🏙️';
+    if (mainLbl)  mainLbl.textContent = (prevUrlFileName(newMainUrl) || 'Imagen actual') + ' — clic para cambiar';
+    if (mainWrap) mainWrap.classList.toggle('has-img', !!newMainUrl);
+
+    altState.url = oldMainUrl;
+    altState.hasImg = !!oldMainUrl;
+    altState.order = oldMainUrl ? _nextFreeOrder(altState) : undefined;
+    const prevEl = document.getElementById(altState.ids.prevId);
+    const lblEl  = document.getElementById(altState.ids.lblId);
+    const wrapEl = document.getElementById(altState.ids.wrapId);
+    if (prevEl) prevEl.innerHTML = oldMainUrl ? `<img src="${oldMainUrl}" alt="variante">` : '🏙️';
+    if (lblEl)  lblEl.textContent = oldMainUrl ? ((prevUrlFileName(oldMainUrl) || altState.variant) + ' — clic para cambiar') : 'Nueva imagen';
+    if (wrapEl) wrapEl.classList.toggle('has-img', !!oldMainUrl);
+    _paintOrderForState(altState);
+
+    _ensureTrailingEmptySlot();
+    _renderGrid();
+    toast('✅ Ahora esa es la imagen principal');
+    _syncWindowVar();
+  }
+
+  function _paintOrderForState(s) {
+    if (s.orderInputEl) s.orderInputEl.value = s.hasImg ? (s.order || '') : '';
   }
 
   function _syncWindowVar() {
@@ -123,9 +182,17 @@ function createAltSlotManager(containerId, formPrefix) {
     if (!last || last.hasImg) _addSlot(null, null);
   }
 
-  /** Repinta la grilla de miniaturas: ordenadas por `order`, la que no tiene imagen siempre al final. */
+  /** Repinta la grilla: la principal siempre primera (badge fijo "1"), después el resto por `order`, la que no tiene imagen siempre al final. */
   function _renderGrid() {
     gridEl.innerHTML = '';
+    const mainUrl = _currentMainUrl();
+    if (mainUrl) {
+      const mcell = document.createElement('div');
+      mcell.className = 'img-grid-thumb img-grid-thumb--main';
+      mcell.title = 'Imagen principal — se cambia arriba, o escribí 1 en el orden de otra imagen para reemplazarla';
+      mcell.innerHTML = `<img src="${mainUrl}" alt=""><span class="img-grid-badge">1</span><span class="img-grid-main-tag">★</span>`;
+      gridEl.appendChild(mcell);
+    }
     const sorted = slots.slice().sort((a, b) => {
       if (a.hasImg && b.hasImg) return (a.order || 0) - (b.order || 0);
       if (a.hasImg) return -1;
@@ -211,7 +278,7 @@ function createAltSlotManager(containerId, formPrefix) {
     orderRow.className = 'za-row img-slot-order-row';
     orderRow.style.marginTop = '4px';
     orderRow.innerHTML = `
-      <span class="za-name">Orden de exhibición</span>
+      <span class="za-name">Orden de exhibición<br><span class="img-order-hint">Escribí 1 para que sea la principal</span></span>
       <input type="number" min="1" step="1" class="fi img-order-input" id="${ids.orderId}">
     `;
     // Toggle "Activo" — controla si esta imagen se muestra al público
@@ -239,12 +306,14 @@ function createAltSlotManager(containerId, formPrefix) {
     slots.push(state);
 
     const orderInput = document.getElementById(ids.orderId);
-    function _paintOrder() { orderInput.value = state.hasImg ? (state.order || '') : ''; }
+    state.orderInputEl = orderInput;
+    function _paintOrder() { _paintOrderForState(state); }
     _paintOrder();
     orderInput.addEventListener('change', () => {
       const val = parseInt(orderInput.value, 10);
       if (!state.hasImg) return; // no aplica hasta que haya imagen
       if (!val || val < 1) { _paintOrder(); return; }
+      if (val === 1) { _promoteToMain(state); return; }
       if (val === state.order) return;
       // Si otra imagen de este mismo pin ya tiene ese número, se
       // intercambian — nunca quedan dos con el mismo orden.
@@ -341,7 +410,7 @@ function createAltSlotManager(containerId, formPrefix) {
       _addSlot(null, null);
     } else {
       altEntries.forEach(([variant, skin], idx) => {
-        const order = (skin && typeof skin.order === 'number') ? skin.order : (idx + 1);
+        const order = (skin && typeof skin.order === 'number') ? skin.order : (idx + 2); // +2: el 1 es de la principal
         _addSlot(variant, skin && skin.url, skin && skin.active, order);
       });
       _ensureTrailingEmptySlot();
@@ -357,7 +426,7 @@ function createAltSlotManager(containerId, formPrefix) {
     return window[formPrefix === 'edit' ? '_editAltSkins' : '_addAltSkins'] || {};
   }
 
-  return { reset, getSkins };
+  return { reset, getSkins, refreshMainCell: _renderGrid };
 }
 
 const AltSlotsAdd  = createAltSlotManager('alt-slots-add',  'add');

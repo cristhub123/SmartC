@@ -210,20 +210,18 @@ async function saveEdit() {
     updated.ownerId = POIS[idx].ownerId || null;
   }
 
-  // Skins — [MIGRADO 2026-08-13] igual que en saveNew, pero acá hay
-  // que preservar lo que ya existía y NO está bajo control de este
-  // editor visual: variantes con nombre distinto de "altN" (ej.
-  // "noche", o cualquiera vinculada por texto en Importar) se dejan
-  // intactas. Las "altN" sí se reconstruyen enteras a partir de los
-  // slots dinámicos actuales (si se borró un slot, esa variante
-  // desaparece; si se cambió, se actualiza; si no se tocó, sigue
-  // igual porque AltSlotsEdit.reset() precargó el mismo valor).
+  // Skins — [MIGRADO 2026-08-13, CORREGIDO 2026-08-24] igual que en
+  // saveNew. Antes acá se "preservaba" cualquier variante que no
+  // matcheara /^alt\d+$/, asumiendo que el editor visual no las
+  // controlaba — eso dejó de ser cierto desde que el gestor de
+  // imágenes muestra y controla TODAS las variantes (no solo
+  // "altN"), así que ese bloque terminaba resucitando imágenes que
+  // el admin acababa de borrar en la grilla (las volvía a copiar tal
+  // cual estaban en Firestore, ignorando el borrado). Ahora, igual
+  // que en "Nuevo", todo lo que no es "main" sale enteramente de lo
+  // que el gestor visual tiene cargado en este momento.
   const existingSkins = POIS[idx].skins || {};
   const skins = {};
-  Object.entries(existingSkins).forEach(([k, v]) => {
-    if (k === 'main' || /^alt\d+$/.test(k)) return; // se reconstruyen abajo
-    skins[k] = v;
-  });
   if (updated.imgB64) {
     skins.main = existingSkins.main ? { ...existingSkins.main, url: updated.imgB64 } : { url: updated.imgB64, style: 'main', active: true };
   }
@@ -1213,18 +1211,21 @@ function parsePinBulkText(text) {
       const id = slug;
 
       const skins = {};
-      let _bulkOrder = 1; // orden de exhibición al público = orden en que se listaron bajo "imagenes:"
+      let _bulkOrder = 2; // el 1 queda reservado para la imagen principal (ver img-slots.js)
       data.images.forEach(filename => {
         const parsed = parseImageFilename(filename);
         if (!parsed) {
           errors.push(`"${data.nombre}": nombre de imagen inválido "${filename}" (sin extensión) — se saltea esa imagen.`);
           return;
         }
+        // Si el nombre de archivo resuelve a la variante "main" (ej.
+        // "..._main_01.ext"), no lleva "order" — ese campo no aplica
+        // para la principal, que siempre se muestra primero sin él.
         skins[parsed.variant] = {
           url: _buildBulkImageUrl(filename),
           style: parsed.variant,
           active: true,
-          order: _bulkOrder++,
+          order: parsed.variant === 'main' ? undefined : _bulkOrder++,
         };
       });
 
