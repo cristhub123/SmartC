@@ -998,8 +998,8 @@ map.getContainer().addEventListener('touchend', function(e) {
    Formato acordado con Cris — bloques separados por "### PIN":
 
      ### PIN
-     nombre: cabildo-cba
-     titulo: Cabildo Histórico de Córdoba
+     id: cabildo-cba
+     rotulo: Cabildo Histórico de Córdoba
      lat: -31.4167
      lng: -64.1833
      tags: cultura, historia
@@ -1100,7 +1100,17 @@ function _buildBulkImageUrl(filename) {
   const ext = (filename.match(/\.([a-zA-Z0-9]+)$/) || [])[1]?.toLowerCase() || '';
   const isGif = ext === 'gif';
   const transform = isGif ? 'q_auto' : 'f_auto,q_auto';
-  return `https://res.cloudinary.com/${cloudName}/image/upload/${transform}/${folder}/${filename}`;
+  // [FIX 2026-08-24] El public ID real en Cloudinary NO incluye la
+  // extensión del archivo (confirmado con un public ID real: el
+  // archivo "foo.jpeg" vive en Cloudinary como ".../foo", sin
+  // ".jpeg" al final). Antes esta función pegaba el nombre completo
+  // con extensión a la URL final, y Cloudinary no encontraba ningún
+  // recurso con ese nombre exacto — resultado: imagen rota en todos
+  // los pines importados por texto. La extensión se sigue usando
+  // arriba para decidir el transform (gif o no) — solo se saca acá,
+  // al armar la URL, no en lo que escribe el admin en "imagenes:".
+  const publicIdName = ext ? filename.slice(0, -(ext.length + 1)) : filename;
+  return `https://res.cloudinary.com/${cloudName}/image/upload/${transform}/${folder}/${publicIdName}`;
 }
 
 /**
@@ -1178,8 +1188,8 @@ function parsePinBulkText(text) {
           if (key === 'imagenes' || key === 'imágenes') { section = 'imagenes'; continue; }
           section = null;
 
-          if (key === 'nombre') data.nombre = value;
-          else if (key === 'titulo' || key === 'título') data.titulo = value;
+          if (key === 'id') data.id = value;
+          else if (key === 'rotulo' || key === 'rótulo') data.rotulo = value;
           else if (key === 'lat') data.lat = parseFloat(value);
           else if (key === 'lng' || key === 'lon') data.lng = parseFloat(value);
           else if (key === 'tags') data.tags = value.split(',').map(s => s.trim()).filter(Boolean);
@@ -1198,15 +1208,15 @@ function parsePinBulkText(text) {
         }
       }
 
-      if (!data.nombre) {
-        errors.push(`Bloque #${blockIndex + 1}: falta "nombre:" — se saltea.`);
+      if (!data.id) {
+        errors.push(`Bloque #${blockIndex + 1}: falta "id:" — se saltea.`);
         return;
       }
 
       const cityCode = (window.ACTIVE_LOCATION && window.ACTIVE_LOCATION.cityCode) || '';
-      const slug = slugify(data.nombre);
-      // Si el admin ya puso el sufijo de ciudad en el nombre (como en
-      // los ejemplos, "cabildo-cba"), se respeta tal cual — no se le
+      const slug = slugify(data.id);
+      // Si el admin ya puso el sufijo de ciudad en el id (como en los
+      // ejemplos, "cabildo-cba"), se respeta tal cual — no se le
       // vuelve a pegar el código de ciudad encima.
       const id = slug;
 
@@ -1215,7 +1225,7 @@ function parsePinBulkText(text) {
       data.images.forEach(filename => {
         const parsed = parseImageFilename(filename);
         if (!parsed) {
-          errors.push(`"${data.nombre}": nombre de imagen inválido "${filename}" (sin extensión) — se saltea esa imagen.`);
+          errors.push(`"${data.id}": nombre de imagen inválido "${filename}" (sin extensión) — se saltea esa imagen.`);
           return;
         }
         // Si el nombre de archivo resuelve a la variante "main" (ej.
@@ -1231,12 +1241,12 @@ function parsePinBulkText(text) {
 
       const catResolved = _resolveBulkCategory(data.categoria);
       if (data.categoria && !catResolved) {
-        errors.push(`"${data.nombre}": categoría "${data.categoria}" no existe — se guarda sin categoría.`);
+        errors.push(`"${data.id}": categoría "${data.categoria}" no existe — se guarda sin categoría.`);
       }
 
       pins.push({
         id,
-        name: data.titulo || data.nombre,
+        name: data.rotulo || data.id,
         category: catResolved ? catResolved.id : '',
         categories: catResolved ? [catResolved.id] : [],
         categoryLabel: catResolved ? catResolved.label : '',
