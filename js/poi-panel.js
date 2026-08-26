@@ -106,6 +106,11 @@ const PoiPanel = (function () {
   let _currentPoiId = null;
   let _currentLang = 'es';
   let _isEditMode = false;
+  /* [Etapa 5] título configurable de la pestaña "Eventos" del panel
+     público, cargado una vez desde Firestore (settings/eventos-config,
+     ver js/eventos.js → loadEventosConfig()) y refrescado si el admin
+     lo guarda de nuevo en su propia sesión. */
+  let _eventosConfigCache = null;
   let _panelState = 'closed'; // 'closed' | 'peek' | 'full'
   let _unsubscribers = [];
 
@@ -208,17 +213,33 @@ const PoiPanel = (function () {
       <div class="poi-panel__hero" data-role="hero" hidden>
         <img class="poi-panel__hero-image" data-role="hero-image" alt="">
       </div>
+      <!-- [Etapa 5] Sistema de 2 pestañas — SOLO se muestra cuando el
+           pin tiene ≥1 evento vigente en este momento (ver
+           _eventosVigentesDelPoi()). Con 0 eventos vigentes queda
+           oculto y el panel se comporta exactamente igual que antes
+           (info general, sin pestañas). El rótulo de la 2da pestaña
+           es editable por el admin (ver evt-config-titulo-panel en
+           el admin, cargado acá vía loadEventosConfig()). -->
+      <div class="poi-panel__tabs-row" data-role="tabs-row" hidden>
+        <button type="button" class="poi-panel__tab-btn on" data-role="tab-info-btn" data-tab="info">Info</button>
+        <button type="button" class="poi-panel__tab-btn" data-role="tab-eventos-btn" data-tab="eventos">Eventos</button>
+      </div>
       <div class="poi-panel__subtitle-row" data-role="subtitle-row">
         <p class="poi-panel__subtitle" data-role="subtitle"></p>
       </div>
       <div class="poi-panel__scroll" data-role="scroll">
-        <div data-role="body-section">
-          <p class="poi-panel__gancho" data-role="gancho"></p>
-          <p class="poi-panel__body" data-role="description"></p>
+        <div data-role="info-tab-content">
+          <div data-role="body-section">
+            <p class="poi-panel__gancho" data-role="gancho"></p>
+            <p class="poi-panel__body" data-role="description"></p>
+          </div>
+          <div data-role="meta-section" hidden>
+            <p class="poi-panel__section-title">Datos</p>
+            <div class="poi-panel__meta-row" data-role="meta-row"></div>
+          </div>
         </div>
-        <div data-role="meta-section" hidden>
-          <p class="poi-panel__section-title">Datos</p>
-          <div class="poi-panel__meta-row" data-role="meta-row"></div>
+        <div data-role="eventos-tab-content" hidden>
+          <div data-role="eventos-list"></div>
         </div>
       </div>
       <div class="poi-panel__footer">
@@ -242,6 +263,12 @@ const PoiPanel = (function () {
       title: panel.querySelector('[data-role="title"]'),
       subtitle: panel.querySelector('[data-role="subtitle"]'),
       scroll: panel.querySelector('[data-role="scroll"]'),
+      tabsRow: panel.querySelector('[data-role="tabs-row"]'),
+      tabInfoBtn: panel.querySelector('[data-role="tab-info-btn"]'),
+      tabEventosBtn: panel.querySelector('[data-role="tab-eventos-btn"]'),
+      infoTabContent: panel.querySelector('[data-role="info-tab-content"]'),
+      eventosTabContent: panel.querySelector('[data-role="eventos-tab-content"]'),
+      eventosList: panel.querySelector('[data-role="eventos-list"]'),
       bodySection: panel.querySelector('[data-role="body-section"]'),
       gancho: panel.querySelector('[data-role="gancho"]'),
       description: panel.querySelector('[data-role="description"]'),
@@ -250,9 +277,77 @@ const PoiPanel = (function () {
       actionBtn: panel.querySelector('[data-role="action-btn"]'),
     };
 
+    _els.tabInfoBtn.addEventListener('click', () => _setActiveTab('info'));
+    _els.tabEventosBtn.addEventListener('click', () => _setActiveTab('eventos'));
+
     _bindStaticEvents();
     _applyPanelSizeVars();
     return _els;
+  }
+
+  /** [Etapa 5] Cambia de pestaña sin volver a pintar todo el panel —
+   *  ambos contenidos ya están renderizados, solo se alterna qué se
+   *  ve. `_activeTab` se resetea a 'info' cada vez que se abre un
+   *  pin nuevo (ver open()). */
+  let _activeTab = 'info';
+  function _setActiveTab(tab) {
+    _activeTab = tab;
+    const els = _els;
+    if (!els) return;
+    els.tabInfoBtn.classList.toggle('on', tab === 'info');
+    els.tabEventosBtn.classList.toggle('on', tab === 'eventos');
+    els.infoTabContent.hidden = tab !== 'info';
+    els.eventosTabContent.hidden = tab !== 'eventos';
+  }
+
+  /** [Etapa 5] Eventos vigentes de un pin puntual, mismo criterio de
+   *  "vigente" que el ciclo de vida de la Etapa 4
+   *  (`_eventoEsVigente`, definida en js/eventos.js — se referencia
+   *  acá tal cual, sin duplicar el criterio). Ordenados por
+   *  cercanía de fecha: el que antes vence (o antes empieza, si no
+   *  tiene fecha_fin) va arriba; los sin ninguna fecha quedan al
+   *  final. */
+  function _eventosVigentesDelPoi(poiId) {
+    if (typeof EVENTOS === 'undefined' || typeof _eventoEsVigente !== 'function') return [];
+    const propios = EVENTOS.filter(ev => ev.poi_id === poiId && _eventoEsVigente(ev));
+    const fechaOrden = ev => {
+      const f = ev.fecha_fin || ev.fecha_inicio;
+      const d = f ? new Date(f).getTime() : NaN;
+      return isNaN(d) ? Infinity : d;
+    };
+    return propios.sort((a, b) => fechaOrden(a) - fechaOrden(b));
+  }
+
+  /** [Etapa 5] Tarjetas de eventos dentro del panel público — texto
+   *  por ahora (a futuro cada evento podría tener foto/banner propio,
+   *  ver PLAN_USUARIOS_EVENTOS.md). */
+  function _renderEventosTab(poi, eventosDelPoi) {
+    const els = _els;
+    const hayEventos = eventosDelPoi.length > 0;
+    els.tabsRow.hidden = !hayEventos;
+    if (!hayEventos) {
+      els.eventosList.innerHTML = '';
+      if (_activeTab === 'eventos') _setActiveTab('info');
+      return;
+    }
+    if (els.tabEventosBtn && typeof _eventosConfigCache !== 'undefined') {
+      els.tabEventosBtn.textContent = (_eventosConfigCache && _eventosConfigCache.tituloPanelEventos) || 'Eventos';
+    }
+    els.eventosList.innerHTML = eventosDelPoi.map(ev => {
+      const fechas = [ev.fecha_inicio, ev.fecha_fin].filter(Boolean)
+        .map(iso => { const d = new Date(iso); return isNaN(d.getTime()) ? '' : d.toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); })
+        .filter(Boolean).join(' → ');
+      return `<div class="poi-panel__evento-card">
+        <strong class="poi-panel__evento-nombre">${_escapeHtml(ev.nombre || '(sin nombre)')}</strong>
+        ${fechas ? `<span class="poi-panel__evento-fechas">🗓 ${_escapeHtml(fechas)}</span>` : ''}
+        ${ev.categoria ? `<span class="poi-panel__evento-cat">${_escapeHtml(ev.categoria)}</span>` : ''}
+        ${ev.descripcion ? `<p class="poi-panel__evento-desc">${_escapeHtml(ev.descripcion)}</p>` : ''}
+      </div>`;
+    }).join('');
+    // Mantiene la pestaña activa que ya tuviera (no fuerza a "eventos"
+    // cada vez que se re-pinta, ver decisión de Cris: solo aparece la
+    // pestaña, no se auto-abre encima de la info general).
+    _setActiveTab(_activeTab);
   }
 
   // --------------------------------------------------------------------
@@ -319,6 +414,10 @@ const PoiPanel = (function () {
 
     // --- Campos internos (título + texto, cantidad libre, sin nombres fijos) ---
     _renderMeta(finalFields);
+
+    // --- [Etapa 5] Pestaña "Eventos" del panel público — solo
+    // aparece si el pin tiene ≥1 evento vigente ahora mismo. ---
+    _renderEventosTab(poi, _eventosVigentesDelPoi(_currentPoiId));
 
     // --- Botón de acción (solo visible/habilitado para admin) ---
     const isAdmin = _isAdminActive();
@@ -910,6 +1009,7 @@ const PoiPanel = (function () {
 
       _currentPoiId = poiId;
       _isEditMode = false;
+      _activeTab = 'info'; // [Etapa 5] cada pin nuevo arranca en la pestaña Info
       _render();
       _snapTo(initialState === SNAP.FULL ? SNAP.FULL : SNAP.PEEK);
 
@@ -970,12 +1070,25 @@ const PoiPanel = (function () {
     });
   }
 
+  /** [Etapa 5] Actualiza el título de la pestaña "Eventos" sin
+   *  esperar a que el visitante recargue la página — llamado desde
+   *  js/eventos.js cuando el admin guarda un rótulo nuevo en su
+   *  propia sesión. Si el panel está abierto en la pestaña de
+   *  eventos, se refleja al toque. */
+  function setEventosConfig(cfg) {
+    _eventosConfigCache = cfg || null;
+    if (_els && _els.tabEventosBtn && _eventosConfigCache) {
+      _els.tabEventosBtn.textContent = _eventosConfigCache.tituloPanelEventos || 'Eventos';
+    }
+  }
+
   return {
     open,
     close,
     setLang,
     getCurrentPoiId,
     getOpenAreaPx,
+    setEventosConfig,
   };
 })();
 

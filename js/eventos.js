@@ -9,6 +9,67 @@ After modifying this file, update /AI_SESSION.md with the change and verificatio
 */
 
 /**
+ * [Etapa 5, 2026-08-26] Carga la colección `eventos` completa en el
+ * caché global `EVENTOS` (js/config.js) — se llama una sola vez desde
+ * `app.js` (init()), antes de dibujar los marcadores, para que el
+ * filtro "Eventos y actividades" y la pestaña "Eventos" del panel
+ * público ya tengan datos disponibles desde el primer render. No
+ * confundir con `_loadEventosAdminList()` (más abajo), que además
+ * pinta la lista de la tab admin y corre solo cuando esa tab está
+ * abierta.
+ */
+async function loadEventosFromFirestore() {
+  if (typeof db === 'undefined') return;
+  try {
+    const snap = await db.collection('eventos').get();
+    const eventos = [];
+    snap.forEach(doc => eventos.push({ id: doc.id, ...doc.data() }));
+    EVENTOS = eventos;
+  } catch (err) {
+    console.warn('[Etapa 5] No se pudo cargar la colección eventos:', err);
+  }
+}
+window.loadEventosFromFirestore = loadEventosFromFirestore;
+
+/**
+ * [Etapa 5] Título editable de la pestaña "Eventos" del panel público
+ * de un pin (`settings/eventos-config`, mismo patrón que el resto de
+ * la config global — ver js/settings-sync.js). Guardado desde la tab
+ * admin "Eventos" (botón "Guardar" junto al campo
+ * `evt-config-titulo-panel`, ver index.html).
+ */
+async function loadEventosConfig() {
+  if (typeof db === 'undefined') return null;
+  try {
+    const doc = await db.collection('settings').doc('eventos-config').get();
+    const cfg = doc.exists ? doc.data() : { tituloPanelEventos: 'Eventos' };
+    if (typeof window.PoiPanel !== 'undefined' && PoiPanel.setEventosConfig) PoiPanel.setEventosConfig(cfg);
+    const input = document.getElementById('evt-config-titulo-panel');
+    if (input) input.value = cfg.tituloPanelEventos || 'Eventos';
+    return cfg;
+  } catch (err) {
+    console.warn('[Etapa 5] No se pudo cargar la config de eventos:', err);
+    return null;
+  }
+}
+
+async function _saveEventosConfig() {
+  const input = document.getElementById('evt-config-titulo-panel');
+  const titulo = (input?.value || '').trim() || 'Eventos';
+  try {
+    await db.collection('settings').doc('eventos-config').set({ tituloPanelEventos: titulo }, { merge: true });
+    if (typeof window.PoiPanel !== 'undefined' && PoiPanel.setEventosConfig) {
+      PoiPanel.setEventosConfig({ tituloPanelEventos: titulo });
+    }
+    toast('✅ Rótulo guardado');
+  } catch (err) {
+    console.warn('Error guardando config de eventos:', err);
+    toast('⚠️ No se pudo guardar. Probá de nuevo.');
+  }
+}
+document.getElementById('btn-save-evt-config')?.addEventListener('click', _saveEventosConfig);
+
+/**
  * [Etapa 3 — PLAN_USUARIOS_EVENTOS.md, 2026-08-25]
  * [Etapa 4 agregada 2026-08-26 — ver bloque de comentario propio más
  * abajo, sección "CICLO DE VIDA DE PINES evento_temporal"]
@@ -490,6 +551,13 @@ async function _loadEventosAdminList() {
   // recién leídos para revisar el ciclo de vida de los pines
   // evento_temporal — sin query extra a Firestore.
   await checkEventosTemporalesLifecycle(_eventosCache);
+
+  // [Etapa 5] mantiene sincronizado el caché global EVENTOS (usado por
+  // el filtro "Eventos y actividades" del mapa y por la pestaña
+  // "Eventos" del panel público) y refresca el mapa por si el
+  // toggle/borrado de un evento cambió qué pines deberían verse ahora.
+  if (typeof EVENTOS !== 'undefined') EVENTOS = _eventosCache;
+  if (typeof applyFilter === 'function') applyFilter();
 
   if (!_eventosCache.length) {
     listEl.innerHTML = '<p class="owner-panel-loading">Todavía no hay eventos cargados.</p>';

@@ -48,6 +48,16 @@ const CAT = {
    semilla de datos de ejemplo acá. */
 let POIS = [];
 
+/* [Etapa 5, PLAN_USUARIOS_EVENTOS.md] Colección `eventos` cacheada en
+   memoria — se carga una sola vez al iniciar (ver
+   js/eventos.js → loadEventosFromFirestore(), llamada desde
+   js/app.js) y se mantiene sincronizada a mano cada vez que el admin
+   crea/togglea/borra un evento (mismo archivo). La usan: el filtro
+   "Eventos y actividades" del mapa (js/categories.js), el ciclo de
+   vida de pines evento_temporal (js/eventos.js) y la pestaña
+   "Eventos" del panel público de un pin (js/poi-panel.js). */
+let EVENTOS = [];
+
 let markers      = {};          // id → { leafletMarker, poi }
 let activeFilter = 'all';
 let expandedId   = null;

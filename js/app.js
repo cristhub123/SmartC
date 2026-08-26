@@ -45,13 +45,22 @@ async function init() {
   await loadPOISFromFirestore();
   await loadFeaturesFromFirestore();
 
-  // 3.5. [Etapa 4 — PLAN_USUARIOS_EVENTOS.md] revisa los pines
-  // `tipo: 'evento_temporal'` y auto-desactiva (nunca borra) los que ya
-  // no tienen ningún evento vigente. Se hace ACÁ, antes del forEach de
-  // abajo, para que un pin recién auto-desactivado nazca ya oculto sin
-  // parpadeo — ver detalle completo en js/eventos.js.
+  // 3.5. [Etapa 4/5 — PLAN_USUARIOS_EVENTOS.md] carga la colección
+  // `eventos` en memoria (EVENTOS, ver js/config.js), revisa el ciclo
+  // de vida de los pines `tipo: 'evento_temporal'` (auto-desactiva los
+  // que ya no tienen ningún evento vigente, sin borrarlos) y carga el
+  // título configurable de la pestaña "Eventos" del panel público.
+  // Todo esto ACÁ, antes del forEach de abajo, para que un pin recién
+  // auto-desactivado nazca ya oculto sin parpadeo — ver detalle
+  // completo en js/eventos.js.
+  if (typeof loadEventosFromFirestore === 'function') {
+    await loadEventosFromFirestore();
+  }
   if (typeof checkEventosTemporalesLifecycle === 'function') {
-    await checkEventosTemporalesLifecycle();
+    await checkEventosTemporalesLifecycle(typeof EVENTOS !== 'undefined' ? EVENTOS : undefined);
+  }
+  if (typeof loadEventosConfig === 'function') {
+    await loadEventosConfig();
   }
 
   // 4. Build all markers

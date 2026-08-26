@@ -87,6 +87,16 @@ function updateFilterBar() {
     <span class="fbtn-label">Todo</span>
   </button>`;
 
+  // [Etapa 5] Filtro especial "Eventos y actividades" — junto a los
+  // de categoría, pero NO es una categoría real (no vive en
+  // CAT/CUSTOM_CATS): muestra cualquier pin (evento_temporal o no)
+  // con ≥1 evento vigente ahora mismo. Ver _pinMatchesActiveFilter().
+  const eventosOn = activeFilter === '__eventos__';
+  html += `<button class="fbtn ${eventosOn?'on':''}" data-f="__eventos__">
+    <div class="fbtn-circle" style="background:#c026d3">🎉</div>
+    <span class="fbtn-label">Eventos</span>
+  </button>`;
+
   activeCats.forEach(([id, cat]) => {
     const isOn = activeFilter === id;
     const svg  = getCatIcon(cat, id);
@@ -128,6 +138,51 @@ function updateFilterBar() {
       applyFilter();
     });
   });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   [Etapa 5, PLAN_USUARIOS_EVENTOS.md] FILTRO DEL MAPA — implementación
+   real de applyFilter()
+   ---------------------------------------------------------------
+   Esta función se llamaba desde acá mismo (líneas de arriba),
+   pin-adjust.js, pin-geocode.js y data-io.js, pero nunca existía en
+   ningún archivo del proyecto — tocar un filtro de categoría en el
+   mapa público no filtraba nada (bug de fondo, ya existente antes
+   de esta etapa; se encontró al construir el filtro nuevo de
+   eventos y se aprovechó para dejarlo andando de verdad). Mismo
+   criterio visual que ya usaban togglePoi()/toggleCat() (display
+   none + visibility hidden en el wrapper de Leaflet). El campo
+   `active` (activo/publicado) de cada pin sigue mandando siempre —
+   applyFilter() nunca vuelve a mostrar un pin desactivado, sea cual
+   sea el filtro elegido.
+   ═══════════════════════════════════════════════════════════ */
+function applyFilter() {
+  if (typeof POIS === 'undefined') return;
+  POIS.forEach(p => {
+    const el = document.getElementById('pw-' + p.id);
+    if (!el) return; // sin marcador dibujado (ej. sin coordenadas todavía)
+    const markerEl = el.parentElement;
+    const visible = p.active !== false && _pinMatchesActiveFilter(p);
+    el.style.display = visible ? '' : 'none';
+    if (markerEl) markerEl.style.visibility = visible ? '' : 'hidden';
+  });
+}
+
+/** Además de "all" y las categorías normales, `activeFilter` puede
+ *  valer `'__eventos__'` — el filtro especial "Eventos y
+ *  actividades" agregado en la Etapa 5 (ver updateFilterBar arriba)
+ *  — que matchea cualquier pin (evento_temporal o no) con al menos
+ *  un evento vigente ahora mismo. `_eventoEsVigente` está definida
+ *  en js/eventos.js (Etapa 4); se referencia acá tal cual para no
+ *  duplicar el criterio de "vigente" en dos archivos. */
+function _pinMatchesActiveFilter(p) {
+  if (activeFilter === 'all') return true;
+  if (activeFilter === '__eventos__') {
+    return typeof EVENTOS !== 'undefined' && typeof _eventoEsVigente === 'function'
+      && EVENTOS.some(ev => ev.poi_id === p.id && _eventoEsVigente(ev));
+  }
+  const cats = Array.isArray(p.categories) && p.categories.length ? p.categories : [p.category];
+  return cats.includes(activeFilter);
 }
 
 const _btnAddCat = document.getElementById('btn-add-cat');
