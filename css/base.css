@@ -1995,5 +1995,19 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
 .evt-asignado-click { color: var(--accent); cursor: pointer; font-weight: 700; }
 .evt-asignado-click:hover { text-decoration: underline; }
 
+/* [Etapa 4] aviso de pin evento_temporal auto-desactivado (sin
+   eventos vigentes) + botón de reactivación manual, dentro de cada
+   fila de la lista de eventos. */
+.evt-admin-pin-off {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  font-size: 11px; color: #b45309; margin-top: 2px;
+}
+.evt-admin-reactivar-pin {
+  border: 1px solid #b45309; background: #fffbeb; color: #b45309;
+  border-radius: var(--r-sm); font-size: 10px; font-weight: 700;
+  padding: 3px 8px; cursor: pointer; font-family: var(--font-b);
+}
+.evt-admin-reactivar-pin:hover { background: #fef3c7; }
+
 
 
