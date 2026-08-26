@@ -1951,5 +1951,49 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
 .pp-contact-icon { font-size: 13px; flex-shrink: 0; }
 .pp-contact-val  { flex: 1; line-height: 1.4; }
 
+/* ═══════════════════════════════════════════
+   EVENTOS — tab admin [Etapa 3, PLAN_USUARIOS_EVENTOS.md]
+   Reusa el lenguaje visual ya establecido (owner-panel-item,
+   geocoder-result, atab) en vez de crear un sistema nuevo.
+═══════════════════════════════════════════ */
+.evt-camino-toggle { display: flex; gap: 8px; margin-bottom: 14px; }
+.evt-camino-btn {
+  flex: 1; padding: 10px; border-radius: var(--r-sm);
+  border: 1px solid var(--border2); background: white;
+  font-family: var(--font-b); font-size: 12px; font-weight: 700;
+  color: var(--text3); cursor: pointer; transition: all .15s;
+}
+.evt-camino-btn.on { border-color: var(--accent); color: var(--accent); background: rgba(58,140,79,.06); }
+.evt-admin-row {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: var(--r-sm);
+  border: 1px solid var(--border2); background: white;
+  margin-bottom: 8px; font-family: var(--font-b);
+}
+.evt-admin-row-main { display: flex; flex-direction: column; gap: 2px; font-size: 12px; }
+.evt-admin-row-main strong { font-size: 14px; }
+.evt-admin-row-pin, .evt-admin-row-fechas { color: var(--text3); }
+.evt-admin-row-estado {
+  align-self: flex-start; font-size: 10px; text-transform: uppercase;
+  color: var(--accent); font-weight: 700;
+}
+.evt-admin-row-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.evt-admin-toggle {
+  width: 34px; height: 20px; border-radius: 10px; border: none;
+  background: #d1d5db; position: relative; cursor: pointer; transition: background .15s;
+}
+.evt-admin-toggle::after {
+  content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px;
+  border-radius: 50%; background: white; transition: left .15s;
+}
+.evt-admin-toggle.on { background: #22c55e; }
+.evt-admin-toggle.on::after { left: 16px; }
+.evt-admin-del {
+  background: none; border: none; font-size: 14px; cursor: pointer; opacity: .7;
+}
+.evt-admin-del:hover { opacity: 1; }
+.evt-asignado-click { color: var(--accent); cursor: pointer; font-weight: 700; }
+.evt-asignado-click:hover { text-decoration: underline; }
+
 
 
