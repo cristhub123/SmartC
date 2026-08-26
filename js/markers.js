@@ -53,9 +53,17 @@ function resolvePinImageCandidates(poi) {
 }
 
 function toThumbCandidateUrl(url) {
-  return url.includes('res.cloudinary.com')
-    ? url.replace('/image/upload/', '/image/upload/c_fill,g_auto,w_150,h_150/')
-    : url;
+  if (!url.includes('res.cloudinary.com')) return url;
+  // [2026-08-21] q_auto (compresión automática) es seguro para
+  // cualquier formato. f_auto (conversión automática de formato, ej.
+  // a WebP/AVIF) NO es seguro para GIFs animados — Cloudinary puede
+  // convertir a un formato sin soporte de animación y perder el
+  // movimiento — así que se omite solo cuando la URL termina en .gif.
+  const isGif = /\.gif(\?|$)/i.test(url);
+  const transform = isGif
+    ? 'c_fill,g_auto,w_150,h_150,q_auto'
+    : 'c_fill,g_auto,w_150,h_150,q_auto,f_auto';
+  return url.replace('/image/upload/', `/image/upload/${transform}/`);
 }
 
 /* Resuelve qué URL de imagen mostrar para el PIN del mapa (versión
@@ -309,6 +317,24 @@ function makeMarker(poi) {
         });
       }
       wirePinImageFallback(_poiId);
+
+      // [Etapa 4 — bug encontrado y corregido de paso, no solo para
+      // eventos] Antes, el campo `active` (activo/publicado) de un pin
+      // SOLO se aplicaba visualmente cuando se togleaba EN VIVO desde el
+      // panel admin (togglePoi, ver admin.js/app.js) — pero acá, al
+      // dibujar el marcador por primera vez, nunca se chequeaba. Un pin
+      // ya desactivado ANTES de cargar la página (ej. un pin
+      // `evento_temporal` que la Etapa 4 acaba de auto-desactivar, o
+      // cualquier pin que vos hayas desactivado a mano en otra sesión)
+      // igual se dibujaba y se veía normal para cualquier visitante que
+      // recién abre el mapa. Fix: mismo criterio exacto que togglePoi
+      // (display:none en el pin-wrap + visibility:hidden en el wrapper
+      // de Leaflet), aplicado ya en el momento de crear el marcador.
+      if (poi.active === false && el) {
+        el.style.display = 'none';
+        const markerElInit = el.parentElement;
+        if (markerElInit) markerElInit.style.visibility = 'hidden';
+      }
     });
   });
 

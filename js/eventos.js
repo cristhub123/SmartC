@@ -10,6 +10,8 @@ After modifying this file, update /AI_SESSION.md with the change and verificatio
 
 /**
  * [Etapa 3 — PLAN_USUARIOS_EVENTOS.md, 2026-08-25]
+ * [Etapa 4 agregada 2026-08-26 — ver bloque de comentario propio más
+ * abajo, sección "CICLO DE VIDA DE PINES evento_temporal"]
  * COLECCIÓN "eventos" — ADMIN-ONLY POR AHORA
  * ---------------------------------------------------------------
  * Nueva tab del panel Admin (#eventos-admin / tp-eventos-admin).
@@ -219,6 +221,123 @@ async function _crearPinMinimoEvento(nombre, lat, lng) {
 }
 
 /* ═══════════════════════════════════════════════════════════
+   [Etapa 4 — PLAN_USUARIOS_EVENTOS.md, 2026-08-26]
+   CICLO DE VIDA DE PINES `tipo: 'evento_temporal'`
+   ---------------------------------------------------------------
+   Decisiones confirmadas con Cris antes de programar esta etapa:
+   1. Un evento cuenta como VIGENTE si `activo === true` (el toggle
+      manual del evento) Y (sin `fecha_fin` cargada, O `fecha_fin`
+      todavía no pasó). El toggle manda siempre — un evento con
+      fecha futura pero `activo:false` NO es vigente.
+   2. Un pin `evento_temporal` se AUTO-desactiva (`active:false`,
+      NUNCA se borra) cuando ninguno de sus eventos (`poi_id ===
+      pin.id`) es vigente.
+   3. La reactivación es SIEMPRE manual por ahora (Cris: "hoy es
+      solo mi toggle" — a futuro, cuando exista el sistema de pagos,
+      esa capa se suma a la cadena de condiciones, pero nada queda
+      hardcodeado bloqueando ese cambio futuro). Por eso esta etapa
+      NUNCA pone `active:true` sola — solo ofrece un botón "🔓
+      Reactivar pin" en la lista de abajo para hacerlo con 1 click.
+   4. Cris no llegó a confirmar en qué momento exacto correr el
+      chequeo (dijo no entender la pregunta) — se optó por la
+      combinación más robusta sin sobrecargar Firestore: (a) al
+      cargar el mapa público, ANTES de dibujar los marcadores (ver
+      `checkEventosTemporalesLifecycle()` llamado desde `app.js`,
+      init() paso 3.5) y (b) cada vez que se abre/refresca la tab
+      admin "🎉 Eventos" (reusa `_eventosCache`, sin query extra a
+      Firestore). Si en algún momento hace falta correrlo también al
+      abrir la tab "Lugares", es un solo llamado más — la función
+      está pensada para eso, sin acoplarse a un único lugar.
+   ═══════════════════════════════════════════════════════════ */
+function _eventoEsVigente(ev) {
+  if (!ev || ev.activo !== true) return false;
+  if (!ev.fecha_fin) return true;
+  const fin = new Date(ev.fecha_fin);
+  return isNaN(fin.getTime()) ? true : fin.getTime() > Date.now();
+}
+
+/**
+ * Revisa todos los pines `tipo: 'evento_temporal'` todavía activos y
+ * auto-desactiva (nunca borra) los que ya no tienen ningún evento
+ * vigente. Si no se pasa `eventosList` (ej. desde `app.js` al cargar
+ * el mapa público, donde `_eventosCache` todavía no existe), hace su
+ * propia lectura de la colección `eventos`.
+ */
+async function checkEventosTemporalesLifecycle(eventosList) {
+  if (typeof POIS === 'undefined' || typeof db === 'undefined') return;
+  const pinesTemporales = POIS.filter(p => p.tipo === 'evento_temporal' && p.active !== false);
+  if (!pinesTemporales.length) return;
+
+  let eventos = eventosList;
+  if (!eventos) {
+    try {
+      const snap = await db.collection('eventos').get();
+      eventos = [];
+      snap.forEach(doc => eventos.push({ id: doc.id, ...doc.data() }));
+    } catch (err) {
+      console.warn('[Etapa 4] No se pudo revisar el ciclo de vida de pines evento_temporal:', err);
+      return;
+    }
+  }
+
+  for (const pin of pinesTemporales) {
+    const eventosDelPin = eventos.filter(ev => ev.poi_id === pin.id);
+    if (!eventosDelPin.some(_eventoEsVigente)) {
+      await _autoDesactivarPinTemporal(pin);
+    }
+  }
+}
+window.checkEventosTemporalesLifecycle = checkEventosTemporalesLifecycle;
+
+async function _autoDesactivarPinTemporal(pin) {
+  pin.active = false;
+  try {
+    await savePoiToFirestore(pin);
+    syncAppStateWithPOIS();
+    await regeneratePublicCache();
+  } catch (err) {
+    console.warn('[Etapa 4] No se pudo auto-desactivar el pin temporal', pin.id, err);
+    pin.active = true; // revierte en memoria si no se pudo guardar
+    return;
+  }
+  // Mismo criterio visual que togglePoi() (admin.js/app.js): si el
+  // marcador ya estaba dibujado en esta pestaña, se oculta ya mismo.
+  const el = document.getElementById('pw-' + pin.id);
+  if (el) {
+    el.style.display = 'none';
+    const markerEl = el.parentElement;
+    if (markerEl) markerEl.style.visibility = 'hidden';
+  }
+  console.info(`[Etapa 4] Pin temporal "${pin.name}" (${pin.id}) auto-desactivado — no le queda ningún evento vigente.`);
+}
+
+/** Reactivación manual (ver decisión 3 arriba) — botón "🔓 Reactivar
+ *  pin" en la lista de eventos, mismo criterio que togglePoi() pero
+ *  sin depender de un <button> del listado de Lugares. */
+async function _reactivarPinTemporal(pinId) {
+  const p = (typeof POIS !== 'undefined' ? POIS : []).find(x => x.id === pinId);
+  if (!p) return;
+  p.active = true;
+  try {
+    await savePoiToFirestore(p);
+    syncAppStateWithPOIS();
+    await regeneratePublicCache();
+    const el = document.getElementById('pw-' + pinId);
+    if (el) {
+      el.style.display = '';
+      const markerEl = el.parentElement;
+      if (markerEl) markerEl.style.visibility = '';
+    }
+    toast(`✅ Pin "${p.name}" reactivado`);
+    await _loadEventosAdminList();
+  } catch (err) {
+    console.warn('Error reactivando pin temporal:', err);
+    p.active = false;
+    toast('⚠️ No se pudo reactivar el pin. Probá de nuevo.');
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════
    ASIGNACIÓN MANUAL (usuarioAsignadoUid) — pegar UID o resolver
    por mail con click (mismo criterio que la asignación de dueño
    de pin por mail, ver _resolveOwnerEmailToUid en pin-adjust.js).
@@ -367,6 +486,11 @@ async function _loadEventosAdminList() {
     return;
   }
 
+  // [Etapa 4] cada vez que se abre/refresca esta tab, reusa los eventos
+  // recién leídos para revisar el ciclo de vida de los pines
+  // evento_temporal — sin query extra a Firestore.
+  await checkEventosTemporalesLifecycle(_eventosCache);
+
   if (!_eventosCache.length) {
     listEl.innerHTML = '<p class="owner-panel-loading">Todavía no hay eventos cargados.</p>';
     return;
@@ -378,6 +502,10 @@ async function _loadEventosAdminList() {
     const fechas = [ev.fecha_inicio, ev.fecha_fin].filter(Boolean)
       .map(iso => new Date(iso).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }))
       .join(' → ');
+    // [Etapa 4] si el pin es evento_temporal y ya se auto-desactivó
+    // (sin eventos vigentes), se avisa acá mismo con 1 click para
+    // reactivarlo a mano — ver decisión 3 en checkEventosTemporalesLifecycle.
+    const pinDesactivado = pin && pin.tipo === 'evento_temporal' && pin.active === false;
     return `
       <div class="evt-admin-row" data-evento-id="${_escAttr(ev.id)}">
         <div class="evt-admin-row-main">
@@ -385,6 +513,11 @@ async function _loadEventosAdminList() {
           <span class="evt-admin-row-pin">📍 ${_escHtml(pinLabel)}</span>
           ${fechas ? `<span class="evt-admin-row-fechas">🗓 ${_escHtml(fechas)}</span>` : ''}
           <span class="evt-admin-row-estado">${_escHtml(ev.estado || 'aprobado')}</span>
+          ${pinDesactivado ? `
+            <span class="evt-admin-pin-off">
+              ⭕ pin sin eventos vigentes — desactivado solo
+              <button type="button" class="evt-admin-reactivar-pin" data-action="reactivar-pin" data-pin-id="${_escAttr(pin.id)}">🔓 Reactivar pin</button>
+            </span>` : ''}
         </div>
         <div class="evt-admin-row-actions">
           <button type="button" class="evt-admin-toggle ${ev.activo ? 'on' : ''}" data-action="toggle" title="${ev.activo ? 'Desactivar' : 'Activar'}"></button>
@@ -397,6 +530,7 @@ async function _loadEventosAdminList() {
     const id = row.dataset.eventoId;
     row.querySelector('[data-action="toggle"]')?.addEventListener('click', () => _toggleEventoActivo(id));
     row.querySelector('[data-action="delete"]')?.addEventListener('click', () => _deleteEvento(id));
+    row.querySelector('[data-action="reactivar-pin"]')?.addEventListener('click', e => _reactivarPinTemporal(e.currentTarget.dataset.pinId));
   });
 }
 

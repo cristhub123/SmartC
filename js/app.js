@@ -45,6 +45,15 @@ async function init() {
   await loadPOISFromFirestore();
   await loadFeaturesFromFirestore();
 
+  // 3.5. [Etapa 4 — PLAN_USUARIOS_EVENTOS.md] revisa los pines
+  // `tipo: 'evento_temporal'` y auto-desactiva (nunca borra) los que ya
+  // no tienen ningún evento vigente. Se hace ACÁ, antes del forEach de
+  // abajo, para que un pin recién auto-desactivado nazca ya oculto sin
+  // parpadeo — ver detalle completo en js/eventos.js.
+  if (typeof checkEventosTemporalesLifecycle === 'function') {
+    await checkEventosTemporalesLifecycle();
+  }
+
   // 4. Build all markers
   // [2026-08-15] try/catch por-POI agregado como defensa adicional: un
   // solo POI con datos raros (más allá de lat/lng, cualquier excepción
