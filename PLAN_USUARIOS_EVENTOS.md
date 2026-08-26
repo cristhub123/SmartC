@@ -38,11 +38,45 @@
 
 ## ESTADO ACTUAL
 
-**Última etapa completada:** Etapa 2 — Panel del dueño de pin/negocio
-(ver detalle en "REGISTRO POR ETAPA" más abajo).
+**Última etapa completada:** Etapa 3 — Colección `eventos` (admin-only)
++ pin mínimo del Camino B (ver detalle en "REGISTRO POR ETAPA" más
+abajo).
 
-**Próxima etapa a hacer:** Etapa 3 — Colección `eventos` vinculada a
-un pin existente + moderación (pendiente/aprobado).
+**Próxima etapa a hacer:** Etapa 4 — Pin genérico temporal: agregarle
+al pin `tipo: evento_temporal` (ya creado desde la Etapa 3) el ciclo
+de vida real (auto-desactivación cuando vencen todos sus eventos).
+
+**Contexto nuevo de la Etapa 3 que hay que seguir usando (no crear de
+nuevo):**
+- `js/eventos.js` (Etapa 3) — módulo admin-only de eventos, tab
+  "🎉 Eventos" (`#tp-eventos-admin`). Colección Firestore
+  `eventos/{eventoId}` (id automático): `{ nombre, descripcion,
+  categoria, fecha_inicio, fecha_fin (ISO string o null), poi_id,
+  creadorUid (null mientras el alta sea admin-only),
+  usuarioAsignadoUid, activo (bool, toggle manual del admin), estado
+  ('aprobado' al crearlo el admin), creadoEn }`. Cualquier etapa
+  futura que necesite leer/escribir eventos debe usar esta colección
+  y este esquema, no crear uno paralelo.
+- Pines `tipo: 'evento_temporal'` (creados desde el Camino B de
+  `js/eventos.js`) — ya funcionan como cualquier pin normal (se
+  guardan con `savePoiToFirestore`, entran a `POIS`/`AppState`, tienen
+  marcador en el mapa). La Etapa 4 es la que tiene que agregarles el
+  ciclo de vida (auto-desactivación al vencer todos sus eventos) —
+  hoy ese campo `tipo` solo existe como marca de origen, sin ningún
+  comportamiento automático todavía.
+- `startPickMode`/`stopPickMode` (`js/admin.js`) ahora soportan un
+  4to contexto, `'evento-pin'` (además de `'add'`/`'edit'`/`'zona'`),
+  usado por el Camino B — escribe en `#evt-pin-lat`/`#evt-pin-lng`.
+  Cualquier picker de coordenadas nuevo debe sumarse ahí siguiendo el
+  mismo patrón, no crear un pick-mode paralelo (ver AI_RULES.md
+  sección 7).
+- Reglas de Firestore: `FIRESTORE_RULES_NOTES.md` ya tiene el bloque
+  de `eventos` (lectura pública, escritura solo admin) — **todavía no
+  confirmado si Cris ya lo publicó en la consola de Firebase**. Sin
+  publicarlo, la colección `eventos` queda bloqueada por default
+  (Firestore niega todo lo que ninguna regla contempla
+  explícitamente) y el guardado de eventos va a fallar con error de
+  permisos.
 
 **Contexto que ya existe en el proyecto y hay que seguir usando (no
 crear de nuevo):**
@@ -87,8 +121,8 @@ crear de nuevo):**
       de pin/negocio (email/contraseña + Google)
 - [x] Etapa 2 — Panel del dueño de pin/negocio (ver y editar sus
       propios pines)
-- [ ] Etapa 3 — Colección `eventos` vinculada a un pin existente +
-      moderación (pendiente/aprobado)
+- [x] Etapa 3 — Colección `eventos` (admin-only) vinculada a un pin
+      existente o a un pin mínimo nuevo
 - [ ] Etapa 4 — Pin genérico temporal (cuando el lugar del evento no
       tiene pin todavía)
 - [ ] Etapa 5 — Filtro "Eventos y actividades" en el mapa + badge
@@ -229,6 +263,94 @@ categoría, coordenadas, imágenes) no se toca, (d) confirmar que un
 usuario `usuario_comun` (sin rol de dueño) NO ve el botón "Mis
 lugares", (e) confirmar que el admin sigue pudiendo editar/crear/
 borrar pines con normalidad después de publicar las reglas nuevas.
+
+### Etapa 3 — Colección `eventos` (admin-only) (2026-08-26)
+
+**Qué se hizo:** nueva tab del panel Admin ("🎉 Eventos") donde SOLO
+el admin crea eventos por ahora (el toggle que habilita a dueños/
+usuarios es la Etapa 6 — OwnerPanel y la UI pública quedan
+preparadas en el código pero sin pantalla visible hasta entonces).
+Cada evento queda anexado a un pin por 2 caminos: A) buscar y elegir
+un pin ya existente (sin restringir a "pines propios", porque el
+admin no tiene pines propios), o B) crear ahí mismo un pin mínimo
+funcional (`tipo: evento_temporal`, categoría "Evento" fija) cuando
+el lugar todavía no tiene pin — ya queda funcionando en el mapa como
+cualquier otro pin, sin esperar a la Etapa 4.
+
+**Archivos creados:**
+- `js/eventos.js` — módulo admin-only de eventos: toggle Camino A/
+  Camino B, buscador de pines existentes, geocoder + pick-en-mapa
+  para el pin mínimo del Camino B, asignación manual de
+  `usuarioAsignadoUid` (pegar UID o resolver por mail con click,
+  reusando `_resolveOwnerEmailToUid` de `pin-adjust.js`), guardado en
+  `eventos/{eventoId}`, listado con toggle activo/inactivo y borrado.
+
+**Archivos modificados:**
+- `js/admin.js` — `switchTab()`: nueva entrada `'eventos-admin':
+  'tp-eventos-admin'` en el mapa de tabs (sin esto la tab no se
+  llega a mostrar nunca, ver `targets[t]` en la función). `startPickMode`/
+  su `map._pickHandler`: nuevo contexto `'evento-pin'` (Camino B),
+  agregado siguiendo el mismo patrón que `'zona'`, sin tocar los
+  contextos existentes.
+- `index.html` — nueva tab `➕` "🎉 Eventos" y su `tpane`
+  (`#tp-eventos-admin`) completo: form de alta (nombre, descripción,
+  categoría libre, fechas opcionales, toggle Camino A/B, buscador de
+  pines, geocoder del Camino B, asignación manual, checkbox activo) +
+  lista de eventos cargados; script `js/eventos.js` agregado después
+  de `pin-geocode.js`.
+- `css/base.css` — estilos nuevos: toggle Camino A/B
+  (`.evt-camino-toggle`/`.evt-camino-btn`), filas de la lista de
+  eventos (`.evt-admin-row*`), switch activo/inactivo
+  (`.evt-admin-toggle`), link de asignación por mail
+  (`.evt-asignado-click`) — reusan las variables de color/tipografía
+  ya existentes, mismo lenguaje visual que `owner-panel-item`/`atab`.
+- `FIRESTORE_RULES_NOTES.md` — nuevo bloque `match /eventos/{eventoId}`
+  (lectura pública, escritura solo admins de verdad — mismo criterio
+  que el resto de las colecciones del proyecto en esta etapa).
+
+**Modelo de datos:** colección `eventos/{eventoId}` (id automático de
+Firestore): `{ nombre, descripcion, categoria, fecha_inicio,
+fecha_fin (ISO string o null), poi_id, creadorUid (null — admin-only
+en esta etapa), usuarioAsignadoUid, activo (bool), estado
+('aprobado'), creadoEn (serverTimestamp) }`. Pines nuevos del Camino
+B llevan además `tipo: 'evento_temporal'` (solo marca de origen, sin
+comportamiento automático todavía — eso es la Etapa 4).
+
+**Decisiones confirmadas con Cris antes de programar:**
+1. La pantalla de creación va solo en el panel Admin en esta etapa
+   (OwnerPanel/UI pública quedan preparadas mentalmente, sin pantalla,
+   hasta la Etapa 6).
+2. El pin mínimo del Camino B se crea ya en esta etapa (no se espera
+   a la Etapa 4) para que ese camino funcione de punta a punta.
+3. El admin no tiene "pines propios" como un dueño de negocio, así
+   que el Camino A no restringe la búsqueda; `usuarioAsignadoUid` se
+   asigna a mano (UID pegado o resuelto por mail con click) mientras
+   la creación siga siendo admin-only — a futuro (Etapa 6), cuando el
+   dueño del evento lo cree con su propio usuario, el sistema lo va a
+   autoasignar solo, sin tocar el modelo de datos de esta etapa.
+
+**⚠️ Pendiente OBLIGATORIO de Cris antes de que esta etapa funcione:**
+publicar en Firestore → Rules el bloque de `eventos` agregado a
+`FIRESTORE_RULES_NOTES.md` (junto con el resto de las reglas ya
+vigentes) — sin esto, la colección `eventos` queda bloqueada por
+default y el guardado de un evento falla con error de permisos.
+
+**Pruebas realizadas:** `node --check` sin errores en los `.js`
+tocados/creados del proyecto; verificación automática de que todos
+los `id` que usa `eventos.js` existen una sola vez en `index.html`
+(sin duplicados ni faltantes); balance de llaves `{}` verificado en
+`css/base.css`. No probado en navegador real ni contra Firebase real
+(sin entorno con DOM/Firestore en esta sesión) — pendiente que Cris
+lo pruebe en su entorno, después de publicar las reglas: (a) Camino
+A — crear un evento anexado a un pin ya existente y confirmar que
+aparece en la lista con el nombre del pin correcto, (b) Camino B —
+crear un evento con un lugar nuevo y confirmar que el pin mínimo
+aparece en el mapa y en la tab "Lugares" del admin, (c) asignar un
+`usuarioAsignadoUid` por mail y confirmar que el UID resuelto es
+correcto, (d) togglear activo/inactivo y borrar un evento desde la
+lista, (e) confirmar que un pin creado por el Camino B no genera
+ningún indicador visual extra sobre el pin en el mapa (eso es la
+Etapa 5, a propósito no implementado acá).
 
 ---
 

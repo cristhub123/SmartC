@@ -53,6 +53,7 @@ categories.js
 shadow-eye.js
 pin-adjust.js          → OVERRIDE de startEdit/expandPin/collapsePin/saveNew (ver sección 6)
 pin-geocode.js
+eventos.js              → módulo Eventos (tab admin "🎉 Eventos", Etapa 3 de PLAN_USUARIOS_EVENTOS.md) — depende de geocoder.js (setupGeocoder) y de pin-adjust.js (_autoSlugBase, _resolveOwnerEmailToUid), por eso carga después de ambos
 cluster.js              → pinClick real (ver nota abajo), puentes openPoiPanel/closePoiPanel
 map-settings.js
 autofill.js
@@ -89,6 +90,7 @@ se dibujaran. **No reactivar sin entender esa nota primero.**
 | `img-slots.js` | Slots de imagen ilimitados (alt images) en los paneles Nuevo/Editar (`AltSlotsAdd`/`AltSlotsEdit`) |
 | `geocoder.js` | Búsqueda de dirección → coordenadas (usado en Nuevo/Editar) |
 | `pin-geocode.js` | Switch de modo coordenadas/dirección en los formularios |
+| `eventos.js` | Módulo `Eventos` — tab admin "🎉 Eventos" (admin-only por ahora): alta de eventos anexados a un pin existente (Camino A) o a un pin mínimo nuevo `tipo: evento_temporal` (Camino B), asignación manual de `usuarioAsignadoUid`, listado con toggle activo/borrado. Colección Firestore `eventos/{eventoId}`. Ver Etapa 3 de `PLAN_USUARIOS_EVENTOS.md` |
 | `cities.js` | `ACTIVE_LOCATION`, tab "Ubicaciones" (país/provincia/ciudad, carpeta activa de Cloudinary) |
 | `themes.js` | Temas día/noche del mapa |
 | `typography.js` | Presets de tipografía |
@@ -359,7 +361,55 @@ creada, o bien el admin pierde acceso de escritura, o bien cualquier
 dueño logueado podría editar pines ajenos** — no asumir que esto ya
 está aplicado solo porque el código de esta etapa está en el repo.
 
-## 14. Ver también
+## 14. Colección "eventos" + pin mínimo del Camino B (Etapa 3, PLAN_USUARIOS_EVENTOS.md)
+
+**[2026-08-26]** Nueva colección Firestore `eventos/{eventoId}` (id
+automático): `{ nombre, descripcion, categoria, fecha_inicio,
+fecha_fin (ISO string o null), poi_id, creadorUid (null — admin-only
+en esta etapa), usuarioAsignadoUid, activo (bool), estado
+('aprobado'), creadoEn (serverTimestamp) }`. Vive en `js/eventos.js`
+(módulo `Eventos`, expuesto en `window.Eventos` con `refreshList()`).
+
+Por ahora **solo el admin** puede crear eventos — la tab "🎉 Eventos"
+vive en el panel Admin, no en `OwnerPanel` ni en la UI pública (eso es
+la Etapa 6 del plan). Todo evento queda anexado a un pin por 2
+caminos:
+- **Camino A** (el lugar ya tiene pin): buscador simple sobre `POIS`
+  en memoria, sin restringir a "pines propios" — a diferencia de
+  `OwnerPanel`, el admin no tiene pines propios.
+- **Camino B** (el lugar no tiene pin): se crea ahí mismo, con
+  `_crearPinMinimoEvento()`, un pin mínimo pero ya funcional
+  (`tipo: 'evento_temporal'`, categoría fija "Evento", ícono 🎉) —
+  mismo circuito de guardado que `saveNew()` de `pin-adjust.js`
+  (`savePoiToFirestore` → `POIS.push` → `syncAppStateWithPOIS` →
+  `regeneratePublicCache` → `makeMarker`), reducido a los campos
+  imprescindibles porque no depende del DOM de la tab "Nuevo". El
+  campo `tipo` hoy es solo una marca de origen — la Etapa 4 es la que
+  le agrega el ciclo de vida real (auto-desactivación cuando vencen
+  todos sus eventos de ese pin).
+
+`js/admin.js` (`startPickMode`) suma un 4to contexto, `'evento-pin'`,
+para el picker de coordenadas del Camino B — mismo patrón que ya
+usaban `'add'`/`'edit'`/`'zona'`, escribiendo en `#evt-pin-lat`/
+`#evt-pin-lng` en vez de reimplementar el pick-mode en `eventos.js`
+(ver sección 7, una sola fuente de verdad).
+
+`usuarioAsignadoUid` se completa a mano mientras el alta siga siendo
+admin-only: pegar el UID directo, o resolverlo por mail con un botón
+"Buscar" que reusa `_resolveOwnerEmailToUid()` de `pin-adjust.js` (la
+misma función que ya usa el admin para asignar el dueño de un pin por
+mail) — no se reimplementó esa búsqueda. A futuro (Etapa 6), cuando
+el dueño del evento lo cree con su propio usuario, el sistema lo va a
+autoasignar solo — ese cambio es de comportamiento, no de esquema.
+
+**⚠️ Dependencia con las reglas de Firestore:** la colección
+`eventos` necesita su propio bloque en `FIRESTORE_RULES_NOTES.md`
+(ya agregado, lectura pública / escritura solo admin) — sin
+publicarlo en la consola de Firebase, Firestore la bloquea por
+default y el guardado de cualquier evento falla con error de
+permisos.
+
+## 15. Ver también
 
 `AI_SESSION.md` — memoria de trabajo temporal de la sesión actual (qué se
 revisó, qué se modificó, qué queda pendiente). Revisarlo antes de releer

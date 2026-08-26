@@ -132,13 +132,26 @@ service cloud.firestore {
       allow write: if request.auth != null
                    && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
+
+    // [Etapa 3, PLAN_USUARIOS_EVENTOS.md] Colección "eventos": lectura
+    // pública libre (a futuro el mapa la va a usar para el filtro
+    // "Eventos y actividades", Etapa 5) — escritura solo para admins
+    // de verdad, porque en esta etapa SOLO el admin puede crear/editar
+    // eventos. Cuando la Etapa 6 habilite que dueños/usuarios carguen
+    // sus propios eventos, este bloque necesita un `allow create`
+    // nuevo para `request.auth.uid == request.resource.data.creadorUid`
+    // (no tocar esto todavía, es a propósito de esta etapa).
+    match /eventos/{eventoId} {
+      allow read: if true;
+      allow write: if request.auth != null
+                   && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
   }
 }
 ```
 
 ## Pendiente a futuro (no es parte de esta etapa)
 
-Si más adelante se agrega una colección nueva al proyecto (por
-ejemplo `eventos` en la Etapa 3 del plan), necesita su propio bloque
-acá — si no, queda bloqueada por default (Firestore niega todo lo que
-ninguna regla contempla explícitamente).
+Si más adelante se agrega otra colección nueva al proyecto, necesita
+su propio bloque acá — si no, queda bloqueada por default (Firestore
+niega todo lo que ninguna regla contempla explícitamente).

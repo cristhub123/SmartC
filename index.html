@@ -273,6 +273,7 @@ After modifying this file, update /AI_SESSION.md with the change and verificatio
     <div class="atab"     data-t="locations">🌎 Ubicaciones</div>
     <div class="atab on"  data-t="list">📋 Lugares</div>
     <div class="atab"     data-t="add">➕ Nuevo</div>
+    <div class="atab"     data-t="eventos-admin">🎉 Eventos</div>
     <div class="atab"     data-t="global">🎨 Global</div>
     <div class="atab"     data-t="zonas-admin">📍 Zonas</div>
     <div class="atab"     data-t="mapa">🗺 Mapa</div>
@@ -670,6 +671,100 @@ campo-05:
         <button class="btn-map-pick" id="btn-pick-add">📍 O hacer clic en el mapa</button>
       </div>
       <button class="btn-primary" id="btn-save-add">✓ Guardar Lugar</button>
+    </div>
+
+    <!-- EVENTOS [Etapa 3, PLAN_USUARIOS_EVENTOS.md] — admin-only por ahora -->
+    <div class="tpane" id="tp-eventos-admin">
+      <div class="divider"><span>NUEVO EVENTO</span></div>
+      <div class="fg">
+        <label class="fl">Nombre del evento *</label>
+        <input class="fi" id="evt-nombre" type="text" placeholder="Ej: Feria de anime de septiembre">
+      </div>
+      <div class="fg">
+        <label class="fl">Descripción</label>
+        <textarea class="fta" id="evt-descripcion" placeholder="¿De qué se trata el evento?"></textarea>
+      </div>
+      <div class="fg">
+        <label class="fl">Categoría del evento</label>
+        <input class="fi" id="evt-categoria" type="text" placeholder="Ej: Anime, Feria, Música en vivo, Recital">
+      </div>
+      <div class="frow">
+        <div>
+          <label class="fl">Fecha/hora de inicio (opcional)</label>
+          <input class="fi" id="evt-fecha-inicio" type="datetime-local">
+        </div>
+        <div>
+          <label class="fl">Fecha/hora de fin (opcional)</label>
+          <input class="fi" id="evt-fecha-fin" type="datetime-local">
+        </div>
+      </div>
+      <p style="font-size:11px;color:var(--text3);margin-top:-6px;margin-bottom:8px">Se pueden dejar vacías por ahora — el vencimiento automático del pin del Camino B es la Etapa 4.</p>
+
+      <div class="divider"><span>LUGAR DEL EVENTO</span></div>
+      <div class="evt-camino-toggle">
+        <button type="button" class="evt-camino-btn on" id="evt-camino-a-btn">Ya existe el pin</button>
+        <button type="button" class="evt-camino-btn" id="evt-camino-b-btn">Todavía no existe</button>
+      </div>
+
+      <div id="evt-camino-a-pane">
+        <div class="fg">
+          <label class="fl">Buscar pin existente</label>
+          <input class="fi" id="evt-buscar-pin-input" type="text" placeholder="Escribí el nombre del lugar...">
+          <div class="geocoder-results" id="evt-buscar-pin-results"></div>
+        </div>
+        <div class="fg" id="evt-pin-seleccionado" style="display:none">
+          <label class="fl">Pin elegido</label>
+          <div class="owner-panel-item" style="cursor:default;display:flex;align-items:center;justify-content:space-between">
+            <span class="evt-pin-seleccionado-name"></span>
+            <button type="button" class="img-clear" id="evt-pin-seleccionado-quitar" title="Quitar">✕</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="evt-camino-b-pane" style="display:none">
+        <p style="font-size:11px;color:var(--text3);margin-bottom:8px">Se crea acá mismo un pin mínimo (categoría "Evento" fija) para poder anexarle el evento — queda ya funcional en el mapa.</p>
+        <div class="fg">
+          <label class="fl">Nombre del lugar (nuevo pin) *</label>
+          <input class="fi" id="evt-pin-nombre" type="text" placeholder="Ej: Patio del Colegio San Martín">
+        </div>
+        <div class="fg">
+          <label class="fl">🔍 Buscar dirección o lugar</label>
+          <div class="geocoder-row">
+            <input class="fi geocoder-input" id="geo-input-evt" type="text" placeholder="Ej: Colegio San Martín, Córdoba…">
+            <button class="geocoder-btn" id="geo-btn-evt">Buscar</button>
+          </div>
+          <div class="geocoder-results" id="geo-results-evt"></div>
+          <div class="coord-display" id="evt-pin-coord-display">Sin coordenadas — buscá una dirección o hacé click en el mapa</div>
+          <input type="hidden" id="evt-pin-lat"><input type="hidden" id="evt-pin-lng">
+          <button class="btn-map-pick" id="btn-pick-evento-pin" type="button">📍 O hacer clic en el mapa</button>
+        </div>
+      </div>
+
+      <div class="divider"><span>ASIGNACIÓN (opcional)</span></div>
+      <div class="fg">
+        <label class="fl">UID del usuario asignado</label>
+        <input class="fi" id="evt-asignado-uid" type="text" placeholder="Pegar UID directo, o buscar por mail abajo">
+      </div>
+      <div class="fg">
+        <label class="fl">o buscar por mail</label>
+        <div class="geocoder-row">
+          <input class="fi" id="evt-asignado-email" type="text" placeholder="ej. juan@mail.com">
+          <button class="geocoder-btn" id="evt-asignado-buscar-btn" type="button">Buscar</button>
+        </div>
+        <div id="evt-asignado-resultado" style="font-size:12px;color:var(--text3);margin-top:6px"></div>
+        <p style="font-size:11px;color:var(--text3);margin-top:4px">Mientras el alta siga siendo admin-only, este campo se completa a mano. Cuando el dueño del evento lo cree con su propio usuario (Etapa 6), el sistema lo va a autoasignar solo.</p>
+      </div>
+
+      <div class="fg" style="display:flex;align-items:center;gap:8px">
+        <input type="checkbox" id="evt-activo" checked style="width:auto">
+        <label class="fl" style="margin:0" for="evt-activo">Evento activo (habilitado)</label>
+      </div>
+
+      <div id="evt-form-error" style="color:#ef4444;font-size:12px;margin-bottom:8px"></div>
+      <button class="btn-primary" id="btn-save-evento">✓ Crear evento</button>
+
+      <div class="divider"><span>EVENTOS CARGADOS</span></div>
+      <div id="eventos-admin-list"></div>
     </div>
 
     <!-- GLOBAL APPEARANCE -->
@@ -1493,6 +1588,7 @@ campo-05:
   <!-- 7. Features -->
   <script src="js/pin-adjust.js" defer></script>
   <script src="js/pin-geocode.js" defer></script>
+  <script src="js/eventos.js" defer></script>
   <script src="js/cluster.js" defer></script>
 
   <!-- 7b. Map settings -->

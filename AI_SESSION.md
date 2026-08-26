@@ -5,6 +5,55 @@
 > en ella. Si un archivo listado como "revisado" fue modificado después,
 > vuelve a estar pendiente de verificación.
 
+## Sesión: 2026-08-26 — Etapa 3 de PLAN_USUARIOS_EVENTOS.md: colección `eventos` (admin-only)
+
+**Contexto:** Cris trajo el proyecto completo (ZIP) + un plan ya
+unificado (`PLAN_USUARIOS_EVENTOS.md`, fusiona lo que antes eran
+`PLAN_USUARIOS.md` y el diseño de eventos suelto). Antes de programar
+se confirmaron 3 puntos por chat: (1) la pantalla de creación va solo
+en el panel Admin en esta etapa, OwnerPanel/UI pública quedan
+preparadas sin pantalla hasta la Etapa 6; (2) el pin mínimo del
+Camino B se crea YA en esta etapa (no se espera a la Etapa 4) para
+que ese camino funcione de punta a punta; (3) el admin no tiene
+"pines propios", así que el Camino A no restringe la búsqueda, y
+`usuarioAsignadoUid` se asigna a mano (UID pegado o resuelto por mail
+con click) mientras el alta siga siendo admin-only.
+
+**Archivos revisados en profundidad esta sesión:** `AI_RULES.md` y
+`AI_SESSION.md` completos (contexto de sesiones anteriores),
+`PLAN_USUARIOS_EVENTOS.md` completo, `FIRESTORE_RULES_NOTES.md`
+completo, `js/owner-panel.js` completo (patrón de panel acotado a
+reusar), `js/admin.js` completo (`switchTab`, `startPickMode`/
+`stopPickMode`), `js/pin-adjust.js` (`saveNew`, `saveEdit`,
+`_resolveOwnerEmailToUid`, `_autoSlugBase`), `js/firestore-sync.js`
+(`savePoiToFirestore` y los guardados parciales), `js/geocoder.js`
+completo, `js/config.js`/`js/categories.js` (esquema de categorías),
+`index.html` (tabs del admin, markup de la tab "Nuevo").
+
+**Archivos creados:**
+- `js/eventos.js` — módulo `Eventos` (ver detalle completo en la
+  entrada de Etapa 3 dentro de `PLAN_USUARIOS_EVENTOS.md`).
+
+**Archivos modificados:** `js/admin.js`, `index.html`, `css/base.css`,
+`FIRESTORE_RULES_NOTES.md` — ver el detalle completo en la entrada de
+Etapa 3 dentro de `PLAN_USUARIOS_EVENTOS.md` (sección "REGISTRO POR
+ETAPA") — no se repite acá para no duplicar.
+
+**Pruebas/verificaciones realizadas:** `node --check` sin errores en
+los 35 `.js` del proyecto; verificación automática de que todos los
+`id` que usa `eventos.js` existen una sola vez en `index.html` (sin
+duplicados ni faltantes); balance de llaves `{}` verificado en
+`css/base.css` (460/460). No se probó en navegador real ni contra
+Firebase real (sin entorno con DOM/Firestore en esta sesión).
+
+**Pendiente / próximo paso exacto:** Cris tiene que publicar en
+Firestore → Rules el bloque nuevo de `eventos` en
+`FIRESTORE_RULES_NOTES.md` (junto con el resto de reglas ya vigentes)
+antes de poder guardar ningún evento. Después, ver "ESTADO ACTUAL" de
+`PLAN_USUARIOS_EVENTOS.md` — Etapa 4 (ciclo de vida del pin
+`evento_temporal`: auto-desactivación cuando vencen todos sus
+eventos).
+
 ## Sesión: 2026-08-19 (continuación) — Etapa 2 de PLAN_USUARIOS_EVENTOS.md: panel del dueño de pin/negocio
 
 **Contexto:** continuación de la sesión de Etapa 1 (mismo día, mismo
