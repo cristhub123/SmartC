@@ -162,7 +162,8 @@ function switchTab(t) {
   document.querySelectorAll('.tpane').forEach(p => p.classList.remove('on'));
   const targets = {list:'tp-list', add:'tp-add', edit:'tp-edit', global:'tp-global',
     'zonas-admin':'tp-zonas-admin', 'temas-admin':'tp-temas-admin', roadmap:'tp-roadmap', groups:'tp-groups', cats:'tp-cats', mapa:'tp-mapa',
-    typography:'tp-typography', locations:'tp-locations'};
+    typography:'tp-typography', locations:'tp-locations',
+    'eventos-admin':'tp-eventos-admin'}; // [Etapa 3, PLAN_USUARIOS_EVENTOS.md]
   const el = document.getElementById(targets[t]);
   if (el) el.classList.add('on');
   // Fire registered tab plugins (replaces all monkey-patching)
@@ -594,6 +595,12 @@ function startPickMode(ctx) {
       document.getElementById('ze-lat').value = lat.toFixed(6);
       document.getElementById('ze-lng').value = lng.toFixed(6);
       if (typeof _syncZonaCoordDisplay === 'function') _syncZonaCoordDisplay();
+    } else if (ctx === 'evento-pin') {
+      // [Etapa 3, PLAN_USUARIOS_EVENTOS.md] Camino B: pin mínimo del
+      // lugar de un evento, ver js/eventos.js.
+      document.getElementById('evt-pin-lat').value = lat.toFixed(6);
+      document.getElementById('evt-pin-lng').value = lng.toFixed(6);
+      if (typeof _syncEvtPinCoordDisplay === 'function') _syncEvtPinCoordDisplay();
     } else {
       document.getElementById('e-lat').value = lat.toFixed(6);
       document.getElementById('e-lng').value = lng.toFixed(6);
@@ -603,6 +610,7 @@ function startPickMode(ctx) {
     openAdmin();
     if (ctx === 'edit') switchTab('edit');
     if (ctx === 'zona') switchTab('zonas-admin');
+    if (ctx === 'evento-pin') switchTab('eventos-admin');
     toast(`📍 ${lat.toFixed(5)}, ${lng.toFixed(5)}`);
   };
   map.on('click', map._pickHandler);
