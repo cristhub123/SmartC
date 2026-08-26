@@ -409,6 +409,38 @@ publicarlo en la consola de Firebase, Firestore la bloquea por
 default y el guardado de cualquier evento falla con error de
 permisos.
 
+## 14.1 Ciclo de vida del pin `evento_temporal` (Etapa 4, PLAN_USUARIOS_EVENTOS.md)
+
+**[2026-08-26]** `checkEventosTemporalesLifecycle(eventosList?)`
+(`js/eventos.js`, expuesta en `window`) recorre los pines `tipo:
+'evento_temporal'` activos y auto-desactiva (`active:false`, NUNCA
+borra) los que ya no tienen ningún evento vigente. Vigente = `activo
+=== true` Y (sin `fecha_fin` o `fecha_fin` sin vencer). Se llama
+desde `app.js` (`init()`, antes de dibujar marcadores) y desde
+`_loadEventosAdminList()`. **Cualquier lugar nuevo que necesite
+revisar el ciclo de vida debe llamar a esta función, nunca
+reimplementar el criterio de "vigente" en otro archivo.**
+
+La reactivación de un pin auto-desactivado es SIEMPRE manual por
+ahora (botón "🔓 Reactivar pin" en la lista de eventos,
+`_reactivarPinTemporal()`) — no hay ninguna reactivación automática
+al cargar un evento nuevo. Confirmado con Cris: a futuro, cuando
+exista el sistema de pagos, esa capa se suma a la cadena de
+condiciones existente (mismo modelo de "capas de cebolla" que ya usa
+`fecha_inicio`), sin hardcodear nada que bloquee ese cambio.
+
+**⚠️ Bug de fondo corregido de paso (no es específico de eventos):**
+`makeMarker()` (`js/markers.js`) nunca respetaba `poi.active ===
+false` al crear el marcador por primera vez — solo se ocultaba si se
+togleaba en vivo dentro de la misma sesión de navegación
+(`togglePoi()`, `admin.js`/`app.js`). Esto significa que ANTES de
+esta corrección, desactivar cualquier pin (no solo de eventos) desde
+Lugares no lo ocultaba de verdad para un visitante público nuevo —
+solo durante la sesión de admin que lo togleó. Ya corregido con el
+mismo criterio visual que `togglePoi()`. Si algo dependía del
+comportamiento viejo (poco probable, pero queda dicho), revisar acá
+primero.
+
 ## 15. Ver también
 
 `AI_SESSION.md` — memoria de trabajo temporal de la sesión actual (qué se

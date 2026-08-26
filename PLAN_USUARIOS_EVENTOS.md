@@ -36,18 +36,102 @@
 
 ---
 
+## ⚠️ DOS TABS "EVENTOS" — NO CONFUNDIR
+
+Este plan tiene **dos tabs distintas que se llaman "Eventos"**, en
+dos lugares distintos, para dos públicos distintos. Se nombran así
+en todo el resto de este documento para evitar mezclarlas:
+
+| | **Tab ADMIN (comando)** | **Tab del PIN (pública)** |
+|---|---|---|
+| ¿Dónde vive? | Panel admin general, junto a Lugares/Ubicaciones/Temas | Dentro del panel de UN pin puntual |
+| ¿Quién la ve? | Solo el admin (Cris) | Cualquier visitante público |
+| ¿Qué muestra? | TODOS los eventos de la plataforma, filtrables por categoría/nombre/info interna | Solo los eventos de ESE pin puntual |
+| ¿Cuándo aparece? | Siempre visible para el admin | Solo si ese pin tiene ≥1 evento activo vigente hoy |
+| Etapa que la define | Ya existe desde la Etapa 3 (`#tp-eventos-admin`, todavía sin filtros) | Etapa 5 |
+
+Son conceptualmente independientes: una es una herramienta de
+administración general, la otra es contenido público de un lugar
+específico. No comparten componente de UI. La tab ADMIN de la Etapa
+3 hoy es una lista simple (sin filtro por categoría/nombre todavía)
+— el "centro de comando" con filtros que pidió Cris queda para más
+adelante; esto es solo el recordatorio de no confundir cuál tab es
+cuál.
+
+## DECISIONES PENDIENTES (a confirmar con Cris antes o durante las etapas que las necesiten)
+
+1. **Límite de ediciones.** Cris marcó que cada edición del evento es
+   una escritura a Firestore y que puede convenir un límite — sin
+   número ni regla definida todavía. La Etapa 7 deja el contador
+   preparado (`edicionesCount`) pero sin aplicar ningún tope hasta
+   que se decida.
+2. **Título de la tab del PIN (pública, Etapa 5).** "Eventos" o
+   "Actividades" — se arranca con un valor por defecto editable por
+   el admin, no hace falta decidir el texto final ahora. (No
+   confundir con la tab ADMIN de comando, que sí se llama "Eventos"
+   fijo — ver tabla arriba.)
+3. **Imágenes por categoría de evento.** Cris las va a subir más
+   adelante. Asumido por ahora: una imagen por categoría, cargada
+   por el admin (no por cada organizador) — confirmar si en cambio
+   cada organizador debe poder subir la suya propia por evento.
+4. **Toggles maestros globales de eventos** (mencionados por Cris,
+   todavía sin etapa asignada en el checklist de abajo): 1)
+   habilitar/deshabilitar que usuarios no-admin creen eventos
+   (encaja naturalmente en la Etapa 6), 2) estado por defecto
+   (activo/inactivo) con el que nace un evento nuevo, 3) apagar/
+   encender de golpe la visibilidad en el mapa de TODOS los eventos
+   existentes sin tocar su info ni su estado individual. Confirmar
+   en qué etapa entran antes de programarlos.
+
+---
+
 ## ESTADO ACTUAL
 
-**Última etapa completada:** Etapa 3 — Colección `eventos` (admin-only)
-+ pin mínimo del Camino B (ver detalle en "REGISTRO POR ETAPA" más
-abajo).
+**Última etapa completada:** Etapa 4 — Ciclo de vida real del pin
+`tipo: evento_temporal` (auto-desactivación cuando vencen todos sus
+eventos) — ver detalle en "REGISTRO POR ETAPA" más abajo.
 
-**Próxima etapa a hacer:** Etapa 4 — Pin genérico temporal: agregarle
-al pin `tipo: evento_temporal` (ya creado desde la Etapa 3) el ciclo
-de vida real (auto-desactivación cuando vencen todos sus eventos).
+**Próxima etapa a hacer:** Etapa 5 — Filtro "Eventos y actividades" en
+el mapa + estilo visual propio del pin temporal + tab "Eventos" del
+PIN (pública, ver tabla "DOS TABS" más arriba) — **corrección de
+Cris ya incorporada al plan:** el evento NO agrega ningún elemento
+visual sobre el pin (badge/glow/borde/ícono superpuesto); la
+visibilidad se resuelve solo con el filtro transversal.
 
-**Contexto nuevo de la Etapa 3 que hay que seguir usando (no crear de
+**Contexto nuevo de la Etapa 4 que hay que seguir usando (no crear de
 nuevo):**
+- `checkEventosTemporalesLifecycle(eventosList?)` (`js/eventos.js`,
+  expuesta en `window`) — recorre los pines `tipo: 'evento_temporal'`
+  todavía activos y auto-desactiva (`active:false`, nunca borra) los
+  que ya no tienen ningún evento vigente. Un evento es "vigente" si
+  `activo === true` Y (sin `fecha_fin` o `fecha_fin` sin vencer aún)
+  — el toggle manual manda siempre. Se llama sola desde `app.js`
+  (init(), antes de dibujar los marcadores) y desde
+  `_loadEventosAdminList()` (`js/eventos.js`, reusa los eventos ya
+  leídos). Cualquier etapa nueva que agregue otro punto donde
+  convenga revisar el ciclo de vida (ej. al abrir la tab "Lugares")
+  debe llamar a esta misma función, no reimplementar la lógica.
+- **Reactivación: siempre manual por ahora** (confirmado con Cris —
+  "hoy es solo mi toggle"; a futuro, cuando exista el sistema de
+  pagos, esa capa se suma a la cadena de condiciones existente, sin
+  hardcodear nada que lo bloquee). Botón "🔓 Reactivar pin" agregado
+  en cada fila de la lista de eventos (`js/eventos.js`,
+  `_reactivarPinTemporal`) cuando el pin del evento está
+  auto-desactivado.
+- **Bug encontrado y corregido de paso (no es solo de eventos):** el
+  campo `active` (activo/publicado) de CUALQUIER pin nunca se
+  aplicaba al dibujar el marcador por primera vez (`makeMarker`,
+  `js/markers.js`) — solo se ocultaba si se togleaba en vivo durante
+  esa misma sesión de navegación. Un pin desactivado en una sesión
+  anterior (de eventos o no) igual se veía normal para cualquier
+  visitante que recién abre la página. Corregido en `js/markers.js`
+  con el mismo criterio visual que ya usaba `togglePoi()`. **Cris:
+  revisá que esto no cambie nada que dabas por sentado** — antes,
+  en la práctica, "desactivar" un pin normal desde Lugares solo lo
+  ocultaba durante tu propia sesión de admin, nunca para el público
+  real; ahora sí lo oculta de verdad, siempre.
+
+**Contexto de la Etapa 3 que sigue vigente (no crear de nuevo):**
 - `js/eventos.js` (Etapa 3) — módulo admin-only de eventos, tab
   "🎉 Eventos" (`#tp-eventos-admin`). Colección Firestore
   `eventos/{eventoId}` (id automático): `{ nombre, descripcion,
@@ -123,10 +207,11 @@ crear de nuevo):**
       propios pines)
 - [x] Etapa 3 — Colección `eventos` (admin-only) vinculada a un pin
       existente o a un pin mínimo nuevo
-- [ ] Etapa 4 — Pin genérico temporal (cuando el lugar del evento no
-      tiene pin todavía)
-- [ ] Etapa 5 — Filtro "Eventos y actividades" en el mapa + badge
-      sobre pin existente + estilo del pin temporal
+- [x] Etapa 4 — Ciclo de vida del pin `evento_temporal`
+      (auto-desactivación cuando vencen todos sus eventos)
+- [ ] Etapa 5 — Filtro "Eventos y actividades" en el mapa (SIN badge
+      sobre el pin — corrección de Cris) + estilo del pin temporal +
+      tab "Eventos" del PIN (pública)
 - [ ] Etapa 6 — Subusuario empleado del dueño (alta directa sin
       invitación, permisos limitados)
 - [ ] Etapa 7 — Campos preparados para pagos (sin cobro automático
@@ -351,6 +436,59 @@ correcto, (d) togglear activo/inactivo y borrar un evento desde la
 lista, (e) confirmar que un pin creado por el Camino B no genera
 ningún indicador visual extra sobre el pin en el mapa (eso es la
 Etapa 5, a propósito no implementado acá).
+
+---
+
+### Etapa 4 — Ciclo de vida del pin `evento_temporal` (2026-08-26)
+
+**Qué se hizo:** los pines creados por el Camino B de la Etapa 3
+(`tipo: 'evento_temporal'`) ahora se auto-desactivan solos (nunca se
+borran) cuando ya no les queda ningún evento vigente.
+
+**Archivos modificados:**
+- `js/eventos.js` — nueva función `checkEventosTemporalesLifecycle()`
+  (expuesta en `window`), `_eventoEsVigente()`,
+  `_autoDesactivarPinTemporal()`, `_reactivarPinTemporal()`; llamado
+  agregado dentro de `_loadEventosAdminList()`; fila de la lista de
+  eventos ahora muestra aviso + botón "🔓 Reactivar pin" cuando
+  corresponde.
+- `js/app.js` — paso nuevo en `init()` (3.5) que llama a
+  `checkEventosTemporalesLifecycle()` antes de dibujar los
+  marcadores.
+- `js/markers.js` — **bug de fondo corregido** (no específico de
+  eventos): `makeMarker()` ahora respeta `poi.active === false` al
+  crear el marcador (antes solo se aplicaba togleando en vivo, nunca
+  al dibujar por primera vez — ver aviso completo en "ESTADO
+  ACTUAL").
+- `css/base.css` — estilos de `.evt-admin-pin-off` /
+  `.evt-admin-reactivar-pin`.
+
+**Decisiones confirmadas con Cris antes de programar:**
+1. Evento vigente = `activo === true` Y (sin `fecha_fin` o
+   `fecha_fin` sin vencer). El toggle manual manda siempre.
+2. La pregunta sobre en qué momento correr el chequeo no se llegó a
+   confirmar (Cris no la entendió) — se optó por la combinación más
+   robusta sin sobrecargar Firestore: al cargar el mapa público +
+   cada vez que se abre la tab admin "Eventos".
+3. La reactivación del pin es siempre manual por ahora — Cris fue
+   explícito en que el sistema debe quedar "versátil" y sin nada
+   hardcodeado que bloquee agregar más adelante la capa del sistema
+   de pagos (mismo modelo de "capas de cebolla" que ya rige
+   `fecha_inicio` de un evento).
+
+**Pruebas realizadas:** `node --check` sin errores en los `.js`
+tocados; balance de llaves verificado en `css/base.css`. No probado
+contra Firebase real ni en navegador (sin entorno con DOM/Firestore
+en esta sesión) — pendiente que Cris pruebe en su entorno: (a) cargar
+un evento con `fecha_fin` ya pasada y `activo:true` sobre un pin
+`evento_temporal` sin ningún otro evento vigente → recargar el mapa y
+confirmar que el pin ya no aparece; (b) confirmar en Firestore que
+ese pin quedó con `active:false` (no se borró); (c) desde la tab
+Eventos, click en "🔓 Reactivar pin" y confirmar que vuelve a
+aparecer en el mapa; (d) confirmar que un pin normal (no
+`evento_temporal`) que hayas desactivado antes desde Lugares ahora sí
+se ve oculto para una visita nueva/incógnito (antes de este fix no se
+ocultaba para el público real — ver aviso en "ESTADO ACTUAL").
 
 ---
 

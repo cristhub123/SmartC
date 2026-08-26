@@ -482,3 +482,66 @@ documentadas):**
 
 **Pendiente / a criterio de sesiones futuras:** ninguna corrección de
 código en esta sesión — es intencional, la tarea era solo documentación.
+
+## Sesión: 2026-08-26 (continuación) — Etapa 4: ciclo de vida del pin `evento_temporal`
+
+**Contexto:** Cris confirmó (en el mismo hilo, mensaje de texto libre,
+no formulario) que probó el Camino A/B de la Etapa 3 con éxito
+("el evento se creó exitosamente"), pidió continuar directo con la
+Etapa 4. Antes de programar se preguntaron 3 puntos: (1) qué hace
+vigente a un evento → confirmado "activo=SÍ (toggle) y sin fecha_fin
+vencida"; (2) cuándo correr el chequeo de ciclo de vida → Cris no
+entendió la pregunta, así que se optó por la combinación más robusta
+sin sobrecargar Firestore (carga del mapa público + apertura de la
+tab admin Eventos), dejando la función reusable para sumar más
+puntos después sin duplicar lógica; (3) reactivación automática de un
+pin ya auto-desactivado si se le carga un evento nuevo vigente → NO,
+Cris fue explícito en que por ahora la reactiva él a mano, y que a
+futuro (sistema de pagos) esa capa se suma a la cadena existente sin
+que nada quede hardcodeado bloqueándolo — mismo modelo de "capas de
+cebolla" que ya rige `fecha_inicio`.
+
+**Archivos revisados en profundidad esta sesión:** `PLAN_USUARIOS_EVENTOS.md`
+completo (post-Etapa 3) + el archivo suelto `PLAN_USUARIOS_EVENTOS_UNIFICADO_25-08-2026.md`
+que Cris subió aparte (versión anterior a la Etapa 3, tenía contenido
+que se había perdido al actualizar el plan — sección "DOS TABS EVENTOS"
+y "DECISIONES PENDIENTES" — se restauraron ambas dentro de
+`PLAN_USUARIOS_EVENTOS.md`, fusionadas con lo ya vigente, sin perder
+nada de ninguna de las dos versiones); `js/eventos.js` completo,
+`js/app.js` completo (`init()`), `js/markers.js` completo
+(`makeMarker`), `js/admin.js` (`togglePoi`, `_rowOpacityFor`) y
+`js/app.js` (`togglePoi` duplicado) para entender el criterio visual
+exacto a reusar; grep dirigido de `.active` en todo `js/*.js` para
+confirmar el modelo activo/publicado del proyecto.
+
+**Archivos modificados esta sesión:**
+- `js/eventos.js` — `checkEventosTemporalesLifecycle()`,
+  `_eventoEsVigente()`, `_autoDesactivarPinTemporal()`,
+  `_reactivarPinTemporal()`; integrado en `_loadEventosAdminList()`;
+  fila de evento con aviso + botón reactivar cuando corresponde.
+- `js/app.js` — paso 3.5 en `init()`.
+- `js/markers.js` — **hallazgo no buscado, corregido de una:**
+  `makeMarker()` nunca respetaba `poi.active === false` al crear el
+  marcador (solo al togglear en vivo dentro de la misma sesión) — así
+  que CUALQUIER pin desactivado (de eventos o no) igual se veía para
+  un visitante nuevo. Corregido con el mismo criterio visual que ya
+  usaba `togglePoi()`. Avisado a Cris explícitamente en el chat y en
+  "ESTADO ACTUAL" de `PLAN_USUARIOS_EVENTOS.md` porque cambia un
+  comportamiento que no era parte del pedido puntual de esta etapa.
+- `css/base.css` — estilos de aviso/botón de reactivar.
+- `PLAN_USUARIOS_EVENTOS.md` — entrada de Etapa 4, checklist, ESTADO
+  ACTUAL reescrito, secciones "DOS TABS"/"DECISIONES PENDIENTES"
+  restauradas.
+
+**Pruebas/verificaciones realizadas:** `node --check` sin errores en
+`js/eventos.js`, `js/app.js`, `js/markers.js`; balance de llaves `{}`
+verificado en `css/base.css`. No probado contra Firebase real ni en
+navegador — ver checklist de prueba manual en `PLAN_USUARIOS_EVENTOS.md`,
+entrada de Etapa 4.
+
+**Pendiente / a criterio de sesiones futuras:** las 4 "DECISIONES
+PENDIENTES" restauradas en el plan (límite de ediciones, título de la
+tab pública, imágenes por categoría, toggles maestros globales) siguen
+sin confirmar — ninguna bloquea la Etapa 5, pero conviene resolverlas
+antes de esa etapa si tocan algo que la Etapa 5 vaya a construir
+encima.
