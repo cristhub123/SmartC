@@ -765,6 +765,20 @@ campo-05:
 
       <div class="divider"><span>EVENTOS CARGADOS</span></div>
       <div id="eventos-admin-list"></div>
+
+      <!-- [Etapa 5] Título editable de la pestaña pública "Panel
+           Eventos" dentro del panel de un pin (ver js/eventos.js,
+           saveEventosConfig/loadEventosConfig). No confundir con esta
+           tab admin, que se llama "Eventos" fijo. -->
+      <div class="divider"><span>CONFIGURACIÓN PÚBLICA</span></div>
+      <div class="fg">
+        <label class="fl">Rótulo de la pestaña de eventos en el panel público del pin</label>
+        <div class="geocoder-row">
+          <input class="fi" id="evt-config-titulo-panel" type="text" placeholder="Eventos" value="Eventos">
+          <button class="geocoder-btn" id="btn-save-evt-config">Guardar</button>
+        </div>
+        <p style="font-size:11px;color:var(--text3);margin-top:4px">Solo aparece esa pestaña en el panel público cuando el pin tiene al menos un evento activo en ese momento.</p>
+      </div>
     </div>
 
     <!-- GLOBAL APPEARANCE -->

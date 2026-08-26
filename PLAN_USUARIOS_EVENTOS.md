@@ -87,30 +87,78 @@ cuál.
 
 ## ESTADO ACTUAL
 
-**Última etapa completada:** Etapa 4 — Ciclo de vida real del pin
-`tipo: evento_temporal` (auto-desactivación cuando vencen todos sus
-eventos) — ver detalle en "REGISTRO POR ETAPA" más abajo.
+**Última etapa completada:** Etapa 5 — Filtro "Eventos y actividades"
+en el mapa + pestaña "Eventos" en el panel público del pin (ver
+detalle en "REGISTRO POR ETAPA" más abajo).
 
-**Próxima etapa a hacer:** Etapa 5 — Filtro "Eventos y actividades" en
-el mapa + estilo visual propio del pin temporal + tab "Eventos" del
-PIN (pública, ver tabla "DOS TABS" más arriba) — **corrección de
-Cris ya incorporada al plan:** el evento NO agrega ningún elemento
-visual sobre el pin (badge/glow/borde/ícono superpuesto); la
-visibilidad se resuelve solo con el filtro transversal.
+**Próxima etapa a hacer:** Etapa 6 — subusuario empleado del dueño +
+toggle para habilitar que dueños/usuarios (no solo el admin) puedan
+crear eventos desde su propio panel; ahí es donde `creadorUid` deja
+de ser siempre `null` y `usuarioAsignadoUid` pasa a autoasignarse
+solo.
 
-**Contexto nuevo de la Etapa 4 que hay que seguir usando (no crear de
+**Contexto nuevo de la Etapa 5 que hay que seguir usando (no crear de
 nuevo):**
+- **`EVENTOS`** (`js/config.js`) — caché global en memoria de TODA la
+  colección `eventos`, cargado una vez en `app.js` (init(), vía
+  `loadEventosFromFirestore()` en `js/eventos.js`) y mantenido
+  sincronizado a mano cada vez que el admin crea/togglea/borra un
+  evento (`_loadEventosAdminList()` reasigna `EVENTOS =
+  _eventosCache`). Lo usan el filtro de eventos del mapa, el ciclo de
+  vida (Etapa 4) y la pestaña "Eventos" del panel público. **Cualquier
+  código nuevo que necesite la lista completa de eventos en memoria
+  debe leer `EVENTOS`, no disparar una query nueva a Firestore.**
+- **`applyFilter()`** (`js/categories.js`) — **bug de fondo
+  encontrado y corregido en esta etapa, no específico de eventos:**
+  esta función se llamaba desde varios archivos (`categories.js`,
+  `pin-adjust.js`, `pin-geocode.js`, `data-io.js`) pero no existía en
+  ningún lado — tocar un filtro de categoría en el mapa público no
+  filtraba nada. Ahora sí filtra de verdad: oculta/muestra marcadores
+  según `activeFilter` (`'all'`, el id de una categoría normal, o el
+  nuevo `'__eventos__'`), respetando siempre `p.active` (nunca
+  reaparece un pin desactivado). **Cris: como esto ya venía roto
+  desde antes y recién ahora se tocó, confirmá que los filtros de
+  categoría del mapa público se comportan como esperás — es la
+  primera vez que funcionan de verdad.**
+- **Filtro "Eventos y actividades"** — chip nuevo en la barra de
+  filtros del mapa (`updateFilterBar()`, junto a "Todo" y las
+  categorías, tal como pediste), `data-f="__eventos__"`. Muestra
+  cualquier pin (evento_temporal o uno normal con un evento anexado
+  por el Camino A) que tenga ≥1 evento vigente ahora mismo. **No
+  agrega ningún elemento visual sobre el pin** (confirmado con vos:
+  sin badge/glow/borde/ícono superpuesto) — la visibilidad se
+  resuelve solo con este filtro.
+- **Pestaña "Eventos" del panel público del pin** (`js/poi-panel.js`)
+  — sistema de 2 pestañas (Info / Eventos) que SOLO aparece cuando el
+  pin tiene ≥1 evento vigente ahora; con 0 eventos vigentes el panel
+  se ve exactamente igual que antes (sin pestañas). El rótulo de la
+  2da pestaña es editable por vos desde la tab admin "Eventos" →
+  "CONFIGURACIÓN PÚBLICA" (`settings/eventos-config`,
+  `tituloPanelEventos`, default `"Eventos"`) — ver "DECISIONES
+  PENDIENTES" arriba, punto 2, ya resuelto: el nombre final ("Eventos"
+  vs "Actividades") queda a tu criterio, editable en cualquier
+  momento sin tocar código. Los eventos se muestran como tarjetas de
+  texto ordenadas por cercanía de fecha (el que antes vence va
+  arriba), tal cual confirmaste.
+- **Pendiente, NO hecho en esta etapa** (dijiste que es trabajo
+  futuro tuyo): el pin genérico `evento_temporal` sigue usando el
+  emoji fijo 🎉 — cuando subas tu(s) imagen(es) propia(s) (misma
+  mecánica que las miniaturas de los demás pines, posiblemente más de
+  una según categoría del evento), avisá para cablearlo.
+
+**Contexto de la Etapa 4 que sigue vigente (no crear de nuevo):**
 - `checkEventosTemporalesLifecycle(eventosList?)` (`js/eventos.js`,
   expuesta en `window`) — recorre los pines `tipo: 'evento_temporal'`
   todavía activos y auto-desactiva (`active:false`, nunca borra) los
   que ya no tienen ningún evento vigente. Un evento es "vigente" si
   `activo === true` Y (sin `fecha_fin` o `fecha_fin` sin vencer aún)
   — el toggle manual manda siempre. Se llama sola desde `app.js`
-  (init(), antes de dibujar los marcadores) y desde
-  `_loadEventosAdminList()` (`js/eventos.js`, reusa los eventos ya
-  leídos). Cualquier etapa nueva que agregue otro punto donde
-  convenga revisar el ciclo de vida (ej. al abrir la tab "Lugares")
-  debe llamar a esta misma función, no reimplementar la lógica.
+  (init(), antes de dibujar los marcadores, ahora pasándole `EVENTOS`
+  ya cargado) y desde `_loadEventosAdminList()` (`js/eventos.js`,
+  reusa los eventos ya leídos). Cualquier etapa nueva que agregue
+  otro punto donde convenga revisar el ciclo de vida (ej. al abrir la
+  tab "Lugares") debe llamar a esta misma función, no reimplementar
+  la lógica.
 - **Reactivación: siempre manual por ahora** (confirmado con Cris —
   "hoy es solo mi toggle"; a futuro, cuando exista el sistema de
   pagos, esa capa se suma a la cadena de condiciones existente, sin
@@ -118,18 +166,12 @@ nuevo):**
   en cada fila de la lista de eventos (`js/eventos.js`,
   `_reactivarPinTemporal`) cuando el pin del evento está
   auto-desactivado.
-- **Bug encontrado y corregido de paso (no es solo de eventos):** el
-  campo `active` (activo/publicado) de CUALQUIER pin nunca se
-  aplicaba al dibujar el marcador por primera vez (`makeMarker`,
-  `js/markers.js`) — solo se ocultaba si se togleaba en vivo durante
-  esa misma sesión de navegación. Un pin desactivado en una sesión
-  anterior (de eventos o no) igual se veía normal para cualquier
-  visitante que recién abre la página. Corregido en `js/markers.js`
-  con el mismo criterio visual que ya usaba `togglePoi()`. **Cris:
-  revisá que esto no cambie nada que dabas por sentado** — antes,
-  en la práctica, "desactivar" un pin normal desde Lugares solo lo
-  ocultaba durante tu propia sesión de admin, nunca para el público
-  real; ahora sí lo oculta de verdad, siempre.
+- **Bug encontrado y corregido en la Etapa 4 (no es solo de
+  eventos):** el campo `active` (activo/publicado) de CUALQUIER pin
+  nunca se aplicaba al dibujar el marcador por primera vez
+  (`makeMarker`, `js/markers.js`) — solo se ocultaba si se togleaba
+  en vivo durante esa misma sesión de navegación. Ya corregido con el
+  mismo criterio visual que ya usaba `togglePoi()`.
 
 **Contexto de la Etapa 3 que sigue vigente (no crear de nuevo):**
 - `js/eventos.js` (Etapa 3) — módulo admin-only de eventos, tab
@@ -209,11 +251,12 @@ crear de nuevo):**
       existente o a un pin mínimo nuevo
 - [x] Etapa 4 — Ciclo de vida del pin `evento_temporal`
       (auto-desactivación cuando vencen todos sus eventos)
-- [ ] Etapa 5 — Filtro "Eventos y actividades" en el mapa (SIN badge
-      sobre el pin — corrección de Cris) + estilo del pin temporal +
-      tab "Eventos" del PIN (pública)
+- [x] Etapa 5 — Filtro "Eventos y actividades" en el mapa (SIN badge
+      sobre el pin) + tab "Eventos" del PIN (pública)
 - [ ] Etapa 6 — Subusuario empleado del dueño (alta directa sin
-      invitación, permisos limitados)
+      invitación, permisos limitados) + toggle para habilitar que
+      dueños/usuarios creen eventos desde su propio panel
+      (autoasignación de `creadorUid`, ver "DECISIONES PENDIENTES" #4)
 - [ ] Etapa 7 — Campos preparados para pagos (sin cobro automático
       todavía): `plan` free/premium + funciones premium
       configurables + `destacado`/`destacado_hasta` por evento
@@ -489,6 +532,66 @@ aparecer en el mapa; (d) confirmar que un pin normal (no
 `evento_temporal`) que hayas desactivado antes desde Lugares ahora sí
 se ve oculto para una visita nueva/incógnito (antes de este fix no se
 ocultaba para el público real — ver aviso en "ESTADO ACTUAL").
+
+---
+
+### Etapa 5 — Filtro de eventos en el mapa + tab pública del pin (2026-08-26)
+
+**Qué se hizo:** el mapa público ahora tiene un filtro "Eventos y
+actividades" (junto a los de categoría, sin badge sobre el pin) y el
+panel público de un pin muestra sus eventos vigentes en una pestaña
+propia dentro del mismo panel.
+
+**Archivos modificados:**
+- `js/config.js` — nueva variable global `EVENTOS` (caché en memoria
+  de toda la colección `eventos`).
+- `js/eventos.js` — `loadEventosFromFirestore()`,
+  `loadEventosConfig()`, `_saveEventosConfig()`; `_loadEventosAdminList()`
+  ahora sincroniza `EVENTOS` y llama a `applyFilter()` al final.
+- `js/categories.js` — **bug de fondo corregido, no específico de
+  eventos:** `applyFilter()` no existía en ningún archivo del
+  proyecto pese a llamarse desde 4 archivos distintos — los filtros
+  de categoría del mapa público no filtraban nada. Implementada de
+  cero (`applyFilter()` + `_pinMatchesActiveFilter()`), más el chip
+  nuevo "🎉 Eventos" (`data-f="__eventos__"`) en `updateFilterBar()`.
+- `js/poi-panel.js` — sistema de 2 pestañas (Info/Eventos) en el
+  panel público: `_ensureDom()` con el markup nuevo, `_setActiveTab()`,
+  `_eventosVigentesDelPoi()`, `_renderEventosTab()`, `setEventosConfig()`
+  (API pública nueva); `open()` resetea `_activeTab` a `'info'` en
+  cada apertura.
+- `js/app.js` — `init()` ahora carga `EVENTOS` y la config de eventos
+  antes de dibujar los marcadores.
+- `index.html` — bloque "CONFIGURACIÓN PÚBLICA" nuevo en la tab admin
+  "Eventos" (rótulo editable de la pestaña pública).
+- `css/base.css`, `css/poi-panel.css` — estilos nuevos.
+
+**Decisiones confirmadas con Cris antes de programar:**
+1. El filtro de eventos va junto a los de categoría existentes, no
+   separado.
+2. El panel público usa un sistema de 2 pestañas (mismo patrón que
+   ya usa el panel admin) que se activa solo si el pin tiene ≥1
+   evento activo en ese momento.
+3. El pin genérico de evento va a pasar a usar imagen propia (subida
+   por Cris) en vez del emoji — pendiente, es trabajo suyo, no de
+   esta etapa.
+4. El bug de `applyFilter()` ya se conocía y no era urgente, pero
+   como esta etapa tocaba justo esa parte del código, Cris pidió
+   arreglarlo de una vez.
+
+**Pruebas realizadas:** `node --check` sin errores en los `.js`
+tocados; balance de llaves verificado en `css/base.css` y
+`css/poi-panel.css`; chequeo automático de que todos los
+`getElementById` de `js/eventos.js` tienen su `id` correspondiente en
+`index.html`. No probado contra Firebase real ni en navegador —
+pendiente que Cris pruebe: (a) tocar cada filtro de categoría del
+mapa público y confirmar que ahora sí filtra (antes no hacía nada);
+(b) tocar el filtro "🎉 Eventos" y confirmar que solo quedan visibles
+los pines con algún evento vigente ahora; (c) abrir un pin con un
+evento vigente anexado y confirmar que aparece la pestaña "Eventos"
+con la tarjeta correspondiente, y que un pin sin eventos vigentes se
+ve exactamente igual que siempre (sin pestañas); (d) cambiar el
+rótulo en "CONFIGURACIÓN PÚBLICA" y confirmar que se refleja en la
+pestaña del panel.
 
 ---
 

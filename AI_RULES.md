@@ -441,6 +441,31 @@ mismo criterio visual que `togglePoi()`. Si algo dependía del
 comportamiento viejo (poco probable, pero queda dicho), revisar acá
 primero.
 
+## 14.2 Filtro del mapa + pestaña pública de eventos (Etapa 5, PLAN_USUARIOS_EVENTOS.md)
+
+**[2026-08-26]** `EVENTOS` (`js/config.js`) es el caché global en
+memoria de toda la colección `eventos` — cargado una vez en
+`app.js` (init()) y mantenido sincronizado por
+`_loadEventosAdminList()` cada vez que el admin crea/togglea/borra
+un evento. Cualquier código nuevo que necesite la lista completa de
+eventos debe leer `EVENTOS`, no disparar una query nueva.
+
+**⚠️ Segundo bug de fondo corregido de paso (no específico de
+eventos):** `applyFilter()` (`js/categories.js`) se llamaba desde 4
+archivos distintos pero no existía en ninguno — los filtros de
+categoría del mapa público llevaban rota toda la vida útil del
+proyecto (confirmado con Cris: ya lo sabía, no era urgente, pero
+como esta etapa tocaba esa parte se aprovechó para arreglarlo). Ya
+implementada; respeta siempre `p.active` y ahora también soporta el
+filtro especial `activeFilter === '__eventos__'`.
+
+`js/poi-panel.js` tiene un sistema de 2 pestañas (Info/Eventos) que
+solo aparece si el pin tiene ≥1 evento vigente (mismo criterio de
+"vigente" de `_eventoEsVigente`, `js/eventos.js`). El rótulo de la
+pestaña de eventos es editable (`settings/eventos-config`,
+`tituloPanelEventos`) desde la tab admin "Eventos" → "CONFIGURACIÓN
+PÚBLICA".
+
 ## 15. Ver también
 
 `AI_SESSION.md` — memoria de trabajo temporal de la sesión actual (qué se

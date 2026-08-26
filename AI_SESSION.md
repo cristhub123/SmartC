@@ -545,3 +545,59 @@ tab pública, imágenes por categoría, toggles maestros globales) siguen
 sin confirmar — ninguna bloquea la Etapa 5, pero conviene resolverlas
 antes de esa etapa si tocan algo que la Etapa 5 vaya a construir
 encima.
+
+## Sesión: 2026-08-26 (continuación 2) — Etapa 5: filtro de eventos + pestaña pública
+
+**Contexto:** Cris pidió renombrar a futuro la tab pública del pin a
+"Panel Eventos" (con rótulo editable — ya implementado el campo
+editable, el nombre final queda a su criterio) y luego dio luz verde
+a "completa"/seguir con la Etapa 5. Antes de programar se confirmaron
+3 puntos (ver preguntas del chat): filtro junto a categorías, panel
+público con sistema de 2 pestañas (no siempre-visible ni colapsable
+por click), estilo del pin evento_temporal pendiente de imágenes
+propias que Cris va a subir más adelante (no se tocó en esta etapa).
+
+**Hallazgo durante la implementación:** al ir a agregar el filtro de
+eventos a la barra de filtros del mapa, se encontró que
+`applyFilter()` se llamaba desde `categories.js`, `pin-adjust.js`,
+`pin-geocode.js` y `data-io.js` pero no estaba definida en NINGÚN
+archivo del proyecto — los filtros de categoría del mapa público
+nunca filtraron nada. Se avisó a Cris en el chat antes de tocar nada
+más; confirmó que ya lo sabía y no era urgente, pero pidió
+aprovechar para arreglarlo ya que esta etapa tocaba esa misma zona
+del código.
+
+**Archivos modificados esta sesión:**
+- `js/config.js` — variable global `EVENTOS`.
+- `js/eventos.js` — `loadEventosFromFirestore()`,
+  `loadEventosConfig()`, `_saveEventosConfig()`; sincronización de
+  `EVENTOS` + llamado a `applyFilter()` dentro de
+  `_loadEventosAdminList()`.
+- `js/categories.js` — `applyFilter()` + `_pinMatchesActiveFilter()`
+  implementadas de cero (bug de fondo); chip "🎉 Eventos" agregado en
+  `updateFilterBar()`.
+- `js/poi-panel.js` — sistema de 2 pestañas (Info/Eventos) en el
+  panel público, con reset a "Info" en cada `open()`.
+- `js/app.js` — `init()` carga `EVENTOS` + config de eventos antes de
+  dibujar marcadores.
+- `index.html` — bloque "CONFIGURACIÓN PÚBLICA" (rótulo editable) en
+  la tab admin Eventos.
+- `css/base.css`, `css/poi-panel.css` — estilos nuevos.
+- `PLAN_USUARIOS_EVENTOS.md` — entrada de Etapa 5, checklist
+  reordenado (se fusionó con la Etapa 6 ya existente de "subusuario
+  empleado" en vez de crear una Etapa 6 duplicada), ESTADO ACTUAL
+  reescrito.
+
+**Pruebas/verificaciones realizadas:** `node --check` sin errores en
+`js/config.js`, `js/eventos.js`, `js/app.js`, `js/categories.js`,
+`js/poi-panel.js`; balance de llaves `{}` verificado en
+`css/base.css` y `css/poi-panel.css`; chequeo automático de
+`getElementById` de `js/eventos.js` contra los `id` de `index.html`
+(sin faltantes). No probado contra Firebase real ni en navegador —
+ver checklist de prueba manual en `PLAN_USUARIOS_EVENTOS.md`, entrada
+de Etapa 5.
+
+**Pendiente:** imágenes propias del pin `evento_temporal` (a cargo de
+Cris, sin fecha); las 4 "DECISIONES PENDIENTES" restauradas en el
+plan siguen sin resolver del todo (la del rótulo de la tab pública ya
+quedó resuelta como campo editable).
