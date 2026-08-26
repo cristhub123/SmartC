@@ -38,25 +38,27 @@
 
 ## ⚠️ DOS TABS "EVENTOS" — NO CONFUNDIR
 
-Este plan tiene **dos tabs distintas que se llaman "Eventos"**, en
-dos lugares distintos, para dos públicos distintos. Se nombran así
-en todo el resto de este documento para evitar mezclarlas:
+Este plan tiene **dos pantallas de eventos**, en dos lugares
+distintos, para dos públicos distintos. Desde el 26/08 se nombran
+así en todo este documento para no mezclarlas (antes ambas se
+llamaban "Eventos" a secas, lo cual generaba confusión — pedido de
+Cris: usar el mismo "nick" — *panel* — que ya se usa para el panel
+de info de un pin):
 
-| | **Tab ADMIN (comando)** | **Tab del PIN (pública)** |
+| | **Tab ADMIN "Eventos" (comando)** | **Panel Eventos (pública)** |
 |---|---|---|
-| ¿Dónde vive? | Panel admin general, junto a Lugares/Ubicaciones/Temas | Dentro del panel de UN pin puntual |
+| ¿Dónde vive? | Panel admin general, junto a Lugares/Ubicaciones/Temas | Dentro del panel de UN pin puntual, como 2da pestaña |
 | ¿Quién la ve? | Solo el admin (Cris) | Cualquier visitante público |
-| ¿Qué muestra? | TODOS los eventos de la plataforma, filtrables por categoría/nombre/info interna | Solo los eventos de ESE pin puntual |
-| ¿Cuándo aparece? | Siempre visible para el admin | Solo si ese pin tiene ≥1 evento activo vigente hoy |
-| Etapa que la define | Ya existe desde la Etapa 3 (`#tp-eventos-admin`, todavía sin filtros) | Etapa 5 |
+| ¿Qué muestra? | TODOS los eventos de la plataforma, filtrables por categoría/nombre/info interna | Solo los eventos vigentes de ESE pin puntual |
+| ¿Cuándo aparece? | Siempre visible para el admin | Solo si ese pin tiene ≥1 evento vigente ahora mismo |
+| Etapa que la define | Ya existe desde la Etapa 3 (`#tp-eventos-admin`, todavía sin filtros) | Ya existe desde la Etapa 5 (`js/poi-panel.js`) |
+| Rótulo visible | Fijo: "🎉 Eventos" | Editable por el admin (default "Eventos", ver "CONFIGURACIÓN PÚBLICA" en la tab admin) |
 
 Son conceptualmente independientes: una es una herramienta de
 administración general, la otra es contenido público de un lugar
-específico. No comparten componente de UI. La tab ADMIN de la Etapa
-3 hoy es una lista simple (sin filtro por categoría/nombre todavía)
-— el "centro de comando" con filtros que pidió Cris queda para más
-adelante; esto es solo el recordatorio de no confundir cuál tab es
-cuál.
+específico. No comparten componente de UI. La tab ADMIN hoy es una
+lista simple (sin filtro por categoría/nombre todavía) — el "centro
+de comando" con filtros que pidió Cris queda para más adelante.
 
 ## DECISIONES PENDIENTES (a confirmar con Cris antes o durante las etapas que las necesiten)
 
@@ -65,11 +67,11 @@ cuál.
    número ni regla definida todavía. La Etapa 7 deja el contador
    preparado (`edicionesCount`) pero sin aplicar ningún tope hasta
    que se decida.
-2. **Título de la tab del PIN (pública, Etapa 5).** "Eventos" o
-   "Actividades" — se arranca con un valor por defecto editable por
-   el admin, no hace falta decidir el texto final ahora. (No
-   confundir con la tab ADMIN de comando, que sí se llama "Eventos"
-   fijo — ver tabla arriba.)
+2. ~~Título de la tab del PIN (pública, Etapa 5).~~ **RESUELTO
+   26/08:** el rótulo quedó editable desde la tab admin →
+   "CONFIGURACIÓN PÚBLICA" (`settings/eventos-config`,
+   `tituloPanelEventos`, default `"Eventos"`), sin decidir el texto
+   final de antemano — Cris lo cambia cuando quiera sin tocar código.
 3. **Imágenes por categoría de evento.** Cris las va a subir más
    adelante. Asumido por ahora: una imagen por categoría, cargada
    por el admin (no por cada organizador) — confirmar si en cambio
@@ -82,6 +84,62 @@ cuál.
    encender de golpe la visibilidad en el mapa de TODOS los eventos
    existentes sin tocar su info ni su estado individual. Confirmar
    en qué etapa entran antes de programarlos.
+
+---
+
+### ⚠️ FIX DE SEGURIDAD (fuera de etapa, 2026-08-26) — acceso al panel admin con cuenta común
+
+**Qué encontró Cris:** al entrar con una cuenta de prueba de usuario
+común, el sistema le daba acceso al panel admin completo.
+
+**Causa real:** el botón del engranaje (`btn-admin`) abría el panel
+admin con solo chequear "¿hay una sesión de Firebase Auth activa?"
+(`_adminUser`, `js/admin-auth.js`) — sin verificar SI esa cuenta
+puntual era realmente admin. Como el login de usuario común
+(`js/user-auth.js`) y el login admin comparten el mismo
+`firebase.auth()`, cualquier cuenta logueada (común o dueño de
+negocio) quedaba con `_adminUser` completo y veía el panel admin
+entero al tocar el engranaje.
+
+**Importante — las escrituras reales SIEMPRE estuvieron protegidas:**
+las reglas de Firestore (`admins/{uid}`, ver `FIRESTORE_RULES_NOTES.md`)
+ya exigían que el UID esté en esa colección para poder escribir pines,
+zonas, eventos, etc. — una cuenta común no podía guardar nada de
+verdad, aunque la UI se lo mostrara. El agujero era de interfaz
+(mostraba un panel que no debía), no de datos.
+
+**Arreglado:** `js/admin-auth.js` ahora verifica `admins/{uid}` en
+Firestore (la misma colección que ya usan las reglas) antes de
+completar `_adminUser`, tanto al cambiar el estado de sesión como en
+`doAdminLogin()` — si el login/contraseña son correctos pero esa
+cuenta no está en `admins/{uid}`, se cierra la sesión al toque y se
+muestra "Esta cuenta no tiene permisos de administrador". `js/admin.js`
+(click del engranaje) ahora también espera a que termine ese chequeo
+antes de decidir abrir el panel o el login.
+
+**Pendiente que Cris confirme:** que su(s) cuenta(s) real(es) de admin
+ya están cargadas en `admins/{uid}` en Firestore (ver instructivo en
+`FIRESTORE_RULES_NOTES.md`, sección de esa colección) — si no lo
+están, con este fix el propio Cris se quedaría afuera del panel.
+
+---
+
+### 🔎 Hallazgo — no hay forma de EDITAR un evento ya creado
+
+**Qué encontró Cris:** ni el admin ni el dueño del evento tienen
+ningún panel para modificar un evento ya cargado (nombre, fecha,
+descripción, etc.) — solo existe crear, togglear activo/inactivo y
+borrar.
+
+**No es un bug de esta etapa — es un hueco real del plan.** Revisado
+el checklist completo (Etapas 1 a 7): ninguna etapa lo tiene asignado
+explícitamente. La Etapa 7 menciona un contador `edicionesCount`
+(para un futuro límite de ediciones) pero asume que la edición en sí
+ya existe — nunca se planeó la pantalla que la hace posible. Se deja
+anotado acá para no perderlo, sin asignarlo todavía a ninguna etapa
+puntual — es trabajo chico y no depende de las Etapas 6/7 (se puede
+hacer ya mismo sobre la tab admin actual), así que puede resolverse
+en cualquier momento que Cris lo pida, no hace falta esperar.
 
 ---
 
@@ -129,11 +187,13 @@ nuevo):**
   sin badge/glow/borde/ícono superpuesto) — la visibilidad se
   resuelve solo con este filtro.
 - **Pestaña "Eventos" del panel público del pin** (`js/poi-panel.js`)
-  — sistema de 2 pestañas (Info / Eventos) que SOLO aparece cuando el
-  pin tiene ≥1 evento vigente ahora; con 0 eventos vigentes el panel
-  se ve exactamente igual que antes (sin pestañas). El rótulo de la
-  2da pestaña es editable por vos desde la tab admin "Eventos" →
-  "CONFIGURACIÓN PÚBLICA" (`settings/eventos-config`,
+  — llamada **"Panel Eventos"** en la documentación del proyecto de
+  acá en más (ver tabla "DOS TABS" arriba) para no confundirla con la
+  tab admin — sistema de 2 pestañas (Info / Eventos) que SOLO aparece
+  cuando el pin tiene ≥1 evento vigente ahora; con 0 eventos vigentes
+  el panel se ve exactamente igual que antes (sin pestañas). El
+  rótulo visible de la 2da pestaña es editable por vos desde la tab
+  admin "Eventos" → "CONFIGURACIÓN PÚBLICA" (`settings/eventos-config`,
   `tituloPanelEventos`, default `"Eventos"`) — ver "DECISIONES
   PENDIENTES" arriba, punto 2, ya resuelto: el nombre final ("Eventos"
   vs "Actividades") queda a tu criterio, editable en cualquier
@@ -656,15 +716,21 @@ vencen — así, si el mismo lugar se vuelve a usar, el pin ya existe.
 
 ---
 
-### Etapa 5 — Filtro "Eventos y actividades" + badge visual
-**Qué se hace:** filtro transversal en el mapa (no es una categoría
-de pin más) que muestra: pines con al menos un evento activo hoy
-(con un badge/indicador sobre el pin normal) + pines temporales de
-Etapa 4. Estilo visual distinto para el pin temporal (ícono propio).
+### Etapa 5 — Filtro "Eventos y actividades" + Panel Eventos (pública) ✅ COMPLETADA
+**Qué se hizo realmente** (la idea original de "badge visual sobre
+el pin" quedó descartada — Cris pidió que la visibilidad se resuelva
+solo con el filtro, sin ningún elemento superpuesto en el pin):
+filtro transversal en la barra de filtros del mapa (junto a las
+categorías, no es una categoría de pin más) que muestra cualquier
+pin con ≥1 evento vigente ahora — incluye tanto los pines
+`evento_temporal` de la Etapa 4 como pines normales con un evento
+anexado por el Camino A. En el panel público de cada pin, sistema de
+2 pestañas (Info / **Panel Eventos**) que solo aparece cuando
+corresponde. De paso se corrigió `applyFilter()`, que llevaba rota
+toda la vida del proyecto. Ver detalle completo en "REGISTRO POR
+ETAPA" más arriba.
 
 **Depende de:** Etapa 3 y 4.
-
-**Estimación:** 8-12hs.
 
 ---
 

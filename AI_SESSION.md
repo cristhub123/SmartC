@@ -601,3 +601,51 @@ de Etapa 5.
 Cris, sin fecha); las 4 "DECISIONES PENDIENTES" restauradas en el
 plan siguen sin resolver del todo (la del rótulo de la tab pública ya
 quedó resuelta como campo editable).
+
+## Sesión: 2026-08-26 (continuación 3) — Fix de seguridad (acceso admin) + hallazgo edición de eventos
+
+**Contexto:** Cris avisó dos cosas al probar la Etapa 5: (1) no hay
+forma de editar un evento ya creado (ni admin ni dueño), (2) al
+entrar con una cuenta de prueba de usuario común, el sistema le daba
+acceso al panel admin completo.
+
+**(2) investigado y arreglado ya mismo, sin esperar confirmación,
+por tratarse de un hallazgo de seguridad:** la causa era que
+`js/admin-auth.js` completaba `_adminUser` con CUALQUIER sesión de
+Firebase Auth activa (no verificaba si esa cuenta era admin de
+verdad) — como el login de usuario común comparte el mismo
+`firebase.auth()` que el login admin, cualquier cuenta lograba ver
+el panel admin completo al tocar el engranaje. Las escrituras reales
+SIEMPRE estuvieron protegidas por las reglas de Firestore
+(`admins/{uid}`) — el agujero era solo de interfaz, no de datos.
+Arreglado: `admin-auth.js` ahora verifica `admins/{uid}` antes de
+dar por válida la sesión admin, en el listener de `onAuthStateChanged`
+y en `doAdminLogin()`; `admin.js` espera ese chequeo antes de abrir
+el panel. **Pendiente que Cris confirme que su cuenta real de admin
+ya está en `admins/{uid}` — si no, se queda afuera del panel con
+este fix.**
+
+**(1) documentado como hueco real del plan, no asignado a ninguna
+etapa** — no se implementó todavía, queda a la espera de que Cris
+decida cuándo. Ver entrada nueva en `PLAN_USUARIOS_EVENTOS.md`.
+
+**Hallazgo adicional, NO tocado (fuera de alcance, se deja anotado
+acá para no perderlo):** `window.isAdminActive`, que
+`js/poi-panel.js` usa para decidir si mostrar el botón "Editar"
+dentro del panel público de un pin, nunca se asigna en ningún
+archivo del proyecto — siempre es `undefined`, así que ese botón
+"Editar" inline nunca aparece, ni para el admin real. No es un
+agujero de seguridad (falla "cerrado", no abierto) y no bloquea nada
+porque la edición de pines ya existe por la vía normal (tab
+Lugares/Editar del panel admin) — pero es una función que quedó a
+medio cablear. No se tocó porque no fue lo que pidió Cris esta
+sesión.
+
+**Archivos modificados:** `js/admin-auth.js`, `js/admin.js`,
+`PLAN_USUARIOS_EVENTOS.md`.
+
+**Pruebas realizadas:** `node --check` sin errores en
+`js/admin-auth.js` y `js/admin.js`. No probado contra Firebase real
+— pendiente que Cris pruebe: (a) con su cuenta real de admin, que
+sigue entrando normal; (b) con la cuenta de prueba común, que el
+engranaje ahora la manda al login en vez de abrir el panel.
