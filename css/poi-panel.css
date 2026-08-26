@@ -226,6 +226,65 @@ After modifying this file, update /AI_SESSION.md with the change and verificatio
   margin: 0 0 0.5rem;
 }
 
+/* [Etapa 5] Sistema de 2 pestañas (Info / Eventos) — solo visible
+   cuando el pin tiene ≥1 evento vigente (ver poi-panel.js,
+   _renderEventosTab). */
+.poi-panel__tabs-row {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0 1.5rem 0.5rem;
+}
+.poi-panel__tab-btn {
+  border: none;
+  background: var(--poi-panel-gray-200);
+  color: var(--poi-panel-slate-700);
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 0.4rem 0.9rem;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.poi-panel__tab-btn.on {
+  background: var(--poi-panel-accent);
+  color: #fff;
+}
+
+.poi-panel__evento-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.85rem 0;
+}
+.poi-panel__evento-card + .poi-panel__evento-card {
+  border-top: 1px solid var(--poi-panel-slate-200, #e2e8f0);
+}
+.poi-panel__evento-nombre {
+  font-size: 0.95rem;
+  color: var(--poi-panel-slate-900);
+}
+.poi-panel__evento-fechas {
+  font-size: 0.75rem;
+  color: var(--poi-panel-slate-400);
+}
+.poi-panel__evento-cat {
+  align-self: flex-start;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--poi-panel-accent);
+  background: rgba(13, 148, 136, 0.1);
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+}
+.poi-panel__evento-desc {
+  font-size: 0.8rem;
+  color: var(--poi-panel-slate-700);
+  line-height: 1.5;
+  margin: 0.15rem 0 0;
+}
+
 .poi-panel__body {
   font-family: var(--pines-body-font, inherit);
   font-size: clamp(0.8rem, var(--pines-body-size, 0.875rem), 1.25rem);
