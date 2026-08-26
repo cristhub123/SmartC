@@ -135,6 +135,12 @@ function toast(msg, ms = 2600) {
 }
 
 document.getElementById('btn-admin').addEventListener('click', () => {
+  // [2026-08-26, fix de seguridad] `_adminUser` ahora solo queda
+  // completo si la cuenta logueada está en admins/{uid} — ver
+  // js/admin-auth.js. Si el chequeo async todavía está en curso
+  // (recién se cargó la página, por ejemplo), no se abre nada
+  // todavía en vez de arriesgar un falso positivo.
+  if (_isCheckingAdmin) return;
   if (_adminUser) openAdmin();
   else showAdminLogin();
 });
