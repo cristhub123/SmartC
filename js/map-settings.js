@@ -117,6 +117,52 @@ const TILE_PRESETS = [
     darkText: true,
   }
 ];
+
+let _currentTileLayer = null;
+const _mapaSettings = {
+  tileUrl:   TILE_PRESETS[0].url,  
+  presetId:  'osm-standard',
+  opacity:   1.0,
+  tintColor: '',
+  tintOpacity: 0,
+};
+let _tintLayer = null;
+
+/* ─────────────────────────────────────────
+   TILE APPLICATION
+   ───────────────────────────────────────── */
+function applyTileUrl(url) {
+  if (!url || !url.includes('{z}')) return;
+  if (_currentTileLayer) {
+    try { map.removeLayer(_currentTileLayer); } catch(e) {}
+  }
+  _currentTileLayer = L.tileLayer(url, {
+    subdomains: 'abcd',
+    maxZoom: 19,
+    opacity: _mapaSettings.opacity,
+    crossOrigin: true,
+  });
+  _currentTileLayer.addTo(map);
+  _mapaSettings.tileUrl = url;
+}
+
+function applyMapaOpacity(val) {
+  _mapaSettings.opacity = parseFloat(val) || 1;
+  if (_currentTileLayer) _currentTileLayer.setOpacity(_mapaSettings.opacity);
+}
+
+function applyTint() {
+  if (_tintLayer) { try { map.removeLayer(_tintLayer); } catch(e) {} _tintLayer = null; }
+  if (_mapaSettings.tintColor && _mapaSettings.tintOpacity > 0) {
+    const c = _mapaSettings.tintColor;
+    const o = _mapaSettings.tintOpacity;
+    _tintLayer = L.rectangle(
+      [[-90,-180],[90,180]],
+      { color: c, fillColor: c, fillOpacity: o, opacity: 0, interactive: false }
+    ).addTo(map);
+  }
+}
+
 /* ─────────────────────────────────────────
    ADMIN TAB — Mapa
    ───────────────────────────────────────── */
@@ -141,7 +187,7 @@ function initMapaTab() {
       const urlInp = document.getElementById('mapa-url-input');
       if (urlInp) urlInp.value = p.url;
       applyTileUrl(p.url);
-      saveMapSettings(); // queda guardado para todos los que abran la app
+      saveMapSettings();
       toast('🗺 Mapa: ' + p.name);
     });
     grid.appendChild(card);
@@ -157,9 +203,6 @@ function initMapaTab() {
       if (opVal) opVal.textContent = opSlider.value + '%';
       applyMapaOpacity(v);
     });
-    // Guardar recién al SOLTAR el slider (evento 'change'), no en cada
-    // pixel de arrastre — si guardáramos en 'input' serían decenas de
-    // escrituras innecesarias a Firestore por cada ajuste.
     opSlider.addEventListener('change', () => saveMapSettings());
   }
 
@@ -182,6 +225,3 @@ function initMapaTab() {
 
 // Register tab plugin
 SC.registerTabPlugin('mapa', initMapaTab);
-
-
-
