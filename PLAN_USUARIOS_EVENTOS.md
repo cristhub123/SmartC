@@ -148,13 +148,18 @@ posible.
 
 ## ESTADO ACTUAL
 
-**Última etapa completada:** Etapa 6 — Edición de eventos + panel de
-usuario unificado (Info/Pines/Eventos) + nombre de evento único por
-ciudad (ver detalle en "REGISTRO POR ETAPA" más abajo).
+**Última etapa completada:** Etapa 8 — Subusuario empleado. Con esto
+se completó TODO el plan original (Etapas 1 a 8) — ver "REGISTRO POR
+ETAPA" para el detalle de cada una, especialmente las Etapas 6/7/8
+(2026-08-26/27) que todavía no fueron probadas contra Firebase real
+por Cris.
 
-**Próxima etapa a hacer:** Etapa 7 — campos preparados para pagos, o
-Etapa 8 — subusuario empleado del dueño (a confirmar con Cris cuál
-arrancar primero; no dependen una de la otra).
+**Próxima etapa a hacer:** ninguna asignada todavía — quedan 2
+cosas fuera de alcance de este plan, mencionadas pero nunca
+detalladas: (1) integración real de cobro (Mercado Pago) sobre los
+campos que dejó preparados la Etapa 7, y (2) lo de panaderías que
+Cris mencionó de pasada en algún momento sin desarrollar. Ninguna
+tiene fecha ni plan escrito — arrancan cuando Cris las pida.
 
 **Contexto nuevo de la Etapa 5 que hay que seguir usando (no crear de
 nuevo):**
@@ -320,12 +325,12 @@ crear de nuevo):**
       cree eventos desde su propio panel (autoasignación de
       `creadorUid`/`usuarioAsignadoUid`) + nombre de evento único por
       ciudad
-- [ ] Etapa 7 — Campos preparados para pagos (sin cobro automático
+- [x] Etapa 7 — Campos preparados para pagos (sin cobro automático
       todavía): `plan` free/premium + funciones premium
       configurables + `destacado`/`destacado_hasta` por evento
-- [ ] Etapa 8 — Subusuario empleado del dueño (alta directa sin
-      invitación, permisos limitados) — renumerada desde la Etapa 6
-      original, sin cambios de contenido
+- [x] Etapa 8 — Subusuario empleado del dueño (alta directa sin
+      invitación, acceso a los mismos pines que su dueño) —
+      renumerada desde la Etapa 6 original
 
 ---
 
@@ -779,6 +784,132 @@ evento 2 veces en la misma ciudad y confirmar el aviso; (e) que el
 mismo nombre SÍ se puede usar en 2 ciudades distintas; (f) pegar las
 reglas de Firestore nuevas en la consola antes de probar cualquier
 guardado de usuario común, o van a fallar por permisos.
+
+---
+
+### Hotfix (2026-08-27) — botón de perfil sin respuesta para un usuario común
+
+**Contexto:** después de entregar la Etapa 6, Cris reportó que un
+usuario logueado con rol `usuario_comun` tocaba el ícono de perfil y
+no pasaba nada — no podía ver su info, ni crear eventos, ni cerrar
+sesión. Se investigó a fondo por chat (revisión exhaustiva de
+sintaxis, ids cruzados, colisiones de variables `let`/`const` entre
+TODOS los archivos del proyecto, simulación con jsdom) sin encontrar
+ningún bug real en el código — la hipótesis más consistente con la
+evidencia (un log de consola con `auth/invalid-credential` repetido)
+fue que el login de esa cuenta de prueba puntual estaba fallando por
+credenciales, no que el botón estuviera roto.
+
+**Qué se hizo igual, a modo de blindaje** (no se identificó una causa
+de código concreta, pero estos cambios no tienen contra — hacen el
+flujo más robusto ante cualquier causa futura similar):
+- `js/user-auth.js` / `js/user-panel.js`: el click en el botón de
+  cuenta y en las 3 solapas del panel ahora se escuchan por
+  DELEGACIÓN desde `document` (no solo con un listener directo sobre
+  el botón) — más resistente a cualquier escenario donde el nodo se
+  reconstruya y pierda su listener directo.
+- Abrir el panel de usuario ahora fuerza también `opacity`/
+  `pointer-events` por estilo inline, además de la clase CSS `.on` —
+  así se muestra pase lo que pase con el CSS externo (por ejemplo, un
+  archivo cacheado viejo por el navegador).
+- Se corrigió de paso un tooltip del botón de cuenta que decía
+  "tocar para cerrar sesión" cuando en realidad abre el panel (texto
+  desactualizado de antes de la Etapa 6).
+
+**Pendiente de confirmar con Cris:** si el problema persiste después
+de este hotfix CON un login exitoso confirmado (sin
+`auth/invalid-credential` en la consola), hace falta un acceso más
+directo para reproducirlo (por ejemplo, una grabación de pantalla o
+acceso a las devtools en el momento exacto del click).
+
+---
+
+### Etapa 7 — Campos preparados para pagos (2026-08-27)
+
+**Qué se hizo:**
+- `settings/premium-config`: catálogo de funciones premium
+  candidatas (`{clave, etiqueta}`), editable sin tocar código desde
+  la nueva tab admin "👤 Cuentas" — no hacen nada por sí solas
+  todavía, son los "interruptores instalados" para decidir más
+  adelante cuál usar (tal como pidió Cris).
+- `usuarios/{uid}.plan` (`free`/`premium`) + `usuarios/{uid}
+  .premiumEnabled` (qué funciones del catálogo están prendidas para
+  esa cuenta puntual) — editable desde la misma tab admin, buscando
+  la cuenta por mail (reusa `_resolveOwnerEmailToUid`, mismo patrón
+  que ya usaba la asignación de eventos/pines).
+- `eventos/{id}.destacado` + `.destacado_hasta` — agregado directo al
+  formulario de alta/edición de eventos ya existente (admin). Es por
+  evento, no por cuenta, tal como pidió Cris (un mismo dueño puede
+  tener varios eventos destacados a la vez).
+- Reglas de Firestore: nuevo `allow update` en `usuarios/{uid}` para
+  que el admin pueda tocar SOLO `plan`/`premiumEnabled` de cualquier
+  cuenta (antes no había ningún permiso de escritura de admin sobre
+  esa colección — hueco que esta etapa cerró de paso).
+
+**Archivos:** `index.html` (tab "👤 Cuentas" completa, campos
+`evt-destacado*` en el form de eventos), `js/usuarios-admin.js`
+(archivo nuevo), `js/eventos.js` (los 2 campos nuevos sumados a
+`saveEvento`/`_evtStartEdit`/`_resetEventoForm`/lista admin),
+`FIRESTORE_RULES_NOTES.md`.
+
+**Explícitamente fuera de esta etapa (como estaba previsto):** la
+integración real de cobro (Checkout Pro / Preapproval de Mercado
+Pago) — todo esto se prende/apaga a mano desde el admin por ahora.
+
+**Pruebas realizadas:** `node --check` sin errores; ids cruzados
+HTML↔JS sin faltantes. No probado contra Firebase real — pendiente
+que Cris pruebe: (a) crear una función premium en el catálogo,
+guardarla, y confirmar que aparece al buscar una cuenta; (b) marcar
+una cuenta como premium con 1 función activada y confirmar que
+guarda bien; (c) marcar un evento como destacado con fecha límite y
+confirmar que se guarda y se ve al reabrir su edición.
+
+---
+
+### Etapa 8 — Subusuario empleado (2026-08-27)
+
+**Qué se hizo:** el dueño de negocio, desde la solapa "Pines" de su
+panel de usuario, puede dar de alta directamente una cuenta de
+empleado (mail + contraseña que él mismo define, sin invitación por
+mail) — queda con `rol: 'empleado'` y `ownerId` apuntando al dueño, y
+puede editar los MISMOS pines que el dueño (mismos campos de
+contenido, mismas restricciones — nunca ubicación/categoría/
+imágenes/ID/`ownerId`).
+
+**Problema técnico resuelto:** crear una cuenta con
+`createUserWithEmailAndPassword` en el SDK de cliente loguea
+automáticamente como el usuario recién creado — sin más, el dueño se
+hubiera quedado deslogueado de su propia cuenta y logueado como su
+empleado nuevo. Se resolvió con una SEGUNDA instancia de Firebase App
+(`firebase.initializeApp(firebaseConfig, 'empleados-secondary')`),
+usada solo para este alta puntual, con `signOut()` inmediato en esa
+instancia secundaria apenas termina — la sesión principal del dueño
+nunca se toca.
+
+**Alcance decidido para esta etapa (a confirmar con Cris si hace
+falta más):** el empleado SOLO puede editar pines, igual que el
+dueño — no se le dio ningún permiso sobre eventos ni sobre nada más.
+Revocar acceso = desactivar (`activo:false`) el perfil del empleado
+desde la lista del dueño, no se borra la cuenta de Firebase Auth
+(borrar cuentas de Auth ajenas requiere Admin SDK, no disponible del
+lado del cliente).
+
+**Archivos:** `index.html` (bloque "Empleados" dentro de la solapa
+Pines), `js/empleados.js` (archivo nuevo), `js/user-panel.js`
+(activa el bloque al abrir la solapa Pines), `FIRESTORE_RULES_NOTES.md`
+(lectura de perfiles de empleados por su dueño, toggle de `activo`
+por el dueño, y permiso de edición de pines para un empleado activo
+— resuelto con 1 lookup a su propio perfil dentro de la regla).
+
+**Pruebas realizadas:** `node --check` sin errores; ids cruzados
+HTML↔JS sin faltantes; revisado que no haya colisión de nombres de
+variables `let`/`const` entre archivos. No probado contra Firebase
+real — pendiente que Cris pruebe: (a) dar de alta un empleado y
+confirmar que el dueño NO se desloguea en el proceso; (b) loguearse
+como ese empleado y confirmar que puede editar los pines del dueño
+(y solo esos); (c) desactivar al empleado desde el panel del dueño y
+confirmar que pierde el acceso; (d) pegar las reglas de Firestore
+nuevas en la consola antes de probar nada de esto.
 
 ---
 

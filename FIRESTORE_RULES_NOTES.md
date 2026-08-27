@@ -71,11 +71,29 @@ service cloud.firestore {
       // un pin buscando por MAIL en vez de pedir el UID a mano.
       allow read: if request.auth != null &&
         (request.auth.uid == uid ||
-         exists(/databases/$(database)/documents/admins/$(request.auth.uid)));
+         exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+         // [Etapa 8] el dueño puede leer el perfil de sus propios
+         // empleados (para listarlos en su panel).
+         resource.data.ownerId == request.auth.uid);
       allow create: if request.auth != null && request.auth.uid == uid
                     && request.resource.data.uid == uid;
       allow update: if request.auth != null && request.auth.uid == uid
                     && request.resource.data.rol == resource.data.rol;
+      // [Etapa 7, PLAN_USUARIOS_EVENTOS.md] El admin puede tocar el
+      // plan (free/premium) y las funciones premium habilitadas de
+      // CUALQUIER cuenta — simula lo que a futuro haría un webhook de
+      // pago real. Nunca puede tocar el rol ni ningún otro campo desde
+      // acá (eso sigue siendo edición manual en la consola, a propósito).
+      allow update: if request.auth != null
+                    && exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['plan', 'premiumEnabled']);
+      // [Etapa 8] el dueño puede activar/desactivar (SOLO ese campo)
+      // al perfil de un empleado que él mismo dio de alta — revoca el
+      // acceso sin tener que borrar la cuenta de Firebase Auth.
+      allow update: if request.auth != null
+                    && resource.data.ownerId == request.auth.uid
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['activo']);
       allow delete: if false;
     }
 
@@ -96,6 +114,20 @@ service cloud.firestore {
 
       allow update: if request.auth != null
                     && resource.data.ownerId == request.auth.uid
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['desc', 'hist', 'phone', 'hours', 'tags', 'content']);
+
+      // [Etapa 8] mismo permiso de arriba, pero para un EMPLEADO del
+      // dueño de este pin — se resuelve con 1 lookup a su propio perfil
+      // (usuarios/{empleadoUid}) para confirmar que es empleado activo
+      // Y que trabaja justo para el dueño de ESTE pin. Alcance a
+      // propósito idéntico al del dueño (mismos campos, nunca ubicación/
+      // categoría/imágenes/ID/ownerId) — ver PLAN_USUARIOS_EVENTOS.md,
+      // Etapa 8, nota de alcance.
+      allow update: if request.auth != null
+                    && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'empleado'
+                    && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.activo == true
+                    && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.ownerId == resource.data.ownerId
                     && request.resource.data.diff(resource.data).affectedKeys()
                          .hasOnly(['desc', 'hist', 'phone', 'hours', 'tags', 'content']);
     }

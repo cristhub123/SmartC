@@ -267,6 +267,36 @@ After modifying this file, update /AI_SESSION.md with the change and verificatio
         <button id="owner-panel-save-btn" class="btn-primary">Guardar cambios</button>
         <p id="owner-panel-error" class="user-auth-error"></p>
       </div>
+
+      <!-- [Etapa 8, PLAN_USUARIOS_EVENTOS.md] Subusuario empleado —
+           el dueño da de alta directamente una cuenta de empleado
+           (sin invitación por mail), que queda con acceso a administrar
+           los MISMOS pines que el dueño. Ver js/empleados.js. -->
+      <div id="empleados-block" style="display:none">
+        <div class="divider"><span>EMPLEADOS CON ACCESO A TUS PINES</span></div>
+        <div id="empleados-list"></div>
+        <p id="empleados-empty" style="display:none;font-size:12px;color:var(--text3)">Todavía no diste de alta ningún empleado.</p>
+
+        <button type="button" id="btn-mostrar-form-empleado" class="owner-panel-add-field-btn">+ Dar de alta un empleado</button>
+        <div id="empleado-form" style="display:none">
+          <div class="fg">
+            <label class="fl">Nombre</label>
+            <input class="fi" id="empleado-nombre" type="text">
+          </div>
+          <div class="fg">
+            <label class="fl">Mail</label>
+            <input class="fi" id="empleado-email" type="email">
+          </div>
+          <div class="fg">
+            <label class="fl">Contraseña (mínimo 6 caracteres)</label>
+            <input class="fi" id="empleado-pass" type="password">
+          </div>
+          <p style="font-size:11px;color:var(--text3);margin-top:-4px;margin-bottom:8px">Se la pasás vos directamente — no se manda ningún mail de invitación.</p>
+          <div id="empleado-form-error" style="color:#ef4444;font-size:12px;margin-bottom:8px"></div>
+          <button class="btn-primary" id="btn-crear-empleado">Crear cuenta de empleado</button>
+          <button type="button" id="btn-cancelar-empleado" class="user-auth-cancel-btn">Cancelar</button>
+        </div>
+      </div>
     </div>
 
     <!-- ── Solapa Eventos (cualquier cuenta logueada) ── -->
@@ -368,6 +398,7 @@ After modifying this file, update /AI_SESSION.md with the change and verificatio
     <div class="atab on"  data-t="list">📋 Lugares</div>
     <div class="atab"     data-t="add">➕ Nuevo</div>
     <div class="atab"     data-t="eventos-admin">🎉 Eventos</div>
+    <div class="atab"     data-t="usuarios-admin">👤 Cuentas</div>
     <div class="atab"     data-t="global">🎨 Global</div>
     <div class="atab"     data-t="zonas-admin">📍 Zonas</div>
     <div class="atab"     data-t="mapa">🗺 Mapa</div>
@@ -876,6 +907,19 @@ campo-05:
         <label class="fl" style="margin:0" for="evt-activo">Evento activo (habilitado)</label>
       </div>
 
+      <!-- [Etapa 7] Destacado — por evento, no por cuenta (un mismo
+           dueño puede tener varios eventos destacados a la vez). Se
+           prende/apaga a mano por ahora, simulando lo que a futuro
+           haría un pago puntual real. -->
+      <div class="fg" style="display:flex;align-items:center;gap:8px">
+        <input type="checkbox" id="evt-destacado" style="width:auto">
+        <label class="fl" style="margin:0" for="evt-destacado">⭐ Evento destacado</label>
+      </div>
+      <div class="fg" id="evt-destacado-hasta-block" style="display:none">
+        <label class="fl">Destacado hasta</label>
+        <input class="fi" id="evt-destacado-hasta" type="datetime-local">
+      </div>
+
       <!-- [Etapa 6] Solo visible en modo edición — el admin puede
            recargarle cambios habilitados a un evento puntual. -->
       <div class="fg" id="evt-cambios-block" style="display:none">
@@ -911,6 +955,43 @@ campo-05:
       </div>
       <p style="font-size:11px;color:var(--text3);margin-top:-6px;margin-bottom:8px">Con esto apagado, nadie salvo vos puede dar de alta un evento nuevo — los eventos ya creados no se ven afectados.</p>
       <button class="geocoder-btn" id="btn-save-evt-config">Guardar configuración</button>
+    </div>
+
+    <!-- [Etapa 7, PLAN_USUARIOS_EVENTOS.md] Campos preparados para
+         pagos (sin cobro automático todavía) — ver js/usuarios-admin.js.
+         El admin prende/apaga esto a mano, simulando lo que a futuro
+         haría un webhook de pago real. -->
+    <div class="tpane" id="tp-usuarios-admin">
+      <div class="divider"><span>FUNCIONES PREMIUM DISPONIBLES</span></div>
+      <p style="font-size:11px;color:var(--text3);margin-top:-4px;margin-bottom:8px">
+        Catálogo de funciones candidatas a ser premium — no hace nada por sí
+        solo todavía, es la lista de "interruptores instalados" para decidir
+        más adelante cuál usar en cada cuenta.
+      </p>
+      <div id="premium-funciones-wrap"></div>
+      <button type="button" id="premium-add-funcion-btn" class="owner-panel-add-field-btn">+ Agregar función</button>
+      <button class="geocoder-btn" id="btn-save-premium-config" style="margin-top:10px">Guardar catálogo</button>
+
+      <div class="divider"><span>PLAN Y FUNCIONES PREMIUM DE UNA CUENTA</span></div>
+      <div class="fg">
+        <label class="fl">Buscar cuenta por mail</label>
+        <div class="geocoder-row">
+          <input class="fi" id="cuenta-buscar-email" type="text" placeholder="ej. juan@mail.com">
+          <button class="geocoder-btn" id="cuenta-buscar-btn" type="button">Buscar</button>
+        </div>
+        <div id="cuenta-buscar-resultado" style="font-size:12px;color:var(--text3);margin-top:6px"></div>
+      </div>
+
+      <div id="cuenta-plan-form" style="display:none">
+        <h4 id="cuenta-plan-titulo" style="margin:14px 0 8px"></h4>
+        <div class="fg" style="display:flex;align-items:center;gap:8px">
+          <input type="checkbox" id="cuenta-plan-premium" style="width:auto">
+          <label class="fl" style="margin:0" for="cuenta-plan-premium">Plan premium (no bloquea la cuenta — solo habilita funciones extra)</label>
+        </div>
+        <div id="cuenta-premium-funciones-check"></div>
+        <button class="btn-primary" id="btn-save-cuenta-plan">Guardar cuenta</button>
+        <p id="cuenta-plan-error" style="color:#ef4444;font-size:12px"></p>
+      </div>
     </div>
 
 
@@ -1737,6 +1818,8 @@ campo-05:
   <script src="js/pin-geocode.js" defer></script>
   <script src="js/eventos.js" defer></script>
   <script src="js/user-panel.js" defer></script>
+  <script src="js/usuarios-admin.js" defer></script>
+  <script src="js/empleados.js" defer></script>
   <script src="js/cluster.js" defer></script>
 
   <!-- 7b. Map settings -->

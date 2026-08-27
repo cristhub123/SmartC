@@ -5,6 +5,52 @@
 > en ella. Si un archivo listado como "revisado" fue modificado después,
 > vuelve a estar pendiente de verificación.
 
+## Sesión: 2026-08-27 — Hotfix botón de perfil + Etapa 7 (pagos) + Etapa 8 (subusuario empleado)
+
+**Contexto:** continuación directa de la sesión de Etapa 6 (ver
+entrada de abajo). Cris reportó que el ícono de perfil no respondía
+para una cuenta de usuario común — se investigó a fondo por chat
+(sintaxis, ids cruzados, colisiones de variables entre TODOS los
+archivos, simulación con jsdom) sin encontrar bug de código; la
+evidencia (log con `auth/invalid-credential` repetido) apunta a que
+esa cuenta de prueba tenía la contraseña mal, no a un bug real. Se
+aplicó igual un hotfix de blindaje (delegación de eventos + estilos
+inline forzados al abrir el panel) por las dudas. Ver el detalle
+completo de las 3 cosas (hotfix + Etapa 7 + Etapa 8) en
+`PLAN_USUARIOS_EVENTOS.md`, sección "REGISTRO POR ETAPA" — no se
+repite acá para no duplicar.
+
+Cris pidió explícitamente completar TODO el plan que quedaba (Etapas
+7 y 8) "de forma adecuada" y seguir con criterio propio sin parar a
+preguntar, y dejar un resumen aparte en un archivo nuevo llamado
+"leeme BOLUDO" (nombre pedido literal por Cris) dentro de la próxima
+entrega.
+
+**Archivos creados:** `js/usuarios-admin.js` (Etapa 7 — catálogo de
+funciones premium + plan por cuenta), `js/empleados.js` (Etapa 8 —
+alta de subusuario empleado vía instancia secundaria de Firebase).
+
+**Archivos modificados:** `index.html` (tab admin "👤 Cuentas"
+completa, campos `evt-destacado*`, bloque "Empleados" en la solapa
+Pines, script tags nuevos), `js/eventos.js` (campos
+destacado/destacado_hasta), `js/user-panel.js` y `js/user-auth.js`
+(hotfix de delegación + estilos inline, ver arriba),
+`js/admin.js` (registro de la tab `usuarios-admin` en `switchTab`),
+`FIRESTORE_RULES_NOTES.md` (reglas nuevas de las 3 cosas — TODAS
+pendientes de pegar en la consola de Firebase), `PLAN_USUARIOS_EVENTOS.md`.
+
+**Verificación realizada:** `node --check` sin errores en los 7
+`.js` tocados/nuevos; chequeo cruzado de que todo `getElementById(...)`
+usado en esos archivos tiene su `id` en `index.html` (sin faltantes);
+chequeo de que ningún `let`/`const`/`class` de nivel superior se
+repite entre NINGÚN par de archivos del proyecto (evita el
+`SyntaxError: Identifier ... has already been declared` que se da
+entre `<script>` tags que comparten scope léxico global). **No
+probado contra Firebase real ni en navegador** — lista completa de
+qué probar en cada etapa dentro de `PLAN_USUARIOS_EVENTOS.md`. Las
+reglas de Firestore de esta sesión (Etapa 7 y 8, colección
+`usuarios` y `pines`) todavía no están pegadas en la consola.
+
 ## Sesión: 2026-08-26 (continuación 4) — Etapa 6: Edición de eventos + Panel de usuario unificado + Nombre único
 
 **Contexto:** Cris trajo el proyecto completo (ZIP, hasta Etapa 5) +
