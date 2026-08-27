@@ -12,8 +12,8 @@ After modifying this file, update /AI_SESSION.md with the change and verificatio
  * [Etapa 2 — PLAN_USUARIOS_EVENTOS.md, 2026-08-19]
  * PANEL DEL DUEÑO DE PIN/NEGOCIO
  * ---------------------------------------------------------------
- * Se abre desde el mini panel de cuenta (ver js/user-auth.js →
- * #user-account-owner-btn), solo visible si UserAuth.hasRole('dueno_negocio').
+ * Se abre desde el panel de usuario unificado (ver js/user-panel.js),
+ * solapa "Pines" — solo visible si UserAuth.hasRole('dueno_negocio').
  *
  * Lista los pines de la colección "pines" donde `ownerId` == el uid
  * logueado, y deja editar SOLO un subconjunto acotado de campos:
@@ -41,17 +41,14 @@ let _ownerPins = [];
 let _ownerEditingId = null;
 let _ownerFieldsState = [];
 
-async function openOwnerPanel() {
-  if (!window.UserAuth || !UserAuth.isLoggedIn() || !UserAuth.hasRole('dueno_negocio')) return;
-  document.getElementById('owner-panel-overlay').classList.add('on');
-  _backToOwnerList();
-  await _loadOwnerPins();
-}
-
-function closeOwnerPanel() {
-  document.getElementById('owner-panel-overlay').classList.remove('on');
-  _ownerEditingId = null;
-}
+/* [Etapa 6, PLAN_PANEL_USUARIO_EDICION_EVENTOS_2026-08-26.md — 4.2]
+ * openOwnerPanel/closeOwnerPanel (overlay propio) se eliminaron: el
+ * panel del dueño ahora vive como la solapa "Pines" del panel de
+ * usuario UNIFICADO — ver js/user-panel.js, que llama a
+ * OwnerPanel.loadPins()/backToList() cuando esa solapa se activa. Esta
+ * lista/editor de pines sigue siendo la misma (mismo HTML relocalizado
+ * dentro de #up-pane-pines en index.html, mismos ids), solo cambió
+ * quién decide cuándo mostrarla. */
 
 async function _loadOwnerPins() {
   const listEl  = document.getElementById('owner-panel-list');
@@ -226,12 +223,12 @@ async function saveOwnerEdit() {
   }
 }
 
-window.OwnerPanel = { open: openOwnerPanel };
+window.OwnerPanel = {
+  loadPins: _loadOwnerPins,
+  backToList: _backToOwnerList,
+  hasPins: () => _ownerPins.length > 0,
+};
 
-document.getElementById('owner-panel-close').addEventListener('click', closeOwnerPanel);
 document.getElementById('owner-panel-back-btn').addEventListener('click', _backToOwnerList);
 document.getElementById('owner-panel-save-btn').addEventListener('click', saveOwnerEdit);
 document.getElementById('owner-edit-add-field-btn').addEventListener('click', _addOwnerField);
-document.getElementById('owner-panel-overlay').addEventListener('click', e => {
-  if (e.target.id === 'owner-panel-overlay') closeOwnerPanel();
-});

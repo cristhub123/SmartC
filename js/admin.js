@@ -577,9 +577,16 @@ let tempMarker = null;
 
 function startPickMode(ctx) {
   pickCtx = ctx;
-  // Completely hide admin so map is fully interactive
-  document.getElementById('admin').style.display = 'none';
-  document.getElementById('overlay').classList.remove('on');
+  // [Etapa 6, PLAN_USUARIOS_EVENTOS.md] 'user-evento-pin': Camino B del
+  // formulario de eventos dentro del panel de usuario (no del admin) —
+  // acá lo que hay que ocultar es el panel de usuario, no el admin.
+  if (ctx === 'user-evento-pin') {
+    document.getElementById('user-panel-overlay')?.classList.remove('on');
+  } else {
+    // Completely hide admin so map is fully interactive
+    document.getElementById('admin').style.display = 'none';
+    document.getElementById('overlay').classList.remove('on');
+  }
   document.getElementById('map').classList.add('picking');
   document.getElementById('pick-banner').classList.add('on');
   // Use a named handler so we can remove it cleanly
@@ -607,16 +614,26 @@ function startPickMode(ctx) {
       document.getElementById('evt-pin-lat').value = lat.toFixed(6);
       document.getElementById('evt-pin-lng').value = lng.toFixed(6);
       if (typeof _syncEvtPinCoordDisplay === 'function') _syncEvtPinCoordDisplay();
+    } else if (ctx === 'user-evento-pin') {
+      // [Etapa 6] Camino B del formulario de eventos del panel de
+      // usuario (autoservicio), ver js/user-panel.js.
+      document.getElementById('up-evt-pin-lat').value = lat.toFixed(6);
+      document.getElementById('up-evt-pin-lng').value = lng.toFixed(6);
+      if (typeof _syncUpEvtPinCoordDisplay === 'function') _syncUpEvtPinCoordDisplay();
     } else {
       document.getElementById('e-lat').value = lat.toFixed(6);
       document.getElementById('e-lng').value = lng.toFixed(6);
       syncEditCoordDisplay();
     }
     stopPickMode();
-    openAdmin();
-    if (ctx === 'edit') switchTab('edit');
-    if (ctx === 'zona') switchTab('zonas-admin');
-    if (ctx === 'evento-pin') switchTab('eventos-admin');
+    if (ctx === 'user-evento-pin') {
+      if (typeof reopenUserPanelAfterPick === 'function') reopenUserPanelAfterPick();
+    } else {
+      openAdmin();
+      if (ctx === 'edit') switchTab('edit');
+      if (ctx === 'zona') switchTab('zonas-admin');
+      if (ctx === 'evento-pin') switchTab('eventos-admin');
+    }
     toast(`📍 ${lat.toFixed(5)}, ${lng.toFixed(5)}`);
   };
   map.on('click', map._pickHandler);
@@ -631,8 +648,13 @@ function stopPickMode() {
 }
 
 document.getElementById('pick-banner-cancel').addEventListener('click', () => {
+  const wasUserEvtPin = pickCtx === 'user-evento-pin';
   stopPickMode();
-  openAdmin();
+  if (wasUserEvtPin) {
+    if (typeof reopenUserPanelAfterPick === 'function') reopenUserPanelAfterPick();
+  } else {
+    openAdmin();
+  }
 });
 
 
