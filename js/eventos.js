@@ -448,6 +448,11 @@ async function _evtBuscarAsignadoPorMail() {
 }
 document.getElementById('evt-asignado-buscar-btn')?.addEventListener('click', _evtBuscarAsignadoPorMail);
 
+/* [Etapa 7] Destacado — solo pide fecha límite si está tildado. */
+document.getElementById('evt-destacado')?.addEventListener('change', e => {
+  document.getElementById('evt-destacado-hasta-block').style.display = e.target.checked ? '' : 'none';
+});
+
 /* ═══════════════════════════════════════════════════════════
    [Etapa 6, PLAN_PANEL_USUARIO_EDICION_EVENTOS_2026-08-26.md — 4.3]
    NOMBRE DE EVENTO ÚNICO POR CIUDAD
@@ -571,6 +576,8 @@ async function saveEvento() {
   const fecha_fin = _dateInputToIso('evt-fecha-fin');
   const activo = !!document.getElementById('evt-activo')?.checked;
   const usuarioAsignadoUid = document.getElementById('evt-asignado-uid')?.value.trim() || null;
+  const destacado = !!document.getElementById('evt-destacado')?.checked;
+  const destacado_hasta = destacado ? _dateInputToIso('evt-destacado-hasta') : null;
 
   const originalBtnText = editando ? '💾 Guardar cambios' : '✓ Crear evento';
   btn.textContent = 'Guardando...'; btn.disabled = true;
@@ -630,6 +637,7 @@ async function saveEvento() {
     poi_id, city,
     usuarioAsignadoUid,
     activo,
+    destacado, destacado_hasta,
   };
 
   try {
@@ -675,6 +683,9 @@ function _evtStartEdit(eventoId) {
   document.getElementById('evt-fecha-fin').value = ev.fecha_fin ? ev.fecha_fin.slice(0, 16) : '';
   document.getElementById('evt-activo').checked = !!ev.activo;
   document.getElementById('evt-asignado-uid').value = ev.usuarioAsignadoUid || '';
+  document.getElementById('evt-destacado').checked = !!ev.destacado;
+  document.getElementById('evt-destacado-hasta-block').style.display = ev.destacado ? '' : 'none';
+  document.getElementById('evt-destacado-hasta').value = ev.destacado_hasta ? ev.destacado_hasta.slice(0, 16) : '';
   document.getElementById('evt-cambios-restantes').value = (typeof ev.cambiosRestantes === 'number') ? ev.cambiosRestantes : '';
   document.getElementById('evt-city').value = ev.city || '';
 
@@ -709,12 +720,17 @@ document.getElementById('btn-cancel-evt-edit')?.addEventListener('click', _evtCa
 function _resetEventoForm() {
   ['evt-nombre', 'evt-descripcion', 'evt-categoria', 'evt-fecha-inicio', 'evt-fecha-fin',
    'evt-pin-nombre', 'evt-pin-lat', 'evt-pin-lng', 'geo-input-evt',
-   'evt-asignado-uid', 'evt-asignado-email', 'evt-city', 'evt-cambios-restantes'].forEach(id => {
+   'evt-asignado-uid', 'evt-asignado-email', 'evt-city', 'evt-cambios-restantes',
+   'evt-destacado-hasta'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
   const activoEl = document.getElementById('evt-activo');
   if (activoEl) activoEl.checked = true;
+  const destacadoEl = document.getElementById('evt-destacado');
+  if (destacadoEl) destacadoEl.checked = false;
+  const destacadoHastaBlock = document.getElementById('evt-destacado-hasta-block');
+  if (destacadoHastaBlock) destacadoHastaBlock.style.display = 'none';
   const resultEl = document.getElementById('evt-asignado-resultado');
   if (resultEl) resultEl.innerHTML = '';
   const previewEl = document.getElementById('evt-nombre-preview');
@@ -789,6 +805,7 @@ async function _loadEventosAdminList() {
           <span class="evt-admin-row-pin">📍 ${_escHtml(pinLabel)}${ev.city ? ` · ${_escHtml(ev.city)}` : ''}</span>
           ${fechas ? `<span class="evt-admin-row-fechas">🗓 ${_escHtml(fechas)}</span>` : ''}
           <span class="evt-admin-row-estado">${_escHtml(ev.estado || 'aprobado')}</span>
+          ${ev.destacado ? '<span class="evt-admin-row-estado">⭐ destacado</span>' : ''}
           ${cambiosTxt ? `<span class="evt-admin-row-cambios">${cambiosTxt}</span>` : ''}
           ${pinDesactivado ? `
             <span class="evt-admin-pin-off">

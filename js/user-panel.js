@@ -71,14 +71,31 @@ let _upMisEventos = [];
    ABRIR / CERRAR + SOLAPAS
    ═══════════════════════════════════════════════════════════ */
 function _upOpen() {
-  if (!window.UserAuth || !UserAuth.isLoggedIn()) return;
-  document.getElementById('user-panel-overlay').classList.add('on');
-  _upRenderInfo();
-  _upSwitchTab('info');
+  try {
+    if (!window.UserAuth || !UserAuth.isLoggedIn()) return;
+    const overlay = document.getElementById('user-panel-overlay');
+    if (!overlay) { console.error('[user-panel.js] No se encontró #user-panel-overlay.'); return; }
+    // [Hotfix 2026-08-27] Se fuerza también con estilos inline, además
+    // de la clase "on" — así el panel se muestra pase lo que pase con
+    // el CSS externo (algún caché viejo, alguna regla que pise la
+    // clase, etc.). Es redundante a propósito, no hace daño.
+    overlay.classList.add('on');
+    overlay.style.opacity = '1';
+    overlay.style.pointerEvents = 'all';
+    _upRenderInfo();
+    _upSwitchTab('info');
+  } catch (err) {
+    console.error('[user-panel.js] Error abriendo el panel de usuario:', err);
+    if (typeof toast === 'function') toast('⚠️ No se pudo abrir tu panel — probá recargar (Ctrl+Shift+R)');
+  }
 }
 
 function _upClose() {
-  document.getElementById('user-panel-overlay').classList.remove('on');
+  const overlay = document.getElementById('user-panel-overlay');
+  if (!overlay) return;
+  overlay.classList.remove('on');
+  overlay.style.opacity = '';
+  overlay.style.pointerEvents = '';
 }
 
 function _upSwitchTab(tab) {
@@ -93,8 +110,12 @@ function _upSwitchTab(tab) {
   if (tab === 'eventos') _upActivateEventosTab();
 }
 
-document.querySelectorAll('.user-panel-tab').forEach(btn => {
-  btn.addEventListener('click', () => _upSwitchTab(btn.dataset.upTab));
+// [Hotfix 2026-08-27] Delegado desde `document` (mismo criterio que
+// el botón de cuenta en js/user-auth.js) — más robusto, y cubre las
+// 3 solapas con un solo listener.
+document.addEventListener('click', (e) => {
+  const tabBtn = e.target && e.target.closest && e.target.closest('.user-panel-tab');
+  if (tabBtn && tabBtn.dataset.upTab) _upSwitchTab(tabBtn.dataset.upTab);
 });
 document.getElementById('user-panel-close').addEventListener('click', _upClose);
 document.getElementById('user-panel-overlay').addEventListener('click', e => {
@@ -122,6 +143,7 @@ function _upActivatePinesTab() {
   document.getElementById('owner-panel-list').style.display = esDueno ? '' : 'none';
   document.getElementById('owner-panel-empty').style.display = 'none';
   document.getElementById('owner-panel-form').classList.remove('on');
+  if (window.EmpleadosPanel) EmpleadosPanel.activar(); // [Etapa 8]
   if (!esDueno || !window.OwnerPanel) return;
   OwnerPanel.backToList();
   OwnerPanel.loadPins();

@@ -66,7 +66,7 @@ function _renderUserAccountButton() {
   if (_currentUser && _currentUserProfile) {
     const label = _currentUserProfile.nombre || _currentUser.email || 'Cuenta';
     btn.classList.add('logged-in');
-    btn.title = `${label} · ${_userRoleLabel(_currentUserProfile.rol)} (tocar para cerrar sesión)`;
+    btn.title = `${label} · ${_userRoleLabel(_currentUserProfile.rol)} (tocar para ver tu panel)`;
     btn.textContent = '👤';
   } else {
     btn.classList.remove('logged-in');
@@ -86,7 +86,12 @@ function _userRoleLabel(rol) {
    Eventos); si no, el login. */
 function onUserAccountButtonClick() {
   if (_currentUser) {
-    if (window.UserPanel) UserPanel.open();
+    if (window.UserPanel) {
+      UserPanel.open();
+    } else {
+      console.error('[user-auth.js] UserPanel no está definido. ¿Se cargó js/user-panel.js? Revisá la pestaña Network (F12) buscando un 404, o Ctrl+Shift+R.');
+      if (typeof toast === 'function') toast('⚠️ No se pudo abrir tu panel — recargá la página (Ctrl+Shift+R)');
+    }
     return;
   }
   showUserAuth();
@@ -266,7 +271,16 @@ window.UserAuth = {
   roleLabel: _userRoleLabel,
 };
 
-document.getElementById('btn-user-account').addEventListener('click', onUserAccountButtonClick);
+// [Hotfix 2026-08-27] Delegado desde `document` en vez de directo
+// sobre el botón — más robusto ante cualquier caso en que el nodo se
+// reconstruya en algún momento (con delegación no importa, sigue
+// andando igual, porque escucha en el document, no en el botón).
+document.addEventListener('click', (e) => {
+  if (e.target && e.target.closest && e.target.closest('#btn-user-account')) {
+    onUserAccountButtonClick();
+  }
+});
+
 document.getElementById('user-account-logout-btn').addEventListener('click', () => {
   if (window.UserPanel) UserPanel.close();
   doUserLogout();
