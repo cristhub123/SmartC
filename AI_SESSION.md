@@ -5,6 +5,47 @@
 > en ella. Si un archivo listado como "revisado" fue modificado después,
 > vuelve a estar pendiente de verificación.
 
+## Sesión: 2026-08-26 (continuación 4) — Etapa 6: Edición de eventos + Panel de usuario unificado + Nombre único
+
+**Contexto:** Cris trajo el proyecto completo (ZIP, hasta Etapa 5) +
+`PLAN_PANEL_USUARIO_EDICION_EVENTOS_2026-08-26.md` — un plan aparte,
+ya escrito y con sus 8 preguntas de diseño respondidas en una sesión
+de chat anterior (sin código todavía). Pidió ejecutar ESE plan
+puntual, siguiendo el ZIP entregado como base. Ver detalle completo
+(qué se hizo, decisiones confirmadas, pruebas pendientes) en la
+entrada de Etapa 6 dentro de `PLAN_USUARIOS_EVENTOS.md` (sección
+"REGISTRO POR ETAPA") — no se repite acá para no duplicar.
+
+**Archivos revisados en profundidad esta sesión:** `js/eventos.js`
+completo, `js/owner-panel.js` completo, `js/user-auth.js` completo,
+`index.html` (overlays de cuenta/dueño, tab admin "Eventos"),
+`css/base.css` (bloques de esos overlays + `.evt-admin-row`),
+`js/admin.js` (`startPickMode`/`stopPickMode`), `js/pin-adjust.js`
+(`_autoSlugBase`, doble candado del ID de pin — patrón reusado para
+la ciudad del evento), `FIRESTORE_RULES_NOTES.md` (reglas actuales de
+`eventos`/`settings`).
+
+**Archivos creados:**
+- `js/user-panel.js` — panel de usuario unificado (Info/Pines/
+  Eventos) + autoservicio de alta/edición de eventos.
+
+**Archivos modificados:** `index.html`, `css/base.css`,
+`js/eventos.js`, `js/owner-panel.js`, `js/user-auth.js`, `js/admin.js`,
+`FIRESTORE_RULES_NOTES.md`, `PLAN_USUARIOS_EVENTOS.md` — ver el
+detalle completo en la entrada de Etapa 6 dentro de
+`PLAN_USUARIOS_EVENTOS.md`.
+
+**Verificación realizada:** `node --check` sin errores en los 5 `.js`
+tocados/nuevos; chequeo automático cruzado de que todo
+`getElementById(...)` usado en esos archivos tiene su `id`
+correspondiente en `index.html` (encontró y corrigió 1 referencia
+colgante a un botón que quedó fuera del diseño final). **No probado
+contra Firebase real ni en navegador** — pendiente que Cris pruebe
+(lista completa de qué probar en la entrada de Etapa 6 del plan). Las
+reglas de Firestore nuevas todavía no están pegadas en la consola —
+sin eso, cualquier alta/edición de usuario común vía autoservicio va
+a fallar por permisos.
+
 ## Sesión: 2026-08-26 — Etapa 3 de PLAN_USUARIOS_EVENTOS.md: colección `eventos` (admin-only)
 
 **Contexto:** Cris trajo el proyecto completo (ZIP) + un plan ya

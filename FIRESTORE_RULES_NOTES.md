@@ -133,18 +133,41 @@ service cloud.firestore {
                    && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
 
-    // [Etapa 3, PLAN_USUARIOS_EVENTOS.md] Colección "eventos": lectura
-    // pública libre (a futuro el mapa la va a usar para el filtro
-    // "Eventos y actividades", Etapa 5) — escritura solo para admins
-    // de verdad, porque en esta etapa SOLO el admin puede crear/editar
-    // eventos. Cuando la Etapa 6 habilite que dueños/usuarios carguen
-    // sus propios eventos, este bloque necesita un `allow create`
-    // nuevo para `request.auth.uid == request.resource.data.creadorUid`
-    // (no tocar esto todavía, es a propósito de esta etapa).
+    // [Etapa 3/6, PLAN_USUARIOS_EVENTOS.md /
+    // PLAN_PANEL_USUARIO_EDICION_EVENTOS_2026-08-26.md] Colección
+    // "eventos": lectura pública libre (la usa el filtro "Eventos y
+    // actividades" del mapa, Etapa 5). Escritura:
+    //   - admin: control total (crear/editar/borrar cualquier evento).
+    //   - alta por autoservicio (Etapa 6): cualquier usuario logueado
+    //     puede crear un evento nuevo, siempre que se autoasigne como
+    //     creador Y asignado (nunca a nombre de otro uid) y nazca
+    //     desactivado — la activación real la sigue haciendo el admin
+    //     a mano. El toggle maestro "creacionEventosHabilitada"
+    //     (settings/eventos-config) es un chequeo del lado del
+    //     cliente (js/user-panel.js), no de esta regla.
+    //   - edición por autoservicio (Etapa 6): el creador o quien el
+    //     admin haya puesto en `usuarioAsignadoUid`, SOLO mientras le
+    //     queden `cambiosRestantes` (> 0), el contador tiene que bajar
+    //     en exactamente 1 por escritura, y SOLO puede tocar los
+    //     campos de contenido del evento — nunca `poi_id`, `city`,
+    //     `activo`, `creadorUid`/`usuarioAsignadoUid` ni subir el
+    //     contador (eso es admin-only, ya cubierto por `allow write`).
     match /eventos/{eventoId} {
       allow read: if true;
       allow write: if request.auth != null
                    && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+      allow create: if request.auth != null
+                   && request.resource.data.creadorUid == request.auth.uid
+                   && request.resource.data.usuarioAsignadoUid == request.auth.uid
+                   && request.resource.data.activo == false;
+      allow update: if request.auth != null
+                   && (resource.data.creadorUid == request.auth.uid
+                       || resource.data.usuarioAsignadoUid == request.auth.uid)
+                   && resource.data.cambiosRestantes > 0
+                   && request.resource.data.cambiosRestantes == resource.data.cambiosRestantes - 1
+                   && request.resource.data.diff(resource.data).affectedKeys()
+                        .hasOnly(['nombre', 'nombreSlug', 'descripcion', 'categoria',
+                                  'fecha_inicio', 'fecha_fin', 'cambiosRestantes']);
     }
   }
 }

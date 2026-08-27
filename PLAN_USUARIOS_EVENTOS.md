@@ -62,11 +62,12 @@ de comando" con filtros que pidió Cris queda para más adelante.
 
 ## DECISIONES PENDIENTES (a confirmar con Cris antes o durante las etapas que las necesiten)
 
-1. **Límite de ediciones.** Cris marcó que cada edición del evento es
-   una escritura a Firestore y que puede convenir un límite — sin
-   número ni regla definida todavía. La Etapa 7 deja el contador
-   preparado (`edicionesCount`) pero sin aplicar ningún tope hasta
-   que se decida.
+1. ~~**Límite de ediciones.**~~ **RESUELTO 26/08 (Etapa 6):** contador
+   `cambiosRestantes` por evento, arranca en `cambiosDefault`
+   (configurable por el admin, tab "Eventos" → "CONFIGURACIÓN GENERAL
+   DE EVENTOS"), baja 1 por cada "Guardar cambios" de quien edita su
+   propio evento, sin importar cuántos campos tocó. El admin edita
+   sin consumirlo y puede recargárselo a mano a un evento puntual.
 2. ~~Título de la tab del PIN (pública, Etapa 5).~~ **RESUELTO
    26/08:** el rótulo quedó editable desde la tab admin →
    "CONFIGURACIÓN PÚBLICA" (`settings/eventos-config`,
@@ -76,14 +77,15 @@ de comando" con filtros que pidió Cris queda para más adelante.
    adelante. Asumido por ahora: una imagen por categoría, cargada
    por el admin (no por cada organizador) — confirmar si en cambio
    cada organizador debe poder subir la suya propia por evento.
-4. **Toggles maestros globales de eventos** (mencionados por Cris,
-   todavía sin etapa asignada en el checklist de abajo): 1)
-   habilitar/deshabilitar que usuarios no-admin creen eventos
-   (encaja naturalmente en la Etapa 6), 2) estado por defecto
-   (activo/inactivo) con el que nace un evento nuevo, 3) apagar/
-   encender de golpe la visibilidad en el mapa de TODOS los eventos
-   existentes sin tocar su info ni su estado individual. Confirmar
-   en qué etapa entran antes de programarlos.
+4. ~~**Toggles maestros globales de eventos**~~ **PARCIALMENTE
+   RESUELTO 26/08 (Etapa 6):** 1) habilitar/deshabilitar que
+   usuarios no-admin creen eventos → resuelto,
+   `creacionEventosHabilitada` en "CONFIGURACIÓN GENERAL DE EVENTOS".
+   2) estado por defecto de un evento nuevo → resuelto pero no
+   configurable: SIEMPRE nace `activo:false` sin importar quién lo
+   crea, decisión ya tomada con Cris (ver Etapa 6 en "REGISTRO POR
+   ETAPA"). 3) apagar/encender de golpe TODOS los eventos existentes
+   de una — sigue sin hacerse, no se pidió esta vez.
 
 ---
 
@@ -126,34 +128,33 @@ están, con este fix el propio Cris se quedaría afuera del panel.
 
 ### 🔎 Hallazgo — no hay forma de EDITAR un evento ya creado
 
+**RESUELTO 26/08 (Etapa 6)** — ver detalle completo en "REGISTRO POR
+ETAPA" más abajo. Se deja el hallazgo original documentado abajo por
+historial.
+
 **Qué encontró Cris:** ni el admin ni el dueño del evento tienen
 ningún panel para modificar un evento ya cargado (nombre, fecha,
 descripción, etc.) — solo existe crear, togglear activo/inactivo y
 borrar.
 
-**No es un bug de esta etapa — es un hueco real del plan.** Revisado
-el checklist completo (Etapas 1 a 7): ninguna etapa lo tiene asignado
-explícitamente. La Etapa 7 menciona un contador `edicionesCount`
-(para un futuro límite de ediciones) pero asume que la edición en sí
-ya existe — nunca se planeó la pantalla que la hace posible. Se deja
-anotado acá para no perderlo, sin asignarlo todavía a ninguna etapa
-puntual — es trabajo chico y no depende de las Etapas 6/7 (se puede
-hacer ya mismo sobre la tab admin actual), así que puede resolverse
-en cualquier momento que Cris lo pida, no hace falta esperar.
+**No era un bug de la Etapa 5 — era un hueco real del plan.** Revisado
+el checklist completo (Etapas 1 a 7) en su momento: ninguna etapa lo
+tenía asignado explícitamente. La Etapa 7 menciona un contador
+`edicionesCount` (para un futuro límite de ediciones) pero asumía que
+la edición en sí ya existía — nunca se planeó la pantalla que la hace
+posible.
 
 ---
 
 ## ESTADO ACTUAL
 
-**Última etapa completada:** Etapa 5 — Filtro "Eventos y actividades"
-en el mapa + pestaña "Eventos" en el panel público del pin (ver
-detalle en "REGISTRO POR ETAPA" más abajo).
+**Última etapa completada:** Etapa 6 — Edición de eventos + panel de
+usuario unificado (Info/Pines/Eventos) + nombre de evento único por
+ciudad (ver detalle en "REGISTRO POR ETAPA" más abajo).
 
-**Próxima etapa a hacer:** Etapa 6 — subusuario empleado del dueño +
-toggle para habilitar que dueños/usuarios (no solo el admin) puedan
-crear eventos desde su propio panel; ahí es donde `creadorUid` deja
-de ser siempre `null` y `usuarioAsignadoUid` pasa a autoasignarse
-solo.
+**Próxima etapa a hacer:** Etapa 7 — campos preparados para pagos, o
+Etapa 8 — subusuario empleado del dueño (a confirmar con Cris cuál
+arrancar primero; no dependen una de la otra).
 
 **Contexto nuevo de la Etapa 5 que hay que seguir usando (no crear de
 nuevo):**
@@ -313,13 +314,18 @@ crear de nuevo):**
       (auto-desactivación cuando vencen todos sus eventos)
 - [x] Etapa 5 — Filtro "Eventos y actividades" en el mapa (SIN badge
       sobre el pin) + tab "Eventos" del PIN (pública)
-- [ ] Etapa 6 — Subusuario empleado del dueño (alta directa sin
-      invitación, permisos limitados) + toggle para habilitar que
-      dueños/usuarios creen eventos desde su propio panel
-      (autoasignación de `creadorUid`, ver "DECISIONES PENDIENTES" #4)
+- [x] Etapa 6 — Edición de eventos + panel de usuario unificado
+      (Info/Pines/Eventos, reemplaza al mini panel + OwnerPanel
+      viejos) + toggle para habilitar que cualquier usuario logueado
+      cree eventos desde su propio panel (autoasignación de
+      `creadorUid`/`usuarioAsignadoUid`) + nombre de evento único por
+      ciudad
 - [ ] Etapa 7 — Campos preparados para pagos (sin cobro automático
       todavía): `plan` free/premium + funciones premium
       configurables + `destacado`/`destacado_hasta` por evento
+- [ ] Etapa 8 — Subusuario empleado del dueño (alta directa sin
+      invitación, permisos limitados) — renumerada desde la Etapa 6
+      original, sin cambios de contenido
 
 ---
 
@@ -655,6 +661,127 @@ pestaña del panel.
 
 ---
 
+### Etapa 6 — Edición de eventos + Panel de usuario unificado + Nombre único (2026-08-26)
+
+**Contexto:** Cris trajo el proyecto completo (ZIP, hasta Etapa 5) +
+`PLAN_PANEL_USUARIO_EDICION_EVENTOS_2026-08-26.md`, un plan aparte ya
+revisado y con las 8 preguntas de diseño respondidas por chat en una
+sesión anterior. Cubre 3 pedidos que reemplazan a la Etapa 6 original
+(subusuario empleado se corrió a Etapa 8, sin cambios de contenido):
+(1) hueco real — no había forma de editar un evento ya creado; (2)
+panel de usuario con 3 solapas (Info/Pines/Eventos) para cualquier
+cuenta logueada, no solo dueño de negocio; (3) nombre de evento único
+por ciudad, mismo criterio que el ID de pines.
+
+**Qué se hizo:**
+- **Edición de eventos (admin):** el formulario de alta ahora sirve
+  también para editar — botón "✏️ Editar" por fila en la tab admin
+  "Eventos". Al editar aparecen 2 bloques nuevos que no se ven en el
+  alta: la ciudad del evento (con el mismo doble candado que usa el
+  ID de un pin) y el contador `cambiosRestantes` (el admin lo puede
+  recargar a mano).
+- **Contador de cambios habilitados:** cada evento nuevo nace con
+  `cambiosRestantes` = `cambiosDefault` (configurable). Cada "Guardar
+  cambios" de quien edita su propio evento (no el admin) resta 1, sin
+  importar cuántos campos tocó — 1 sola escritura a Firestore
+  (`FieldValue.increment(-1)` en el mismo `.update()`, no una
+  escritura aparte). Llega a 0 → no puede seguir editando hasta que
+  el admin se lo recargue.
+- **Toggle maestro de autoservicio:** `creacionEventosHabilitada`
+  (tab admin "Eventos" → "CONFIGURACIÓN GENERAL DE EVENTOS") — con
+  esto apagado, nadie salvo el admin puede dar de alta un evento
+  nuevo; no afecta a los ya creados.
+- **Nombre de evento único por ciudad:** cada evento guarda su propio
+  campo `city` (copiado del pin al que queda anexado al crearse) y
+  `nombreSlug` (mismo criterio que el ID de pines: `_autoSlugBase`,
+  guion entre palabras, filtra stopwords). El chequeo de duplicado es
+  SOLO contra otros eventos con la misma `city` — nunca global. Vive
+  como preview en vivo (no bloquea el tipeo) + bloqueo real al
+  guardar.
+- **Panel de usuario unificado** (`js/user-panel.js`, archivo nuevo):
+  reemplaza al mini panel de cuenta (Etapa 1) y absorbe al panel del
+  dueño de negocio (Etapa 2, `js/owner-panel.js`) como una solapa
+  más, en un solo overlay con 3 tabs:
+  - **Info:** igual que antes (nombre/rol/cerrar sesión).
+  - **Pines:** SOLO para rol `dueno_negocio` — reusa tal cual la
+    lista/editor de `js/owner-panel.js` (mismos ids de DOM,
+    relocalizados en el HTML), sin reescribir su lógica interna.
+  - **Eventos:** para CUALQUIER cuenta logueada. Lista "mis eventos"
+    (`creadorUid == uid` O `usuarioAsignadoUid == uid`, 2 queries
+    mergeadas porque Firestore no permite OR entre campos distintos).
+    Si no tiene ninguno, botón "➕ Agregar evento" (oculto si el
+    toggle maestro está apagado). El alta reusa Camino A/B igual que
+    el admin; TODO evento creado acá nace `activo:false` — lo activa
+    el admin a mano, sin excepción. La edición NUNCA toca el lugar/
+    pin (solo nombre, descripción, categoría, fechas) — el punto
+    sobre si la edición debería poder mover el pin del Camino B
+    quedó sin definir con Cris (no bloqueante, anotado en el plan de
+    origen) y se dejó afuera a propósito por eso.
+- **Reglas de Firestore** (`FIRESTORE_RULES_NOTES.md`, colección
+  `eventos`): se agregaron `allow create` (autoservicio, exige
+  autoasignarse como creador Y asignado, y nacer `activo:false`) y
+  `allow update` (creador o asignado, solo si `cambiosRestantes > 0`,
+  el contador tiene que bajar en exactamente 1, y solo puede tocar
+  los 6 campos de contenido — nunca `poi_id`/`city`/`activo`). El
+  `allow write` del admin sigue cubriendo todo lo demás (incluido
+  borrar, que el autoservicio no puede hacer). **Pendiente que Cris
+  las pegue a mano en la consola de Firebase, como siempre.**
+- `js/admin.js` — `startPickMode`/`stopPickMode` ahora soportan un
+  5º contexto (`'user-evento-pin'`) para el Camino B del formulario
+  de eventos del panel de usuario, que oculta/reabre el panel de
+  usuario en vez del admin.
+
+**Archivos modificados:** `index.html` (panel de usuario unificado
+completo, sección "CONFIGURACIÓN GENERAL DE EVENTOS", bloques de
+ciudad/cambios en el form admin), `css/base.css` (estilos del panel
+unificado + edición/contador), `js/eventos.js` (config extendida,
+`saveEvento()` create+update, helpers de nombre único/ciudad, `_evtStartEdit`,
+`window.EventosShared`), `js/owner-panel.js` (se sacó el overlay
+propio, expone `loadPins`/`backToList`), `js/user-auth.js` (el botón
+de cuenta abre `UserPanel` en vez del mini panel viejo), `js/admin.js`
+(pick mode nuevo contexto), `js/user-panel.js` (archivo nuevo),
+`FIRESTORE_RULES_NOTES.md`.
+
+**Decisiones confirmadas con Cris antes de programar** (registradas
+en detalle en `PLAN_PANEL_USUARIO_EDICION_EVENTOS_2026-08-26.md`,
+sección 3 — resumen acá):
+1. Autoservicio bloqueable con un toggle admin único; independiente
+   de eso, todo evento nace `activo:false` sin excepción — cuando
+   llegue el sistema de pagos, la creación pasa a libre total.
+2. Tab Pines SOLO para `dueno_negocio`; `usuario_comun` puede crear y
+   administrar sus propios eventos, pero no tiene tab Pines.
+3. Puede editar un evento: el admin, quien lo creó, o a quien el
+   admin le haya puesto en `usuarioAsignadoUid`.
+4. Contador de cambios: 1 "Guardar cambios" = 1 uso, sin importar
+   cuántos campos se tocaron en esa pasada.
+5. Nombre único: mismo criterio que el ID de pines (guion entre
+   palabras).
+6. Ciudad editable con doble candado, admin-only por ahora.
+7. Choque de nombre duplicado: se avisa explícitamente.
+8. 1 escritura por guardado, sin importar cuántos campos — ya era así
+   en el alta original, se mantuvo el mismo criterio en la edición.
+
+**Pruebas realizadas:** `node --check` sin errores en los 5 `.js`
+tocados/nuevos (`eventos.js`, `owner-panel.js`, `user-auth.js`,
+`admin.js`, `user-panel.js`); chequeo automático de que todos los
+`getElementById(...)` usados en esos 5 archivos tienen su `id`
+correspondiente en `index.html` (sin faltantes, tras corregir 1
+referencia a un botón que se sacó del diseño final). No probado
+contra Firebase real ni en navegador — **pendiente que Cris pruebe**:
+(a) editar un evento desde el admin y confirmar que guarda bien y
+que el contador de cambios se comporta como se espera; (b) con una
+cuenta de prueba `usuario_comun`, crear un evento por autoservicio
+(Camino A y Camino B) y confirmar que aparece en el admin como
+`pendiente`/`activo:false`; (c) confirmar que el toggle
+"Habilitar creación de eventos" realmente bloquea el botón "Agregar
+evento" cuando está apagado; (d) intentar poner el mismo nombre de
+evento 2 veces en la misma ciudad y confirmar el aviso; (e) que el
+mismo nombre SÍ se puede usar en 2 ciudades distintas; (f) pegar las
+reglas de Firestore nuevas en la consola antes de probar cualquier
+guardado de usuario común, o van a fallar por permisos.
+
+---
+
 ## DETALLE DE CADA ETAPA
 
 ### Etapa 1 — Roles base: registro/login
@@ -734,24 +861,16 @@ ETAPA" más arriba.
 
 ---
 
-### Etapa 6 — Subusuario empleado
-**Qué se hace:** el dueño de negocio, desde su panel (Etapa 2), da de
-alta directamente una cuenta de empleado (email + contraseña,
-creada por él, sin invitación por mail). Esa cuenta queda con
-`ownerId` (a qué dueño pertenece) y `rol: empleado`, con permisos
-limitados a definir (qué puede editar puntualmente queda pendiente
-de confirmar con Cris antes de arrancar esta etapa).
+### Etapa 6 — Edición de eventos + Panel de usuario unificado + Nombre único
+**Qué se hizo:** ver detalle completo en "REGISTRO POR ETAPA" más
+arriba — reemplaza al alcance original de esta etapa (el toggle de
+autoservicio quedó cubierto acá; "subusuario empleado" se corrió a
+la Etapa 8, sin cambios de contenido).
 
-**Depende de:** Etapa 1 y 2.
+**Depende de:** Etapa 1, 2, 3 y 5.
 
-**Estimación:** 10-14hs.
-
-**Nota:** Cris planteó como alternativa una sola cuenta con una
-"contraseña interna" para gatillar funciones sensibles, en vez de
-cuenta separada — quedó como opción más simple pero más débil
-(no da registro de quién hizo qué, ni permite revocar acceso a un
-empleado puntual sin cambiar la contraseña para todos). Confirmar
-con Cris cuál de las dos versiones arrancar antes de esta etapa.
+**Estimación real:** ~32-45hs (coincide con lo estimado en
+`PLAN_PANEL_USUARIO_EDICION_EVENTOS_2026-08-26.md`).
 
 ---
 
@@ -780,6 +899,28 @@ haya organizadores reales usando el sistema.
 
 ---
 
-## TOTAL ESTIMADO (Etapas 1 a 7)
-**62-92hs**, sin contar la integración real de cobro ni lo de
+### Etapa 8 — Subusuario empleado
+**Qué se hace:** el dueño de negocio, desde su panel (Etapa 2, ahora
+solapa "Pines" del panel unificado de la Etapa 6), da de alta
+directamente una cuenta de empleado (email + contraseña, creada por
+él, sin invitación por mail). Esa cuenta queda con `ownerId` (a qué
+dueño pertenece) y `rol: empleado`, con permisos limitados a definir
+(qué puede editar puntualmente queda pendiente de confirmar con Cris
+antes de arrancar esta etapa).
+
+**Depende de:** Etapa 1 y 2.
+
+**Estimación:** 10-14hs.
+
+**Nota:** Cris planteó como alternativa una sola cuenta con una
+"contraseña interna" para gatillar funciones sensibles, en vez de
+cuenta separada — quedó como opción más simple pero más débil
+(no da registro de quién hizo qué, ni permite revocar acceso a un
+empleado puntual sin cambiar la contraseña para todos). Confirmar
+con Cris cuál de las dos versiones arrancar antes de esta etapa.
+
+---
+
+## TOTAL ESTIMADO (Etapas 1 a 8)
+**94-137hs**, sin contar la integración real de cobro ni lo de
 panaderías (ambos fuera de alcance de este plan por ahora).

@@ -203,61 +203,155 @@ After modifying this file, update /AI_SESSION.md with the change and verificatio
   </div>
 </div>
 
-<!-- [Etapa 2, PLAN_USUARIOS_EVENTOS.md] Mini panel de cuenta — se abre
-     al tocar #btn-user-account YA logueado (nombre/rol + accesos). -->
-<div id="user-account-overlay">
-  <div id="user-account-box">
-    <button id="user-account-close" class="btn-x" title="Cerrar">✕</button>
-    <div id="user-account-name"></div>
-    <div id="user-account-role"></div>
-    <button id="user-account-owner-btn" class="btn-primary" style="display:none">🏠 Mis lugares</button>
-    <button id="user-account-logout-btn" class="user-auth-cancel-btn">Cerrar sesión</button>
-  </div>
-</div>
+<!-- [Etapa 6, PLAN_USUARIOS_EVENTOS.md] Panel de usuario UNIFICADO —
+     3 solapas (Info / Pines / Eventos), para cualquier cuenta
+     logueada. Se abre al tocar #btn-user-account ya logueado.
+     Reemplaza al mini panel de cuenta (Etapa 1) y absorbe al panel
+     del dueño de negocio (Etapa 2, OwnerPanel) como una solapa más
+     — la lógica de OwnerPanel (lista/edición de pines) sigue viviendo
+     en js/owner-panel.js, solo se relocalizó su HTML acá adentro.
+     Ver js/user-panel.js. -->
+<div id="user-panel-overlay">
+  <div id="user-panel-box">
+    <button id="user-panel-close" class="btn-x" title="Cerrar">✕</button>
 
-<!-- [Etapa 2, PLAN_USUARIOS_EVENTOS.md] Panel del dueño de negocio —
-     lista sus pines (ownerId == su uid) y permite editar SOLO
-     contenido (no ubicación/categoría/imágenes/ID). Ver js/owner-panel.js -->
-<div id="owner-panel-overlay">
-  <div id="owner-panel-box">
-    <button id="owner-panel-close" class="btn-x" title="Cerrar">✕</button>
-    <div id="owner-panel-header">
-      <button id="owner-panel-back-btn" style="display:none">← Volver</button>
-      <h3>Mis lugares</h3>
+    <div id="user-panel-tabs">
+      <button type="button" class="user-panel-tab active" data-up-tab="info">Info</button>
+      <button type="button" class="user-panel-tab" id="up-tab-btn-pines" data-up-tab="pines">📍 Pines</button>
+      <button type="button" class="user-panel-tab" data-up-tab="eventos">🎉 Eventos</button>
     </div>
 
-    <div id="owner-panel-list"></div>
-    <p id="owner-panel-empty" style="display:none">Todavía no tenés ningún lugar asignado. Pasale tu UID (Firebase Console → Authentication → Users, o pedíselo a quien administra la app) para que te lo asignen.</p>
+    <!-- ── Solapa Info ── -->
+    <div id="up-pane-info" class="user-panel-pane on">
+      <div id="user-account-name"></div>
+      <div id="user-account-role"></div>
+      <button id="user-account-logout-btn" class="user-auth-cancel-btn">Cerrar sesión</button>
+    </div>
 
-    <div id="owner-panel-form">
-      <h4 id="owner-edit-name"></h4>
-      <div class="fg">
-        <label class="fl">Descripción corta</label>
-        <textarea class="fta" id="owner-edit-desc" rows="3"></textarea>
+    <!-- ── Solapa Pines (contenido de js/owner-panel.js, solo
+         dueño de negocio) ── -->
+    <div id="up-pane-pines" class="user-panel-pane">
+      <p id="up-pines-disabled" class="owner-panel-loading" style="display:none">Esta sección es para cuentas de dueño de negocio — administrá acá los pines que te asignaron.</p>
+
+      <div id="owner-panel-list"></div>
+      <p id="owner-panel-empty" style="display:none">Todavía no tenés ningún lugar asignado. Pasale tu UID (Firebase Console → Authentication → Users, o pedíselo a quien administra la app) para que te lo asignen.</p>
+
+      <div id="owner-panel-form">
+        <button type="button" id="owner-panel-back-btn" class="owner-panel-back-inline" style="display:none">← Volver</button>
+        <h4 id="owner-edit-name"></h4>
+        <div class="fg">
+          <label class="fl">Descripción corta</label>
+          <textarea class="fta" id="owner-edit-desc" rows="3"></textarea>
+        </div>
+        <div class="fg">
+          <label class="fl">Historia / Trivia</label>
+          <textarea class="fta" id="owner-edit-hist" rows="3"></textarea>
+        </div>
+        <div class="fg">
+          <label class="fl">Teléfono</label>
+          <input class="fi" id="owner-edit-phone" type="tel" placeholder="Ej: +54 351 123-4567">
+        </div>
+        <div class="fg">
+          <label class="fl">Horario</label>
+          <input class="fi" id="owner-edit-hours" type="text" placeholder="Ej: Lun–Vie 9–18hs, Sáb 10–14hs">
+        </div>
+        <div class="fg">
+          <label class="fl">Tags / Subcategorías (separados por coma)</label>
+          <input class="fi" id="owner-edit-tags" type="text" placeholder="Ej: Comida árabe, Sin TACC, Delivery">
+        </div>
+        <div class="fg">
+          <label class="fl">Campos de información (título + texto)</label>
+          <div id="owner-edit-fields-wrap"></div>
+          <button type="button" id="owner-edit-add-field-btn" class="owner-panel-add-field-btn">+ Agregar campo</button>
+        </div>
+        <button id="owner-panel-save-btn" class="btn-primary">Guardar cambios</button>
+        <p id="owner-panel-error" class="user-auth-error"></p>
       </div>
-      <div class="fg">
-        <label class="fl">Historia / Trivia</label>
-        <textarea class="fta" id="owner-edit-hist" rows="3"></textarea>
+    </div>
+
+    <!-- ── Solapa Eventos (cualquier cuenta logueada) ── -->
+    <div id="up-pane-eventos" class="user-panel-pane">
+
+      <div id="up-eventos-list-wrap">
+        <div id="up-eventos-list"></div>
+        <div id="up-eventos-empty" style="display:none">
+          <p class="owner-panel-loading">Todavía no tenés ningún evento.</p>
+          <button type="button" id="btn-up-add-evento" class="btn-primary">➕ Agregar evento</button>
+          <p id="up-eventos-disabled-msg" style="display:none;font-size:12px;color:var(--text3);text-align:center;margin-top:8px">La creación de eventos está deshabilitada por el momento — probá más adelante.</p>
+        </div>
       </div>
-      <div class="fg">
-        <label class="fl">Teléfono</label>
-        <input class="fi" id="owner-edit-phone" type="tel" placeholder="Ej: +54 351 123-4567">
+
+      <!-- Formulario de alta/edición (autoservicio) -->
+      <div id="up-evt-form" style="display:none">
+        <button type="button" id="up-evt-form-back-btn" class="owner-panel-back-inline">← Volver</button>
+        <h4 id="up-evt-form-title">Nuevo evento</h4>
+        <div class="fg">
+          <label class="fl">Nombre del evento *</label>
+          <input class="fi" id="up-evt-nombre" type="text" placeholder="Ej: Feria de anime de septiembre">
+          <div id="up-evt-nombre-preview" style="font-size:11px;margin-top:4px"></div>
+        </div>
+        <div class="fg">
+          <label class="fl">Descripción</label>
+          <textarea class="fta" id="up-evt-descripcion" placeholder="¿De qué se trata el evento?"></textarea>
+        </div>
+        <div class="fg">
+          <label class="fl">Categoría del evento</label>
+          <input class="fi" id="up-evt-categoria" type="text" placeholder="Ej: Anime, Feria, Música en vivo">
+        </div>
+        <div class="frow">
+          <div>
+            <label class="fl">Inicio (opcional)</label>
+            <input class="fi" id="up-evt-fecha-inicio" type="datetime-local">
+          </div>
+          <div>
+            <label class="fl">Fin (opcional)</label>
+            <input class="fi" id="up-evt-fecha-fin" type="datetime-local">
+          </div>
+        </div>
+
+        <div id="up-evt-lugar-block">
+          <div class="divider"><span>LUGAR DEL EVENTO</span></div>
+          <div class="evt-camino-toggle">
+            <button type="button" class="evt-camino-btn on" id="up-evt-camino-a-btn">Ya existe el pin</button>
+            <button type="button" class="evt-camino-btn" id="up-evt-camino-b-btn">Todavía no existe</button>
+          </div>
+          <div id="up-evt-camino-a-pane">
+            <div class="fg">
+              <label class="fl">Buscar pin existente</label>
+              <input class="fi" id="up-evt-buscar-pin-input" type="text" placeholder="Escribí el nombre del lugar...">
+              <div class="geocoder-results" id="up-evt-buscar-pin-results"></div>
+            </div>
+            <div class="fg" id="up-evt-pin-seleccionado" style="display:none">
+              <label class="fl">Pin elegido</label>
+              <div class="owner-panel-item" style="cursor:default;display:flex;align-items:center;justify-content:space-between">
+                <span class="up-evt-pin-seleccionado-name"></span>
+                <button type="button" class="img-clear" id="up-evt-pin-seleccionado-quitar" title="Quitar">✕</button>
+              </div>
+            </div>
+          </div>
+          <div id="up-evt-camino-b-pane" style="display:none">
+            <div class="fg">
+              <label class="fl">Nombre del lugar (nuevo pin) *</label>
+              <input class="fi" id="up-evt-pin-nombre" type="text" placeholder="Ej: Patio del Colegio San Martín">
+            </div>
+            <div class="fg">
+              <label class="fl">🔍 Buscar dirección o lugar</label>
+              <div class="geocoder-row">
+                <input class="fi geocoder-input" id="geo-input-up-evt" type="text" placeholder="Ej: Colegio San Martín, Córdoba…">
+                <button class="geocoder-btn" id="geo-btn-up-evt">Buscar</button>
+              </div>
+              <div class="geocoder-results" id="geo-results-up-evt"></div>
+              <div class="coord-display" id="up-evt-pin-coord-display">Sin coordenadas — buscá una dirección o hacé click en el mapa</div>
+              <input type="hidden" id="up-evt-pin-lat"><input type="hidden" id="up-evt-pin-lng">
+              <button class="btn-map-pick" id="btn-pick-up-evento-pin" type="button">📍 O hacer clic en el mapa</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="up-evt-cambios-info" style="font-size:11px;color:var(--text3);margin:8px 0"></div>
+        <div id="up-evt-form-error" style="color:#ef4444;font-size:12px;margin-bottom:8px"></div>
+        <button class="btn-primary" id="btn-save-up-evento">✓ Crear evento</button>
       </div>
-      <div class="fg">
-        <label class="fl">Horario</label>
-        <input class="fi" id="owner-edit-hours" type="text" placeholder="Ej: Lun–Vie 9–18hs, Sáb 10–14hs">
-      </div>
-      <div class="fg">
-        <label class="fl">Tags / Subcategorías (separados por coma)</label>
-        <input class="fi" id="owner-edit-tags" type="text" placeholder="Ej: Comida árabe, Sin TACC, Delivery">
-      </div>
-      <div class="fg">
-        <label class="fl">Campos de información (título + texto)</label>
-        <div id="owner-edit-fields-wrap"></div>
-        <button type="button" id="owner-edit-add-field-btn" class="owner-panel-add-field-btn">+ Agregar campo</button>
-      </div>
-      <button id="owner-panel-save-btn" class="btn-primary">Guardar cambios</button>
-      <p id="owner-panel-error" class="user-auth-error"></p>
     </div>
   </div>
 </div>
@@ -675,10 +769,11 @@ campo-05:
 
     <!-- EVENTOS [Etapa 3, PLAN_USUARIOS_EVENTOS.md] — admin-only por ahora -->
     <div class="tpane" id="tp-eventos-admin">
-      <div class="divider"><span>NUEVO EVENTO</span></div>
+      <div class="divider"><span id="evt-form-section-title">NUEVO EVENTO</span></div>
       <div class="fg">
         <label class="fl">Nombre del evento *</label>
         <input class="fi" id="evt-nombre" type="text" placeholder="Ej: Feria de anime de septiembre">
+        <div id="evt-nombre-preview" style="font-size:11px;margin-top:4px"></div>
       </div>
       <div class="fg">
         <label class="fl">Descripción</label>
@@ -700,43 +795,64 @@ campo-05:
       </div>
       <p style="font-size:11px;color:var(--text3);margin-top:-6px;margin-bottom:8px">Se pueden dejar vacías por ahora — el vencimiento automático del pin del Camino B es la Etapa 4.</p>
 
-      <div class="divider"><span>LUGAR DEL EVENTO</span></div>
-      <div class="evt-camino-toggle">
-        <button type="button" class="evt-camino-btn on" id="evt-camino-a-btn">Ya existe el pin</button>
-        <button type="button" class="evt-camino-btn" id="evt-camino-b-btn">Todavía no existe</button>
-      </div>
-
-      <div id="evt-camino-a-pane">
-        <div class="fg">
-          <label class="fl">Buscar pin existente</label>
-          <input class="fi" id="evt-buscar-pin-input" type="text" placeholder="Escribí el nombre del lugar...">
-          <div class="geocoder-results" id="evt-buscar-pin-results"></div>
+      <div id="evt-lugar-block">
+        <div class="divider"><span>LUGAR DEL EVENTO</span></div>
+        <div class="evt-camino-toggle">
+          <button type="button" class="evt-camino-btn on" id="evt-camino-a-btn">Ya existe el pin</button>
+          <button type="button" class="evt-camino-btn" id="evt-camino-b-btn">Todavía no existe</button>
         </div>
-        <div class="fg" id="evt-pin-seleccionado" style="display:none">
-          <label class="fl">Pin elegido</label>
-          <div class="owner-panel-item" style="cursor:default;display:flex;align-items:center;justify-content:space-between">
-            <span class="evt-pin-seleccionado-name"></span>
-            <button type="button" class="img-clear" id="evt-pin-seleccionado-quitar" title="Quitar">✕</button>
+
+        <div id="evt-camino-a-pane">
+          <div class="fg">
+            <label class="fl">Buscar pin existente</label>
+            <input class="fi" id="evt-buscar-pin-input" type="text" placeholder="Escribí el nombre del lugar...">
+            <div class="geocoder-results" id="evt-buscar-pin-results"></div>
+          </div>
+          <div class="fg" id="evt-pin-seleccionado" style="display:none">
+            <label class="fl">Pin elegido</label>
+            <div class="owner-panel-item" style="cursor:default;display:flex;align-items:center;justify-content:space-between">
+              <span class="evt-pin-seleccionado-name"></span>
+              <button type="button" class="img-clear" id="evt-pin-seleccionado-quitar" title="Quitar">✕</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="evt-camino-b-pane" style="display:none">
+          <p style="font-size:11px;color:var(--text3);margin-bottom:8px">Se crea acá mismo un pin mínimo (categoría "Evento" fija) para poder anexarle el evento — queda ya funcional en el mapa.</p>
+          <div class="fg">
+            <label class="fl">Nombre del lugar (nuevo pin) *</label>
+            <input class="fi" id="evt-pin-nombre" type="text" placeholder="Ej: Patio del Colegio San Martín">
+          </div>
+          <div class="fg">
+            <label class="fl">🔍 Buscar dirección o lugar</label>
+            <div class="geocoder-row">
+              <input class="fi geocoder-input" id="geo-input-evt" type="text" placeholder="Ej: Colegio San Martín, Córdoba…">
+              <button class="geocoder-btn" id="geo-btn-evt">Buscar</button>
+            </div>
+            <div class="geocoder-results" id="geo-results-evt"></div>
+            <div class="coord-display" id="evt-pin-coord-display">Sin coordenadas — buscá una dirección o hacé click en el mapa</div>
+            <input type="hidden" id="evt-pin-lat"><input type="hidden" id="evt-pin-lng">
+            <button class="btn-map-pick" id="btn-pick-evento-pin" type="button">📍 O hacer clic en el mapa</button>
           </div>
         </div>
       </div>
 
-      <div id="evt-camino-b-pane" style="display:none">
-        <p style="font-size:11px;color:var(--text3);margin-bottom:8px">Se crea acá mismo un pin mínimo (categoría "Evento" fija) para poder anexarle el evento — queda ya funcional en el mapa.</p>
+      <!-- [Etapa 6] Ciudad del evento — se asigna sola del pin al
+           crearse, pero queda editable con el mismo doble candado que
+           el ID de un pin (ver pin-adjust.js). Solo aparece en modo
+           edición: al crear, la ciudad todavía no existe para elegir. -->
+      <div id="evt-city-block" style="display:none">
+        <div class="divider"><span>CIUDAD DEL EVENTO</span></div>
         <div class="fg">
-          <label class="fl">Nombre del lugar (nuevo pin) *</label>
-          <input class="fi" id="evt-pin-nombre" type="text" placeholder="Ej: Patio del Colegio San Martín">
-        </div>
-        <div class="fg">
-          <label class="fl">🔍 Buscar dirección o lugar</label>
-          <div class="geocoder-row">
-            <input class="fi geocoder-input" id="geo-input-evt" type="text" placeholder="Ej: Colegio San Martín, Córdoba…">
-            <button class="geocoder-btn" id="geo-btn-evt">Buscar</button>
+          <label class="fl">Ciudad (uso interno — mismo código que usan los pines)</label>
+          <input class="fi" id="evt-city" type="text" disabled style="opacity:.6">
+          <div style="display:flex;flex-direction:column;gap:4px;margin-top:6px;font-size:12px;color:var(--text3)">
+            <label style="display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="evt-city-lock1"> Entiendo que esto cambia dónde cuenta como duplicado el nombre</label>
+            <label style="display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="evt-city-lock2"> Quiero editar la ciudad igual</label>
           </div>
-          <div class="geocoder-results" id="geo-results-evt"></div>
-          <div class="coord-display" id="evt-pin-coord-display">Sin coordenadas — buscá una dirección o hacé click en el mapa</div>
-          <input type="hidden" id="evt-pin-lat"><input type="hidden" id="evt-pin-lng">
-          <button class="btn-map-pick" id="btn-pick-evento-pin" type="button">📍 O hacer clic en el mapa</button>
+          <div id="evt-city-warning" style="display:none;margin-top:4px;font-size:12px;color:#ef4444">
+            ⚠️ Cambiar la ciudad puede duplicar el nombre del evento contra otra ciudad o liberar un choque en esta — revisalo con cuidado.
+          </div>
         </div>
       </div>
 
@@ -752,7 +868,7 @@ campo-05:
           <button class="geocoder-btn" id="evt-asignado-buscar-btn" type="button">Buscar</button>
         </div>
         <div id="evt-asignado-resultado" style="font-size:12px;color:var(--text3);margin-top:6px"></div>
-        <p style="font-size:11px;color:var(--text3);margin-top:4px">Mientras el alta siga siendo admin-only, este campo se completa a mano. Cuando el dueño del evento lo cree con su propio usuario (Etapa 6), el sistema lo va a autoasignar solo.</p>
+        <p style="font-size:11px;color:var(--text3);margin-top:4px">Este usuario, además del admin y de quien haya creado el evento, va a poder editarlo desde su propio panel.</p>
       </div>
 
       <div class="fg" style="display:flex;align-items:center;gap:8px">
@@ -760,26 +876,43 @@ campo-05:
         <label class="fl" style="margin:0" for="evt-activo">Evento activo (habilitado)</label>
       </div>
 
+      <!-- [Etapa 6] Solo visible en modo edición — el admin puede
+           recargarle cambios habilitados a un evento puntual. -->
+      <div class="fg" id="evt-cambios-block" style="display:none">
+        <label class="fl">Cambios habilitados restantes para quien lo edita</label>
+        <input class="fi" id="evt-cambios-restantes" type="number" min="0" step="1">
+      </div>
+
       <div id="evt-form-error" style="color:#ef4444;font-size:12px;margin-bottom:8px"></div>
       <button class="btn-primary" id="btn-save-evento">✓ Crear evento</button>
+      <button type="button" id="btn-cancel-evt-edit" class="user-auth-cancel-btn" style="display:none">Cancelar edición</button>
 
       <div class="divider"><span>EVENTOS CARGADOS</span></div>
       <div id="eventos-admin-list"></div>
 
-      <!-- [Etapa 5] Título editable de la pestaña pública "Panel
-           Eventos" dentro del panel de un pin (ver js/eventos.js,
-           saveEventosConfig/loadEventosConfig). No confundir con esta
-           tab admin, que se llama "Eventos" fijo. -->
-      <div class="divider"><span>CONFIGURACIÓN PÚBLICA</span></div>
+      <!-- [Etapa 5/6] Configuración general de eventos — rótulo de la
+           pestaña pública, cambios DEFAULT permitidos por evento nuevo,
+           y el toggle maestro de autoservicio. Un solo botón guarda
+           los 3. Ver js/eventos.js (loadEventosConfig/_saveEventosConfig). -->
+      <div class="divider"><span>CONFIGURACIÓN GENERAL DE EVENTOS</span></div>
       <div class="fg">
         <label class="fl">Rótulo de la pestaña de eventos en el panel público del pin</label>
-        <div class="geocoder-row">
-          <input class="fi" id="evt-config-titulo-panel" type="text" placeholder="Eventos" value="Eventos">
-          <button class="geocoder-btn" id="btn-save-evt-config">Guardar</button>
-        </div>
+        <input class="fi" id="evt-config-titulo-panel" type="text" placeholder="Eventos" value="Eventos">
         <p style="font-size:11px;color:var(--text3);margin-top:4px">Solo aparece esa pestaña en el panel público cuando el pin tiene al menos un evento activo en ese momento.</p>
       </div>
+      <div class="fg">
+        <label class="fl">Cambios habilitados por DEFAULT para un evento nuevo</label>
+        <input class="fi" id="evt-config-cambios-default" type="number" min="0" step="1" placeholder="3">
+        <p style="font-size:11px;color:var(--text3);margin-top:4px">Cada "Guardar cambios" de quien edita su propio evento consume 1, sin importar cuántos campos tocó. Vos como admin podés recargarle el número a un evento puntual desde su edición.</p>
+      </div>
+      <div class="fg" style="display:flex;align-items:center;gap:8px">
+        <input type="checkbox" id="evt-config-habilitar-creacion" checked style="width:auto">
+        <label class="fl" style="margin:0" for="evt-config-habilitar-creacion">Habilitar que cualquier usuario logueado pueda crear eventos</label>
+      </div>
+      <p style="font-size:11px;color:var(--text3);margin-top:-6px;margin-bottom:8px">Con esto apagado, nadie salvo vos puede dar de alta un evento nuevo — los eventos ya creados no se ven afectados.</p>
+      <button class="geocoder-btn" id="btn-save-evt-config">Guardar configuración</button>
     </div>
+
 
     <!-- GLOBAL APPEARANCE -->
     <div class="tpane" id="tp-global">
@@ -1603,6 +1736,7 @@ campo-05:
   <script src="js/pin-adjust.js" defer></script>
   <script src="js/pin-geocode.js" defer></script>
   <script src="js/eventos.js" defer></script>
+  <script src="js/user-panel.js" defer></script>
   <script src="js/cluster.js" defer></script>
 
   <!-- 7b. Map settings -->
