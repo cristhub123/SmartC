@@ -1297,12 +1297,16 @@ let _pendingBulkFullImport = null;
  * Firestore (si existe) y arma el HTML del reporte de previsualización:
  * cuántos son nuevos, cuántos van a actualizar un pin existente, qué
  * idiomas de `campos` se tocan en cada uno, y — el punto central de
- * la Etapa 6 — qué datos ya cargados a mano en el admin (categoría,
- * imagen banner, descripción/historia del campo viejo, teléfono,
- * horario del campo viejo, si estaba publicado, posición/tamaño del
- * pin en el mapa) se van a PERDER si se confirma, porque este
- * importador reemplaza el pin entero al actualizar (ver aviso de la
- * Etapa 5 en PLAN_IMPORTACION_MASIVA.md).
+ * la Etapa 6 — un aviso simple y genérico (sin enumerar campo por
+ * campo) de que actualizar un pin existente reemplaza TODO lo que
+ * tenía cargado a mano, porque este importador reemplaza el pin
+ * entero al actualizar (ver aviso de la Etapa 5 en
+ * PLAN_IMPORTACION_MASIVA.md).
+ *
+ * [Etapa 9, 2026-08-28] Antes este aviso enumeraba cada campo en
+ * riesgo (categoría, banner, teléfono, etc.) — a pedido de Cris se
+ * simplificó a un mensaje genérico único: no hace falta nombrar cada
+ * cosa, alcanza con avisar que se sobrescribe todo lo previo.
  */
 function _buildBulkImportPreviewHtml(pins, errors) {
   let newCount = 0, updateCount = 0, warnCount = 0;
@@ -1320,22 +1324,8 @@ function _buildBulkImportPreviewHtml(pins, errors) {
     }
 
     updateCount++;
-    const losses = [];
-    if (existing.category || (existing.categories && existing.categories.length)) losses.push('categoría');
-    if (existing.banner && existing.banner.url) losses.push('imagen banner');
-    if (existing.desc && existing.desc.trim()) losses.push('descripción (el campo viejo del editor, no "campos_es")');
-    if (existing.hist && existing.hist.trim() && existing.hist !== 'Sin datos históricos.') losses.push('historia');
-    if (existing.phone) losses.push('teléfono');
-    if (existing.hours) losses.push('horario (el campo viejo del editor)');
-    if (existing.active === true) losses.push('estado publicado (queda oculto/inactivo)');
-    if (existing.pinScale && existing.pinScale !== 100) losses.push('tamaño del pin ajustado en el mapa');
-    if ((existing.pinOffsetX && existing.pinOffsetX !== 0) || (existing.pinOffsetY && existing.pinOffsetY !== 0)) losses.push('posición del pin ajustada en el mapa');
-
-    let warnHtml = '';
-    if (losses.length) {
-      warnCount++;
-      warnHtml = `<div style="color:var(--danger,#e11d48);margin-top:2px">⚠️ ya existe y tiene <strong>${losses.join(', ')}</strong> cargado(s) a mano — se va(n) a perder si confirmás, porque este importador reemplaza el pin entero.</div>`;
-    }
+    warnCount++;
+    const warnHtml = `<div style="color:var(--danger,#e11d48);margin-top:2px">⚠️ Todo el contenido de este pin (id "${p.id}") se va a perder y reemplazar solo por lo que estás cargando ahora. Lo único que persiste es el id.</div>`;
     return `<div style="margin-bottom:6px">✏️ <strong>${p.name}</strong> — ya existe, se actualiza. Campos que se tocan: ${langsLabel}. Imágenes en este bloque: ${imgCount}.${warnHtml}</div>`;
   }).join('');
 
