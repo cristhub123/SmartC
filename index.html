@@ -22,9 +22,9 @@ After modifying this file, update /AI_SESSION.md with the change and verificatio
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Nunito:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
   <!-- App CSS -->
-  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/base.css?v=20260829">
   <!-- CSS del Panel POI -->
-  <link rel="stylesheet" href="css/poi-panel.css">
+  <link rel="stylesheet" href="css/poi-panel.css?v=20260829">
 
   <!-- Critical inline: prevents white flash -->
   <style>
@@ -1836,12 +1836,12 @@ campo-05:
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js" defer></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js" defer></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js" defer></script>
-  <script src="js/firebase-init.js" defer></script>
-  <script src="js/firestore-sync.js" defer></script>
+  <script src="js/firebase-init.js?v=20260829" defer></script>
+  <script src="js/firestore-sync.js?v=20260829" defer></script>
 
   <!-- Módulo de Estado Centralizado (Central Store) -->
-  <script src="js/app-state.js" defer></script>
-  <script src="js/lang-switcher.js" defer></script>
+  <script src="js/app-state.js?v=20260829" defer></script>
+  <script src="js/lang-switcher.js?v=20260829" defer></script>
   <!-- [DESCONECTADO 2026-08-13 — smartcityV3.0_fix-mapa-pines. NO BORRAR ESTA NOTA
        en una limpieza futura: explica por qué este script sigue en el repo pero
        sin cargarse.] js/pois-loader.js hidrataba AppState/window.POIS con los 4
@@ -1851,72 +1851,72 @@ campo-05:
        reales vía syncAppStateWithPOIS() (js/firestore-sync.js). Detalle completo
        en CAMBIOS.txt. Para reactivar este loader habría que revertir también
        js/pois-bootstrap.js más abajo. -->
-  <!-- <script src="js/pois-loader.js" defer></script> -->
-  <script src="js/settings-sync.js" defer></script>
-  <script src="js/config.js" defer></script>
-  <script src="js/overlay-manager.js" defer></script>
-  <script src="js/scroll-hints.js" defer></script>
+  <!-- <script src="js/pois-loader.js?v=20260829" defer></script> -->
+  <script src="js/settings-sync.js?v=20260829" defer></script>
+  <script src="js/config.js?v=20260829" defer></script>
+  <script src="js/overlay-manager.js?v=20260829" defer></script>
+  <script src="js/scroll-hints.js?v=20260829" defer></script>
 
   <!-- 2. Map init -->
-  <script src="js/map.js" defer></script>
+  <script src="js/map.js?v=20260829" defer></script>
 
   <!-- 3. Core marker logic -->
-  <script src="js/markers.js" defer></script>
-  <script src="js/poi-panel.js" defer></script>
+  <script src="js/markers.js?v=20260829" defer></script>
+  <script src="js/poi-panel.js?v=20260829" defer></script>
   <!-- [DESCONECTADO 2026-08-13 — smartcityV3.0_fix-mapa-pines. NO BORRAR ESTA NOTA
        en una limpieza futura.] js/pois-bootstrap.js reemplazaba makeMarker global
        por una versión "guardia" que solo dibujaba un pin si existía en AppState
        (o sea, solo los 4 de pois_cordoba.json) — bloqueaba en silencio TODO pin
        real creado desde el admin. Causa raíz confirmada del bug "los pines
        nuevos/editados no aparecen en el mapa". Detalle completo en CAMBIOS.txt. -->
-  <!-- <script src="js/pois-bootstrap.js" defer></script> -->
+  <!-- <script src="js/pois-bootstrap.js?v=20260829" defer></script> -->
 
   <!-- 4. Admin panel (defines switchTab) -->
-  <script src="js/admin.js" defer></script>
-  <script src="js/admin-auth.js" defer></script>
-  <script src="js/user-auth.js" defer></script>
-  <script src="js/owner-panel.js" defer></script>
+  <script src="js/admin.js?v=20260829" defer></script>
+  <script src="js/admin-auth.js?v=20260829" defer></script>
+  <script src="js/user-auth.js?v=20260829" defer></script>
+  <script src="js/owner-panel.js?v=20260829" defer></script>
 
   <!-- 5. Utilities -->
-  <script src="js/cloudinary-admin.js" defer></script>
-  <script src="js/utils.js" defer></script>
-  <script src="js/img-slots.js" defer></script>
-  <script src="js/geocoder.js" defer></script>
+  <script src="js/cloudinary-admin.js?v=20260829" defer></script>
+  <script src="js/utils.js?v=20260829" defer></script>
+  <script src="js/img-slots.js?v=20260829" defer></script>
+  <script src="js/geocoder.js?v=20260829" defer></script>
 
   <!-- 6. Admin sub-panels (use registerTabPlugin) -->
-  <script src="js/admin-global.js" defer></script>
-  <script src="js/themes.js" defer></script>
-  <script src="js/typography.js" defer></script>
-  <script src="js/cities.js" defer></script>
-  <script src="js/features.js" defer></script>
-  <script src="js/content-import.js" defer></script>
-  <script src="js/roadmap.js" defer></script>
-  <script src="js/zones.js" defer></script>
-  <script src="js/groups.js" defer></script>
-  <script src="js/categories.js" defer></script>
-  <script src="js/shadow-eye.js" defer></script>
+  <script src="js/admin-global.js?v=20260829" defer></script>
+  <script src="js/themes.js?v=20260829" defer></script>
+  <script src="js/typography.js?v=20260829" defer></script>
+  <script src="js/cities.js?v=20260829" defer></script>
+  <script src="js/features.js?v=20260829" defer></script>
+  <script src="js/content-import.js?v=20260829" defer></script>
+  <script src="js/roadmap.js?v=20260829" defer></script>
+  <script src="js/zones.js?v=20260829" defer></script>
+  <script src="js/groups.js?v=20260829" defer></script>
+  <script src="js/categories.js?v=20260829" defer></script>
+  <script src="js/shadow-eye.js?v=20260829" defer></script>
 
   <!-- 7. Features -->
-  <script src="js/pin-adjust.js" defer></script>
-  <script src="js/pin-geocode.js" defer></script>
-  <script src="js/eventos-form-shared.js" defer></script>
-  <script src="js/eventos.js" defer></script>
-  <script src="js/user-panel.js" defer></script>
-  <script src="js/usuarios-admin.js" defer></script>
-  <script src="js/empleados.js" defer></script>
-  <script src="js/cluster.js" defer></script>
+  <script src="js/pin-adjust.js?v=20260829" defer></script>
+  <script src="js/pin-geocode.js?v=20260829" defer></script>
+  <script src="js/eventos-form-shared.js?v=20260829" defer></script>
+  <script src="js/eventos.js?v=20260829" defer></script>
+  <script src="js/user-panel.js?v=20260829" defer></script>
+  <script src="js/usuarios-admin.js?v=20260829" defer></script>
+  <script src="js/empleados.js?v=20260829" defer></script>
+  <script src="js/cluster.js?v=20260829" defer></script>
 
   <!-- 7b. Map settings -->
-  <script src="js/map-settings.js" defer></script>
+  <script src="js/map-settings.js?v=20260829" defer></script>
 
   <!-- 7c. Autofill from OSM -->
-  <script src="js/autofill.js" defer></script>
+  <script src="js/autofill.js?v=20260829" defer></script>
 
   <!-- 8. Data I/O -->
-  <script src="js/data-io.js" defer></script>
+  <script src="js/data-io.js?v=20260829" defer></script>
 
   <!-- 9. Init orchestrator — ALWAYS LAST -->
-  <script src="js/app.js" defer></script>
+  <script src="js/app.js?v=20260829" defer></script>
 
 </body>
 </html>
