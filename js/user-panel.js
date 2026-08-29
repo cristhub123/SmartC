@@ -193,14 +193,11 @@ function _upRenderMisEventos() {
   emptyEl.style.display = 'none';
 
   listEl.innerHTML = _upMisEventos.map(ev => {
-    const pin = (typeof POIS !== 'undefined' ? POIS : []).find(p => p.id === ev.poi_id);
-    const pinLabel = pin ? (pin.name || pin.id) : (ev.poi_id || '—');
-    const fechas = [ev.fecha_inicio, ev.fecha_fin].filter(Boolean)
-      .map(iso => new Date(iso).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }))
-      .join(' → ');
+    // [Etapa 10, Parte 3] cálculo de pin/fechas/entrada centralizado —
+    // mismo helper que usa la lista del panel admin.
+    const { pinLabel, fechas, entradaTxt } = EventosFormCommon.formatEventoResumen(ev);
     const cambios = (typeof ev.cambiosRestantes === 'number') ? ev.cambiosRestantes : 0;
     const puedeEditar = cambios > 0;
-    const entradaTxt = ev.entradaGratis === false ? `💵 ${ev.valorEntrada || 'con costo'}` : '🆓 Gratis';
     return `
       <div class="evt-admin-row" data-evento-id="${_escAttr(ev.id)}">
         <div class="evt-admin-row-main">

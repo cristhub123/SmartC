@@ -920,11 +920,9 @@ async function _loadEventosAdminList() {
   }
  
   listEl.innerHTML = _eventosCache.map(ev => {
-    const pin = (typeof POIS !== 'undefined' ? POIS : []).find(p => p.id === ev.poi_id);
-    const pinLabel = pin ? (pin.name || pin.id) : (ev.poi_id || '—');
-    const fechas = [ev.fecha_inicio, ev.fecha_fin].filter(Boolean)
-      .map(iso => new Date(iso).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }))
-      .join(' → ');
+    // [Etapa 10, Parte 3] cálculo de pin/fechas/entrada centralizado —
+    // mismo helper que usa la lista "Mis eventos" del panel usuario.
+    const { pin, pinLabel, fechas, entradaTxt } = EventosFormCommon.formatEventoResumen(ev);
     // [Etapa 4] si el pin es evento_temporal y ya se auto-desactivó
     // (sin eventos vigentes), se avisa acá mismo con 1 click para
     // reactivarlo a mano — ver decisión 3 en checkEventosTemporalesLifecycle.
@@ -934,7 +932,6 @@ async function _loadEventosAdminList() {
     const tagsLabels = (ev.tags || [])
       .map(id => (_categoriasEventoState.find(c => c.id === id) || {}).label || id)
       .filter(Boolean).join(', ');
-    const entradaTxt = ev.entradaGratis === false ? `💵 ${ev.valorEntrada || 'con costo'}` : '🆓 Gratis';
     return `
       <div class="evt-admin-row" data-evento-id="${_escAttr(ev.id)}">
         <div class="evt-admin-row-main">

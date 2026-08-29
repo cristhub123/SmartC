@@ -9,17 +9,19 @@ After modifying this file, update /AI_SESSION.md with the change and verificatio
 */
 
 /**
- * [Etapa 10 — PLAN_UNIFICACION_FORMULARIO_EVENTOS.md, Partes 1 y 2]
- * MÓDULO COMPARTIDO — bloques de UI y de lectura/precarga de campos
- * que eran copia exacta entre js/eventos.js (panel Admin, prefijo
- * `evt-`) y js/user-panel.js (panel de Usuario, prefijo `up-evt-`).
+ * [Etapa 10 — PLAN_UNIFICACION_FORMULARIO_EVENTOS.md, Partes 1, 2 y 3
+ * — PLAN COMPLETO]
+ * MÓDULO COMPARTIDO — bloques de UI, lectura/precarga de campos, y
+ * resumen de listado que eran copia exacta entre js/eventos.js
+ * (panel Admin, prefijo `evt-`) y js/user-panel.js (panel de
+ * Usuario, prefijo `up-evt-`).
  * ---------------------------------------------------------------
- * Parte 1 (ya entregada): Camino A/B, buscador de pines, selección/
- * deselección de pin, coords del Camino B, tilde "entrada gratis".
+ * Parte 1: Camino A/B, buscador de pines, selección/deselección de
+ * pin, coords del Camino B, tilde "entrada gratis".
  *
- * Parte 2 (esta entrega): lectura (`readCamposComunes`), precarga en
- * modo edición (`precargarCamposComunes`) y limpieza (`resetCamposComunes`)
- * de los campos de CONTENIDO del evento que son idénticos en los 2
+ * Parte 2: lectura (`readCamposComunes`), precarga en modo edición
+ * (`precargarCamposComunes`) y limpieza (`resetCamposComunes`) de
+ * los campos de CONTENIDO del evento que son idénticos en los 2
  * formularios (nombre, descripción, fechas, horario, entrada gratis/
  * valor, dirección, contacto x4, tags). El guardado real en Firestore
  * (saveEvento/saveUpEvento) sigue siendo 2 funciones separadas — cada
@@ -27,6 +29,20 @@ After modifying this file, update /AI_SESSION.md with the change and verificatio
  * propios campos exclusivos, y hace su propia escritura (admin:
  * `.set`/`.add` libre; usuario: `.update` con `increment(-1)` de
  * cambios, respetando el `hasOnly([...])` de las reglas de Firestore).
+ *
+ * Parte 3 (esta entrega, cierra el plan): `formatEventoResumen` —
+ * el cálculo de a qué pin quedó anexado un evento, el rango de
+ * fechas formateado, y el texto de entrada gratis/paga, que las 2
+ * listas (tab Eventos admin y "Mis eventos" del panel usuario)
+ * calculaban con el mismo código. Cada lista sigue armando su propia
+ * tarjeta HTML con sus propios badges/acciones — eso NO se unificó a
+ * propósito: admin ve TODOS los eventos con más acciones (editar/
+ * activar/borrar/reactivar pin, badges de estado/tags/destacado/
+ * cambios); usuario ve solo los propios con edición gated por
+ * cambios > 0. Es la diferencia de permisos real del plan (sección 4
+ * del PLAN_UNIFICACION_FORMULARIO_EVENTOS.md), a propósito NO
+ * genérica.
+ *
  * Tampoco se tocaron las secciones solo-admin (ciudad con doble
  * candado, asignación por mail, destacado, cambios restantes) ni el
  * Camino A/B al editar (el usuario nunca puede tocar el lugar).
@@ -218,6 +234,24 @@ window.EventosFormCommon = (function () {
     if (previewEl) { previewEl.textContent = ''; previewEl.className = ''; }
   }
 
+  /** [Etapa 10, Parte 3] Datos de resumen de un evento que las 2
+   *  listas (admin y "Mis eventos") calculan igual: a qué pin quedó
+   *  anexado (o su id crudo si el pin ya no existe), el rango de
+   *  fechas formateado, y el texto de entrada gratis/paga. Cada
+   *  lista arma su propia tarjeta HTML con sus propios badges y
+   *  acciones (admin: estado/tags/destacado/cambios/editar/activar/
+   *  borrar; usuario: activo/cambios/editar-gated) — eso NO se
+   *  unificó a propósito, son 2 vistas con permisos distintos. */
+  function formatEventoResumen(ev) {
+    const pin = (typeof POIS !== 'undefined' ? POIS : []).find(p => p.id === ev.poi_id);
+    const pinLabel = pin ? (pin.name || pin.id) : (ev.poi_id || '—');
+    const fechas = [ev.fecha_inicio, ev.fecha_fin].filter(Boolean)
+      .map(iso => new Date(iso).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }))
+      .join(' → ');
+    const entradaTxt = ev.entradaGratis === false ? `💵 ${ev.valorEntrada || 'con costo'}` : '🆓 Gratis';
+    return { pin, pinLabel, fechas, entradaTxt };
+  }
+
   return {
     applyCaminoUI,
     renderBuscarPinResults,
@@ -229,5 +263,6 @@ window.EventosFormCommon = (function () {
     readCamposComunes,
     precargarCamposComunes,
     resetCamposComunes,
+    formatEventoResumen,
   };
 })();
