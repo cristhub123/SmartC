@@ -1,80 +1,112 @@
 ════════════════════════════════════════════════════════════════
-UNIFICACIÓN DEL FORMULARIO DE EVENTO (Etapa 10) — Parte 1 de 3
+UNIFICACIÓN DEL FORMULARIO DE EVENTO (Etapa 10) — Parte 2 de 3
 Ver plan completo: PLAN_UNIFICACION_FORMULARIO_EVENTOS.md
 ════════════════════════════════════════════════════════════════
 
 PLAN COMPLETO (3 partes, ~26-37 hs total, riesgo medio-alto)
 ────────────────────────────────────────────────────────────────
 Parte 1 — Módulo compartido: campos, validación y lógica común
-          (sin conectar al guardado). Estimación: 10-13 hs.
+          (sin conectar al guardado). Estimación: 10-13 hs. ✅ HECHA
 Parte 2 — Guardado real + edición, respetando los permisos de
           cada panel (admin vs autoservicio). Estimación: 10-14 hs.
+          ✅ HECHA (esta entrega)
 Parte 3 — Listas + repaso de regresión completo sobre TODO lo que
           hoy funciona en los 2 paneles. Estimación: 6-10 hs.
 
-ESTA ENTREGA: PARTE 1 — COMPLETADA
+ESTA ENTREGA: PARTE 2 — COMPLETADA
 ────────────────────────────────────────────────────────────────
-Se creó js/eventos-form-shared.js (nuevo, se carga antes de
-eventos.js y user-panel.js) con la lógica que estaba duplicada
-entre el formulario admin (prefijo `evt-`) y el del panel de
-usuario (prefijo `up-evt-`), genérica por idPrefix:
+Se extendió js/eventos-form-shared.js con 3 funciones nuevas
+(genéricas por idPrefix) que reemplazan bloques que eran copia
+exacta entre eventos.js y user-panel.js:
 
-  - Toggle Camino A/B (pin existente vs pin nuevo) — solo la parte
-    visual (mostrar/ocultar botones y paneles).
-  - Buscador de pines existentes (Camino A) y pintado de resultados.
-  - Selección/deselección de un pin buscado (tarjetita con nombre).
-  - Cierre del dropdown de resultados al clickear afuera.
-  - Texto de coordenadas del pin mínimo (Camino B).
-  - Tilde "entrada gratuita" (mostrar/ocultar el campo de valor).
+  - readCamposComunes(idPrefix): lee del DOM los campos de
+    CONTENIDO del evento (nombre, descripción, fechas, horario,
+    entrada gratis/valor, tags, contacto x4). NO incluye `direccion`
+    a propósito — su resolución depende del Camino A/B + pin
+    elegido, y eso lo sigue resolviendo cada panel por separado
+    con EventosShared.resolveDireccionFinal (sin cambios).
+  - precargarCamposComunes(idPrefix, ev): llena esos mismos campos
+    en modo edición, a partir de un evento ya guardado (incluye
+    `direccion` porque ahí sí es un input de texto simple a
+    precargar, no algo a resolver).
+  - resetCamposComunes(idPrefix): limpia esos mismos campos al
+    cancelar/crear.
 
-js/eventos.js y js/user-panel.js quedaron con las MISMAS funciones
-de siempre (_evtSetCamino, _evtBuscarPines, _evtSeleccionarPin,
-_evtQuitarSeleccion, _syncEvtPinCoordDisplay y sus equivalentes
-_up*), pero ahora todas delegan al módulo compartido en vez de
-tener su propia copia del código. Nada que ya funcionaba cambió de
-comportamiento — es la misma lógica, movida a 1 solo lugar.
+saveEvento() (admin) y saveUpEvento() (usuario) ahora arrancan
+llamando a readCamposComunes() en vez de leer campo por campo, pero
+CADA UNA sigue armando su propio objeto final y haciendo su propia
+escritura exactamente como antes:
 
-QUÉ NO SE TOCÓ (queda para la Parte 2)
+  - Admin: sigue leyendo aparte sus campos exclusivos (activo,
+    usuarioAsignadoUid, destacado, destacado_hasta, city con
+    doble candado, cambiosRestantes editable) y sigue usando
+    `.set(..., {merge:true})` / `.add(...)`.
+  - Usuario: sigue con su propia lógica de permisos (chequeo de
+    cambiosRestantes > 0 antes de guardar, autoasignación de
+    creadorUid/usuarioAsignadoUid, activo:false al crear) y sigue
+    usando `.update({..., cambiosRestantes: increment(-1)})`, con
+    exactamente los mismos campos que permite el hasOnly([...]) de
+    las reglas de Firestore actuales (ver charla de este chat sobre
+    reglas — no se agregó ni se sacó ningún campo de esa lista).
+
+_evtStartEdit/_resetEventoForm (admin) y _upStartEdit/_upResetEvtForm
+(usuario) ahora delegan la precarga/reset de esos mismos campos
+comunes al módulo compartido, y cada uno sigue manejando aparte sus
+propias secciones exclusivas (ciudad+candado, asignación, destacado,
+cambios — solo admin; bloqueo del bloque "lugar" al editar — solo
+usuario, porque el usuario nunca puede tocar el lugar de un evento
+ya creado).
+
+QUÉ NO SE TOCÓ
 ────────────────────────────────────────────────────────────────
-  - saveEvento() / saveUpEvento(): siguen 100% separadas, con sus
-    diferencias de permisos intactas (`.add`/`.set` libre del admin
-    vs `.update` con `cambiosRestantes: increment(-1)` del
-    autoservicio).
-  - La precarga de edición (_evtStartEdit / _upStartEdit) y el reset
-    del formulario (_resetEventoForm / _upResetEvtForm): siguen
-    separadas.
-  - Las secciones solo-admin (ciudad con doble candado, asignación
-    por mail, destacado, cambios restantes): sin tocar.
-  - Los campos ya compartidos desde antes (Etapa 9, vía
-    `window.EventosShared` en eventos.js: tags, dirección
-    condicional, validación de obligatorios, nombre único por
-    ciudad): sin tocar, siguen funcionando igual.
+  - Ningún campo nuevo se agregó ni se sacó de lo que se guarda en
+    Firestore — es el mismo objeto de siempre, armado de otra forma.
+  - Las reglas de Firestore no se tocaron (siguen siendo las que
+    ya tenés publicadas, confirmadas en este mismo chat).
+  - Las listas (tab Eventos del admin, "Mis eventos" del usuario):
+    sin tocar — eso es la Parte 3.
+  - Camino A/B al editar: el admin lo sigue pudiendo cambiar, el
+    usuario lo sigue teniendo bloqueado — sin cambios de conducta.
 
 ARCHIVOS EN ESTE ZIP
 ────────────────────────────────────────────────────────────────
-  - js/eventos-form-shared.js  → NUEVO
-  - js/eventos.js              → editado (delega al módulo nuevo)
-  - js/user-panel.js           → editado (delega al módulo nuevo)
-  - index.html                 → editado (agrega el <script> nuevo,
-                                  cargado antes de eventos.js)
+  - js/eventos-form-shared.js  → editado (+3 funciones: Parte 2)
+  - js/eventos.js              → editado (saveEvento/_evtStartEdit/
+                                  _resetEventoForm delegan al módulo)
+  - js/user-panel.js           → editado (saveUpEvento/_upStartEdit/
+                                  _upResetEvtForm delegan al módulo)
+  - index.html                 → sin cambios nuevos (el <script> del
+                                  módulo ya se había agregado en la
+                                  Parte 1)
 
-QUÉ PROBAR EN TU ENTORNO ANTES DE SEGUIR A LA PARTE 2
+QUÉ PROBAR EN TU ENTORNO ANTES DE SEGUIR A LA PARTE 3
 ────────────────────────────────────────────────────────────────
-En el panel Admin (tab 🎉 Eventos) y en el panel de Usuario (solapa
-Eventos), sobre el formulario de alta:
-  1. Cambiar entre Camino A y Camino B — se muestra/oculta bien
-     cada bloque.
-  2. Camino A: buscar un pin por nombre, elegirlo, y tocar "Quitar"
-     — la tarjetita aparece/desaparece bien y la dirección heredada
-     del pin se actualiza en ambos casos.
-  3. Camino B: buscar una dirección con el geocoder o hacer click en
-     el mapa — el texto de coordenadas se actualiza bien.
-  4. Tildar/destildar "Entrada gratuita" — el campo de valor
-     aparece/desaparece bien.
-  5. Guardar un evento de prueba en cada panel (Camino A y B) para
-     confirmar que el guardado real (sin tocar en esta entrega)
-     sigue funcionando exactamente igual que antes.
+En el panel Admin (tab 🎉 Eventos):
+  1. Crear un evento nuevo por Camino A (pin existente) con TODOS
+     los campos cargados (horario, entrada paga con valor, tags,
+     los 4 de contacto) — confirmar que se guarda todo bien.
+  2. Crear un evento nuevo por Camino B (pin nuevo) — confirmar que
+     se sigue creando el pin mínimo y el evento correctamente.
+  3. Editar un evento existente: cambiar nombre/descripción/fechas/
+     tags/contacto y guardar — confirmar que se actualiza bien y
+     que el resto de sus campos (activo, destacado, cambios,
+     ciudad) no se pierde.
+  4. Editar un evento y esta vez tocar solo los campos exclusivos
+     de admin (activo, destacado, asignado, ciudad con candado,
+     cambios restantes) — confirmar que siguen funcionando igual.
+  5. Cancelar una edición a mitad de camino y volver a "Nuevo
+     evento" — confirmar que el formulario queda limpio de verdad
+     (sin restos del evento anterior).
+
+En el panel de Usuario (solapa Eventos):
+  6. Crear un evento nuevo (Camino A o B, según tenga habilitado) —
+     confirmar que se guarda con cambiosRestantes por defecto y
+     activo:false.
+  7. Editar uno de "Mis eventos" ya creado, con cambiosRestantes > 0
+     — confirmar que guarda bien y que el contador baja en 1.
+  8. Con un evento en 0 cambios restantes, confirmar que sigue
+     bloqueando el guardado con el mensaje de aviso (esto no debería
+     haber cambiado, pero es el punto más sensible a un descuido).
 
 Si algo de esto no anda como antes, avisar antes de arrancar la
-Parte 2 — que además de guardado toca las secciones solo-admin, más
-sensibles.
+Parte 3 (listas + regresión completa).

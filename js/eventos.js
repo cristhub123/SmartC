@@ -690,27 +690,21 @@ async function saveEvento() {
   const btn = document.getElementById('btn-save-evento');
   const editando = !!_evtEditingId;
   if (errEl) errEl.textContent = '';
- 
-  const nombre = document.getElementById('evt-nombre')?.value.trim() || '';
+
+  // [Etapa 10, Parte 2] campos de contenido comunes a los 2
+  // formularios — lectura centralizada en EventosFormCommon; los
+  // campos exclusivos del admin (activo/asignado/destacado/ciudad/
+  // cambios) se siguen leyendo acá mismo, aparte.
+  const comunes = EventosFormCommon.readCamposComunes('evt-');
+  const { nombre, descripcion, fecha_inicio, fecha_fin, horario, entradaGratis, valorEntrada,
+          contactoEmail, contactoRedSocial, contactoTelefono, contactoWeb, tags } = comunes;
   if (!nombre) { toast('⚠️ Ingresá el nombre del evento'); return; }
- 
-  const descripcion = document.getElementById('evt-descripcion')?.value.trim() || '';
-  const fecha_inicio = _dateInputToIso('evt-fecha-inicio');
-  const fecha_fin = _dateInputToIso('evt-fecha-fin');
+
   const activo = !!document.getElementById('evt-activo')?.checked;
   const usuarioAsignadoUid = document.getElementById('evt-asignado-uid')?.value.trim() || null;
   const destacado = !!document.getElementById('evt-destacado')?.checked;
   const destacado_hasta = destacado ? _dateInputToIso('evt-destacado-hasta') : null;
- 
-  // [Etapa 9 — simplificada] campos nuevos
-  const horario = document.getElementById('evt-horario')?.value.trim() || '';
-  const entradaGratis = !!document.getElementById('evt-entrada-gratis')?.checked;
-  const valorEntrada = entradaGratis ? '' : (document.getElementById('evt-valor-entrada')?.value.trim() || '');
-  const contactoEmail = document.getElementById('evt-contacto-email')?.value.trim() || '';
-  const contactoRedSocial = document.getElementById('evt-contacto-social')?.value.trim() || '';
-  const contactoTelefono = document.getElementById('evt-contacto-telefono')?.value.trim() || '';
-  const contactoWeb = document.getElementById('evt-contacto-web')?.value.trim() || '';
-  const tags = _evtReadTagsFromForm('evt-tags-wrap');
+
   const direccion = _evtResolveDireccionFinal('evt-', _evtCamino, _evtSelectedPinId);
  
   const errComun = _evtValidateComunes({ fecha_inicio, fecha_fin, horario, direccion, contactoEmail, contactoRedSocial, contactoTelefono, contactoWeb, tags });
@@ -815,11 +809,10 @@ function _evtStartEdit(eventoId) {
   const ev = _eventosCache.find(e => e.id === eventoId);
   if (!ev) return;
   _evtEditingId = eventoId;
- 
-  document.getElementById('evt-nombre').value = ev.nombre || '';
-  document.getElementById('evt-descripcion').value = ev.descripcion || '';
-  document.getElementById('evt-fecha-inicio').value = ev.fecha_inicio ? ev.fecha_inicio.slice(0, 16) : '';
-  document.getElementById('evt-fecha-fin').value = ev.fecha_fin ? ev.fecha_fin.slice(0, 16) : '';
+
+  // [Etapa 10, Parte 2] campos de contenido comunes — precarga
+  // centralizada; los campos exclusivos del admin siguen acá mismo.
+  EventosFormCommon.precargarCamposComunes('evt-', ev);
   document.getElementById('evt-activo').checked = !!ev.activo;
   document.getElementById('evt-asignado-uid').value = ev.usuarioAsignadoUid || '';
   document.getElementById('evt-destacado').checked = !!ev.destacado;
@@ -827,32 +820,19 @@ function _evtStartEdit(eventoId) {
   document.getElementById('evt-destacado-hasta').value = ev.destacado_hasta ? ev.destacado_hasta.slice(0, 16) : '';
   document.getElementById('evt-cambios-restantes').value = (typeof ev.cambiosRestantes === 'number') ? ev.cambiosRestantes : '';
   document.getElementById('evt-city').value = ev.city || '';
- 
-  // [Etapa 9 — simplificada] campos nuevos
-  document.getElementById('evt-horario').value = ev.horario || '';
-  document.getElementById('evt-entrada-gratis').checked = ev.entradaGratis !== false; // default gratis si no se guardó nunca
-  document.getElementById('evt-valor-entrada-block').style.display = (ev.entradaGratis === false) ? '' : 'none';
-  document.getElementById('evt-valor-entrada').value = ev.valorEntrada || '';
-  document.getElementById('evt-direccion').value = ev.direccion || '';
-  document.getElementById('evt-contacto-email').value = ev.contactoEmail || '';
-  document.getElementById('evt-contacto-social').value = ev.contactoRedSocial || '';
-  document.getElementById('evt-contacto-telefono').value = ev.contactoTelefono || '';
-  document.getElementById('evt-contacto-web').value = ev.contactoWeb || '';
-  _evtRenderTagsSelector('evt-tags-wrap', ev.tags || []);
- 
+
   // Precarga el pin ya anexado como si se hubiera buscado (Camino A) —
   // el admin puede igual pasarse a Camino B si quiere cambiarlo.
   _evtSetCamino('a');
   const pin = (typeof POIS !== 'undefined' ? POIS : []).find(p => p.id === ev.poi_id);
   if (pin) {
     _evtSelectedPinId = pin.id;
-    const sel = document.getElementById('evt-pin-seleccionado');
-    if (sel) { sel.style.display = ''; sel.querySelector('.evt-pin-seleccionado-name').textContent = pin.name || pin.id; }
+    EventosFormCommon.applyPinSeleccionado('evt-', pin, 'evt-pin-seleccionado-name');
   } else {
     _evtQuitarSeleccion();
   }
   _evtSyncDireccionBlock('evt-', _evtCamino, _evtSelectedPinId);
- 
+
   _evtResetCityLock();
   document.getElementById('evt-city-block').style.display = '';
   document.getElementById('evt-cambios-block').style.display = '';
@@ -860,21 +840,22 @@ function _evtStartEdit(eventoId) {
   document.getElementById('btn-save-evento').textContent = '💾 Guardar cambios';
   document.getElementById('btn-cancel-evt-edit').style.display = '';
   _evtSyncNombrePreview('evt-nombre', 'evt-nombre-preview', _evtEditingId, () => _evtResolveCityFromForm(_evtCamino, _evtSelectedPinId));
- 
+
   document.getElementById('tp-eventos-admin')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
- 
+
 function _evtCancelEdit() {
   _resetEventoForm();
 }
 document.getElementById('btn-cancel-evt-edit')?.addEventListener('click', _evtCancelEdit);
- 
+
 function _resetEventoForm() {
-  ['evt-nombre', 'evt-descripcion', 'evt-fecha-inicio', 'evt-fecha-fin',
-   'evt-pin-nombre', 'evt-pin-lat', 'evt-pin-lng', 'geo-input-evt',
+  // [Etapa 10, Parte 2] campos de contenido comunes — reset
+  // centralizado; los campos exclusivos del admin siguen acá mismo.
+  EventosFormCommon.resetCamposComunes('evt-');
+  ['evt-pin-nombre', 'evt-pin-lat', 'evt-pin-lng', 'geo-input-evt',
    'evt-asignado-uid', 'evt-asignado-email', 'evt-city', 'evt-cambios-restantes',
-   'evt-destacado-hasta', 'evt-horario', 'evt-valor-entrada', 'evt-direccion',
-   'evt-contacto-email', 'evt-contacto-social', 'evt-contacto-telefono', 'evt-contacto-web'].forEach(id => {
+   'evt-destacado-hasta'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
@@ -884,17 +865,8 @@ function _resetEventoForm() {
   if (destacadoEl) destacadoEl.checked = false;
   const destacadoHastaBlock = document.getElementById('evt-destacado-hasta-block');
   if (destacadoHastaBlock) destacadoHastaBlock.style.display = 'none';
-  // [Etapa 9 — simplificada] campos nuevos: entrada gratis por
-  // defecto, tags vacíos, dirección visible hasta que se elija un pin.
-  const entradaGratisEl = document.getElementById('evt-entrada-gratis');
-  if (entradaGratisEl) entradaGratisEl.checked = true;
-  const valorEntradaBlock = document.getElementById('evt-valor-entrada-block');
-  if (valorEntradaBlock) valorEntradaBlock.style.display = 'none';
-  _evtRenderTagsSelector('evt-tags-wrap', []);
   const resultEl = document.getElementById('evt-asignado-resultado');
   if (resultEl) resultEl.innerHTML = '';
-  const previewEl = document.getElementById('evt-nombre-preview');
-  if (previewEl) { previewEl.textContent = ''; previewEl.className = ''; }
   _evtAsignadoResueltoUid = null;
   _evtEditingId = null;
   _evtQuitarSeleccion();

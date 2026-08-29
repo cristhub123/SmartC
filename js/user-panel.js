@@ -314,23 +314,10 @@ function _upStartEdit(eventoId) {
   if (!ev) return;
   _upEvtEditingId = eventoId;
 
-  document.getElementById('up-evt-nombre').value = ev.nombre || '';
-  document.getElementById('up-evt-descripcion').value = ev.descripcion || '';
-  document.getElementById('up-evt-fecha-inicio').value = ev.fecha_inicio ? ev.fecha_inicio.slice(0, 16) : '';
-  document.getElementById('up-evt-fecha-fin').value = ev.fecha_fin ? ev.fecha_fin.slice(0, 16) : '';
-
-  // [Etapa 9 — simplificada] campos nuevos
-  document.getElementById('up-evt-horario').value = ev.horario || '';
-  document.getElementById('up-evt-entrada-gratis').checked = ev.entradaGratis !== false;
-  document.getElementById('up-evt-valor-entrada-block').style.display = (ev.entradaGratis === false) ? '' : 'none';
-  document.getElementById('up-evt-valor-entrada').value = ev.valorEntrada || '';
-  document.getElementById('up-evt-direccion').value = ev.direccion || '';
-  document.getElementById('up-evt-contacto-email').value = ev.contactoEmail || '';
-  document.getElementById('up-evt-contacto-social').value = ev.contactoRedSocial || '';
-  document.getElementById('up-evt-contacto-telefono').value = ev.contactoTelefono || '';
-  document.getElementById('up-evt-contacto-web').value = ev.contactoWeb || '';
+  // [Etapa 10, Parte 2] campos de contenido comunes — precarga
+  // centralizada (misma función que usa el panel admin).
+  EventosFormCommon.precargarCamposComunes('up-evt-', ev);
   if (window.EventosShared) {
-    EventosShared.renderTagsSelector('up-evt-tags-wrap', ev.tags || []);
     // La edición nunca toca el lugar — el bloque de dirección se
     // sincroniza igual, contra el pin YA anexado (`ev.poi_id`).
     EventosShared.syncDireccionBlock('up-evt-', 'a', ev.poi_id);
@@ -357,21 +344,12 @@ async function saveUpEvento() {
   const editando = !!_upEvtEditingId;
   if (errEl) errEl.textContent = '';
 
-  const nombre = document.getElementById('up-evt-nombre')?.value.trim() || '';
+  // [Etapa 10, Parte 2] campos de contenido comunes — lectura
+  // centralizada (misma función que usa el panel admin).
+  const comunes = EventosFormCommon.readCamposComunes('up-evt-');
+  const { nombre, descripcion, fecha_inicio, fecha_fin, horario, entradaGratis, valorEntrada,
+          contactoEmail, contactoRedSocial, contactoTelefono, contactoWeb, tags } = comunes;
   if (!nombre) { toast('⚠️ Ingresá el nombre del evento'); return; }
-  const descripcion = document.getElementById('up-evt-descripcion')?.value.trim() || '';
-  const fecha_inicio = EventosShared.dateInputToIso('up-evt-fecha-inicio');
-  const fecha_fin = EventosShared.dateInputToIso('up-evt-fecha-fin');
-
-  // [Etapa 9 — simplificada] campos nuevos
-  const horario = document.getElementById('up-evt-horario')?.value.trim() || '';
-  const entradaGratis = !!document.getElementById('up-evt-entrada-gratis')?.checked;
-  const valorEntrada = entradaGratis ? '' : (document.getElementById('up-evt-valor-entrada')?.value.trim() || '');
-  const contactoEmail = document.getElementById('up-evt-contacto-email')?.value.trim() || '';
-  const contactoRedSocial = document.getElementById('up-evt-contacto-social')?.value.trim() || '';
-  const contactoTelefono = document.getElementById('up-evt-contacto-telefono')?.value.trim() || '';
-  const contactoWeb = document.getElementById('up-evt-contacto-web')?.value.trim() || '';
-  const tags = EventosShared.readTagsFromForm('up-evt-tags-wrap');
 
   const originalBtnText = editando ? '💾 Guardar cambios' : '✓ Crear evento';
   btn.textContent = 'Guardando...'; btn.disabled = true;
@@ -487,25 +465,15 @@ async function saveUpEvento() {
 document.getElementById('btn-save-up-evento')?.addEventListener('click', saveUpEvento);
 
 function _upResetEvtForm() {
-  ['up-evt-nombre', 'up-evt-descripcion', 'up-evt-fecha-inicio', 'up-evt-fecha-fin',
-   'up-evt-pin-nombre', 'up-evt-pin-lat', 'up-evt-pin-lng', 'geo-input-up-evt',
-   'up-evt-horario', 'up-evt-valor-entrada', 'up-evt-direccion',
-   'up-evt-contacto-email', 'up-evt-contacto-social', 'up-evt-contacto-telefono', 'up-evt-contacto-web'].forEach(id => {
+  // [Etapa 10, Parte 2] campos de contenido comunes — reset
+  // centralizado (misma función que usa el panel admin).
+  EventosFormCommon.resetCamposComunes('up-evt-');
+  ['up-evt-pin-nombre', 'up-evt-pin-lat', 'up-evt-pin-lng', 'geo-input-up-evt'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
-  const previewEl = document.getElementById('up-evt-nombre-preview');
-  if (previewEl) { previewEl.textContent = ''; previewEl.className = ''; }
-  const errEl = document.getElementById('up-evt-form-error');
-  if (errEl) errEl.textContent = '';
   document.getElementById('up-evt-cambios-info').textContent = '';
   document.getElementById('btn-save-up-evento').textContent = '✓ Crear evento';
-  // [Etapa 9 — simplificada] entrada gratis por defecto + tags vacíos
-  const entradaGratisEl = document.getElementById('up-evt-entrada-gratis');
-  if (entradaGratisEl) entradaGratisEl.checked = true;
-  const valorEntradaBlock = document.getElementById('up-evt-valor-entrada-block');
-  if (valorEntradaBlock) valorEntradaBlock.style.display = 'none';
-  if (window.EventosShared) EventosShared.renderTagsSelector('up-evt-tags-wrap', []);
   _upEvtEditingId = null;
   _upQuitarSeleccion();
   _syncUpEvtPinCoordDisplay();

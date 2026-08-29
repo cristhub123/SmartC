@@ -9,30 +9,36 @@ After modifying this file, update /AI_SESSION.md with the change and verificatio
 */
 
 /**
- * [Etapa 10 — PLAN_UNIFICACION_FORMULARIO_EVENTOS.md, Parte 1]
- * MÓDULO COMPARTIDO — bloques de UI del formulario de evento que eran
- * copia exacta entre js/eventos.js (panel Admin, prefijo `evt-`) y
- * js/user-panel.js (panel de Usuario, prefijo `up-evt-`).
+ * [Etapa 10 — PLAN_UNIFICACION_FORMULARIO_EVENTOS.md, Partes 1 y 2]
+ * MÓDULO COMPARTIDO — bloques de UI y de lectura/precarga de campos
+ * que eran copia exacta entre js/eventos.js (panel Admin, prefijo
+ * `evt-`) y js/user-panel.js (panel de Usuario, prefijo `up-evt-`).
  * ---------------------------------------------------------------
- * Alcance de ESTA parte (Parte 1 del plan): solo UI/lógica común que
- * NO toca el guardado en Firestore — toggle Camino A/B, buscador de
- * pines existentes, selección/deselección de pin, display de
- * coordenadas del Camino B, y el tilde de "entrada gratis". Todo
- * genérico por `idPrefix` (mismo criterio que ya usaba este proyecto
- * en `_evtSyncDireccionBlock`/`_evtValidateComunes`, ver EventosShared
- * en js/eventos.js).
+ * Parte 1 (ya entregada): Camino A/B, buscador de pines, selección/
+ * deselección de pin, coords del Camino B, tilde "entrada gratis".
  *
- * El guardado real (saveEvento/saveUpEvento, con sus diferencias de
- * permisos) NO se tocó — eso es la Parte 2 del plan, todavía sin
- * empezar. Este archivo tampoco decide qué campos son obligatorios
- * ni arma el objeto que se guarda — solo la interacción del Camino
- * A/B y el buscador de pines.
+ * Parte 2 (esta entrega): lectura (`readCamposComunes`), precarga en
+ * modo edición (`precargarCamposComunes`) y limpieza (`resetCamposComunes`)
+ * de los campos de CONTENIDO del evento que son idénticos en los 2
+ * formularios (nombre, descripción, fechas, horario, entrada gratis/
+ * valor, dirección, contacto x4, tags). El guardado real en Firestore
+ * (saveEvento/saveUpEvento) sigue siendo 2 funciones separadas — cada
+ * una arma su propio objeto a partir de estos campos comunes + sus
+ * propios campos exclusivos, y hace su propia escritura (admin:
+ * `.set`/`.add` libre; usuario: `.update` con `increment(-1)` de
+ * cambios, respetando el `hasOnly([...])` de las reglas de Firestore).
+ * Tampoco se tocaron las secciones solo-admin (ciudad con doble
+ * candado, asignación por mail, destacado, cambios restantes) ni el
+ * Camino A/B al editar (el usuario nunca puede tocar el lugar).
  *
  * Se carga DESPUÉS de owner-panel.js (usa `_escHtml`/`_escAttr`
  * globales de ahí) y ANTES de eventos.js/user-panel.js (ambos llaman
  * a `window.EventosFormCommon` desde sus propias funciones, ya
  * envueltas con los mismos nombres de antes para no romper nada que
- * los use).
+ * los use). Las funciones de Parte 2 llaman a `window.EventosShared`
+ * (definido al final de eventos.js) en tiempo de ejecución, no al
+ * cargar el archivo — por eso el orden de carga entre este módulo y
+ * eventos.js no importa para esa parte.
  */
 window.EventosFormCommon = (function () {
 
@@ -134,6 +140,84 @@ window.EventosFormCommon = (function () {
     });
   }
 
+  /**
+   * [Etapa 10, Parte 2] Lee del DOM los campos de CONTENIDO del evento
+   * que son idénticos en los 2 formularios (no incluye `direccion`
+   * porque su resolución depende del Camino A/B + pin elegido — eso
+   * lo sigue resolviendo cada panel con `EventosShared.resolveDireccionFinal`,
+   * como ya hacía antes de esta parte). No valida nada — la validación
+   * de obligatorios sigue siendo `EventosShared.validateComunes`,
+   * llamada aparte por cada panel junto con `direccion`.
+   */
+  function readCamposComunes(idPrefix) {
+    const val = suffix => (document.getElementById(idPrefix + suffix)?.value || '').trim();
+    const entradaGratis = !!document.getElementById(idPrefix + 'entrada-gratis')?.checked;
+    return {
+      nombre: val('nombre'),
+      descripcion: val('descripcion'),
+      fecha_inicio: (window.EventosShared ? EventosShared.dateInputToIso(idPrefix + 'fecha-inicio') : null),
+      fecha_fin: (window.EventosShared ? EventosShared.dateInputToIso(idPrefix + 'fecha-fin') : null),
+      horario: val('horario'),
+      entradaGratis,
+      valorEntrada: entradaGratis ? '' : val('valor-entrada'),
+      contactoEmail: val('contacto-email'),
+      contactoRedSocial: val('contacto-social'),
+      contactoTelefono: val('contacto-telefono'),
+      contactoWeb: val('contacto-web'),
+      tags: (window.EventosShared ? EventosShared.readTagsFromForm(idPrefix + 'tags-wrap') : []),
+    };
+  }
+
+  /** [Etapa 10, Parte 2] Precarga en el DOM los mismos campos de
+   *  contenido de arriba, a partir de un evento ya guardado (modo
+   *  edición). `direccion` sí se precarga acá (es un input de texto
+   *  simple) aunque no se lea por `readCamposComunes` — su
+   *  RE-cálculo al guardar depende del pin, no de lo tipeado. */
+  function precargarCamposComunes(idPrefix, ev) {
+    const setVal = (suffix, value) => {
+      const el = document.getElementById(idPrefix + suffix);
+      if (el) el.value = value;
+    };
+    setVal('nombre', ev.nombre || '');
+    setVal('descripcion', ev.descripcion || '');
+    setVal('fecha-inicio', ev.fecha_inicio ? ev.fecha_inicio.slice(0, 16) : '');
+    setVal('fecha-fin', ev.fecha_fin ? ev.fecha_fin.slice(0, 16) : '');
+    setVal('horario', ev.horario || '');
+    const entradaGratisEl = document.getElementById(idPrefix + 'entrada-gratis');
+    if (entradaGratisEl) entradaGratisEl.checked = ev.entradaGratis !== false;
+    const valorBlock = document.getElementById(idPrefix + 'valor-entrada-block');
+    if (valorBlock) valorBlock.style.display = (ev.entradaGratis === false) ? '' : 'none';
+    setVal('valor-entrada', ev.valorEntrada || '');
+    setVal('direccion', ev.direccion || '');
+    setVal('contacto-email', ev.contactoEmail || '');
+    setVal('contacto-social', ev.contactoRedSocial || '');
+    setVal('contacto-telefono', ev.contactoTelefono || '');
+    setVal('contacto-web', ev.contactoWeb || '');
+    if (window.EventosShared) EventosShared.renderTagsSelector(idPrefix + 'tags-wrap', ev.tags || []);
+  }
+
+  /** [Etapa 10, Parte 2] Limpia los mismos campos de contenido de
+   *  arriba (botón "Cancelar"/vuelta a la lista, o después de crear).
+   *  No toca nada de las secciones solo-admin (ciudad, asignación,
+   *  destacado, cambios) — eso lo sigue limpiando cada panel aparte. */
+  function resetCamposComunes(idPrefix) {
+    ['nombre', 'descripcion', 'fecha-inicio', 'fecha-fin', 'horario', 'valor-entrada',
+     'direccion', 'contacto-email', 'contacto-social', 'contacto-telefono', 'contacto-web'
+    ].forEach(suffix => {
+      const el = document.getElementById(idPrefix + suffix);
+      if (el) el.value = '';
+    });
+    const entradaGratisEl = document.getElementById(idPrefix + 'entrada-gratis');
+    if (entradaGratisEl) entradaGratisEl.checked = true;
+    const valorBlock = document.getElementById(idPrefix + 'valor-entrada-block');
+    if (valorBlock) valorBlock.style.display = 'none';
+    if (window.EventosShared) EventosShared.renderTagsSelector(idPrefix + 'tags-wrap', []);
+    const errEl = document.getElementById(idPrefix + 'form-error');
+    if (errEl) errEl.textContent = '';
+    const previewEl = document.getElementById(idPrefix + 'nombre-preview');
+    if (previewEl) { previewEl.textContent = ''; previewEl.className = ''; }
+  }
+
   return {
     applyCaminoUI,
     renderBuscarPinResults,
@@ -142,5 +226,8 @@ window.EventosFormCommon = (function () {
     ocultarPinSeleccionado,
     syncPinCoordDisplay,
     wireEntradaGratisToggle,
+    readCamposComunes,
+    precargarCamposComunes,
+    resetCamposComunes,
   };
 })();
