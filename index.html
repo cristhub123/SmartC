@@ -325,17 +325,55 @@ After modifying this file, update /AI_SESSION.md with the change and verificatio
           <textarea class="fta" id="up-evt-descripcion" placeholder="¿De qué se trata el evento?"></textarea>
         </div>
         <div class="fg">
-          <label class="fl">Categoría del evento</label>
-          <input class="fi" id="up-evt-categoria" type="text" placeholder="Ej: Anime, Feria, Música en vivo">
+          <label class="fl">Categoría del evento (tags) *</label>
+          <div class="evt-tags-wrap" id="up-evt-tags-wrap"></div>
         </div>
         <div class="frow">
           <div>
-            <label class="fl">Inicio (opcional)</label>
+            <label class="fl">Fecha de inicio *</label>
             <input class="fi" id="up-evt-fecha-inicio" type="datetime-local">
           </div>
           <div>
-            <label class="fl">Fin (opcional)</label>
+            <label class="fl">Fecha de fin *</label>
             <input class="fi" id="up-evt-fecha-fin" type="datetime-local">
+          </div>
+        </div>
+        <div class="fg">
+          <label class="fl">Horario *</label>
+          <input class="fi" id="up-evt-horario" type="text" placeholder='Ej: "Viernes a domingo, 16 a 22hs" o "Sábado 3 y domingo 4, de 10 a 18hs"'>
+        </div>
+        <div class="fg" style="display:flex;align-items:center;gap:8px">
+          <input type="checkbox" id="up-evt-entrada-gratis" checked style="width:auto">
+          <label class="fl" style="margin:0" for="up-evt-entrada-gratis">Entrada gratuita</label>
+        </div>
+        <div class="fg" id="up-evt-valor-entrada-block" style="display:none">
+          <label class="fl">Valor de la entrada</label>
+          <input class="fi" id="up-evt-valor-entrada" type="text" placeholder="Ej: $5000, o $3000 anticipada / $4000 en puerta">
+        </div>
+        <div class="fg" id="up-evt-direccion-block">
+          <label class="fl">Dirección exacta del evento *</label>
+          <input class="fi" id="up-evt-direccion" type="text" placeholder="Ej: Av. Colón 1234, Córdoba">
+        </div>
+        <p id="up-evt-direccion-inherited-info" style="display:none;font-size:12px;color:var(--text3);margin-top:-6px;margin-bottom:8px"></p>
+        <div class="divider"><span>CONTACTO DEL EVENTO (al menos 1) *</span></div>
+        <div class="frow">
+          <div>
+            <label class="fl">Mail</label>
+            <input class="fi" id="up-evt-contacto-email" type="text" placeholder="ej. contacto@evento.com">
+          </div>
+          <div>
+            <label class="fl">Red social</label>
+            <input class="fi" id="up-evt-contacto-social" type="text" placeholder="ej. @evento en Instagram">
+          </div>
+        </div>
+        <div class="frow">
+          <div>
+            <label class="fl">Teléfono</label>
+            <input class="fi" id="up-evt-contacto-telefono" type="text" placeholder="ej. 351 123 4567">
+          </div>
+          <div>
+            <label class="fl">Página web</label>
+            <input class="fi" id="up-evt-contacto-web" type="text" placeholder="ej. www.evento.com">
           </div>
         </div>
 
@@ -811,20 +849,57 @@ campo-05:
         <textarea class="fta" id="evt-descripcion" placeholder="¿De qué se trata el evento?"></textarea>
       </div>
       <div class="fg">
-        <label class="fl">Categoría del evento</label>
-        <input class="fi" id="evt-categoria" type="text" placeholder="Ej: Anime, Feria, Música en vivo, Recital">
+        <label class="fl">Categoría del evento (tags) *</label>
+        <div class="evt-tags-wrap" id="evt-tags-wrap"></div>
       </div>
       <div class="frow">
         <div>
-          <label class="fl">Fecha/hora de inicio (opcional)</label>
+          <label class="fl">Fecha de inicio *</label>
           <input class="fi" id="evt-fecha-inicio" type="datetime-local">
         </div>
         <div>
-          <label class="fl">Fecha/hora de fin (opcional)</label>
+          <label class="fl">Fecha de fin *</label>
           <input class="fi" id="evt-fecha-fin" type="datetime-local">
         </div>
       </div>
-      <p style="font-size:11px;color:var(--text3);margin-top:-6px;margin-bottom:8px">Se pueden dejar vacías por ahora — el vencimiento automático del pin del Camino B es la Etapa 4.</p>
+      <div class="fg">
+        <label class="fl">Horario *</label>
+        <input class="fi" id="evt-horario" type="text" placeholder='Ej: "Viernes a domingo, 16 a 22hs" o "Sábado 3 y domingo 4, de 10 a 18hs"'>
+      </div>
+      <div class="fg" style="display:flex;align-items:center;gap:8px">
+        <input type="checkbox" id="evt-entrada-gratis" checked style="width:auto">
+        <label class="fl" style="margin:0" for="evt-entrada-gratis">Entrada gratuita</label>
+      </div>
+      <div class="fg" id="evt-valor-entrada-block" style="display:none">
+        <label class="fl">Valor de la entrada</label>
+        <input class="fi" id="evt-valor-entrada" type="text" placeholder="Ej: $5000, o $3000 anticipada / $4000 en puerta">
+      </div>
+      <div class="fg" id="evt-direccion-block">
+        <label class="fl">Dirección exacta del evento *</label>
+        <input class="fi" id="evt-direccion" type="text" placeholder="Ej: Av. Colón 1234, Córdoba">
+      </div>
+      <p id="evt-direccion-inherited-info" style="display:none;font-size:12px;color:var(--text3);margin-top:-6px;margin-bottom:8px"></p>
+      <div class="divider"><span>CONTACTO DEL EVENTO (al menos 1) *</span></div>
+      <div class="frow">
+        <div>
+          <label class="fl">Mail</label>
+          <input class="fi" id="evt-contacto-email" type="text" placeholder="ej. contacto@evento.com">
+        </div>
+        <div>
+          <label class="fl">Red social</label>
+          <input class="fi" id="evt-contacto-social" type="text" placeholder="ej. @evento en Instagram">
+        </div>
+      </div>
+      <div class="frow">
+        <div>
+          <label class="fl">Teléfono</label>
+          <input class="fi" id="evt-contacto-telefono" type="text" placeholder="ej. 351 123 4567">
+        </div>
+        <div>
+          <label class="fl">Página web</label>
+          <input class="fi" id="evt-contacto-web" type="text" placeholder="ej. www.evento.com">
+        </div>
+      </div>
 
       <div id="evt-lugar-block">
         <div class="divider"><span>LUGAR DEL EVENTO</span></div>
@@ -955,6 +1030,14 @@ campo-05:
       </div>
       <p style="font-size:11px;color:var(--text3);margin-top:-6px;margin-bottom:8px">Con esto apagado, nadie salvo vos puede dar de alta un evento nuevo — los eventos ya creados no se ven afectados.</p>
       <button class="geocoder-btn" id="btn-save-evt-config">Guardar configuración</button>
+
+      <!-- [Etapa 9 — simplificada] Catálogo de categorías/tags de
+           evento — arranca vacío, se carga acá sin tocar código. -->
+      <div class="divider"><span>CATEGORÍAS DE EVENTO (TAGS)</span></div>
+      <p style="font-size:11px;color:var(--text3);margin-bottom:8px">Ej: anime, música, juegos, artesanías, voluntariado, deportivo. Son las que va a poder elegir quien crea un evento (mínimo 1 obligatoria).</p>
+      <div id="evt-categorias-catalogo-wrap"></div>
+      <button type="button" class="owner-panel-add-field-btn" id="evt-categorias-add-btn">➕ Agregar categoría</button>
+      <button class="geocoder-btn" id="btn-save-evt-categorias" style="margin-top:8px">Guardar categorías</button>
     </div>
 
     <!-- [Etapa 7, PLAN_USUARIOS_EVENTOS.md] Campos preparados para
