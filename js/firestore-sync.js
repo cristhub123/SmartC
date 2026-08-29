@@ -98,7 +98,21 @@ async function loadPOISFromFirestore() {
     });
     POIS = loaded;
     syncAppStateWithPOIS(); // [NUEVO 2026-08-13] ver nota arriba
-    await regeneratePublicCache(); // autosana el caché en cada carga
+    // [2026-08-29 — PLAN_OPTIMIZACION_PERFORMANCE_2026-08-29.md, sección 2]
+    // Esta función corre en CADA carga de la app, para cualquier
+    // visitante público sin sesión — pero `regeneratePublicCache()`
+    // escribe en la colección `cache`, que las reglas de Firestore solo
+    // permiten escribir a admins. Antes esto se llamaba siempre: todo
+    // visitante público disparaba un error "Missing or insufficient
+    // permissions" en consola (confirmado con captura real en
+    // producción) y esa escritura rechazada también sumaba su propia
+    // ida y vuelta al servidor antes de fallar. Ahora solo se llama si
+    // hay una sesión de admin real y verificada activa (`_adminUser`,
+    // ver js/admin-auth.js — ya confirma contra `admins/{uid}`, no
+    // solo que haya alguna sesión de Firebase Auth cualquiera).
+    if (typeof _adminUser !== 'undefined' && _adminUser) {
+      await regeneratePublicCache(); // autosana el caché, solo con sesión de admin real
+    }
     return true;
   } catch (err) {
     console.error('Error cargando lugares desde Firestore:', err);

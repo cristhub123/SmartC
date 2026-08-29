@@ -15,12 +15,26 @@ After modifying this file, update /AI_SESSION.md with the change and verificatio
    ═══════════════════════════════════════════ */
 
 async function init() {
-  // 0. Cargar configuraciones guardadas (apariencia global + estilo
-  //    de mapa) ANTES de aplicar nada — así se ve correcto desde el
-  //    primer instante, sin parpadeo, para cualquier persona que
-  //    abra la app, no solo para vos.
-  await loadGlobalSettings();
-  await loadMapSettings();
+  // 0. [2026-08-29 — PLAN_OPTIMIZACION_PERFORMANCE_2026-08-29.md, sección 2]
+  //    Antes esto era 7 `await` en cadena, uno atrás de otro, y nada se
+  //    dibujaba en el mapa hasta terminar el último. De esos 7, estos 5
+  //    leen documentos distintos e independientes entre sí (`settings/
+  //    appearance`, `settings/mapstyle`, `settings/features`, `settings/
+  //    eventos-config`, y la colección `eventos` completa) — no hace
+  //    falta esperarlos en fila, se piden todos juntos con Promise.all.
+  //    `loadPOISFromFirestore()` queda afuera de este grupo a propósito:
+  //    dispara el toast "Cargando lugares..." y es el dato más pesado/
+  //    visible, se mantiene aparte más abajo. `checkEventosTemporalesLifecycle()`
+  //    también queda afuera: necesita el resultado de `loadEventosFromFirestore()`
+  //    (la lista de EVENTOS) para poder correr, así que sigue secuencial,
+  //    después de este grupo.
+  await Promise.all([
+    loadGlobalSettings(),
+    loadMapSettings(),
+    typeof loadFeaturesFromFirestore === 'function' ? loadFeaturesFromFirestore() : Promise.resolve(),
+    typeof loadEventosConfig === 'function' ? loadEventosConfig() : Promise.resolve(),
+    typeof loadEventosFromFirestore === 'function' ? loadEventosFromFirestore() : Promise.resolve(),
+  ]);
 
   // 1. Aplicar el estilo de mapa ya cargado (o el default si es la
   //    primera vez que se usa la app y todavía no hay nada guardado)
@@ -43,24 +57,18 @@ async function init() {
   //    termine antes de dibujar los pines en el mapa.
   toast('⏳ Cargando lugares...');
   await loadPOISFromFirestore();
-  await loadFeaturesFromFirestore();
 
-  // 3.5. [Etapa 4/5 — PLAN_USUARIOS_EVENTOS.md] carga la colección
-  // `eventos` en memoria (EVENTOS, ver js/config.js), revisa el ciclo
-  // de vida de los pines `tipo: 'evento_temporal'` (auto-desactiva los
-  // que ya no tienen ningún evento vigente, sin borrarlos) y carga el
-  // título configurable de la pestaña "Eventos" del panel público.
-  // Todo esto ACÁ, antes del forEach de abajo, para que un pin recién
-  // auto-desactivado nazca ya oculto sin parpadeo — ver detalle
-  // completo en js/eventos.js.
-  if (typeof loadEventosFromFirestore === 'function') {
-    await loadEventosFromFirestore();
-  }
+  // 3.5. [Etapa 4/5 — PLAN_USUARIOS_EVENTOS.md] revisa el ciclo de vida
+  // de los pines `tipo: 'evento_temporal'` (auto-desactiva los que ya no
+  // tienen ningún evento vigente, sin borrarlos) usando el EVENTOS ya
+  // cargado en el Promise.all de arriba. Todo esto ACÁ, antes del
+  // forEach de abajo, para que un pin recién auto-desactivado nazca ya
+  // oculto sin parpadeo — ver detalle completo en js/eventos.js.
+  // [2026-08-29] `loadFeaturesFromFirestore()`, `loadEventosFromFirestore()`
+  // y `loadEventosConfig()` ya se resolvieron arriba, en paralelo — no
+  // se vuelven a llamar acá.
   if (typeof checkEventosTemporalesLifecycle === 'function') {
     await checkEventosTemporalesLifecycle(typeof EVENTOS !== 'undefined' ? EVENTOS : undefined);
-  }
-  if (typeof loadEventosConfig === 'function') {
-    await loadEventosConfig();
   }
 
   // 4. Build all markers
