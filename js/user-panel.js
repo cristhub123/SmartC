@@ -250,83 +250,36 @@ document.getElementById('up-evt-form-back-btn')?.addEventListener('click', _upSh
 /* ── Camino A/B (mismo criterio que la tab admin, ids propios) ── */
 function _upSetCamino(camino) {
   _upEvtCamino = camino;
-  document.getElementById('up-evt-camino-a-btn')?.classList.toggle('on', camino === 'a');
-  document.getElementById('up-evt-camino-b-btn')?.classList.toggle('on', camino === 'b');
-  const paneA = document.getElementById('up-evt-camino-a-pane');
-  const paneB = document.getElementById('up-evt-camino-b-pane');
-  if (paneA) paneA.style.display = camino === 'a' ? '' : 'none';
-  if (paneB) paneB.style.display = camino === 'b' ? '' : 'none';
+  EventosFormCommon.applyCaminoUI('up-evt-', camino);
   if (window.EventosShared) EventosShared.syncDireccionBlock('up-evt-', camino, _upEvtSelectedPinId);
 }
 document.getElementById('up-evt-camino-a-btn')?.addEventListener('click', () => _upSetCamino('a'));
 document.getElementById('up-evt-camino-b-btn')?.addEventListener('click', () => _upSetCamino('b'));
 
 function _upBuscarPines(query) {
-  const wrap = document.getElementById('up-evt-buscar-pin-results');
-  if (!wrap) return;
-  const q = (query || '').trim().toLowerCase();
-  if (!q) { wrap.innerHTML = ''; wrap.classList.remove('show'); return; }
-  const matches = (typeof POIS !== 'undefined' ? POIS : [])
-    .filter(p => (p.name || '').toLowerCase().includes(q))
-    .slice(0, 8);
-  if (!matches.length) {
-    wrap.innerHTML = '<div class="geocoder-result"><strong>Sin resultados</strong><span>Probá con otro nombre</span></div>';
-    wrap.classList.add('show');
-    return;
-  }
-  wrap.innerHTML = matches.map(p => `
-    <div class="geocoder-result" data-pin-id="${_escAttr(p.id)}">
-      <strong>${_escHtml(p.name || p.id)}</strong>
-      <span>${_escHtml(p.categoryLabel || p.id)}</span>
-    </div>
-  `).join('');
-  wrap.classList.add('show');
-  wrap.querySelectorAll('[data-pin-id]').forEach(el => {
-    el.addEventListener('click', () => _upSeleccionarPin(el.dataset.pinId));
-  });
+  EventosFormCommon.renderBuscarPinResults('up-evt-', query, _upSeleccionarPin);
 }
 document.getElementById('up-evt-buscar-pin-input')?.addEventListener('input', e => _upBuscarPines(e.target.value));
-document.addEventListener('click', e => {
-  const wrap = document.getElementById('up-evt-buscar-pin-results');
-  const input = document.getElementById('up-evt-buscar-pin-input');
-  if (wrap && input && !wrap.contains(e.target) && e.target !== input) wrap.classList.remove('show');
-});
+EventosFormCommon.wireBuscarPinClickOutside('up-evt-');
 
 function _upSeleccionarPin(pinId) {
   const p = (typeof POIS !== 'undefined' ? POIS : []).find(x => x.id === pinId);
   if (!p) return;
   _upEvtSelectedPinId = pinId;
-  document.getElementById('up-evt-buscar-pin-results').classList.remove('show');
-  document.getElementById('up-evt-buscar-pin-input').value = '';
-  const sel = document.getElementById('up-evt-pin-seleccionado');
-  if (sel) {
-    sel.style.display = '';
-    sel.querySelector('.up-evt-pin-seleccionado-name').textContent = p.name || p.id;
-  }
+  EventosFormCommon.applyPinSeleccionado('up-evt-', p, 'up-evt-pin-seleccionado-name');
   _upSyncNombrePreview();
   if (window.EventosShared) EventosShared.syncDireccionBlock('up-evt-', _upEvtCamino, _upEvtSelectedPinId);
 }
 function _upQuitarSeleccion() {
   _upEvtSelectedPinId = null;
-  const sel = document.getElementById('up-evt-pin-seleccionado');
-  if (sel) sel.style.display = 'none';
+  EventosFormCommon.ocultarPinSeleccionado('up-evt-');
   if (window.EventosShared) EventosShared.syncDireccionBlock('up-evt-', _upEvtCamino, _upEvtSelectedPinId);
 }
 document.getElementById('up-evt-pin-seleccionado-quitar')?.addEventListener('click', _upQuitarSeleccion);
 
 /* ── Camino B: pin mínimo (geocoder/click en mapa) ── */
 function _syncUpEvtPinCoordDisplay() {
-  const lat = document.getElementById('up-evt-pin-lat')?.value;
-  const lng = document.getElementById('up-evt-pin-lng')?.value;
-  const d = document.getElementById('up-evt-pin-coord-display');
-  if (!d) return;
-  if (lat && lng) {
-    d.textContent = `${parseFloat(lat).toFixed(6)}, ${parseFloat(lng).toFixed(6)}`;
-    d.classList.add('set');
-  } else {
-    d.textContent = 'Sin coordenadas — buscá una dirección o hacé click en el mapa';
-    d.classList.remove('set');
-  }
+  EventosFormCommon.syncPinCoordDisplay('up-evt-');
 }
 window._syncUpEvtPinCoordDisplay = _syncUpEvtPinCoordDisplay;
 
@@ -560,10 +513,7 @@ function _upResetEvtForm() {
 }
 
 /* Tilde "entrada gratuita" (mismo criterio que el form admin). */
-document.getElementById('up-evt-entrada-gratis')?.addEventListener('change', e => {
-  const block = document.getElementById('up-evt-valor-entrada-block');
-  if (block) block.style.display = e.target.checked ? 'none' : '';
-});
+EventosFormCommon.wireEntradaGratisToggle('up-evt-');
 
 /* Geocoder del Camino B — mismo helper genérico que usa la tab admin
    (ver geocoder.js), apuntando a los campos propios de este panel. */

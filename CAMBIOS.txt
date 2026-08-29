@@ -1110,3 +1110,76 @@ PENDIENTE (no resuelto en esta sesión, anotado para más adelante):
 - No se probó en el entorno real (navegador + Firestore +
   Cloudinary) — esta sesión solo verificó sintaxis de los archivos
   JS con `node --check`.
+
+════════════════════════════════════════════════════════════════
+SESIÓN 2026-08-21 — Puntos 1 y 2 del diagnóstico (rendimiento/imágenes)
+════════════════════════════════════════════════════════════════
+Ver DIAGNOSTICO_2026-08-20.md para el diagnóstico completo. Esta
+sesión resolvió los puntos 1 y 2, en ese orden. El punto 4 (sistema
+de usuarios/panel dueño) NO se tocó — ya estaba completo y probado.
+
+PUNTO 1 — Scripts bloqueantes en index.html: RESUELTO.
+Se agregó `defer` a leaflet.min.js y a los 3 SDK de firebase-compat
+(eran los únicos 4 <script> sin defer). Verificado antes de tocar:
+index.html no tiene ningún <script> inline, y todo lo demás ya usaba
+defer — el orden relativo de ejecución (lo que realmente importa,
+ver AI_RULES.md sección 2) queda igual, solo cambia que el parseo
+del HTML ya no espera la descarga de esos 4 archivos.
+
+PUNTO 2 — Optimización de imágenes/Cloudinary: RESUELTO (2.a y 2.b
+completos en código; 2.c con código listo + 3 pasos manuales
+pendientes en la consola de Cloudinary, ver abajo).
+
+2.a) js/img-slots.js: "PNG recomendado" → "WebP recomendado".
+
+2.b) f_auto,q_auto agregado donde faltaba:
+     - js/markers.js (toThumbCandidateUrl, thumb 150x150 del pin).
+     - js/pin-adjust.js (_buildBulkImageUrl, vinculación por texto;
+       ya tenía q_auto, se sumó f_auto).
+     En ambos casos se omite f_auto si la URL/archivo termina en
+     .gif (se detecta por extensión), para no romper animaciones —
+     Cloudinary puede convertir el formato con f_auto y un GIF
+     perdería el movimiento. q_auto sí se aplica siempre.
+
+2.c) Resize/compresión SOLO para imágenes de pin, sin tocar el banner:
+     - Confirmado en código antes de tocar nada: _uploadCtx() en
+       utils.js ya distingue pin (subfolder 'images', default) de
+       banner (subfolder 'banner', explícito en las 4 llamadas del
+       banner) — uploadToCloudinary usa ese dato.
+     - LIMITACIÓN DE CLOUDINARY encontrada al investigar (no se sabía
+       al pedir la tarea): el preset del proyecto es "unsigned"
+       (subida directa desde el navegador, sin backend — así lo
+       requiere la arquitectura actual). Cloudinary RECHAZA el
+       parámetro `transformation` en subidas unsigned — por lo tanto
+       el código NO puede pedirle un resize a Cloudinary en el
+       momento de subir. Eso solo se logra con una "incoming
+       transformation" configurada en el UPLOAD PRESET desde la
+       consola (no por código), y como esa transformación aplica a
+       TODO lo que suba con ese preset, hace falta separar banner y
+       pin en 2 presets para no afectar el banner.
+     - CÓDIGO YA HECHO (utils.js): nueva constante
+       CLOUDINARY_UPLOAD_PRESET_BANNER (hoy = CLOUDINARY_UPLOAD_PRESET,
+       cero cambio de comportamiento), y uploadToCloudinary elige el
+       preset según subfolder ('banner' → preset banner, cualquier
+       otro → preset de pin).
+     - LOS 3 PASOS YA ESTÁN COMPLETOS:
+         1) ✅ Incoming transformation c_limit,w_1024,h_1024 agregada
+            al preset "smartcity_pines_01" (respeta proporción, nunca
+            recorta ni agranda).
+         2) ✅ Preset nuevo "smartcity_banner_01" creado (unsigned,
+            sin transformación) para el banner.
+         3) ✅ CLOUDINARY_UPLOAD_PRESET_BANNER en utils.js ya apunta a
+            'smartcity_banner_01'.
+     PUNTO 2.c CERRADO. Con esto, el diagnóstico técnico completo
+     (DIAGNOSTICO_2026-08-20.md, puntos 1 y 2) queda resuelto.
+
+Verificación hecha: los 4 archivos JS tocados (utils.js, markers.js,
+pin-adjust.js, img-slots.js) pasan `node --check` sin errores. Se
+confirmó por grep que no quedó ningún <script> sin defer en
+index.html. No se probó en navegador real ni contra Cloudinary/
+Firebase reales.
+
+PENDIENTE (no pedido en esta tarea, no tocado):
+- Punto 3 del diagnóstico original (el "chorizo" de bloques
+  apilados en img-slots.js, a reemplazar por slider horizontal +
+  panel de opciones compartido) — no se pidió en esta sesión.

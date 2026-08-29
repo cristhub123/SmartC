@@ -252,10 +252,7 @@ function _evtValidateComunes(data) {
  
 /* Tilde "entrada gratuita" — mismo criterio visual que "evt-destacado":
    solo se pide el valor de la entrada cuando NO es gratuita. */
-document.getElementById('evt-entrada-gratis')?.addEventListener('change', e => {
-  const block = document.getElementById('evt-valor-entrada-block');
-  if (block) block.style.display = e.target.checked ? 'none' : '';
-});
+EventosFormCommon.wireEntradaGratisToggle('evt-');
  
 /**
  * [Etapa 3 — PLAN_USUARIOS_EVENTOS.md, 2026-08-25]
@@ -325,12 +322,7 @@ let _evtEditingId = null; // [Etapa 6] id del evento en edición (admin) — nul
    ═══════════════════════════════════════════════════════════ */
 function _evtSetCamino(camino) {
   _evtCamino = camino;
-  document.getElementById('evt-camino-a-btn')?.classList.toggle('on', camino === 'a');
-  document.getElementById('evt-camino-b-btn')?.classList.toggle('on', camino === 'b');
-  const paneA = document.getElementById('evt-camino-a-pane');
-  const paneB = document.getElementById('evt-camino-b-pane');
-  if (paneA) paneA.style.display = camino === 'a' ? '' : 'none';
-  if (paneB) paneB.style.display = camino === 'b' ? '' : 'none';
+  EventosFormCommon.applyCaminoUI('evt-', camino);
   _evtSyncDireccionBlock('evt-', camino, _evtSelectedPinId);
 }
  
@@ -341,74 +333,32 @@ document.getElementById('evt-camino-b-btn')?.addEventListener('click', () => _ev
    No se restringe a "pines propios" — el admin no tiene pines
    propios, a diferencia de OwnerPanel (Etapa 2). */
 function _evtBuscarPines(query) {
-  const wrap = document.getElementById('evt-buscar-pin-results');
-  if (!wrap) return;
-  const q = (query || '').trim().toLowerCase();
-  if (!q) { wrap.innerHTML = ''; wrap.classList.remove('show'); return; }
-  const matches = (typeof POIS !== 'undefined' ? POIS : [])
-    .filter(p => (p.name || '').toLowerCase().includes(q))
-    .slice(0, 8);
-  if (!matches.length) {
-    wrap.innerHTML = '<div class="geocoder-result"><strong>Sin resultados</strong><span>Probá con otro nombre</span></div>';
-    wrap.classList.add('show');
-    return;
-  }
-  wrap.innerHTML = matches.map(p => `
-    <div class="geocoder-result" data-pin-id="${_escAttr(p.id)}">
-      <strong>${_escHtml(p.name || p.id)}</strong>
-      <span>${_escHtml(p.categoryLabel || p.id)}</span>
-    </div>
-  `).join('');
-  wrap.classList.add('show');
-  wrap.querySelectorAll('[data-pin-id]').forEach(el => {
-    el.addEventListener('click', () => _evtSeleccionarPin(el.dataset.pinId));
-  });
+  EventosFormCommon.renderBuscarPinResults('evt-', query, _evtSeleccionarPin);
 }
  
 function _evtSeleccionarPin(pinId) {
   const p = (typeof POIS !== 'undefined' ? POIS : []).find(x => x.id === pinId);
   if (!p) return;
   _evtSelectedPinId = pinId;
-  document.getElementById('evt-buscar-pin-results').classList.remove('show');
-  document.getElementById('evt-buscar-pin-input').value = '';
-  const sel = document.getElementById('evt-pin-seleccionado');
-  if (sel) {
-    sel.style.display = '';
-    sel.querySelector('.evt-pin-seleccionado-name').textContent = p.name || p.id;
-  }
+  EventosFormCommon.applyPinSeleccionado('evt-', p, 'evt-pin-seleccionado-name');
   _evtSyncDireccionBlock('evt-', _evtCamino, _evtSelectedPinId);
 }
  
 function _evtQuitarSeleccion() {
   _evtSelectedPinId = null;
-  const sel = document.getElementById('evt-pin-seleccionado');
-  if (sel) sel.style.display = 'none';
+  EventosFormCommon.ocultarPinSeleccionado('evt-');
   _evtSyncDireccionBlock('evt-', _evtCamino, _evtSelectedPinId);
 }
  
 document.getElementById('evt-buscar-pin-input')?.addEventListener('input', e => _evtBuscarPines(e.target.value));
 document.getElementById('evt-pin-seleccionado-quitar')?.addEventListener('click', _evtQuitarSeleccion);
-document.addEventListener('click', e => {
-  const wrap = document.getElementById('evt-buscar-pin-results');
-  const input = document.getElementById('evt-buscar-pin-input');
-  if (wrap && input && !wrap.contains(e.target) && e.target !== input) wrap.classList.remove('show');
-});
+EventosFormCommon.wireBuscarPinClickOutside('evt-');
  
 /* ── Camino B: pin mínimo (nombre + geocoder/click en mapa) ──
    La Etapa 4 le agrega después el ciclo de vida (auto-desactivación
    al vencer todos sus eventos) — acá se crea ya funcional. */
 function _syncEvtPinCoordDisplay() {
-  const lat = document.getElementById('evt-pin-lat')?.value;
-  const lng = document.getElementById('evt-pin-lng')?.value;
-  const d = document.getElementById('evt-pin-coord-display');
-  if (!d) return;
-  if (lat && lng) {
-    d.textContent = `${parseFloat(lat).toFixed(6)}, ${parseFloat(lng).toFixed(6)}`;
-    d.classList.add('set');
-  } else {
-    d.textContent = 'Sin coordenadas — buscá una dirección o hacé click en el mapa';
-    d.classList.remove('set');
-  }
+  EventosFormCommon.syncPinCoordDisplay('evt-');
 }
 window._syncEvtPinCoordDisplay = _syncEvtPinCoordDisplay;
  
