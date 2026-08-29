@@ -18,6 +18,25 @@ After modifying this file, update /AI_SESSION.md with the change and verificatio
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js" defer></script>
 
+  <!-- [2026-08-29 — PLAN_OPTIMIZACION_PERFORMANCE_2026-08-29.md, sección 4,
+       "menor"] Preconnect a los dominios externos que la app usa apenas
+       carga, para adelantar el handshake DNS+TLS antes de que el JS
+       llegue a pedirles algo:
+       - res.cloudinary.com: sirve la imagen de CADA pin.
+       - firestore.googleapis.com: las 7(ahora paralelizadas) lecturas
+         de datos de app.js.
+       - identitytoolkit.googleapis.com: Firebase Auth, corre en cada
+         carga (admin-auth.js y user-auth.js escuchan onAuthStateChanged
+         siempre, haya o no sesión).
+       - tile.openstreetmap.org: proveedor de tiles por default
+         (TILE_PRESETS[0] en js/map-settings.js). Si se cambia el estilo
+         de mapa a otro preset, este preconnect deja de aplicar a ese
+         dominio nuevo — impacto nulo si no aplica, no rompe nada. -->
+  <link rel="preconnect" href="https://res.cloudinary.com">
+  <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
+  <link rel="preconnect" href="https://identitytoolkit.googleapis.com" crossorigin>
+  <link rel="preconnect" href="https://tile.openstreetmap.org">
+
   <!-- Fonts -->
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Nunito:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
