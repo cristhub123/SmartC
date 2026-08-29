@@ -200,13 +200,15 @@ function _upRenderMisEventos() {
       .join(' → ');
     const cambios = (typeof ev.cambiosRestantes === 'number') ? ev.cambiosRestantes : 0;
     const puedeEditar = cambios > 0;
+    const entradaTxt = ev.entradaGratis === false ? `💵 ${ev.valorEntrada || 'con costo'}` : '🆓 Gratis';
     return `
       <div class="evt-admin-row" data-evento-id="${_escAttr(ev.id)}">
         <div class="evt-admin-row-main">
           <strong>${_escHtml(ev.nombre || '(sin nombre)')}</strong>
           <span class="evt-admin-row-pin">📍 ${_escHtml(pinLabel)}</span>
-          ${fechas ? `<span class="evt-admin-row-fechas">🗓 ${_escHtml(fechas)}</span>` : ''}
+          ${fechas ? `<span class="evt-admin-row-fechas">🗓 ${_escHtml(fechas)}${ev.horario ? ` · ${_escHtml(ev.horario)}` : ''}</span>` : ''}
           <span class="evt-admin-row-estado">${ev.activo ? 'activo' : 'esperando aprobación del admin'}</span>
+          <span class="evt-admin-row-estado">${entradaTxt}</span>
           <span class="evt-admin-row-cambios">✏️ ${cambios} cambio${cambios === 1 ? '' : 's'} disponible${cambios === 1 ? '' : 's'}</span>
         </div>
         <div class="evt-admin-row-actions">
@@ -254,6 +256,7 @@ function _upSetCamino(camino) {
   const paneB = document.getElementById('up-evt-camino-b-pane');
   if (paneA) paneA.style.display = camino === 'a' ? '' : 'none';
   if (paneB) paneB.style.display = camino === 'b' ? '' : 'none';
+  if (window.EventosShared) EventosShared.syncDireccionBlock('up-evt-', camino, _upEvtSelectedPinId);
 }
 document.getElementById('up-evt-camino-a-btn')?.addEventListener('click', () => _upSetCamino('a'));
 document.getElementById('up-evt-camino-b-btn')?.addEventListener('click', () => _upSetCamino('b'));
@@ -301,11 +304,13 @@ function _upSeleccionarPin(pinId) {
     sel.querySelector('.up-evt-pin-seleccionado-name').textContent = p.name || p.id;
   }
   _upSyncNombrePreview();
+  if (window.EventosShared) EventosShared.syncDireccionBlock('up-evt-', _upEvtCamino, _upEvtSelectedPinId);
 }
 function _upQuitarSeleccion() {
   _upEvtSelectedPinId = null;
   const sel = document.getElementById('up-evt-pin-seleccionado');
   if (sel) sel.style.display = 'none';
+  if (window.EventosShared) EventosShared.syncDireccionBlock('up-evt-', _upEvtCamino, _upEvtSelectedPinId);
 }
 document.getElementById('up-evt-pin-seleccionado-quitar')?.addEventListener('click', _upQuitarSeleccion);
 
@@ -358,9 +363,25 @@ function _upStartEdit(eventoId) {
 
   document.getElementById('up-evt-nombre').value = ev.nombre || '';
   document.getElementById('up-evt-descripcion').value = ev.descripcion || '';
-  document.getElementById('up-evt-categoria').value = ev.categoria || '';
   document.getElementById('up-evt-fecha-inicio').value = ev.fecha_inicio ? ev.fecha_inicio.slice(0, 16) : '';
   document.getElementById('up-evt-fecha-fin').value = ev.fecha_fin ? ev.fecha_fin.slice(0, 16) : '';
+
+  // [Etapa 9 — simplificada] campos nuevos
+  document.getElementById('up-evt-horario').value = ev.horario || '';
+  document.getElementById('up-evt-entrada-gratis').checked = ev.entradaGratis !== false;
+  document.getElementById('up-evt-valor-entrada-block').style.display = (ev.entradaGratis === false) ? '' : 'none';
+  document.getElementById('up-evt-valor-entrada').value = ev.valorEntrada || '';
+  document.getElementById('up-evt-direccion').value = ev.direccion || '';
+  document.getElementById('up-evt-contacto-email').value = ev.contactoEmail || '';
+  document.getElementById('up-evt-contacto-social').value = ev.contactoRedSocial || '';
+  document.getElementById('up-evt-contacto-telefono').value = ev.contactoTelefono || '';
+  document.getElementById('up-evt-contacto-web').value = ev.contactoWeb || '';
+  if (window.EventosShared) {
+    EventosShared.renderTagsSelector('up-evt-tags-wrap', ev.tags || []);
+    // La edición nunca toca el lugar — el bloque de dirección se
+    // sincroniza igual, contra el pin YA anexado (`ev.poi_id`).
+    EventosShared.syncDireccionBlock('up-evt-', 'a', ev.poi_id);
+  }
 
   document.getElementById('up-evt-form-title').textContent = `Editando: ${ev.nombre || ''}`;
   document.getElementById('up-evt-lugar-block').style.display = 'none'; // la edición no toca el lugar
@@ -386,9 +407,18 @@ async function saveUpEvento() {
   const nombre = document.getElementById('up-evt-nombre')?.value.trim() || '';
   if (!nombre) { toast('⚠️ Ingresá el nombre del evento'); return; }
   const descripcion = document.getElementById('up-evt-descripcion')?.value.trim() || '';
-  const categoria = document.getElementById('up-evt-categoria')?.value.trim() || '';
   const fecha_inicio = EventosShared.dateInputToIso('up-evt-fecha-inicio');
   const fecha_fin = EventosShared.dateInputToIso('up-evt-fecha-fin');
+
+  // [Etapa 9 — simplificada] campos nuevos
+  const horario = document.getElementById('up-evt-horario')?.value.trim() || '';
+  const entradaGratis = !!document.getElementById('up-evt-entrada-gratis')?.checked;
+  const valorEntrada = entradaGratis ? '' : (document.getElementById('up-evt-valor-entrada')?.value.trim() || '');
+  const contactoEmail = document.getElementById('up-evt-contacto-email')?.value.trim() || '';
+  const contactoRedSocial = document.getElementById('up-evt-contacto-social')?.value.trim() || '';
+  const contactoTelefono = document.getElementById('up-evt-contacto-telefono')?.value.trim() || '';
+  const contactoWeb = document.getElementById('up-evt-contacto-web')?.value.trim() || '';
+  const tags = EventosShared.readTagsFromForm('up-evt-tags-wrap');
 
   const originalBtnText = editando ? '💾 Guardar cambios' : '✓ Crear evento';
   btn.textContent = 'Guardando...'; btn.disabled = true;
@@ -435,8 +465,9 @@ async function saveUpEvento() {
         btn.textContent = originalBtnText; btn.disabled = false;
         return;
       }
+      const direccionParaPin = EventosShared.resolveDireccionFinal('up-evt-', 'b', null);
       toast('⏳ Creando pin del lugar...');
-      poi_id = await EventosShared.crearPinMinimoEvento(pinNombre, lat, lng);
+      poi_id = await EventosShared.crearPinMinimoEvento(pinNombre, lat, lng, direccionParaPin);
       if (!poi_id) {
         if (errEl) errEl.textContent = '⚠️ No se pudo crear el pin del lugar. Probá de nuevo.';
         btn.textContent = originalBtnText; btn.disabled = false;
@@ -444,6 +475,18 @@ async function saveUpEvento() {
       }
     }
     city = EventosShared.resolveCityFromForm(_upEvtCamino, poi_id);
+  }
+
+  // Dirección final: heredada del pin ya anexado (edición o Camino A),
+  // o la recién usada para crear el pin mínimo (Camino B).
+  const direccion = EventosShared.resolveDireccionFinal('up-evt-', 'a', poi_id)
+    || EventosShared.resolveDireccionFinal('up-evt-', 'b', null);
+
+  const errComun = EventosShared.validateComunes({ fecha_inicio, fecha_fin, horario, direccion, contactoEmail, contactoRedSocial, contactoTelefono, contactoWeb, tags });
+  if (errComun) {
+    if (errEl) errEl.textContent = errComun;
+    btn.textContent = originalBtnText; btn.disabled = false;
+    return;
   }
 
   const dup = EventosShared.checkNombreDuplicado(nombre, city, _upEvtEditingId);
@@ -457,14 +500,18 @@ async function saveUpEvento() {
   try {
     if (editando) {
       await db.collection('eventos').doc(_upEvtEditingId).update({
-        nombre, nombreSlug, descripcion, categoria, fecha_inicio, fecha_fin,
+        nombre, nombreSlug, descripcion, fecha_inicio, fecha_fin, horario,
+        entradaGratis, valorEntrada, direccion, tags,
+        contactoEmail, contactoRedSocial, contactoTelefono, contactoWeb,
         cambiosRestantes: firebase.firestore.FieldValue.increment(-1),
       });
       toast(`✅ Evento "${nombre}" actualizado`);
     } else {
       const cfg = EventosShared.getConfig();
       await db.collection('eventos').add({
-        nombre, nombreSlug, descripcion, categoria, fecha_inicio, fecha_fin,
+        nombre, nombreSlug, descripcion, fecha_inicio, fecha_fin, horario,
+        entradaGratis, valorEntrada, direccion, tags,
+        contactoEmail, contactoRedSocial, contactoTelefono, contactoWeb,
         poi_id, city,
         creadorUid: uid,
         usuarioAsignadoUid: uid, // [Etapa 6] autoservicio: se autoasigna, sin elegirlo a mano
@@ -487,8 +534,10 @@ async function saveUpEvento() {
 document.getElementById('btn-save-up-evento')?.addEventListener('click', saveUpEvento);
 
 function _upResetEvtForm() {
-  ['up-evt-nombre', 'up-evt-descripcion', 'up-evt-categoria', 'up-evt-fecha-inicio', 'up-evt-fecha-fin',
-   'up-evt-pin-nombre', 'up-evt-pin-lat', 'up-evt-pin-lng', 'geo-input-up-evt'].forEach(id => {
+  ['up-evt-nombre', 'up-evt-descripcion', 'up-evt-fecha-inicio', 'up-evt-fecha-fin',
+   'up-evt-pin-nombre', 'up-evt-pin-lat', 'up-evt-pin-lng', 'geo-input-up-evt',
+   'up-evt-horario', 'up-evt-valor-entrada', 'up-evt-direccion',
+   'up-evt-contacto-email', 'up-evt-contacto-social', 'up-evt-contacto-telefono', 'up-evt-contacto-web'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
@@ -498,11 +547,23 @@ function _upResetEvtForm() {
   if (errEl) errEl.textContent = '';
   document.getElementById('up-evt-cambios-info').textContent = '';
   document.getElementById('btn-save-up-evento').textContent = '✓ Crear evento';
+  // [Etapa 9 — simplificada] entrada gratis por defecto + tags vacíos
+  const entradaGratisEl = document.getElementById('up-evt-entrada-gratis');
+  if (entradaGratisEl) entradaGratisEl.checked = true;
+  const valorEntradaBlock = document.getElementById('up-evt-valor-entrada-block');
+  if (valorEntradaBlock) valorEntradaBlock.style.display = 'none';
+  if (window.EventosShared) EventosShared.renderTagsSelector('up-evt-tags-wrap', []);
   _upEvtEditingId = null;
   _upQuitarSeleccion();
   _syncUpEvtPinCoordDisplay();
   _upSetCamino('a');
 }
+
+/* Tilde "entrada gratuita" (mismo criterio que el form admin). */
+document.getElementById('up-evt-entrada-gratis')?.addEventListener('change', e => {
+  const block = document.getElementById('up-evt-valor-entrada-block');
+  if (block) block.style.display = e.target.checked ? 'none' : '';
+});
 
 /* Geocoder del Camino B — mismo helper genérico que usa la tab admin
    (ver geocoder.js), apuntando a los campos propios de este panel. */

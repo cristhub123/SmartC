@@ -1,13 +1,13 @@
 /*
 AI PROJECT NOTE:
 Before modifying this file, consult /AI_RULES.md.
-
+ 
 If AI_RULES.md has already been reviewed during the current session,
 check /AI_SESSION.md instead of unnecessarily rereading the entire rules file.
-
+ 
 After modifying this file, update /AI_SESSION.md with the change and verification performed.
 */
-
+ 
 /**
  * [Etapa 5, 2026-08-26] Carga la colección `eventos` completa en el
  * caché global `EVENTOS` (js/config.js) — se llama una sola vez desde
@@ -30,7 +30,7 @@ async function loadEventosFromFirestore() {
   }
 }
 window.loadEventosFromFirestore = loadEventosFromFirestore;
-
+ 
 /**
  * [Etapa 5] Título editable de la pestaña "Eventos" del panel público
  * de un pin (`settings/eventos-config`, mismo patrón que el resto de
@@ -49,6 +49,7 @@ async function loadEventosConfig() {
     if (cfg.tituloPanelEventos === undefined) cfg.tituloPanelEventos = 'Eventos';
     if (cfg.cambiosDefault === undefined) cfg.cambiosDefault = 3;
     if (cfg.creacionEventosHabilitada === undefined) cfg.creacionEventosHabilitada = true;
+    if (!Array.isArray(cfg.categoriasEvento)) cfg.categoriasEvento = [];
     if (typeof window.PoiPanel !== 'undefined' && PoiPanel.setEventosConfig) PoiPanel.setEventosConfig(cfg);
     const input = document.getElementById('evt-config-titulo-panel');
     if (input) input.value = cfg.tituloPanelEventos;
@@ -57,13 +58,18 @@ async function loadEventosConfig() {
     const habilitarInput = document.getElementById('evt-config-habilitar-creacion');
     if (habilitarInput) habilitarInput.checked = !!cfg.creacionEventosHabilitada;
     window._eventosConfigCache = cfg;
+    _categoriasEventoState = cfg.categoriasEvento.map(c => ({ ...c }));
+    _paintCategoriasEventoRows();
+    // Cualquier selector de tags ya pintado en algún formulario abierto
+    // se repinta con el catálogo recién cargado (arranque de la app).
+    _evtRepaintAllTagSelectors();
     return cfg;
   } catch (err) {
     console.warn('[Etapa 5] No se pudo cargar la config de eventos:', err);
     return null;
   }
 }
-
+ 
 async function _saveEventosConfig() {
   const input = document.getElementById('evt-config-titulo-panel');
   const titulo = (input?.value || '').trim() || 'Eventos';
@@ -75,9 +81,9 @@ async function _saveEventosConfig() {
   try {
     await db.collection('settings').doc('eventos-config').set(cfg, { merge: true });
     if (typeof window.PoiPanel !== 'undefined' && PoiPanel.setEventosConfig) {
-      PoiPanel.setEventosConfig(cfg);
+      PoiPanel.setEventosConfig({ ...(window._eventosConfigCache || {}), ...cfg });
     }
-    window._eventosConfigCache = cfg;
+    window._eventosConfigCache = { ...(window._eventosConfigCache || {}), ...cfg };
     toast('✅ Configuración de eventos guardada');
   } catch (err) {
     console.warn('Error guardando config de eventos:', err);
@@ -85,7 +91,172 @@ async function _saveEventosConfig() {
   }
 }
 document.getElementById('btn-save-evt-config')?.addEventListener('click', _saveEventosConfig);
-
+ 
+/* ═══════════════════════════════════════════════════════════
+   [Etapa 9 — simplificada, 2026-08-28] CATÁLOGO DE CATEGORÍAS/TAGS
+   DE EVENTO (settings/eventos-config, campo categoriasEvento)
+   ---------------------------------------------------------------
+   Mismo patrón que el catálogo de funciones premium (Etapa 7,
+   js/usuarios-admin.js): arranca vacío, el admin carga los nombres
+   cuando quiera (ej. anime, música, juegos, artesanías, voluntariado,
+   deportivo), sin tocar código. Cada categoría es { id, label } — el
+   `id` es el que se guarda en el array `tags` de cada evento, el
+   `label` es lo que ve la gente.
+   ═══════════════════════════════════════════════════════════ */
+let _categoriasEventoState = []; // [{id, label}]
+ 
+function _paintCategoriasEventoRows() {
+  const wrap = document.getElementById('evt-categorias-catalogo-wrap');
+  if (!wrap) return;
+  wrap.innerHTML = _categoriasEventoState.map((c, i) => `
+    <div class="owner-field-row" data-idx="${i}">
+      <input class="owner-field-title" data-k="id" placeholder="id interno (ej: anime)" value="${_escAttr(c.id || '')}">
+      <input class="owner-field-title" data-k="label" placeholder="Nombre visible (ej: Anime)" value="${_escAttr(c.label || '')}">
+      <button type="button" class="owner-field-remove" data-action="remove">✕ Quitar</button>
+    </div>
+  `).join('');
+  wrap.querySelectorAll('.owner-field-row').forEach(row => {
+    const idx = parseInt(row.dataset.idx, 10);
+    row.querySelectorAll('[data-k]').forEach(inp => {
+      inp.addEventListener('input', () => { _categoriasEventoState[idx][inp.dataset.k] = inp.value; });
+    });
+    row.querySelector('[data-action="remove"]').addEventListener('click', () => {
+      _categoriasEventoState.splice(idx, 1);
+      _paintCategoriasEventoRows();
+    });
+  });
+}
+document.getElementById('evt-categorias-add-btn')?.addEventListener('click', () => {
+  _categoriasEventoState.push({ id: '', label: '' });
+  _paintCategoriasEventoRows();
+});
+ 
+async function _saveCategoriasEventoConfig() {
+  const limpio = _categoriasEventoState
+    .map(c => ({ id: (c.id || '').trim().toLowerCase().replace(/\s+/g, '-'), label: (c.label || '').trim() }))
+    .filter(c => c.id && c.label);
+  try {
+    await db.collection('settings').doc('eventos-config').set({ categoriasEvento: limpio }, { merge: true });
+    _categoriasEventoState = limpio;
+    window._eventosConfigCache = { ...(window._eventosConfigCache || {}), categoriasEvento: limpio };
+    _paintCategoriasEventoRows();
+    _evtRepaintAllTagSelectors();
+    toast('✅ Catálogo de categorías de evento guardado');
+  } catch (err) {
+    console.warn('[Etapa 9] Error guardando catálogo de categorías de evento:', err);
+    toast('⚠️ No se pudo guardar. Probá de nuevo.');
+  }
+}
+document.getElementById('btn-save-evt-categorias')?.addEventListener('click', _saveCategoriasEventoConfig);
+ 
+/** Pinta el selector de tags (checkboxes) de un formulario de evento
+ *  puntual (admin o panel de usuario) con el catálogo actual.
+ *  @param {string} wrapId - id del contenedor donde van los checkboxes
+ *  @param {string[]} selected - ids de tags ya marcados (edición) */
+function _evtRenderTagsSelector(wrapId, selected) {
+  const wrap = document.getElementById(wrapId);
+  if (!wrap) return;
+  const sel = new Set(selected || []);
+  const catalogo = _categoriasEventoState;
+  if (!catalogo.length) {
+    wrap.innerHTML = '<p style="font-size:11px;color:var(--text3)">Todavía no hay categorías cargadas — se van a poder elegir acá apenas el admin las agregue.</p>';
+    return;
+  }
+  wrap.innerHTML = catalogo.map(c => `
+    <label class="evt-tag-chip ${sel.has(c.id) ? 'on' : ''}">
+      <input type="checkbox" value="${_escAttr(c.id)}" ${sel.has(c.id) ? 'checked' : ''} style="width:auto">
+      ${_escHtml(c.label)}
+    </label>
+  `).join('');
+  wrap.querySelectorAll('input[type="checkbox"]').forEach(chk => {
+    chk.addEventListener('change', () => chk.closest('.evt-tag-chip').classList.toggle('on', chk.checked));
+  });
+}
+ 
+/** Ids de tags marcados en un selector ya pintado por _evtRenderTagsSelector. */
+function _evtReadTagsFromForm(wrapId) {
+  const wrap = document.getElementById(wrapId);
+  if (!wrap) return [];
+  return Array.from(wrap.querySelectorAll('input[type="checkbox"]:checked')).map(chk => chk.value);
+}
+ 
+// Repinta cualquier selector de tags que ya esté en el DOM (admin y/o
+// panel de usuario) preservando lo tildado — se llama cuando el
+// catálogo cambia (carga inicial o guardado del admin).
+function _evtRepaintAllTagSelectors() {
+  ['evt-tags-wrap', 'up-evt-tags-wrap'].forEach(id => {
+    const wrap = document.getElementById(id);
+    if (!wrap) return;
+    const yaMarcados = Array.from(wrap.querySelectorAll('input[type="checkbox"]:checked')).map(c => c.value);
+    _evtRenderTagsSelector(id, yaMarcados);
+  });
+}
+ 
+/* ═══════════════════════════════════════════════════════════
+   [Etapa 9 — simplificada] DIRECCIÓN CONDICIONAL
+   ---------------------------------------------------------------
+   Decisión confirmada con Cris: la dirección del evento se pide a
+   mano SOLO si el pin al que queda anexado no tiene `address`
+   cargada. Si el pin ya tiene dirección, se hereda automática (se
+   muestra como info, el campo de texto queda oculto y no se exige).
+   Genérica por prefijo de ids para que la use tanto el form admin
+   (`evt-`) como el del panel de usuario (`up-evt-`).
+   ═══════════════════════════════════════════════════════════ */
+function _evtSyncDireccionBlock(idPrefix, camino, pinId) {
+  const block = document.getElementById(idPrefix + 'direccion-block');
+  const info = document.getElementById(idPrefix + 'direccion-inherited-info');
+  if (!block) return;
+  let pinAddress = '';
+  if (camino === 'a' && pinId) {
+    const pin = (typeof POIS !== 'undefined' ? POIS : []).find(p => p.id === pinId);
+    pinAddress = (pin && pin.address) ? pin.address.trim() : '';
+  }
+  if (pinAddress) {
+    block.style.display = 'none';
+    if (info) { info.style.display = ''; info.textContent = `📍 Dirección heredada del pin: ${pinAddress}`; }
+  } else {
+    block.style.display = '';
+    if (info) info.style.display = 'none';
+  }
+}
+ 
+/** Dirección final a guardar en el evento: la heredada del pin si
+ *  existe, o el valor tipeado a mano en el campo condicional. */
+function _evtResolveDireccionFinal(idPrefix, camino, pinId) {
+  if (camino === 'a' && pinId) {
+    const pin = (typeof POIS !== 'undefined' ? POIS : []).find(p => p.id === pinId);
+    if (pin && pin.address && pin.address.trim()) return pin.address.trim();
+  }
+  return (document.getElementById(idPrefix + 'direccion')?.value || '').trim();
+}
+ 
+/* ═══════════════════════════════════════════════════════════
+   [Etapa 9 — simplificada] VALIDACIÓN DE OBLIGATORIOS COMUNES
+   ---------------------------------------------------------------
+   Confirmado con Cris: para crear o guardar cambios de un evento
+   son obligatorios fecha inicio/fin, nombre (ya se valida aparte,
+   antes de llegar acá), horario, dirección, contacto (al menos 1
+   campo) y categoría/tags (al menos 1). Reusada tal cual por los 2
+   formularios — devuelve el mensaje de error, o null si está todo OK.
+   ═══════════════════════════════════════════════════════════ */
+function _evtValidateComunes(data) {
+  if (!data.fecha_inicio || !data.fecha_fin) return '⚠️ Completá la fecha de inicio y la fecha de fin del evento';
+  if (!data.horario) return '⚠️ Completá el horario del evento';
+  if (!data.direccion) return '⚠️ Falta la dirección del evento';
+  if (!data.contactoEmail && !data.contactoRedSocial && !data.contactoTelefono && !data.contactoWeb) {
+    return '⚠️ Completá al menos 1 dato de contacto (mail, red social, teléfono o página web)';
+  }
+  if (!data.tags || !data.tags.length) return '⚠️ Elegí al menos 1 categoría para el evento';
+  return null;
+}
+ 
+/* Tilde "entrada gratuita" — mismo criterio visual que "evt-destacado":
+   solo se pide el valor de la entrada cuando NO es gratuita. */
+document.getElementById('evt-entrada-gratis')?.addEventListener('change', e => {
+  const block = document.getElementById('evt-valor-entrada-block');
+  if (block) block.style.display = e.target.checked ? 'none' : '';
+});
+ 
 /**
  * [Etapa 3 — PLAN_USUARIOS_EVENTOS.md, 2026-08-25]
  * [Etapa 4 agregada 2026-08-26 — ver bloque de comentario propio más
@@ -142,13 +313,13 @@ document.getElementById('btn-save-evt-config')?.addEventListener('click', _saveE
  * cual — mismo criterio que ya deja este proyecto reusar helpers
  * chicos entre módulos sin duplicarlos).
  */
-
+ 
 let _eventosCache = [];
 let _evtCamino = 'a'; // 'a' = pin ya existe | 'b' = crear pin mínimo
 let _evtSelectedPinId = null;
 let _evtAsignadoResueltoUid = null;
 let _evtEditingId = null; // [Etapa 6] id del evento en edición (admin) — null = modo alta
-
+ 
 /* ═══════════════════════════════════════════════════════════
    CAMINO A / B — toggle de UI
    ═══════════════════════════════════════════════════════════ */
@@ -160,11 +331,12 @@ function _evtSetCamino(camino) {
   const paneB = document.getElementById('evt-camino-b-pane');
   if (paneA) paneA.style.display = camino === 'a' ? '' : 'none';
   if (paneB) paneB.style.display = camino === 'b' ? '' : 'none';
+  _evtSyncDireccionBlock('evt-', camino, _evtSelectedPinId);
 }
-
+ 
 document.getElementById('evt-camino-a-btn')?.addEventListener('click', () => _evtSetCamino('a'));
 document.getElementById('evt-camino-b-btn')?.addEventListener('click', () => _evtSetCamino('b'));
-
+ 
 /* ── Camino A: buscador de pines existentes (click para elegir) ──
    No se restringe a "pines propios" — el admin no tiene pines
    propios, a diferencia de OwnerPanel (Etapa 2). */
@@ -192,7 +364,7 @@ function _evtBuscarPines(query) {
     el.addEventListener('click', () => _evtSeleccionarPin(el.dataset.pinId));
   });
 }
-
+ 
 function _evtSeleccionarPin(pinId) {
   const p = (typeof POIS !== 'undefined' ? POIS : []).find(x => x.id === pinId);
   if (!p) return;
@@ -204,14 +376,16 @@ function _evtSeleccionarPin(pinId) {
     sel.style.display = '';
     sel.querySelector('.evt-pin-seleccionado-name').textContent = p.name || p.id;
   }
+  _evtSyncDireccionBlock('evt-', _evtCamino, _evtSelectedPinId);
 }
-
+ 
 function _evtQuitarSeleccion() {
   _evtSelectedPinId = null;
   const sel = document.getElementById('evt-pin-seleccionado');
   if (sel) sel.style.display = 'none';
+  _evtSyncDireccionBlock('evt-', _evtCamino, _evtSelectedPinId);
 }
-
+ 
 document.getElementById('evt-buscar-pin-input')?.addEventListener('input', e => _evtBuscarPines(e.target.value));
 document.getElementById('evt-pin-seleccionado-quitar')?.addEventListener('click', _evtQuitarSeleccion);
 document.addEventListener('click', e => {
@@ -219,7 +393,7 @@ document.addEventListener('click', e => {
   const input = document.getElementById('evt-buscar-pin-input');
   if (wrap && input && !wrap.contains(e.target) && e.target !== input) wrap.classList.remove('show');
 });
-
+ 
 /* ── Camino B: pin mínimo (nombre + geocoder/click en mapa) ──
    La Etapa 4 le agrega después el ciclo de vida (auto-desactivación
    al vencer todos sus eventos) — acá se crea ya funcional. */
@@ -237,11 +411,11 @@ function _syncEvtPinCoordDisplay() {
   }
 }
 window._syncEvtPinCoordDisplay = _syncEvtPinCoordDisplay;
-
+ 
 document.getElementById('btn-pick-evento-pin')?.addEventListener('click', () => {
   if (typeof startPickMode === 'function') startPickMode('evento-pin');
 });
-
+ 
 /**
  * Crea el pin mínimo del Camino B y lo deja funcionando igual que
  * cualquier otro pin (mismo criterio de guardado que saveNew() en
@@ -250,7 +424,7 @@ document.getElementById('btn-pick-evento-pin')?.addEventListener('click', () => 
  * "Nuevo" — acá se arma el objeto a mano con los mismos defaults.
  * @returns {Promise<string|null>} el id del pin nuevo, o null si falló.
  */
-async function _crearPinMinimoEvento(nombre, lat, lng) {
+async function _crearPinMinimoEvento(nombre, lat, lng, address) {
   const country  = (window.ACTIVE_LOCATION && ACTIVE_LOCATION.countryCode)  || '';
   const province = (window.ACTIVE_LOCATION && ACTIVE_LOCATION.provinceCode) || '';
   const cityCode = (window.ACTIVE_LOCATION && ACTIVE_LOCATION.cityCode)     || '';
@@ -267,11 +441,11 @@ async function _crearPinMinimoEvento(nombre, lat, lng) {
     attempt = `${slug}-${n}`; n += 1;
   }
   slug = attempt;
-
+ 
   const p = {
     id: slug, name: nombre,
     category: 'evento', categories: ['evento'], categoryLabel: 'Evento',
-    icon: '🎉', lat, lng, address: '',
+    icon: '🎉', lat, lng, address: (address || '').trim(),
     country, province, city: cityCode,
     imgB64: null, banner: null,
     pinScale: 100, pinOffsetX: 0, pinOffsetY: 0,
@@ -286,19 +460,19 @@ async function _crearPinMinimoEvento(nombre, lat, lng) {
     // eventos (un pin normal, aunque tenga eventos, no se desactiva solo).
     tipo: 'evento_temporal',
   };
-
+ 
   const guardadoOk = await savePoiToFirestore(p);
   if (!guardadoOk) return null;
-
+ 
   POIS.push(p);
   syncAppStateWithPOIS();
   await regeneratePublicCache();
   if (typeof makeMarker === 'function') makeMarker(p);
   if (typeof applyFilter === 'function') applyFilter();
-
+ 
   return slug;
 }
-
+ 
 /* ═══════════════════════════════════════════════════════════
    [Etapa 4 — PLAN_USUARIOS_EVENTOS.md, 2026-08-26]
    CICLO DE VIDA DE PINES `tipo: 'evento_temporal'`
@@ -334,7 +508,7 @@ function _eventoEsVigente(ev) {
   const fin = new Date(ev.fecha_fin);
   return isNaN(fin.getTime()) ? true : fin.getTime() > Date.now();
 }
-
+ 
 /**
  * Revisa todos los pines `tipo: 'evento_temporal'` todavía activos y
  * auto-desactiva (nunca borra) los que ya no tienen ningún evento
@@ -346,7 +520,7 @@ async function checkEventosTemporalesLifecycle(eventosList) {
   if (typeof POIS === 'undefined' || typeof db === 'undefined') return;
   const pinesTemporales = POIS.filter(p => p.tipo === 'evento_temporal' && p.active !== false);
   if (!pinesTemporales.length) return;
-
+ 
   let eventos = eventosList;
   if (!eventos) {
     try {
@@ -358,7 +532,7 @@ async function checkEventosTemporalesLifecycle(eventosList) {
       return;
     }
   }
-
+ 
   for (const pin of pinesTemporales) {
     const eventosDelPin = eventos.filter(ev => ev.poi_id === pin.id);
     if (!eventosDelPin.some(_eventoEsVigente)) {
@@ -367,7 +541,7 @@ async function checkEventosTemporalesLifecycle(eventosList) {
   }
 }
 window.checkEventosTemporalesLifecycle = checkEventosTemporalesLifecycle;
-
+ 
 async function _autoDesactivarPinTemporal(pin) {
   pin.active = false;
   try {
@@ -389,7 +563,7 @@ async function _autoDesactivarPinTemporal(pin) {
   }
   console.info(`[Etapa 4] Pin temporal "${pin.name}" (${pin.id}) auto-desactivado — no le queda ningún evento vigente.`);
 }
-
+ 
 /** Reactivación manual (ver decisión 3 arriba) — botón "🔓 Reactivar
  *  pin" en la lista de eventos, mismo criterio que togglePoi() pero
  *  sin depender de un <button> del listado de Lugares. */
@@ -415,7 +589,7 @@ async function _reactivarPinTemporal(pinId) {
     toast('⚠️ No se pudo reactivar el pin. Probá de nuevo.');
   }
 }
-
+ 
 /* ═══════════════════════════════════════════════════════════
    ASIGNACIÓN MANUAL (usuarioAsignadoUid) — pegar UID o resolver
    por mail con click (mismo criterio que la asignación de dueño
@@ -447,12 +621,12 @@ async function _evtBuscarAsignadoPorMail() {
   }
 }
 document.getElementById('evt-asignado-buscar-btn')?.addEventListener('click', _evtBuscarAsignadoPorMail);
-
+ 
 /* [Etapa 7] Destacado — solo pide fecha límite si está tildado. */
 document.getElementById('evt-destacado')?.addEventListener('change', e => {
   document.getElementById('evt-destacado-hasta-block').style.display = e.target.checked ? '' : 'none';
 });
-
+ 
 /* ═══════════════════════════════════════════════════════════
    [Etapa 6, PLAN_PANEL_USUARIO_EDICION_EVENTOS_2026-08-26.md — 4.3]
    NOMBRE DE EVENTO ÚNICO POR CIUDAD
@@ -468,7 +642,7 @@ document.getElementById('evt-destacado')?.addEventListener('change', e => {
 function _evtSlugifyNombre(nombre) {
   return (typeof _autoSlugBase === 'function') ? _autoSlugBase(nombre) : slugify(nombre || '');
 }
-
+ 
 function _evtCheckNombreDuplicado(nombre, city, excludeId) {
   const slug = _evtSlugifyNombre(nombre);
   if (!slug) return null;
@@ -480,7 +654,7 @@ function _evtCheckNombreDuplicado(nombre, city, excludeId) {
   );
   return dup || null;
 }
-
+ 
 /** Ciudad del pin al que quedaría anexado el evento, dado el estado
  *  ACTUAL del formulario que se le pase (Camino A: pin elegido ya
  *  existente; Camino B: `ACTIVE_LOCATION`, porque el pin todavía no
@@ -494,7 +668,7 @@ function _evtResolveCityFromForm(camino, pinId) {
   }
   return (window.ACTIVE_LOCATION && ACTIVE_LOCATION.cityCode) || '';
 }
-
+ 
 /* Preview en vivo del nombre del evento (mismo espíritu que el
    preview del ID de pin en pin-adjust.js) — solo informativo, el
    bloqueo real es en el guardado. `excludeId` es el propio evento
@@ -519,7 +693,7 @@ function _evtSyncNombrePreview(nombreInputId, previewElId, excludeId, cityGetter
 }
 document.getElementById('evt-nombre')?.addEventListener('input', () =>
   _evtSyncNombrePreview('evt-nombre', 'evt-nombre-preview', _evtEditingId, () => _evtResolveCityFromForm(_evtCamino, _evtSelectedPinId)));
-
+ 
 /* ═══════════════════════════════════════════════════════════
    [Etapa 6] CIUDAD EDITABLE CON DOBLE CANDADO (solo admin, solo en
    modo edición) — mismo mecanismo que el ID de un pin en
@@ -544,7 +718,7 @@ function _evtResetCityLock() {
   if (l2) l2.checked = false;
   _evtApplyCityLockState();
 }
-
+ 
 /* ═══════════════════════════════════════════════════════════
    [Etapa 6] GUARDAR EVENTO — alta y edición, misma función.
    ---------------------------------------------------------------
@@ -560,28 +734,41 @@ function _dateInputToIso(inputId) {
   const d = new Date(v);
   return isNaN(d.getTime()) ? null : d.toISOString();
 }
-
+ 
 async function saveEvento() {
   const errEl = document.getElementById('evt-form-error');
   const btn = document.getElementById('btn-save-evento');
   const editando = !!_evtEditingId;
   if (errEl) errEl.textContent = '';
-
+ 
   const nombre = document.getElementById('evt-nombre')?.value.trim() || '';
   if (!nombre) { toast('⚠️ Ingresá el nombre del evento'); return; }
-
+ 
   const descripcion = document.getElementById('evt-descripcion')?.value.trim() || '';
-  const categoria = document.getElementById('evt-categoria')?.value.trim() || '';
   const fecha_inicio = _dateInputToIso('evt-fecha-inicio');
   const fecha_fin = _dateInputToIso('evt-fecha-fin');
   const activo = !!document.getElementById('evt-activo')?.checked;
   const usuarioAsignadoUid = document.getElementById('evt-asignado-uid')?.value.trim() || null;
   const destacado = !!document.getElementById('evt-destacado')?.checked;
   const destacado_hasta = destacado ? _dateInputToIso('evt-destacado-hasta') : null;
-
+ 
+  // [Etapa 9 — simplificada] campos nuevos
+  const horario = document.getElementById('evt-horario')?.value.trim() || '';
+  const entradaGratis = !!document.getElementById('evt-entrada-gratis')?.checked;
+  const valorEntrada = entradaGratis ? '' : (document.getElementById('evt-valor-entrada')?.value.trim() || '');
+  const contactoEmail = document.getElementById('evt-contacto-email')?.value.trim() || '';
+  const contactoRedSocial = document.getElementById('evt-contacto-social')?.value.trim() || '';
+  const contactoTelefono = document.getElementById('evt-contacto-telefono')?.value.trim() || '';
+  const contactoWeb = document.getElementById('evt-contacto-web')?.value.trim() || '';
+  const tags = _evtReadTagsFromForm('evt-tags-wrap');
+  const direccion = _evtResolveDireccionFinal('evt-', _evtCamino, _evtSelectedPinId);
+ 
+  const errComun = _evtValidateComunes({ fecha_inicio, fecha_fin, horario, direccion, contactoEmail, contactoRedSocial, contactoTelefono, contactoWeb, tags });
+  if (errComun) { if (errEl) errEl.textContent = errComun; return; }
+ 
   const originalBtnText = editando ? '💾 Guardar cambios' : '✓ Crear evento';
   btn.textContent = 'Guardando...'; btn.disabled = true;
-
+ 
   let poi_id = null;
   if (_evtCamino === 'a') {
     if (!_evtSelectedPinId) {
@@ -605,14 +792,14 @@ async function saveEvento() {
       return;
     }
     toast('⏳ Creando pin del lugar...');
-    poi_id = await _crearPinMinimoEvento(pinNombre, lat, lng);
+    poi_id = await _crearPinMinimoEvento(pinNombre, lat, lng, direccion);
     if (!poi_id) {
       if (errEl) errEl.textContent = '⚠️ No se pudo crear el pin del lugar. Probá de nuevo.';
       btn.textContent = originalBtnText; btn.disabled = false;
       return;
     }
   }
-
+ 
   // [Etapa 6] ciudad: por defecto la del pin al que quedó anexado;
   // si el admin desbloqueó el doble candado y la editó a mano, se
   // respeta ese valor en su lugar (ver _evtApplyCityLockState).
@@ -620,7 +807,7 @@ async function saveEvento() {
   const city = (editando && cityUnlocked)
     ? (document.getElementById('evt-city')?.value.trim() || '')
     : _evtResolveCityFromForm(_evtCamino, poi_id);
-
+ 
   // [Etapa 6] nombre único por ciudad — bloqueo real (el preview de
   // arriba solo avisa, no bloquea el tipeo).
   const dup = _evtCheckNombreDuplicado(nombre, city, _evtEditingId);
@@ -630,16 +817,19 @@ async function saveEvento() {
     return;
   }
   const nombreSlug = _evtSlugifyNombre(nombre);
-
+ 
   const evento = {
-    nombre, nombreSlug, descripcion, categoria,
-    fecha_inicio, fecha_fin,
+    nombre, nombreSlug, descripcion,
+    fecha_inicio, fecha_fin, horario,
+    entradaGratis, valorEntrada,
+    direccion, tags,
+    contactoEmail, contactoRedSocial, contactoTelefono, contactoWeb,
     poi_id, city,
     usuarioAsignadoUid,
     activo,
     destacado, destacado_hasta,
   };
-
+ 
   try {
     if (editando) {
       // [Etapa 6] admin editando: puede recargar el contador a mano.
@@ -667,7 +857,7 @@ async function saveEvento() {
   }
 }
 document.getElementById('btn-save-evento')?.addEventListener('click', saveEvento);
-
+ 
 /** [Etapa 6] Carga un evento existente en el mismo formulario de alta,
  *  en modo edición — reusa TODO el formulario (Camino A/B incluido)
  *  en vez de armar una pantalla nueva. */
@@ -675,10 +865,9 @@ function _evtStartEdit(eventoId) {
   const ev = _eventosCache.find(e => e.id === eventoId);
   if (!ev) return;
   _evtEditingId = eventoId;
-
+ 
   document.getElementById('evt-nombre').value = ev.nombre || '';
   document.getElementById('evt-descripcion').value = ev.descripcion || '';
-  document.getElementById('evt-categoria').value = ev.categoria || '';
   document.getElementById('evt-fecha-inicio').value = ev.fecha_inicio ? ev.fecha_inicio.slice(0, 16) : '';
   document.getElementById('evt-fecha-fin').value = ev.fecha_fin ? ev.fecha_fin.slice(0, 16) : '';
   document.getElementById('evt-activo').checked = !!ev.activo;
@@ -688,7 +877,19 @@ function _evtStartEdit(eventoId) {
   document.getElementById('evt-destacado-hasta').value = ev.destacado_hasta ? ev.destacado_hasta.slice(0, 16) : '';
   document.getElementById('evt-cambios-restantes').value = (typeof ev.cambiosRestantes === 'number') ? ev.cambiosRestantes : '';
   document.getElementById('evt-city').value = ev.city || '';
-
+ 
+  // [Etapa 9 — simplificada] campos nuevos
+  document.getElementById('evt-horario').value = ev.horario || '';
+  document.getElementById('evt-entrada-gratis').checked = ev.entradaGratis !== false; // default gratis si no se guardó nunca
+  document.getElementById('evt-valor-entrada-block').style.display = (ev.entradaGratis === false) ? '' : 'none';
+  document.getElementById('evt-valor-entrada').value = ev.valorEntrada || '';
+  document.getElementById('evt-direccion').value = ev.direccion || '';
+  document.getElementById('evt-contacto-email').value = ev.contactoEmail || '';
+  document.getElementById('evt-contacto-social').value = ev.contactoRedSocial || '';
+  document.getElementById('evt-contacto-telefono').value = ev.contactoTelefono || '';
+  document.getElementById('evt-contacto-web').value = ev.contactoWeb || '';
+  _evtRenderTagsSelector('evt-tags-wrap', ev.tags || []);
+ 
   // Precarga el pin ya anexado como si se hubiera buscado (Camino A) —
   // el admin puede igual pasarse a Camino B si quiere cambiarlo.
   _evtSetCamino('a');
@@ -700,7 +901,8 @@ function _evtStartEdit(eventoId) {
   } else {
     _evtQuitarSeleccion();
   }
-
+  _evtSyncDireccionBlock('evt-', _evtCamino, _evtSelectedPinId);
+ 
   _evtResetCityLock();
   document.getElementById('evt-city-block').style.display = '';
   document.getElementById('evt-cambios-block').style.display = '';
@@ -708,20 +910,21 @@ function _evtStartEdit(eventoId) {
   document.getElementById('btn-save-evento').textContent = '💾 Guardar cambios';
   document.getElementById('btn-cancel-evt-edit').style.display = '';
   _evtSyncNombrePreview('evt-nombre', 'evt-nombre-preview', _evtEditingId, () => _evtResolveCityFromForm(_evtCamino, _evtSelectedPinId));
-
+ 
   document.getElementById('tp-eventos-admin')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
-
+ 
 function _evtCancelEdit() {
   _resetEventoForm();
 }
 document.getElementById('btn-cancel-evt-edit')?.addEventListener('click', _evtCancelEdit);
-
+ 
 function _resetEventoForm() {
-  ['evt-nombre', 'evt-descripcion', 'evt-categoria', 'evt-fecha-inicio', 'evt-fecha-fin',
+  ['evt-nombre', 'evt-descripcion', 'evt-fecha-inicio', 'evt-fecha-fin',
    'evt-pin-nombre', 'evt-pin-lat', 'evt-pin-lng', 'geo-input-evt',
    'evt-asignado-uid', 'evt-asignado-email', 'evt-city', 'evt-cambios-restantes',
-   'evt-destacado-hasta'].forEach(id => {
+   'evt-destacado-hasta', 'evt-horario', 'evt-valor-entrada', 'evt-direccion',
+   'evt-contacto-email', 'evt-contacto-social', 'evt-contacto-telefono', 'evt-contacto-web'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.value = '';
   });
@@ -731,6 +934,13 @@ function _resetEventoForm() {
   if (destacadoEl) destacadoEl.checked = false;
   const destacadoHastaBlock = document.getElementById('evt-destacado-hasta-block');
   if (destacadoHastaBlock) destacadoHastaBlock.style.display = 'none';
+  // [Etapa 9 — simplificada] campos nuevos: entrada gratis por
+  // defecto, tags vacíos, dirección visible hasta que se elija un pin.
+  const entradaGratisEl = document.getElementById('evt-entrada-gratis');
+  if (entradaGratisEl) entradaGratisEl.checked = true;
+  const valorEntradaBlock = document.getElementById('evt-valor-entrada-block');
+  if (valorEntradaBlock) valorEntradaBlock.style.display = 'none';
+  _evtRenderTagsSelector('evt-tags-wrap', []);
   const resultEl = document.getElementById('evt-asignado-resultado');
   if (resultEl) resultEl.innerHTML = '';
   const previewEl = document.getElementById('evt-nombre-preview');
@@ -752,7 +962,7 @@ function _resetEventoForm() {
   const cancelBtn = document.getElementById('btn-cancel-evt-edit');
   if (cancelBtn) cancelBtn.style.display = 'none';
 }
-
+ 
 /* ═══════════════════════════════════════════════════════════
    LISTADO DE EVENTOS YA CARGADOS
    ═══════════════════════════════════════════════════════════ */
@@ -769,24 +979,24 @@ async function _loadEventosAdminList() {
     listEl.innerHTML = '<p class="owner-panel-loading">⚠️ No se pudieron cargar los eventos. Probá de nuevo.</p>';
     return;
   }
-
+ 
   // [Etapa 4] cada vez que se abre/refresca esta tab, reusa los eventos
   // recién leídos para revisar el ciclo de vida de los pines
   // evento_temporal — sin query extra a Firestore.
   await checkEventosTemporalesLifecycle(_eventosCache);
-
+ 
   // [Etapa 5] mantiene sincronizado el caché global EVENTOS (usado por
   // el filtro "Eventos y actividades" del mapa y por la pestaña
   // "Eventos" del panel público) y refresca el mapa por si el
   // toggle/borrado de un evento cambió qué pines deberían verse ahora.
   if (typeof EVENTOS !== 'undefined') EVENTOS = _eventosCache;
   if (typeof applyFilter === 'function') applyFilter();
-
+ 
   if (!_eventosCache.length) {
     listEl.innerHTML = '<p class="owner-panel-loading">Todavía no hay eventos cargados.</p>';
     return;
   }
-
+ 
   listEl.innerHTML = _eventosCache.map(ev => {
     const pin = (typeof POIS !== 'undefined' ? POIS : []).find(p => p.id === ev.poi_id);
     const pinLabel = pin ? (pin.name || pin.id) : (ev.poi_id || '—');
@@ -798,13 +1008,20 @@ async function _loadEventosAdminList() {
     // reactivarlo a mano — ver decisión 3 en checkEventosTemporalesLifecycle.
     const pinDesactivado = pin && pin.tipo === 'evento_temporal' && pin.active === false;
     const cambiosTxt = (typeof ev.cambiosRestantes === 'number') ? `✏️ ${ev.cambiosRestantes} cambios restantes` : '';
+    // [Etapa 9 — simplificada] horario/entrada/tags de un vistazo.
+    const tagsLabels = (ev.tags || [])
+      .map(id => (_categoriasEventoState.find(c => c.id === id) || {}).label || id)
+      .filter(Boolean).join(', ');
+    const entradaTxt = ev.entradaGratis === false ? `💵 ${ev.valorEntrada || 'con costo'}` : '🆓 Gratis';
     return `
       <div class="evt-admin-row" data-evento-id="${_escAttr(ev.id)}">
         <div class="evt-admin-row-main">
           <strong>${_escHtml(ev.nombre || '(sin nombre)')}</strong>
           <span class="evt-admin-row-pin">📍 ${_escHtml(pinLabel)}${ev.city ? ` · ${_escHtml(ev.city)}` : ''}</span>
-          ${fechas ? `<span class="evt-admin-row-fechas">🗓 ${_escHtml(fechas)}</span>` : ''}
+          ${fechas ? `<span class="evt-admin-row-fechas">🗓 ${_escHtml(fechas)}${ev.horario ? ` · ${_escHtml(ev.horario)}` : ''}</span>` : ''}
           <span class="evt-admin-row-estado">${_escHtml(ev.estado || 'aprobado')}</span>
+          <span class="evt-admin-row-estado">${entradaTxt}</span>
+          ${tagsLabels ? `<span class="evt-admin-row-estado">🏷 ${_escHtml(tagsLabels)}</span>` : ''}
           ${ev.destacado ? '<span class="evt-admin-row-estado">⭐ destacado</span>' : ''}
           ${cambiosTxt ? `<span class="evt-admin-row-cambios">${cambiosTxt}</span>` : ''}
           ${pinDesactivado ? `
@@ -820,7 +1037,7 @@ async function _loadEventosAdminList() {
         </div>
       </div>`;
   }).join('');
-
+ 
   listEl.querySelectorAll('.evt-admin-row').forEach(row => {
     const id = row.dataset.eventoId;
     row.querySelector('[data-action="edit"]')?.addEventListener('click', () => _evtStartEdit(id));
@@ -829,7 +1046,7 @@ async function _loadEventosAdminList() {
     row.querySelector('[data-action="reactivar-pin"]')?.addEventListener('click', e => _reactivarPinTemporal(e.currentTarget.dataset.pinId));
   });
 }
-
+ 
 async function _toggleEventoActivo(eventoId) {
   const ev = _eventosCache.find(e => e.id === eventoId);
   if (!ev) return;
@@ -843,7 +1060,7 @@ async function _toggleEventoActivo(eventoId) {
     toast('⚠️ No se pudo actualizar el evento. Probá de nuevo.');
   }
 }
-
+ 
 async function _deleteEvento(eventoId) {
   const ev = _eventosCache.find(e => e.id === eventoId);
   if (!confirm(`¿Eliminar el evento "${ev?.nombre || ''}"? Esta acción no se puede deshacer.`)) return;
@@ -856,23 +1073,23 @@ async function _deleteEvento(eventoId) {
     toast('⚠️ No se pudo eliminar el evento. Probá de nuevo.');
   }
 }
-
+ 
 /* Se registra como tab plugin (mismo patrón que features.js/roadmap.js
    para tabs agregadas después de admin.js) — al entrar a la tab
    "Eventos" se refresca la lista contra Firestore. */
 if (window.SC && typeof SC.registerTabPlugin === 'function') {
   SC.registerTabPlugin('eventos-admin', _loadEventosAdminList);
 }
-
+ 
 /* Geocoder del Camino B — mismo helper genérico que usan las tabs
    Nuevo/Editar (ver geocoder.js), apuntando a los campos propios de
    esta pantalla. */
 if (typeof setupGeocoder === 'function') {
   setupGeocoder('geo-input-evt', 'geo-btn-evt', 'geo-results-evt', 'evt-pin-lat', 'evt-pin-lng', 'evt-pin-coord-display', _syncEvtPinCoordDisplay);
 }
-
+ 
 window.Eventos = { refreshList: _loadEventosAdminList };
-
+ 
 /* [Etapa 6] Helpers reusados tal cual por js/user-panel.js (autoservicio
    de eventos desde el panel de usuario) — evita duplicar esta lógica. */
 window.EventosShared = {
@@ -884,4 +1101,12 @@ window.EventosShared = {
   syncNombrePreview: _evtSyncNombrePreview,
   refreshAdminList: _loadEventosAdminList,
   getConfig: () => window._eventosConfigCache || { cambiosDefault: 3, creacionEventosHabilitada: true },
+  // [Etapa 9 — simplificada] reusados tal cual por js/user-panel.js
+  renderTagsSelector: _evtRenderTagsSelector,
+  readTagsFromForm: _evtReadTagsFromForm,
+  syncDireccionBlock: _evtSyncDireccionBlock,
+  resolveDireccionFinal: _evtResolveDireccionFinal,
+  validateComunes: _evtValidateComunes,
 };
+ 
+

@@ -335,13 +335,31 @@ const PoiPanel = (function () {
     }
     els.eventosList.innerHTML = eventosDelPoi.map(ev => {
       const fechas = [ev.fecha_inicio, ev.fecha_fin].filter(Boolean)
-        .map(iso => { const d = new Date(iso); return isNaN(d.getTime()) ? '' : d.toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); })
+        .map(iso => { const d = new Date(iso); return isNaN(d.getTime()) ? '' : d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' }); })
         .filter(Boolean).join(' → ');
+      // [Etapa 9 — simplificada] tags → labels legibles, usando el
+      // catálogo que llega vía setEventosConfig() (mismo que carga
+      // js/eventos.js → loadEventosConfig()).
+      const catalogo = (_eventosConfigCache && Array.isArray(_eventosConfigCache.categoriasEvento)) ? _eventosConfigCache.categoriasEvento : [];
+      const tagsLabels = (ev.tags || [])
+        .map(id => (catalogo.find(c => c.id === id) || {}).label || id)
+        .filter(Boolean);
+      const entradaTxt = ev.entradaGratis === false ? `💵 ${ev.valorEntrada || 'Entrada paga'}` : '🆓 Entrada gratuita';
+      const contactos = [
+        ev.contactoTelefono ? `📞 ${ev.contactoTelefono}` : '',
+        ev.contactoEmail ? `✉️ ${ev.contactoEmail}` : '',
+        ev.contactoRedSocial ? `📱 ${ev.contactoRedSocial}` : '',
+        ev.contactoWeb ? `🌐 ${ev.contactoWeb}` : '',
+      ].filter(Boolean);
       return `<div class="poi-panel__evento-card">
         <strong class="poi-panel__evento-nombre">${_escapeHtml(ev.nombre || '(sin nombre)')}</strong>
         ${fechas ? `<span class="poi-panel__evento-fechas">🗓 ${_escapeHtml(fechas)}</span>` : ''}
-        ${ev.categoria ? `<span class="poi-panel__evento-cat">${_escapeHtml(ev.categoria)}</span>` : ''}
+        ${ev.horario ? `<span class="poi-panel__evento-fechas">🕒 ${_escapeHtml(ev.horario)}</span>` : ''}
+        <span class="poi-panel__evento-fechas">${entradaTxt}</span>
+        ${tagsLabels.length ? `<span class="poi-panel__evento-cat">${tagsLabels.map(_escapeHtml).join(' · ')}</span>` : ''}
         ${ev.descripcion ? `<p class="poi-panel__evento-desc">${_escapeHtml(ev.descripcion)}</p>` : ''}
+        ${ev.direccion ? `<p class="poi-panel__evento-desc">📍 ${_escapeHtml(ev.direccion)}</p>` : ''}
+        ${contactos.length ? `<p class="poi-panel__evento-desc">${contactos.map(_escapeHtml).join(' · ')}</p>` : ''}
       </div>`;
     }).join('');
     // Mantiene la pestaña activa que ya tuviera (no fuerza a "eventos"
