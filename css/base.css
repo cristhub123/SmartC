@@ -1957,6 +1957,18 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   color: var(--text3); cursor: pointer; transition: all .15s;
 }
 .evt-camino-btn.on { border-color: var(--accent); color: var(--accent); background: rgba(58,140,79,.06); }
+
+/* [Etapa 9 — simplificada] selector de tags de categoría de evento —
+   checkboxes con pinta de chip, mismo lenguaje visual que evt-camino-btn. */
+.evt-tags-wrap { display: flex; flex-wrap: wrap; gap: 6px; }
+.evt-tag-chip {
+  display: flex; align-items: center; gap: 5px;
+  padding: 6px 10px; border-radius: 999px;
+  border: 1px solid var(--border2); background: white;
+  font-family: var(--font-b); font-size: 12px; font-weight: 600;
+  color: var(--text3); cursor: pointer; transition: all .15s;
+}
+.evt-tag-chip.on { border-color: var(--accent); color: var(--accent); background: rgba(58,140,79,.06); }
 .evt-admin-row {
   display: flex; justify-content: space-between; align-items: center; gap: 10px;
   padding: 10px 12px; border-radius: var(--r-sm);
@@ -2010,5 +2022,3 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
 .evt-admin-row-cambios { font-size: 10px; color: var(--text3); }
 .evt-nombre-ok { color: var(--accent); }
 .evt-nombre-dup { color: #ef4444; }
-
-
