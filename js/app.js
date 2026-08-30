@@ -28,12 +28,17 @@ async function init() {
   //    también queda afuera: necesita el resultado de `loadEventosFromFirestore()`
   //    (la lista de EVENTOS) para poder correr, así que sigue secuencial,
   //    después de este grupo.
+  // [2026-08-29] loadClusterSettings() (js/cluster-grouping.js) se
+  // suma acá: lee el mismo doc de un solo golpe (settings/clustering)
+  // que el resto, mismo motivo de fondo (independiente de los demás,
+  // no hace falta esperarlo en fila).
   await Promise.all([
     loadGlobalSettings(),
     loadMapSettings(),
     typeof loadFeaturesFromFirestore === 'function' ? loadFeaturesFromFirestore() : Promise.resolve(),
     typeof loadEventosConfig === 'function' ? loadEventosConfig() : Promise.resolve(),
     typeof loadEventosFromFirestore === 'function' ? loadEventosFromFirestore() : Promise.resolve(),
+    typeof loadClusterSettings === 'function' ? loadClusterSettings() : Promise.resolve(),
   ]);
 
   // 1. Aplicar el estilo de mapa ya cargado (o el default si es la
@@ -132,6 +137,10 @@ async function init() {
     if (parent) parent.style.visibility = p.active ? '' : 'hidden';
     if (!p.active && expandedId === id) { collapsePin(id); closePoiPanel(); }
     toast(p.active ? '✅ "' + p.name + '" activado' : '⭕ "' + p.name + '" desactivado');
+    // [NUEVO 2026-08-29] activar/desactivar un pin cambia qué cuenta
+    // como candidato para el clustering (js/cluster-grouping.js) —
+    // recalcular para que el número de las burbujas quede correcto.
+    if (typeof scheduleClusterRecompute === 'function') scheduleClusterRecompute();
   };
 
   // 8. Live search

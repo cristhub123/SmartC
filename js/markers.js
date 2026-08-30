@@ -339,10 +339,21 @@ function makeMarker(poi) {
   });
 
   markers[poi.id] = { m, poi };
+
+  // [NUEVO 2026-08-29] Recalcula el clustering (js/cluster-grouping.js)
+  // cada vez que aparece un pin nuevo — debounced, así que crear
+  // muchos de golpe (el forEach de init() en app.js, una importación
+  // masiva) dispara un solo recálculo, no uno por pin.
+  if (typeof scheduleClusterRecompute === 'function') scheduleClusterRecompute();
 }
 
 function removeMarker(id) {
-  if (markers[id]) { markers[id].m.remove(); delete markers[id]; }
+  if (markers[id]) {
+    markers[id].m.remove();
+    delete markers[id];
+    // [NUEVO 2026-08-29] mismo motivo que en makeMarker de arriba.
+    if (typeof scheduleClusterRecompute === 'function') scheduleClusterRecompute();
+  }
 }
 
 /* ═══════════════════════════════════════════
