@@ -58,10 +58,21 @@ async function init() {
   if (typeof applyGlobalOutline === 'function') applyGlobalOutline();
 
   // 3. Cargar los lugares reales desde Firestore (reemplaza el
-  //    array hardcodeado que había antes) — se espera a que
-  //    termine antes de dibujar los pines en el mapa.
+  //    array hardcodeado que había antes).
+  // [2026-08-29 — PLAN_OPTIMIZACION_PERFORMANCE_2026-08-29.md, punto
+  // 6.1] Antes esto era `loadPOISFromFirestore()` (colección `pines`
+  // COMPLETA, sin límite) + un forEach(makeMarker) más abajo. Ahora
+  // el mapa público carga por área visible (viewport/zoom) — ver
+  // js/pins-viewport-loader.js. Se usa `fetchPinsInViewport()` (solo
+  // trae datos, no dibuja nada todavía) en vez de `loadPinsInViewport()`
+  // a propósito: el dibujado real se hace más abajo, DESPUÉS de
+  // `checkEventosTemporalesLifecycle()` — mismo motivo que ya
+  // explicaba la nota vieja de la sección 3.5 (que un pin recién
+  // vencido nazca ya oculto, sin parpadeo). El panel Admin sigue
+  // viendo TODO, sin recorte — se fuerza aparte en `openAdmin()`
+  // (js/admin.js).
   toast('⏳ Cargando lugares...');
-  await loadPOISFromFirestore();
+  const _pinesRecienCargados = await fetchPinsInViewport();
 
   // 3.5. [Etapa 4/5 — PLAN_USUARIOS_EVENTOS.md] revisa el ciclo de vida
   // de los pines `tipo: 'evento_temporal'` (auto-desactiva los que ya no
@@ -77,20 +88,13 @@ async function init() {
   }
 
   // 4. Build all markers
-  // [2026-08-15] try/catch por-POI agregado como defensa adicional: un
-  // solo POI con datos raros (más allá de lat/lng, cualquier excepción
-  // inesperada) ya NO puede cortar el resto de init() — antes, si
-  // makeMarker() tiraba una excepción para CUALQUIER poi, el resto de
-  // esta función (incluida la definición de window.panToPoiCenter, más
-  // abajo) nunca llegaba a ejecutarse. Ver la nota completa en
-  // js/markers.js/makeMarker() para la causa real que se encontró.
-  POIS.forEach(poi => {
-    try {
-      makeMarker(poi);
-    } catch (err) {
-      console.error('[init] No se pudo crear el marcador de', poi && poi.id, '— se sigue con el resto:', err);
-    }
-  });
+  // [2026-08-29 — PLAN_OPTIMIZACION_PERFORMANCE_2026-08-29.md, punto
+  // 6.1] Dibuja recién ACÁ (después de checkEventosTemporalesLifecycle,
+  // sección 3.5 arriba) los pines que trajo `fetchPinsInViewport()` —
+  // mismo try/catch por-pin de siempre, ver js/pins-viewport-loader.js
+  // → drawLoadedPins(). Nota vieja de 2026-08-15 sobre el motivo del
+  // try/catch por-pin se mantiene ahí, no se pierde.
+  drawLoadedPins(_pinesRecienCargados);
 
   // 3. Build category filter bar
   if (typeof updateFilterBar === 'function') updateFilterBar();
@@ -144,15 +148,34 @@ async function init() {
   };
 
   // 8. Live search
+  // [2026-08-29 — PLAN_OPTIMIZACION_PERFORMANCE_2026-08-29.md, punto
+  // 6.1] Antes filtraba directo sobre `POIS` (que con el mapa cargando
+  // TODO de arranque, tenía siempre el 100% de los lugares). Ahora
+  // que el mapa carga por viewport (js/pins-viewport-loader.js), POIS
+  // puede no tener un lugar que está del otro lado del mapa sin
+  // haber sido navegado todavía — el buscador tiene que seguir
+  // encontrándolo igual. Por eso usa su propio índice separado
+  // (`loadSearchIndex()`, js/firestore-sync.js): se pide UNA sola vez
+  // (la primera vez que alguien realmente usa el buscador, no en cada
+  // carga de página) y queda en caché para el resto de la sesión. Si
+  // el resultado elegido no está todavía dibujado en el mapa (no hay
+  // marcador para ese id), se crea al vuelo antes de abrir su panel.
   (function wireSearch() {
     const inp = document.getElementById('search-input');
     const res = document.getElementById('search-results');
     if (!inp || !res) return;
-    inp.addEventListener('input', () => {
+
+    async function runSearch() {
       const q = inp.value.trim().toLowerCase();
       if (q.length < 1) { res.classList.remove('show'); return; }
+
+      const source = (typeof loadSearchIndex === 'function') ? await loadSearchIndex() : POIS;
+      // Si mientras esperaba la carga el usuario ya borró el texto o
+      // escribió otra cosa, este resultado quedó viejo — se descarta.
+      if (inp.value.trim().toLowerCase() !== q) return;
+
       const all = (typeof getAllCats === 'function') ? getAllCats() : CAT;
-      const hits = POIS.filter(p => {
+      const hits = source.filter(p => {
         if (p.active === false) return false;
         return (p.name||'').toLowerCase().includes(q) ||
                (p.desc||'').toLowerCase().includes(q) ||
@@ -177,12 +200,26 @@ async function init() {
           const id = el.dataset.id;
           res.classList.remove('show');
           inp.value = ''; inp.blur();
+          // Si el resultado elegido todavía no está en el mapa (fuera
+          // del área ya cargada por viewport), se crea al vuelo con
+          // los datos que ya trajo el índice de búsqueda, y se centra
+          // el mapa ahí antes de abrir su panel.
+          if (!markers[id]) {
+            const poi = (_searchIndexPOIS || []).find(p => p.id === id);
+            if (poi) {
+              if (!POIS.find(p => p.id === id)) POIS.push(poi);
+              try { makeMarker(poi); } catch (err) { console.error('[search] No se pudo crear el marcador de', id, err); }
+              map.setView([poi.lat, poi.lng], Math.max(map.getZoom(), 16));
+            }
+          }
           pinClick(id);
         });
       });
-    });
+    }
+
+    inp.addEventListener('input', runSearch);
     inp.addEventListener('blur', () => setTimeout(() => res.classList.remove('show'), 200));
-    inp.addEventListener('focus', () => { if (inp.value.trim()) inp.dispatchEvent(new Event('input')); });
+    inp.addEventListener('focus', () => { if (inp.value.trim()) runSearch(); });
   })();
 
   // 9. Pan helper — ÚNICO responsable de centrar el mapa sobre el pin

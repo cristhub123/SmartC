@@ -42,10 +42,14 @@ const CAT = {
   shop:    {label:'TIENDAS',      color:'#3a8c4f', lucide:'shop'},
 };
 
-/* POIS ahora se carga desde Firestore al iniciar la app (ver
-   js/firestore-sync.js → loadPOISFromFirestore(), llamado desde
-   js/app.js). Empieza vacío — se llena solo, no hace falta
-   semilla de datos de ejemplo acá. */
+/* [2026-08-29] POIS se carga desde Firestore, ya no arranca con
+   semilla de datos de ejemplo — empieza vacío y se llena solo.
+   Para el mapa público: por área visible del mapa, no todo de una
+   (js/pins-viewport-loader.js → loadPinsInViewport(), llamado desde
+   js/app.js). Para el panel Admin: TODO sin recorte
+   (js/firestore-sync.js → loadPOISFromFirestore(), forzado en
+   openAdmin(), js/admin.js — necesita ver cualquier pin exista o no
+   en pantalla). */
 let POIS = [];
 
 /* [Etapa 5, PLAN_USUARIOS_EVENTOS.md] Colección `eventos` cacheada en

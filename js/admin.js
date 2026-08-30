@@ -147,10 +147,30 @@ document.getElementById('btn-admin').addEventListener('click', () => {
 document.getElementById('admin-close').addEventListener('click', closeAdmin);
 document.getElementById('overlay').addEventListener('click', closeAdmin);
 
-function openAdmin() {
+async function openAdmin() {
   document.getElementById('admin').classList.add('open');
   document.getElementById('overlay').classList.add('on');
   document.getElementById('btn-admin').classList.add('active');
+
+  // [NUEVO 2026-08-29 — PLAN_OPTIMIZACION_PERFORMANCE_2026-08-29.md,
+  // punto 6.1] El mapa público solo carga los pines del área visible
+  // (ver js/pins-viewport-loader.js) — pero acá, en el panel Admin,
+  // hace falta ver/editar/borrar CUALQUIER pin exista o no en
+  // pantalla. Se fuerza una recarga completa sin recorte (misma
+  // función de siempre, `loadPOISFromFirestore()`, intacta) antes de
+  // armar la lista, y se dibuja el marcador de cualquier pin que el
+  // mapa todavía no tuviera.
+  toast('⏳ Cargando todos los lugares...');
+  await loadPOISFromFirestore();
+  POIS.forEach(poi => {
+    if (markers[poi.id]) return; // ya estaba dibujado, no duplicar
+    try {
+      makeMarker(poi);
+    } catch (err) {
+      console.error('[openAdmin] No se pudo crear el marcador de', poi.id, '— se sigue con el resto:', err);
+    }
+  });
+
   renderList();
   switchTab('list');
 }

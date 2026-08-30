@@ -494,14 +494,32 @@ window.checkEventosTemporalesLifecycle = checkEventosTemporalesLifecycle;
  
 async function _autoDesactivarPinTemporal(pin) {
   pin.active = false;
-  try {
-    await savePoiToFirestore(pin);
-    syncAppStateWithPOIS();
-    await regeneratePublicCache();
-  } catch (err) {
-    console.warn('[Etapa 4] No se pudo auto-desactivar el pin temporal', pin.id, err);
-    pin.active = true; // revierte en memoria si no se pudo guardar
-    return;
+  // [NUEVO 2026-08-29 — PLAN_OPTIMIZACION_PERFORMANCE_2026-08-29.md,
+  // sección 5, hallazgo pendiente] Mismo motivo y mismo criterio que
+  // ya se aplicó a regeneratePublicCache() en firestore-sync.js:
+  // savePoiToFirestore() (escribe en `pines`) y regeneratePublicCache()
+  // (escribe en `cache`) son admin-only por reglas de Firestore. Antes
+  // esto se intentaba para CUALQUIER visitante público que tuviera
+  // cargado un pin evento_temporal vencido, y fallaba con "Missing or
+  // insufficient permissions" en consola (protegido por el try/catch
+  // de abajo, así que no rompía nada visible — pero seguía siendo una
+  // escritura rechazada de más en cada carga). Ahora solo se intenta
+  // la escritura real con sesión de admin verificada (`_adminUser`,
+  // ver js/admin-auth.js). Para un visitante público sin sesión, el
+  // pin se sigue ocultando en SU pantalla (más abajo), pero la
+  // desactivación permanente en Firestore queda para la próxima vez
+  // que un admin cargue la página — mismo chequeo, con permiso real.
+  const esAdminReal = typeof _adminUser !== 'undefined' && _adminUser;
+  if (esAdminReal) {
+    try {
+      await savePoiToFirestore(pin);
+      syncAppStateWithPOIS();
+      await regeneratePublicCache();
+    } catch (err) {
+      console.warn('[Etapa 4] No se pudo auto-desactivar el pin temporal', pin.id, err);
+      pin.active = true; // revierte en memoria si no se pudo guardar
+      return;
+    }
   }
   // Mismo criterio visual que togglePoi() (admin.js/app.js): si el
   // marcador ya estaba dibujado en esta pestaña, se oculta ya mismo.
@@ -511,7 +529,7 @@ async function _autoDesactivarPinTemporal(pin) {
     const markerEl = el.parentElement;
     if (markerEl) markerEl.style.visibility = 'hidden';
   }
-  console.info(`[Etapa 4] Pin temporal "${pin.name}" (${pin.id}) auto-desactivado — no le queda ningún evento vigente.`);
+  console.info(`[Etapa 4] Pin temporal "${pin.name}" (${pin.id}) auto-desactivado${esAdminReal ? '' : ' (solo visual, sin sesión de admin)'} — no le queda ningún evento vigente.`);
 }
  
 /** Reactivación manual (ver decisión 3 arriba) — botón "🔓 Reactivar

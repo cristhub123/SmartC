@@ -31,6 +31,8 @@ overlay-manager.js    → módulo OverlayManager (exclusividad entre paneles/men
 scroll-hints.js
 map.js                → crea `map` (instancia Leaflet)
 markers.js            → makeMarker, pinClick (legacy, ver nota abajo), expandPin/collapsePin (base)
+pins-viewport-loader.js → [NUEVO 2026-08-29] carga de pines por viewport/zoom (mapa público) — carga justo después de markers.js (necesita `makeMarker`/`map`/`db`), antes de cluster-grouping.js (cuyo recálculo se dispara solo desde el hook que ya quedó en makeMarker/removeMarker)
+cluster-grouping.js   → [NUEVO 2026-08-29] clustering visual (agrupa pines en burbujas con número, techo editable de pines visibles a la vez) — carga acá porque necesita `markers`/`map` ya creados; su UI admin se registra vía SC.registerTabPlugin('mapa', ...), no depende de admin.js estar cargado todavía
 poi-panel.js           → módulo PoiPanel (panel público de cada lugar)
 admin.js               → panel admin: tabs, listado, filtros, toasts
 admin-auth.js
@@ -53,7 +55,7 @@ categories.js
 shadow-eye.js
 pin-adjust.js          → OVERRIDE de startEdit/expandPin/collapsePin/saveNew (ver sección 6)
 pin-geocode.js
-eventos.js              → módulo Eventos (tab admin "🎉 Eventos", Etapa 3 de PLAN_USUARIOS_EVENTOS.md) — depende de geocoder.js (setupGeocoder) y de pin-adjust.js (_autoSlugBase, _resolveOwnerEmailToUid), por eso carga después de ambos
+eventos.js              → módulo Eventos (tab admin "🎉 Eventos", Etapa 3 de PLAN_USUARIOS_EVENTOS.md) — depende de geocoder.js (setupGeocoder) y de pin-adjust.js (_autoSlugBase, _resolveOwnerEmailToUid), por eso carga después de ambos. **[2026-08-29]** _autoDesactivarPinTemporal() solo escribe en Firestore con sesión de admin real (_adminUser) — antes lo intentaba para cualquier visitante público, mismo patrón que regeneratePublicCache() en firestore-sync.js
 cluster.js              → pinClick real (ver nota abajo), puentes openPoiPanel/closePoiPanel
 map-settings.js
 autofill.js
@@ -73,7 +75,8 @@ se dibujaran. **No reactivar sin entender esa nota primero.**
 | Archivo | Rol |
 |---|---|
 | `firebase-init.js` | Config de Firebase + instancia `db` |
-| `firestore-sync.js` | Todas las lecturas/escrituras a Firestore (POIs, zonas, tipografía, ubicaciones, presets); incluye guardados parciales con `merge:true` — `saveSkinsToFirestore` (solo `skins`) y `saveFieldsPartialToFirestore` (solo `content.<idioma>.fields`, Etapa 9) |
+| `firestore-sync.js` | Todas las lecturas/escrituras a Firestore (POIs, zonas, tipografía, ubicaciones, presets); incluye guardados parciales con `merge:true` — `saveSkinsToFirestore` (solo `skins`) y `saveFieldsPartialToFirestore` (solo `content.<idioma>.fields`, Etapa 9). **[2026-08-29]** `loadPOISFromFirestore()` (colección `pines` COMPLETA) ya NO corre en cada visita pública — solo la usan `openAdmin()` (admin.js) y `loadSearchIndex()` (buscador, cacheado 1 vez por sesión). El mapa público carga por viewport, ver `pins-viewport-loader.js`. |
+| `pins-viewport-loader.js` | **[NUEVO 2026-08-29]** Carga de pines por área visible del mapa (viewport/zoom) para el mapa público — reemplaza la descarga completa de arranque. `fetchPinsInViewport()` (solo trae datos) + `drawLoadedPins()` (solo dibuja) separadas a propósito para no romper el orden con `checkEventosTemporalesLifecycle()` (ver nota en app.js sección 3.5); `loadPinsInViewport()` = ambas juntas, para el caso normal de pan/zoom en vivo. Requiere índice compuesto Firestore (lat, lng) — se crea solo con el link del error la primera vez. |
 | `app-state.js` | Módulo `AppState` — **fuente de verdad en memoria** de POIs/zonas/roadmap/skins, con sistema de eventos (`on`) |
 | `config.js` | Constantes (`LUCIDE`, `CAT`) + variables globales legacy: `POIS`, `markers`, `activeFilter`, `expandedId`, `currentPoi`, `pickCtx`, `editingId`, `pendingDelId`, emojis |
 | `overlay-manager.js` | Módulo `OverlayManager` — registro central de paneles/menús flotantes (panel de un pin, dropdown de zonas, panel de info de zona) para que abrir uno cierre los demás ya mismo, sin esperar su animación de salida (ver sección 12) |
@@ -103,6 +106,7 @@ se dibujaran. **No reactivar sin entender esa nota primero.**
 | `shadow-eye.js` | Efectos visuales (sombra de pin, glow del "ojito") |
 | `pin-adjust.js` | El archivo más grande: **override** de `startEdit`/`expandPin`/`collapsePin`/`saveNew` de admin.js/markers.js, `saveEdit`, `saveNew`, generación/edición de ID, carga masiva de pines por texto (`importFullPinsFromText`), vinculación de imágenes por texto (`importImageLinksFromText`) |
 | `cluster.js` | Click real de un pin (`pinClick`, ver sección 6), abre/cierra `PoiPanel` |
+| `cluster-grouping.js` | **[NUEVO 2026-08-29]** Clustering visual: agrupa pines en burbujas con número para que nunca haya más de X pines/burbujas visibles en pantalla a la vez (techo editable, tab admin Mapa → "Agrupación de pines"). No toca `makeMarker`/`removeMarker` — solo oculta/muestra DOM ya existente. Ver nota completa al inicio del archivo. |
 | `map-settings.js` | Tiles del mapa, opacidad, tinte día/noche |
 | `autofill.js` | Autocompletado de datos de un lugar desde OSM |
 | `data-io.js` | Export/import de todos los POIs como JSON (backup manual) |

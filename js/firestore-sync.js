@@ -78,6 +78,15 @@ function syncAppStateWithPOIS() {
    query, que cuesta 1 sola lectura sin importar el tamaño de la colección),
    no simplemente confiar en que existe. El código viejo queda comentado
    abajo, no borrado, para esa reintroducción futura. */
+/* [2026-08-29 — PLAN_OPTIMIZACION_PERFORMANCE_2026-08-29.md, punto 6.1]
+   Esta función (`.get()` de la colección `pines` COMPLETA, sin
+   recorte) ya NO se llama en cada visita pública — el mapa público
+   ahora carga por área visible, ver js/pins-viewport-loader.js. Se
+   deja intacta porque sigue haciendo falta en 2 lugares donde SÍ hace
+   falta ver TODO sin importar el viewport: `openAdmin()` (js/admin.js,
+   el panel Admin necesita poder listar/editar/borrar cualquier pin) y
+   `loadSearchIndex()` de acá abajo (el buscador también debe
+   encontrar lugares fuera del área visible actual). */
 async function loadPOISFromFirestore() {
   try {
     // [DESCONECTADO 2026-08-13 — no se lee más el caché para armar POIS,
@@ -120,6 +129,38 @@ async function loadPOISFromFirestore() {
     return false;
   }
 }
+
+/* [NUEVO 2026-08-29 — PLAN_OPTIMIZACION_PERFORMANCE_2026-08-29.md,
+   punto 6.1] Índice de búsqueda: el buscador del mapa (js/app.js,
+   "Live search") tiene que poder encontrar CUALQUIER lugar, esté o
+   no dentro del área que el mapa cargó por viewport (ver
+   js/pins-viewport-loader.js). En vez de traer la colección
+   COMPLETA en cada visita (el problema original que se está
+   resolviendo en todo este plan), esta consulta se dispara UNA sola
+   vez por sesión — recién la primera vez que alguien realmente usa
+   el buscador (no en cada carga de página) — y el resultado queda
+   en caché en memoria (`_searchIndexPOIS`) para el resto de la
+   sesión, sin repetirse en cada letra que tipea. */
+let _searchIndexPOIS = null; // null = todavía no se pidió; array = ya en caché para esta sesión
+
+async function loadSearchIndex() {
+  if (_searchIndexPOIS) return _searchIndexPOIS;
+  try {
+    const snapshot = await db.collection('pines').get();
+    const loaded = [];
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      if (!data.name) return; // mismo filtro de siempre
+      loaded.push({ id: doc.id, ...data });
+    });
+    _searchIndexPOIS = loaded;
+  } catch (err) {
+    console.error('No se pudo cargar el índice de búsqueda:', err);
+    _searchIndexPOIS = []; // no reintenta solo con cada letra tipeada — evita machacar Firestore si la conexión falla
+  }
+  return _searchIndexPOIS;
+}
+window.loadSearchIndex = loadSearchIndex;
 
 /* === REGENERAR EL CACHÉ PÚBLICO — se llama sola después de cada
    guardado/borrado, usando el POIS de memoria (ya actualizado) === */

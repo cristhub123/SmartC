@@ -1519,6 +1519,24 @@ campo-05:
           <span id="mapa-opacity-val" style="font-family:var(--font-m);font-size:12px;min-width:38px;text-align:right">100%</span>
         </div>
       </div>
+
+      <div class="divider"><span>AGRUPACIÓN DE PINES (CLUSTERING)</span></div>
+      <div class="fg" style="margin-bottom:10px">
+        <label class="fl" style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" id="cluster-enabled-toggle" style="accent-color:var(--accent);width:16px;height:16px">
+          Agrupar pines en burbujas con número (se separan al acercar zoom)
+        </label>
+      </div>
+      <div class="fg">
+        <label class="fl">Máximo de pines visibles en pantalla al mismo tiempo</label>
+        <input class="fi" id="cluster-max-onscreen" type="number" min="1" step="1" value="30" style="max-width:120px">
+        <p style="font-size:11px;color:var(--text3);margin-top:6px;line-height:1.4">
+          En pantalla nunca se van a ver más pines/burbujas que este número,
+          sin importar qué tan cerca o lejos estén entre sí — así el mapa se
+          mantiene liviano aunque haya cientos o miles de pines juntos en un
+          área chica.
+        </p>
+      </div>
     </div>
 
     <!-- ROADMAP -->
@@ -1881,6 +1899,8 @@ campo-05:
 
   <!-- 3. Core marker logic -->
   <script src="js/markers.js?v=20260829" defer></script>
+  <script src="js/pins-viewport-loader.js?v=20260829" defer></script>
+  <script src="js/cluster-grouping.js?v=20260829" defer></script>
   <script src="js/poi-panel.js?v=20260829" defer></script>
   <!-- [DESCONECTADO 2026-08-13 — smartcityV3.0_fix-mapa-pines. NO BORRAR ESTA NOTA
        en una limpieza futura.] js/pois-bootstrap.js reemplazaba makeMarker global

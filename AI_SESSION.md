@@ -5,6 +5,199 @@
 > en ella. Si un archivo listado como "revisado" fue modificado después,
 > vuelve a estar pendiente de verificación.
 
+## Sesión: 2026-08-29 (continuación 3) — Fix puntual: permisos de checkEventosTemporalesLifecycle (hallazgo de sección 5)
+
+**Qué era:** `_autoDesactivarPinTemporal()` (js/eventos.js) llamaba
+siempre a `savePoiToFirestore()` + `regeneratePublicCache()`
+(escrituras admin-only por reglas de Firestore) para CUALQUIER
+visitante público con un pin `evento_temporal` vencido cargado —
+mismo patrón de bug que ya se había corregido para
+`regeneratePublicCache()` en la sección 2 del plan de performance.
+Protegido por try/catch, no rompía nada visible, pero seguía siendo
+una escritura rechazada de más en consola en cada carga.
+
+**Fix:** mismo criterio que ya se usa en `firestore-sync.js` — la
+escritura real a Firestore (`savePoiToFirestore` +
+`regeneratePublicCache`) solo se intenta si hay sesión de admin
+real y verificada (`_adminUser`). Para un visitante público sin
+sesión, el pin se sigue ocultando en SU pantalla igual (mismo
+mecanismo de togglePoi()), pero la desactivación permanente en
+Firestore queda para la próxima vez que un admin cargue la página.
+
+**Archivo modificado:** `js/eventos.js` (`_autoDesactivarPinTemporal`).
+`AI_RULES.md` actualizado. Verificado: `admin-auth.js` carga antes
+que `eventos.js` en `index.html`, así que `_adminUser` ya existe
+cuando se necesita; `node --check` sin errores.
+
+**Con esto queda cerrado TODO PLAN_OPTIMIZACION_PERFORMANCE_2026-08-29.md**
+excepto la migración de SDK Firebase (Cris la dejó para después a
+propósito) y la tarea manual de imágenes .png en Cloudinary (no es
+código).
+
+## Sesión: 2026-08-29 (continuación 2) — Paginado de pines por viewport/zoom (item 6.1 real del plan) + buscador separado
+
+**Contexto:** después de cerrar el clustering visual (ver entrada de
+arriba, misma fecha), Cris confirmó que el plan de performance
+todavía tenía pendiente el punto 6.1 ORIGINAL: `db.collection('pines').get()`
+sin `.limit()` en `js/firestore-sync.js` — descarga la colección
+COMPLETA en cada visita pública, sin importar si hay 11 pines o
+5000. Eligió resolverlo por viewport/zoom (no límite fijo, no botón
+"cargar más") aunque impique más trabajo.
+
+**Decisión de alcance, confirmada con Cris antes de programar:** el
+recorte por viewport es SOLO para el mapa público. El panel Admin
+(tab Lugares) sigue viendo/editando/borrando TODOS los pines sin
+recorte (forzado en `openAdmin()`) — perdería el control si no. El
+buscador también ve TODOS los pines (Cris lo eligió explícitamente,
+opción "buscar en todo" en vez de "buscar solo lo cargado" — pensando
+además en unificarlo a futuro con eventos, anotado en
+`/areas/smartcity-roadmap.md`), pero mediante una consulta APARTE que
+se dispara una sola vez por sesión (cacheada), no automática en cada
+carga de página — así no reintroduce el problema original.
+
+**Archivo nuevo:** `js/pins-viewport-loader.js` — consulta Firestore
+acotada por rango `lat`/`lng` (bounding box del área visible del
+mapa + 50% de margen), con `fetchPinsInViewport()` (solo trae datos)
+separada de `drawLoadedPins()` (solo dibuja) a propósito: así
+`checkEventosTemporalesLifecycle()` (ver sección 3.5 de `js/app.js`)
+sigue corriendo ANTES de dibujar, igual que antes de este cambio —
+evita que un pin `evento_temporal` recién vencido parpadee visible un
+instante (regresión detectada y corregida en el camino, no estaba en
+el plan original). `loadPinsInViewport()` = ambas juntas, usada en
+pan/zoom en vivo (debounced 350ms vía `map.on('moveend zoomend', ...)`).
+Los pines ya cargados nunca se sacan del mapa al alejarse — crecer en
+memoria a medida que se explora es aceptado, lo que se evita es la
+descarga masiva de arranque.
+
+**Requiere un índice compuesto en Firestore (`lat`, `lng`)** — la
+primera vez que corra en el entorno real de Cris, la consulta va a
+fallar con un error en consola que trae un link directo para crearlo
+en Firebase Console → Indexes, 1 clic. Es esperable, pasa una sola
+vez.
+
+**Archivos modificados:**
+- `js/firestore-sync.js` — `loadPOISFromFirestore()` (colección
+  completa) queda intacta pero ya NO se llama en cada visita
+  pública; nota actualizada aclarando quién la sigue usando. Función
+  nueva `loadSearchIndex()`: misma lectura completa, pero lazy
+  (recién la primera vez que alguien usa el buscador) y cacheada en
+  memoria para el resto de la sesión (`_searchIndexPOIS`).
+- `js/app.js` — sección 3 de `init()`: `fetchPinsInViewport()` en vez
+  de `loadPOISFromFirestore()`; sección 4: `drawLoadedPins()` después
+  de `checkEventosTemporalesLifecycle()` (antes era un
+  `POIS.forEach(makeMarker)` directo). Buscador (sección 8, "Live
+  search") reescrito: usa `loadSearchIndex()` en vez de `POIS`
+  directo; si el resultado elegido no tiene marcador todavía (fuera
+  del área ya cargada), lo crea al vuelo y centra el mapa ahí antes
+  de abrir su panel.
+- `js/admin.js` — `openAdmin()` pasó a `async`: fuerza
+  `loadPOISFromFirestore()` completo + dibuja cualquier pin que
+  todavía no tuviera marcador, ANTES de `renderList()`. Ningún
+  llamador existente esperaba el resultado (verificado con grep), no
+  rompe nada por volverla async.
+- `js/config.js` — nota de `let POIS = []` actualizada (ya no
+  describe correctamente el flujo desde el cambio de arriba).
+- `index.html` — script tag nuevo (`js/pins-viewport-loader.js`,
+  entre `markers.js` y `cluster-grouping.js`).
+- `AI_RULES.md` — fila nueva + orden de carga de scripts.
+
+**Trade-offs conocidos, aceptados por Cris (documentados en el
+código, no resueltos en esta entrega):** la barra de categorías y el
+dropdown de zonas reflejan solo los pines YA cargados en cada
+momento (no el 100% real hasta navegar todo el mapa); el
+auto-desactivado de `evento_temporal` (`checkEventosTemporalesLifecycle`)
+solo revisa pines que ya estén cargados — uno fuera del área visible
+inicial no se revisa hasta que alguien navegue hasta ahí. Con 11
+pines de prueba ninguno de los dos se nota.
+
+**Verificación realizada:** `node --check` sin errores en los 5
+archivos `.js` tocados/creados; grep de nombres nuevos sin colisión
+con el resto del proyecto; confirmado que ningún llamador de
+`openAdmin()` esperaba su resultado (ahora es async); balance de
+`<div>` de `index.html` sin cambios respecto a antes de esta
+entrega; ids de `search-input`/`search-results` confirmados en
+`index.html`. **No probado contra Firebase real ni navegador** —
+falta especialmente crear el índice compuesto (lat, lng) en el
+proyecto real de Cris la primera vez que corra, y probar: pan/zoom
+trae pines nuevos sin recargar la página, Admin sigue viendo los 11
+de prueba completos, buscador encuentra algo fuera del área visible
+inicial y lo centra bien al clickearlo.
+
+**Pendiente / separado de esto:** migración de SDK Firebase
+-compat → modular (Cris decidió dejarla para después); hallazgo de
+permisos de `checkEventosTemporalesLifecycle()` para visitante
+público — Cris confirmó resolverlo igual que se hizo con
+`regeneratePublicCache()` (condicionar del lado cliente), queda
+pendiente de implementar ese cambio puntual en un próximo paso.
+
+## Sesión: 2026-08-29 (continuación) — Clustering visual de pines (item 6.1 de PLAN_OPTIMIZACION_PERFORMANCE_2026-08-29.md, redefinido)
+
+**Contexto:** continuación de la sesión de performance del mismo día
+(ver `CONTEXTO_COMPLETO_2026-08-29.md`). El punto 6.1 del plan de
+performance original ("paginar la carga de pines") quedó reinterpretado
+por Cris como clustering visual (agrupar pines en burbujas con
+número al alejar zoom, tipo streetartcities.com) — la paginación real
+de Firestore (`.get()` sin `.limit()`) sigue sin resolver, no es lo
+mismo. Se confirmó primero que el clustering NO existía en el
+proyecto (solo una idea en `js/roadmap.js`) antes de programar nada.
+Cris pidió explícitamente UNA sola regla: nunca más de X pines/
+burbujas visibles en pantalla al mismo tiempo, sin importar la
+distancia real entre ellos (no un radio fijo en px, que podía fallar
+con muchos pines apretados en un área chica) — y pidió mantener el
+enfoque liviano, no solo seguro.
+
+**Archivo nuevo:** `js/cluster-grouping.js` — clustering por grid
+(grilla invisible en píxeles de pantalla, O(n) por pasada) que agranda
+el tamaño de celda hasta que la cantidad de grupos entra dentro del
+techo configurado (`maxOnScreen`, default 30, editable en Admin →
+Mapa → "Agrupación de pines"). Diseño explícito para NO usar
+Leaflet.markercluster (ver nota completa al inicio del archivo): esa
+librería mete los marcadores a su propio layer group y el DOM de un
+pin agrupado no se crea hasta desagruparse — rompía
+`wirePinImageFallback`, el criterio de `poi.active===false`, el swap
+a imagen full-quality al maximizar y el z-index manual al expandir,
+todo eso depende de que el `<div id="pw-{id}">` de CADA pin exista
+siempre. En cambio esta implementación deja `makeMarker()`/
+`removeMarker()` intactos y solo oculta/muestra el DOM ya existente
+(mismo mecanismo que ya usaba `togglePoi()`), agregando burbujas
+nuevas encima.
+
+**Archivos modificados:**
+- `js/markers.js` — `makeMarker()`/`removeMarker()` llaman a
+  `scheduleClusterRecompute()` (debounced) al final.
+- `js/app.js` — `togglePoi()` también llama a
+  `scheduleClusterRecompute()` (activar/desactivar un pin cambia los
+  candidatos); `init()` suma `loadClusterSettings()` al mismo
+  `Promise.all()` de la sección de performance de esta misma sesión.
+- `index.html` — script tag nuevo (`js/cluster-grouping.js`, justo
+  después de `markers.js`, antes de `poi-panel.js`); UI nueva en la
+  tab admin "Mapa" (toggle activar/desactivar + input numérico del
+  techo máximo).
+- `AI_RULES.md` — fila nueva en la tabla de archivos + orden de carga
+  de scripts.
+
+**Verificación realizada:** `node --check` sin errores en
+`js/cluster-grouping.js`, `js/markers.js`, `js/app.js`; chequeo
+cruzado de que los 2 `getElementById` nuevos (`cluster-enabled-toggle`,
+`cluster-max-onscreen`) tienen su `id` en `index.html`; balance de
+`<div>`/`</div>` del bloque agregado verificado (el desfasaje de 1 en
+todo `index.html` ya existía ANTES de esta sesión, no lo introduce
+este cambio); grep de nombres nuevos (`_clusterSettings`,
+`computeAndRenderClusters`, etc.) contra el resto del proyecto sin
+colisiones. **No probado contra Firebase real ni en navegador** —
+pendiente que Cris pruebe: activar/desactivar el toggle, cambiar el
+número máximo y confirmar que el mapa nunca muestra más burbujas/pines
+sueltos que ese número, que click en una burbuja hace zoom y separa
+el grupo, y que el número guardado sobrevive un F5 (doc
+`settings/clustering` — mismo modelo de reglas que el resto de
+`settings`, no debería necesitar reglas nuevas, pero queda a confirmar
+en su entorno real).
+
+**Pendiente / separado de esto:** la paginación real de Firestore
+(`.get()` sin `.limit()`, no urgente con 11 pines de prueba) y la
+migración de SDK -compat a modular siguen sin resolver — ver punto 6
+de `CONTEXTO_COMPLETO_2026-08-29.md` y `PLAN_OPTIMIZACION_PERFORMANCE_2026-08-29.md`.
+
 ## Sesión: 2026-08-27 — Hotfix botón de perfil + Etapa 7 (pagos) + Etapa 8 (subusuario empleado)
 
 **Contexto:** continuación directa de la sesión de Etapa 6 (ver
