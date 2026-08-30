@@ -1,0 +1,95 @@
+/* ============================================================
+   PRUEBA VISUAL — Neobrutalista Noche (#FACC15)
+   Archivo NUEVO y aparte, no reemplaza nada. Solo overrides
+   visuales (color/tipografía/bordes). Para desactivar: borrar
+   o comentar el <link> que lo carga en index.html — el resto
+   del proyecto queda intacto.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
+
+:root {
+  /* Tokens de base.css */
+  --bg:          #0a0a0c;
+  --surface:     #18181b;
+  --surface2:    #121216;
+  --border:      #facc15;
+  --border2:     #facc15;
+  --text:        #f4f1ea;
+  --text2:       #a1a1aa;
+  --text3:       #71717a;
+  --accent:      #facc15;
+  --accent2:     #facc15;
+  --accent-pale: #26260f;
+  --font-d:      'Space Grotesk', sans-serif;
+  --font-b:      'Plus Jakarta Sans', sans-serif;
+  --r:           4px;
+  --r-ctrl:      6px;
+
+  /* Tokens propios de poi-panel.css (sistema aparte) */
+  --poi-panel-accent:       #facc15;
+  --poi-panel-accent-hover: #eab308;
+  --poi-panel-slate-900:    #f4f1ea;
+  --poi-panel-slate-800:    #18181b;
+  --poi-panel-slate-700:    #a1a1aa;
+  --poi-panel-slate-400:    #71717a;
+  --poi-panel-slate-300:    #27272a;
+  --poi-panel-gray-200:     #27272a;
+  --poi-panel-white:        #18181b;
+}
+
+html, body { background: var(--bg); color: var(--text); }
+
+/* ---- Panel público del lugar (bottom sheet) ---- */
+.poi-panel {
+  background: var(--surface) !important;
+  border-top: 3px solid var(--accent) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+.poi-panel__handle { background: var(--accent) !important; opacity: .6; }
+.poi-panel__title { color: var(--text) !important; font-family: var(--font-d) !important; }
+.poi-panel__category {
+  background: var(--accent) !important; color: #000 !important;
+  border-radius: 4px !important; font-family: var(--font-d) !important;
+}
+.poi-panel__tabs-row { border-bottom: 3px solid var(--accent) !important; }
+.poi-panel__tab-btn {
+  border: 2px solid var(--border) !important; border-bottom: none !important;
+  border-radius: 6px 6px 0 0 !important; font-family: var(--font-d) !important;
+  color: var(--text2) !important; background: var(--surface2) !important;
+}
+.poi-panel__tab-btn.on { background: var(--accent) !important; color: #000 !important; }
+.poi-panel__action-btn {
+  background: var(--accent) !important; color: #000 !important;
+  border-radius: 6px !important; font-family: var(--font-d) !important; font-weight: 700 !important;
+}
+
+/* ---- Panel Admin (drawer lateral + pestañas) ---- */
+#admin {
+  background: var(--bg) !important;
+  border-left: 3px solid var(--accent) !important;
+}
+.admin-hd { background: var(--surface) !important; border-bottom: 3px solid var(--accent) !important; }
+.admin-title { color: var(--text) !important; font-family: var(--font-d) !important; }
+.admin-tabs { background: var(--surface) !important; border-bottom: none !important; }
+.atab { color: var(--text2) !important; font-family: var(--font-d) !important; }
+.atab.on { color: #000 !important; background: var(--accent) !important; border-bottom-color: var(--accent) !important; }
+.atabs-slider-track { background: var(--surface2) !important; }
+.atabs-slider-thumb { background: var(--accent) !important; }
+
+/* ---- Inputs / botones dentro del admin ---- */
+.fi, .fs, .fta {
+  background: var(--surface2) !important; border: 2px solid var(--border) !important;
+  color: var(--text) !important; border-radius: 6px !important;
+}
+.fi:focus, .fs:focus, .fta:focus { box-shadow: 0 0 0 3px rgba(250,204,21,.25) !important; }
+.btn-primary {
+  background: var(--accent) !important; color: #000 !important;
+  box-shadow: none !important; border-radius: 6px !important; font-family: var(--font-d) !important;
+}
+.btn-outline { border: 2px solid var(--border) !important; color: var(--text) !important; border-radius: 6px !important; }
+.poi-row {
+  background: var(--surface2) !important; border: 2px solid var(--border) !important;
+  border-radius: 6px !important; box-shadow: none !important;
+}
