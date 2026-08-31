@@ -298,6 +298,10 @@ document.getElementById('user-auth-register-pass').addEventListener('keydown', e
 
 /* Click afuera del cuadro cierra el overlay sin loguear (mismo patrón
    que #admin-login-overlay) */
+// [NUEVO 2026-08-31] Guarda anti-selección-de-texto-arrastrada — ver
+// js/ui-guards.js (Punto 1, PLAN_FIX_CIERRE_PANELES.md). Es el caso
+// puntual que reportó Cris: pintar la contraseña y soltar afuera.
 document.getElementById('user-auth-overlay').addEventListener('click', e => {
+  if (window.UIGuards && window.UIGuards.wasTextDragRelease(e)) return;
   if (e.target.id === 'user-auth-overlay') hideUserAuth();
 });

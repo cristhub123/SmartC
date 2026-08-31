@@ -141,11 +141,25 @@ document.getElementById('btn-admin').addEventListener('click', () => {
   // (recién se cargó la página, por ejemplo), no se abre nada
   // todavía en vez de arriesgar un falso positivo.
   if (_isCheckingAdmin) return;
-  if (_adminUser) openAdmin();
+  if (_adminUser) {
+    // [NUEVO 2026-08-31, PLAN_FIX_CIERRE_PANELES.md Punto 2] Antes
+    // abría directo — si el panel de un lugar estaba abierto, quedaba
+    // solapado debajo del admin. Pasa por OverlayManager como el
+    // resto de los paneles (ver registro más abajo).
+    if (window.OverlayManager) window.OverlayManager.beforeOpen('admin', openAdmin);
+    else openAdmin();
+  }
   else showAdminLogin();
 });
 document.getElementById('admin-close').addEventListener('click', closeAdmin);
-document.getElementById('overlay').addEventListener('click', closeAdmin);
+// [NUEVO 2026-08-31] Guarda anti-selección-de-texto-arrastrada — ver
+// js/ui-guards.js (Punto 1, PLAN_FIX_CIERRE_PANELES.md). Cris lo
+// reportó explícitamente: pintar texto en un campo del admin y
+// soltar afuera no debe cerrar el panel.
+document.getElementById('overlay').addEventListener('click', e => {
+  if (window.UIGuards && window.UIGuards.wasTextDragRelease(e)) return;
+  closeAdmin();
+});
 
 async function openAdmin() {
   document.getElementById('admin').classList.add('open');
@@ -179,6 +193,19 @@ function closeAdmin() {
   document.getElementById('overlay').classList.remove('on');
   document.getElementById('btn-admin').classList.remove('active');
   stopPickMode();
+}
+
+// [NUEVO 2026-08-31, PLAN_FIX_CIERRE_PANELES.md Punto 2] Registro en
+// OverlayManager (ver js/overlay-manager.js, mismo patrón que
+// js/poi-panel.js y js/zones.js): al abrir el admin vía
+// `OverlayManager.beforeOpen` de arriba, esto cierra automáticamente
+// el panel del lugar (u otro overlay) si estaba abierto — antes
+// quedaban los dos solapados.
+if (window.OverlayManager) {
+  window.OverlayManager.register('admin', {
+    isOpen: () => document.getElementById('admin').classList.contains('open'),
+    close: closeAdmin,
+  });
 }
 
 document.querySelectorAll('.atab').forEach(t => t.addEventListener('click', () => switchTab(t.dataset.t)));

@@ -116,6 +116,9 @@ document.getElementById('admin-logout').addEventListener('click', doAdminLogout)
 
 /* Click afuera del cuadro de login lo cierra sin loguear (no cierra
    la app, solo cancela el intento de acceso) */
+// [NUEVO 2026-08-31] Guarda anti-selección-de-texto-arrastrada — ver
+// js/ui-guards.js (Punto 1, PLAN_FIX_CIERRE_PANELES.md).
 document.getElementById('admin-login-overlay').addEventListener('click', e => {
+  if (window.UIGuards && window.UIGuards.wasTextDragRelease(e)) return;
   if (e.target.id === 'admin-login-overlay') hideAdminLogin();
 });

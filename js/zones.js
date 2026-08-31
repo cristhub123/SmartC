@@ -689,8 +689,14 @@ zpanel.addEventListener('touchend',   e => {
 }, {passive:true});
 
 // Close dropdown on map click or outside click
-map.on('click', () => { closeZonasDropdown(); });
+// [NUEVO 2026-08-31] Guarda anti-selección-de-texto-arrastrada — ver
+// js/ui-guards.js (Punto 1, PLAN_FIX_CIERRE_PANELES.md).
+map.on('click', (e) => {
+  if (window.UIGuards && window.UIGuards.wasTextDragRelease(e.originalEvent)) return;
+  closeZonasDropdown();
+});
 document.addEventListener('click', e => {
+  if (window.UIGuards && window.UIGuards.wasTextDragRelease(e)) return;
   if (!e.target.closest('#btn-zonas') && !e.target.closest('#zonas-dropdown')) {
     closeZonasDropdown();
   }

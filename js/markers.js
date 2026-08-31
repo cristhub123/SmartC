@@ -384,11 +384,17 @@ function expandPin(id) {
     el.classList.add('big');
     // Leaflet sets z-index on the marker wrapper (.leaflet-marker-icon),
     // not on our inner div. We must override it there to beat other markers.
+    // [2026-08-31, PLAN_FIX_ZINDEX_PIN_MAXIMIZADO.md Punto 1] Antes
+    // era 99999 — los clusters (js/cluster-grouping.js) se crean con
+    // zIndexOffset:500000 a propósito para ganarle a cualquier pin
+    // suelto, así que terminaban tapando también al pin maximizado.
+    // 600000 queda por encima de cualquier z-index real que Leaflet
+    // pueda calcular para un cluster (500000 + posición en pantalla).
     const markerEl = el.parentElement;
     if (markerEl) {
       markerEl._prevZ = markerEl.style.zIndex;
-      markerEl.style.zIndex = '99999';
-      markerEl.style.setProperty('z-index', '99999', 'important');
+      markerEl.style.zIndex = '600000';
+      markerEl.style.setProperty('z-index', '600000', 'important');
     }
   }
 }

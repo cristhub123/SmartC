@@ -102,7 +102,10 @@ window.EventosFormCommon = (function () {
   /** Cierra el dropdown de resultados si se clickea afuera — mismo
    *  criterio que ya tenía cada formulario por separado. */
   function wireBuscarPinClickOutside(idPrefix) {
+    // [NUEVO 2026-08-31] Guarda anti-selección-de-texto-arrastrada —
+    // ver js/ui-guards.js (Punto 1, PLAN_FIX_CIERRE_PANELES.md).
     document.addEventListener('click', e => {
+      if (window.UIGuards && window.UIGuards.wasTextDragRelease(e)) return;
       const wrap = document.getElementById(idPrefix + 'buscar-pin-results');
       const input = document.getElementById(idPrefix + 'buscar-pin-input');
       if (wrap && input && !wrap.contains(e.target) && e.target !== input) wrap.classList.remove('show');

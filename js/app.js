@@ -121,7 +121,10 @@ async function init() {
   //     El click de un pin hace stopPropagation() sobre el elemento
   //     DOM (ver js/markers.js), así que nunca llega hasta acá — este
   //     listener solo se dispara con clicks realmente vacíos del mapa.
-  map.on('click', () => {
+  map.on('click', (e) => {
+    // [NUEVO 2026-08-31] Guarda anti-selección-de-texto-arrastrada —
+    // ver js/ui-guards.js (Punto 1, PLAN_FIX_CIERRE_PANELES.md).
+    if (window.UIGuards && window.UIGuards.wasTextDragRelease(e.originalEvent)) return;
     if (expandedId !== null) {
       collapsePin(expandedId);
       closePoiPanel();
