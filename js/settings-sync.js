@@ -138,3 +138,31 @@ async function loadSubfolderTypes() {
     return ['images'];
   }
 }
+
+/* === SISTEMA DE SKINS (PLAN_SISTEMA_SKINS.md) ===
+   Qué skin (id) eligió el admin como skin activo — mismo esquema de
+   un solo documento que appearance/mapstyle/typography-fonts. La
+   preferencia del USUARIO logueado (prioridad más alta, a futuro) va
+   a vivir aparte, no acá — este documento es solo "lo que decide el
+   admin para todos los visitantes sin cuenta". */
+async function saveActiveSkin(skinId) {
+  try {
+    await db.collection('settings').doc('skin').set({ id: skinId });
+    return true;
+  } catch (err) {
+    console.error('No se pudo guardar el skin activo:', err);
+    toast('⚠️ No se guardó el skin. ¿Iniciaste sesión?');
+    return false;
+  }
+}
+
+async function loadActiveSkin() {
+  try {
+    const doc = await db.collection('settings').doc('skin').get();
+    return (doc.exists && doc.data().id) ? doc.data().id : null;
+  } catch (err) {
+    console.warn('No se pudo cargar el skin activo guardado (se usa el skin default):', err);
+    return null;
+  }
+}
+
