@@ -667,6 +667,12 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   z-index: 1200 !important;
   opacity: 1 !important;
   /* filter applied dynamically by applyGlobalOutline() — no hardcoded shadow */
+  /* [2026-08-31, PLAN_FIX_ZINDEX_PIN_MAXIMIZADO.md Punto 2] Refuerzo
+     de contexto de apilamiento propio, para que el pinch-zoom táctil
+     nativo del navegador no reordene esto contra las demás
+     miniaturas del mapa. Primer paso, sin confirmar todavía en
+     dispositivo real — ver plan para el resto del diagnóstico. */
+  isolation: isolate;
 }
 
 /* Pin genérico (emoji fallback) */
