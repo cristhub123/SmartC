@@ -1,53 +1,45 @@
-# Aclaraciones — entrega secciones 2 y 3 (PLAN_OPTIMIZACION_PERFORMANCE_2026-08-29.md)
+# ACLARACIONES_RELEVANTES.md — Sistema de skins (2026-08-31)
 
-## Archivo extra no listado en el plan: `index.html`
+Contexto para quien retome esto en otra sesión: `PLAN_SISTEMA_SKINS.md`
+(en la raíz del proyecto) quedó completamente ejecutado en esta
+entrega (los 7 pasos). Este archivo es solo para lo que no estaba
+100% decidido en el plan original y tuvo que resolverse al programar.
 
-El plan (sección 3) proponía ajustar el `Cache-Control` de JS/CSS **junto
-con** un mecanismo de cache-busting, pero no explicitaba qué archivo
-implementaría ese cache-busting. Para que el `max-age` largo sea seguro
-(que un cambio de código no quede "pegado" en el caché del navegador de
-alguien), hacía falta versionar las URLs — eso solo se puede hacer en
-`index.html`, donde están los `<script src="js/...">` y
-`<link href="css/...">`. Se agregó `?v=20260829` a los 44 scripts propios
-y a los 2 CSS locales (no se tocaron los links externos: Leaflet CDN,
-Google Fonts).
+## Decisiones tomadas al ejecutar (no estaban en el plan original)
 
-**Para la próxima entrega de código** (cualquiera, no solo de este plan):
-si se agrega o renombra un archivo `.js`/`.css`, hay que sumarle el mismo
-`?v=` a su tag en `index.html`. Y si se quiere forzar que todos los
-visitantes bajen el JS/CSS nuevo (no sigan sirviendo el viejo desde
-caché), hay que subir ese número de versión — a mano, como dice el plan,
-no hay build automático que lo haga.
+- **Alcance del blindaje de CSS = acotado**, confirmado con Cris:
+  solo cromado estructural, no colores semánticos de estado
+  (error/warning/éxito). Si en el futuro se decide tokenizar
+  también esos, es trabajo aparte — no bloquea nada de lo ya hecho.
+- **`css/poi-panel.css` mantiene su propio identidad de color por
+  skin** (no se colapsó a los tokens globales de `base.css`). El
+  panel del lugar ya tenía su propia paleta (teal en vez de verde)
+  desde antes de este plan — unificarla con `base.css` habría sido
+  un cambio visual del skin "default" (contradice "sin cambiar nada
+  visualmente todavía" del plan). Cada skin nuevo define sus propios
+  valores `--poi-panel-*` en su bloque `[data-skin="..."]`, en
+  paralelo a los de `base.css` — dos bloques `[data-skin=...]`, uno
+  por archivo, mismo id de skin.
+- **`.poi-panel__action-btn` tiene una excepción de CSS puntual**
+  para `neobrutal-night` (ver `css/poi-panel.css`, sección SKINS al
+  final) porque el token que usa (`--poi-panel-slate-900`) cumple 2
+  roles a la vez (texto Y fondo de botón) que necesitan valores
+  opuestos bajo un skin oscuro. Si se agrega un tercer skin oscuro
+  en el futuro, va a necesitar la misma excepción repetida (o,
+  mejor, separar ese token en 2 desde el origen — quedó sin hacer
+  por no tocar de más).
 
-## Sección 2 — implementado tal cual el plan, con un ajuste
+## Pendiente real, no bloqueante
 
-- `init()` en `app.js`: se agrupó con `Promise.all` la carga de
-  `loadGlobalSettings()`, `loadMapSettings()`, `loadFeaturesFromFirestore()`,
-  `loadEventosConfig()` y `loadEventosFromFirestore()` — los 5 leen
-  documentos/colecciones independientes entre sí, verificado leyendo cada
-  función antes de moverla. `loadPOISFromFirestore()` quedó afuera del
-  grupo (dispara el toast y es el dato más pesado) y
-  `checkEventosTemporalesLifecycle()` sigue secuencial después, porque
-  necesita el `EVENTOS` que carga `loadEventosFromFirestore()`.
-- `regeneratePublicCache()` dentro de `loadPOISFromFirestore()` (el que
-  corre en cada visita pública) ahora está condicionado a
-  `_adminUser` (declarado en `js/admin-auth.js`, confirma sesión real
-  contra `admins/{uid}`, no solo que haya algún login de Firebase Auth
-  cualquiera).
+- `.btn-export` (`base.css`) pierde su efecto de gradiente "tinta"
+  bajo `neobrutal-night` (sigue legible, pero no como se ve en
+  default). Ver detalle en `CAMBIOS.txt` de esta entrega.
+- Nadie probó todavía en navegador real ni contra Firestore real —
+  ver la lista de "Qué probar vos" en `CAMBIOS.txt`.
 
-## Hallazgo nuevo, fuera del alcance de esta entrega — para evaluar después
+## Próximo paso sugerido (no arrancado)
 
-`checkEventosTemporalesLifecycle()` corre en **cada** carga de la app
-(pública, sin sesión) y, si encuentra un pin `evento_temporal` sin ningún
-evento vigente, llama a `_autoDesactivarPinTemporal()` — que hace
-`savePoiToFirestore()` + `regeneratePublicCache()`, ambas escrituras que
-(según el mismo modelo de permisos que causaba el bug de la sección 2)
-muy probablemente fallan para un visitante sin sesión de admin. Queda
-protegido con try/catch (revierte `pin.active` en memoria si falla), así
-que no rompe nada visible — pero es el mismo patrón de error/latencia
-para un visitante público, solo que disparado condicionalmente (únicamente
-si hay algún pin de evento temporal vencido en ese momento) en vez de
-siempre. No se tocó porque la solución correcta depende de una decisión
-de arquitectura (¿debería esta auto-desactivación correr del lado del
-cliente para cualquier visitante, o moverse a una Cloud Function
-programada?) que no estaba definida en el plan actual.
+Nada del plan original quedó sin hacer. El plan mismo ya dejaba
+como explícitamente fuera de esta etapa: selección de skin por
+usuario final (UI), y lógica de día/noche automático por horario —
+ninguna de las dos se tocó, tal cual estaba decidido.

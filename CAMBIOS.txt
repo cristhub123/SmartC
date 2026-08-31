@@ -1,98 +1,128 @@
-smartcityV3.0_2026-08-31_PLAN-fix-cierre-paneles_y_zindex-pin.zip
-===================================================================
+CAMBIOS — Sistema de skins (PLAN_SISTEMA_SKINS.md), 2026-08-31
+================================================================
 
-Ejecuta los primeros 2 planes:
-1) PLAN_FIX_CIERRE_PANELES.md (completo, Puntos 1 y 2)
-2) PLAN_FIX_ZINDEX_PIN_MAXIMIZADO.md (Punto 1 resuelto; Punto 2
-   con primer refuerzo aplicado, pendiente confirmar en dispositivo
-   táctil real)
+Ejecución completa del plan armado en chat consultor (adjunto
+PLAN_SISTEMA_SKINS.md que ya tenías). Incluye el requisito previo
+bloqueante (blindar base.css/poi-panel.css) con alcance ACOTADO,
+confirmado con Cris antes de programar: solo cromado estructural
+(fondos/bordes/superficies/paneles/botones que se romperían
+visualmente bajo un skin oscuro) — los colores de estado
+(error/warning/éxito) quedaron literales a propósito, no dependen
+del skin.
 
-ARCHIVOS NUEVOS
----------------
-- js/ui-guards.js
-  Helper compartido UIGuards.wasTextDragRelease(e): detecta cuando
-  un click "afuera" en realidad fue soltar una selección de texto
-  arrastrada desde un campo editable (input/textarea/select/
-  contenteditable) — y hay que ignorarlo, no cerrar nada.
+ARCHIVOS EN ESTE ZIP
+---------------------
+- css/base.css        (modificado)
+- css/poi-panel.css   (modificado)
+- js/settings-sync.js (modificado)
+- js/skins.js         (NUEVO)
+- index.html          (modificado)
+- ACLARACIONES_RELEVANTES.md (nuevo, para la próxima sesión)
 
-ARCHIVOS MODIFICADOS — Punto 1 (guarda anti-drag aplicada)
-------------------------------------------------------------
-- js/app.js            → click en el mapa que cierra el panel de un lugar
-- js/zones.js           → click en el mapa y click afuera que cierran el dropdown de zonas
-- js/geocoder.js        → click afuera que cierra resultados de búsqueda de dirección
-- js/eventos-form-shared.js → click afuera que cierra el buscador de pin (formulario eventos)
-- js/user-auth.js       → overlay de login/registro de usuario (el caso puntual que reportaste: contraseña)
-- js/admin-auth.js      → overlay de login de admin
-- js/user-panel.js      → overlay del panel de usuario logueado
-- js/admin.js           → overlay que cierra el panel Admin
+QUÉ CAMBIÓ EN CADA ARCHIVO
+----------------------------
 
-NOTA sobre el plan original: los archivos reales que había que tocar
-para el Punto 1 no coinciden 100% con los que listaba el plan viejo
-(user-panel.js/user-auth.js línea ~116/278 eran otros listeners, no
-de cierre). Encontré y corregí los 8 puntos de cierre reales
-revisando el código actual — quedan cubiertos todos los overlays de
-fondo con campos de texto (login admin, login usuario, panel
-usuario) más los dropdowns/paneles con click afuera.
+css/base.css
+  - Tokens nuevos en :root: --surface-rgb, --text-rgb, --accent-rgb
+    (mismo color que --surface/--text/--accent, en formato "R,G,B"
+    para usar dentro de rgba(var(--x-rgb),.XX)).
+  - ~50 usos de color hardcodeado convertidos a variable:
+    - rgba(255,255,255,.9X) de cromado flotante real (#btn-zonas,
+      #search-bar, #btn-admin, #btn-user-account, #lang-switcher,
+      #search-results, #zonas-dropdown, #zona-panel, #poi-panel,
+      paneles admin, overlays de login/usuario, .modal-box,
+      .leaflet-control-zoom) -> rgba(var(--surface-rgb),.XX)
+    - rgba(58,140,79,...) [=--accent en decimal, ~20 usos] ->
+      rgba(var(--accent-rgb),...)
+    - rgba(26,46,26,...) [=--text en decimal, ~8 usos] ->
+      rgba(var(--text-rgb),...)
+    - #fff sólido en fondos de tarjetas/inputs/options [~14 usos]
+      -> var(--surface)
+    - #fafcfa (fondo admin) -> var(--surface2)
+    - .loc-filter-match (#3a8c4f duplicado) -> var(--accent)
+  - Dejados sin tocar a propósito: colores de estado (error/warning/
+    éxito/badges), sombras rgba(0,0,0,...), efectos decorativos
+    sobre superficies ya coloreadas (brillo de pines, botón sobre
+    banner verde), .btn-export (ver "Pendiente" abajo), toggle de
+    eventos (gris/verde tipo switch iOS).
+  - Al final del archivo: bloques [data-skin="default"] (vacío a
+    propósito, son los mismos valores que ya estaban en :root) y
+    [data-skin="neobrutal-night"] con los valores traducidos del
+    mockup subido "SmartCity — Exploración visual (Neo-Brutalist)"
+    a los nombres de variable del proyecto.
 
-ARCHIVOS MODIFICADOS — Punto 2 (1 solo panel/menú a la vez)
---------------------------------------------------------------
-- js/admin.js
-  * openAdmin() ahora se dispara vía OverlayManager.beforeOpen('admin', ...)
-    en vez de abrirse directo.
-  * Se registra 'admin' en OverlayManager (isOpen/close), mismo
-    patrón que ya tenían poi-panel y zonas.
-  → Resuelve el bug reportado: abrir el admin con el panel de un
-    lugar abierto ahora lo cierra automáticamente en vez de
-    solaparse. La puerta para "2 paneles a la vez" en algún caso
-    futuro sigue abierta (exclusive:false ya existía en
-    OverlayManager, sin usar por ahora).
+css/poi-panel.css
+  - Ya estaba bien tokenizado internamente. Se agregó la variable
+    --poi-panel-slate-200 (nunca estaba definida, vivía solo como
+    fallback inline en 2 lugares), --poi-panel-accent-rgb (para el
+    rgba(13,148,136,.1) que había suelto), y se limpió un
+    color:#fff que no pasaba por variable.
+  - Al final del archivo: mismo mecanismo [data-skin="..."]. Caso
+    encontrado y resuelto: --poi-panel-slate-900 cumplía 2 roles a
+    la vez (texto principal Y fondo del botón de acción primario),
+    que necesitan valores OPUESTOS bajo un skin oscuro. Se resolvió
+    con una excepción puntual de CSS para .poi-panel__action-btn en
+    [data-skin="neobrutal-night"] (fondo acento amarillo, texto
+    negro), en vez de forzar un solo token a servir 2 roles
+    contradictorios.
 
-  NOTA: el registro central de overlays (OverlayManager) ya existía
-  en tu proyecto desde el 18/08 — el plan viejo decía que no existía
-  todavía. Lo único que faltaba de este punto era que admin.js se
-  sumara a ese registro, que es lo que se hizo acá.
+js/settings-sync.js
+  - Nuevas saveActiveSkin(id) / loadActiveSkin(), mismo patrón de 1
+    documento (settings/skin) que appearance/mapstyle/typography-fonts.
 
-ARCHIVOS MODIFICADOS — PLAN_FIX_ZINDEX_PIN_MAXIMIZADO
---------------------------------------------------------
-- js/markers.js
-  Punto 1: z-index forzado de expandPin() subido de 99999 a 600000
-  — ahora queda siempre por encima de los clusters (zIndexOffset:
-  500000 en cluster-grouping.js), que antes le ganaban y lo tapaban.
-
-- css/base.css (.pin-wrap.big)
-  Punto 2: agregado `isolation: isolate` como primer refuerzo para
-  el caso de pinch-zoom táctil (miniaturas tapando la imagen
-  maximizada durante el gesto). Es diagnóstico hipotético, como
-  aclaraba el propio plan — falta confirmar en un dispositivo
-  táctil real si esto ya alcanza o hace falta más.
+js/skins.js (NUEVO)
+  - Objeto SKINS (default / neobrutal-night).
+  - applySkin(id): pone data-skin en <html> + inyecta la fuente
+    Google del skin solo si hace falta (Sora/Nunito del skin default
+    ya venían cargadas siempre, sin cambios ahí).
+  - resolveActiveSkin(): prioridad de 2 ramas desde el día uno
+    (preferencia de usuario logueado — placeholder documentado,
+    todavía no existe ese panel — y si no, el skin fijado por el
+    admin en Firestore).
+  - initSkinsTab(): grilla de tarjetas, mismo patrón visual que
+    "Preset de mapa" (reusa .mapa-preset-card/.mapa-preview/
+    .mapa-card-name de base.css), registrada en la pestaña
+    "typography" vía SC.registerTabPlugin junto al plugin que ya
+    tenía typography.js (ambos corren, sin conflicto).
 
 index.html
-----------
-- Agregado <script src="js/ui-guards.js"> (después de overlay-manager.js).
-- Cache-busting (?v=...) actualizado a 20260831 en todos los
-  archivos tocados + base.css, para que no quede nada serviendo
-  versión vieja desde caché.
+  - Tab "🔤 Tipografía" renombrada a "🎨 Interfaz" (única tab que
+    cambia de nombre, tal cual pedía el plan).
+  - Nueva sección "SKIN DE LA INTERFAZ" al principio de esa misma
+    pestaña (grilla #skin-preset-grid), antes de "Fuentes
+    disponibles" (que sigue exactamente igual).
+  - <script src="js/skins.js"> agregado después de typography.js.
 
-VERIFICACIÓN HECHA (sin navegador ni Firebase real)
+PENDIENTE / CASO LÍMITE (no bloqueante, documentado)
 ------------------------------------------------------
-- node --check OK en los 10 archivos .js (nuevo + 9 tocados).
-- Revisado que no hay colisión de nombres (UIGuards es la única
-  declaración global nueva).
-- Revisadas las líneas de <script>/<link> en index.html, sin
-  duplicados ni rutas rotas.
+.btn-export (base.css) usa un gradiente fijo basado en tinta oscura
+(var(--text) -> #2d4d2d) para el botón de exportar. Bajo
+neobrutal-night, --text pasa a ser claro, así que ese botón en
+particular cambiaría de "oscuro sobre claro" a "claro sobre oscuro"
+en vez de mantenerse como una tinta fija independiente del skin. No
+queda roto (sigue siendo legible), pero pierde el efecto visual de
+"tinta" buscado en ese botón puntual bajo ese skin. Se dejó así por
+decisión de alcance — si se ve raro en la prueba visual, es la
+primera línea a revisar.
 
-PENDIENTE DE CONFIRMAR EN TU ENTORNO REAL
---------------------------------------------
-1) Punto 1 cierre paneles: pintar/arrastrar texto en la contraseña
-   del login (admin y usuario), en un campo del admin, y en el
-   buscador de pin/geocoder/zonas — soltar afuera ya NO debe cerrar
-   nada; un click real afuera SÍ debe seguir cerrando como siempre.
-2) Punto 2 cierre paneles: con el panel de un lugar abierto, tocar
-   el botón de admin → el panel del lugar se cierra solo y se abre
-   el admin (antes quedaban solapados).
-3) Z-index Punto 1: abrir un cluster cerca de un pin maximizado →
-   el pin queda siempre arriba.
-4) Z-index Punto 2 (pinch-zoom táctil): probar en un celular/tablet
-   real si las miniaturas ya dejan de taparse durante el gesto de
-   agrandar con los dedos sobre la imagen maximizada. Si sigue
-   pasando, hace falta un segundo ajuste (ver plan).
+VERIFICACIÓN REALIZADA
+-------------------------
+- Balance de llaves { } en los 3 archivos CSS/JS tocados: base.css
+  473/473, poi-panel.css 52/52.
+- Sintaxis de js/skins.js y js/settings-sync.js validada con Node
+  (new Function(...) sin errores).
+- Balance de <div> en el bloque HTML insertado, revisado a mano.
+- NO probado en navegador real ni contra Firestore real.
+
+QUÉ PROBAR VOS (Cris)
+------------------------
+1. Abrí el admin, tab "Interfaz" — confirmá que el sitio se ve
+   EXACTAMENTE igual que antes (skin default, cero cambio visual).
+   Esta es la prueba más importante: confirma que el blindaje no
+   rompió nada.
+2. Clickeá la tarjeta "Neo-Brutalist Night" y recorré el sitio
+   (mapa, panel de lugar, admin) buscando algo con contraste raro
+   que no esté ya documentado arriba.
+3. Recargá la página (F5) con neobrutal-night activo, para
+   confirmar que settings/skin en Firestore persiste la elección
+   entre visitas.
