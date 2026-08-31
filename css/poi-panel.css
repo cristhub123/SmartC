@@ -28,7 +28,14 @@ After modifying this file, update /AI_SESSION.md with the change and verificatio
   --poi-panel-slate-400: #94a3b8;
   --poi-panel-slate-300: #cbd5e1;
   --poi-panel-gray-200: #e5e7eb;
+  --poi-panel-slate-200: #e2e8f0;
   --poi-panel-white: #ffffff;
+
+  /* [PLAN_SISTEMA_SKINS.md] Mismo color que --poi-panel-accent de
+     arriba, en formato "R,G,B" para poder usarlo dentro de
+     rgba(var(--poi-panel-accent-rgb), .XX) sin repetir el valor a
+     mano en cada lugar que necesite una versión translúcida. */
+  --poi-panel-accent-rgb: 13, 148, 136;
 
   --poi-panel-radius: 1rem;         /* rounded-t-2xl */
   --poi-panel-max-width: 28rem;     /* max-w-md */
@@ -247,7 +254,7 @@ After modifying this file, update /AI_SESSION.md with the change and verificatio
 }
 .poi-panel__tab-btn.on {
   background: var(--poi-panel-accent);
-  color: #fff;
+  color: var(--poi-panel-white);
 }
 
 .poi-panel__evento-card {
@@ -257,7 +264,7 @@ After modifying this file, update /AI_SESSION.md with the change and verificatio
   padding: 0.85rem 0;
 }
 .poi-panel__evento-card + .poi-panel__evento-card {
-  border-top: 1px solid var(--poi-panel-slate-200, #e2e8f0);
+  border-top: 1px solid var(--poi-panel-slate-200);
 }
 .poi-panel__evento-nombre {
   font-size: 0.95rem;
@@ -274,7 +281,7 @@ After modifying this file, update /AI_SESSION.md with the change and verificatio
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--poi-panel-accent);
-  background: rgba(13, 148, 136, 0.1);
+  background: rgba(var(--poi-panel-accent-rgb), 0.1);
   padding: 0.15rem 0.5rem;
   border-radius: 999px;
 }
@@ -313,7 +320,7 @@ After modifying this file, update /AI_SESSION.md with the change and verificatio
 
 .poi-panel__field-block + .poi-panel__field-block {
   padding-top: 1rem;
-  border-top: 1px solid var(--poi-panel-slate-200, #e2e8f0);
+  border-top: 1px solid var(--poi-panel-slate-200);
 }
 
 .poi-panel__field-title {
@@ -465,4 +472,46 @@ After modifying this file, update /AI_SESSION.md with the change and verificatio
 /* El drag handle no tiene sentido en un sidebar fijo. */
 .poi-panel[data-orientation="landscape"] .poi-panel__handle-zone {
   display: none;
+}
+
+/* --------------------------------------------------------------------
+   SKINS (PLAN_SISTEMA_SKINS.md)
+   Mismo mecanismo que css/base.css: [data-skin="..."] en <html> pisa
+   estas variables, el resto del archivo no se toca. "default" queda
+   vacío a propósito (son los mismos valores que ya están en :root
+   arriba). "neobrutal-night" traduce el mockup subido a estos mismos
+   nombres de variable.
+   -------------------------------------------------------------------- */
+[data-skin="default"] {
+  /* Vacío a propósito — ver comentario arriba. */
+}
+
+[data-skin="neobrutal-night"] {
+  --poi-panel-accent: #facc15;
+  --poi-panel-accent-hover: #eab308;
+  --poi-panel-accent-rgb: 250, 204, 21;
+
+  --poi-panel-slate-900: #f4f1ea; /* texto principal (título) */
+  --poi-panel-slate-800: #e4e4e7; /* sin uso visual hoy (ver .poi-panel__action-btn más abajo) */
+  --poi-panel-slate-700: #a1a1aa; /* texto de cuerpo/secundario */
+  --poi-panel-slate-400: #71717a; /* texto terciario / etiquetas de sección */
+  --poi-panel-slate-300: #3f3f46; /* borde de inputs */
+  --poi-panel-gray-200: #27272a;  /* divisores/fondos de chip */
+  --poi-panel-slate-200: #27272a; /* divisores */
+  --poi-panel-white: #18181b;     /* superficie del panel (antes: blanco de fondo) */
+}
+
+/* --poi-panel-slate-900 hace doble uso en el archivo original: texto
+   principal Y fondo del botón de acción (mismo valor por coincidencia
+   en el skin default, donde ambos son "casi negro"). Al oscurecer
+   slate-900 para que sirva como texto claro, el botón necesitaría
+   fondo claro con texto blanco encima = ilegible. Se resuelve con una
+   excepción puntual para este botón en este skin, en vez de forzar un
+   único token a cumplir 2 roles que necesitan valores opuestos. */
+[data-skin="neobrutal-night"] .poi-panel__action-btn {
+  background: var(--poi-panel-accent);
+  color: #000;
+}
+[data-skin="neobrutal-night"] .poi-panel__action-btn:hover {
+  background: var(--poi-panel-accent-hover);
 }

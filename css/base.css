@@ -116,6 +116,20 @@ After modifying this file, update /AI_SESSION.md with the change and verificatio
   --c-art:       #0d9488;   /* Arte */
   --c-historic:  #7c4aed;   /* Histórico */
   --c-shop:      #3a8c4f;   /* Comercios */
+
+  /* ---- COMPONENTES RGB DE TOKENS (para rgba() con opacidad) ----
+     [PLAN_SISTEMA_SKINS.md] Mismo color que --surface/--text/--accent
+     de arriba, pero como "R,G,B" sin el signo #, para poder usarlos
+     dentro de rgba(var(--x-rgb), .XX) en vez de escribir el rgba
+     entero a mano. Así, cuando un skin cambie --surface/--text/--accent,
+     automáticamente seguimos también todos los overlays/sombras/tintes
+     translúcidos que dependen de esos colores, sin tener que tocar cada
+     rgba() suelto uno por uno. Si se agrega un skin nuevo, estos 3
+     deben actualizarse junto con sus --x de arriba (mismo color, otro
+     formato) — ver [data-skin="..."] más abajo. */
+  --surface-rgb: 255, 255, 255;
+  --text-rgb:    26, 46, 26;
+  --accent-rgb:  58, 140, 79;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -141,7 +155,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   flex-direction: row !important;
 }
 .leaflet-control-zoom a {
-  background: rgba(255,255,255,.97) !important;
+  background: rgba(var(--surface-rgb), .97) !important;
   backdrop-filter: blur(10px) !important;
   color: var(--text) !important;
   border-right: 1px solid var(--border) !important;
@@ -186,7 +200,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
 
 /* hamburger / menu button (left) */
 #btn-zonas {
-  background: rgba(255,255,255,0.95);
+  background: rgba(var(--surface-rgb), 0.95);
   border: none;
   border-radius: 14px;
   width: 44px; height: 44px;
@@ -208,7 +222,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
 }
 #btn-zonas .zico { display: none; } /* hide old arrow */
 #btn-zonas::before { content: '☰'; font-size: 18px; }
-#btn-zonas:hover { background: var(--accent); color: white; box-shadow: 0 6px 20px rgba(58,140,79,.3); }
+#btn-zonas:hover { background: var(--accent); color: white; box-shadow: 0 6px 20px rgba(var(--accent-rgb), .3); }
 #btn-zonas.open { background: var(--accent); color: white; }
 
 /* Search bar — center, grows to fill */
@@ -216,7 +230,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   flex: 1;
   display: flex;
   align-items: center;
-  background: rgba(255,255,255,0.96);
+  background: rgba(var(--surface-rgb), 0.96);
   border-radius: 14px;
   box-shadow: 0 4px 16px rgba(0,0,0,.13);
   padding: 0 14px;
@@ -245,7 +259,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
 /* filter/admin button (right) */
 #btn-admin {
   height: 44px; width: 44px; padding: 0;
-  background: rgba(255,255,255,0.95);
+  background: rgba(var(--surface-rgb), 0.95);
   color: var(--text);
   border: none; border-radius: 14px;
   font-size: 17px;
@@ -256,7 +270,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   flex-shrink: 0;
   box-shadow: 0 4px 16px rgba(0,0,0,.14);
 }
-#btn-admin:hover { background: var(--accent); color: white; box-shadow: 0 6px 20px rgba(58,140,79,.3); }
+#btn-admin:hover { background: var(--accent); color: white; box-shadow: 0 6px 20px rgba(var(--accent-rgb), .3); }
 #btn-admin:active { transform: scale(.95); }
 #btn-admin.active { background: var(--accent); color: white; }
 
@@ -264,7 +278,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
    público — mismo lenguaje visual que #btn-admin/#btn-zonas */
 #btn-user-account {
   height: 44px; width: 44px; padding: 0;
-  background: rgba(255,255,255,0.95);
+  background: rgba(var(--surface-rgb), 0.95);
   color: var(--text);
   border: none; border-radius: 14px;
   font-size: 17px;
@@ -274,7 +288,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   flex-shrink: 0;
   box-shadow: 0 4px 16px rgba(0,0,0,.14);
 }
-#btn-user-account:hover { background: var(--accent); color: white; box-shadow: 0 6px 20px rgba(58,140,79,.3); }
+#btn-user-account:hover { background: var(--accent); color: white; box-shadow: 0 6px 20px rgba(var(--accent-rgb), .3); }
 #btn-user-account:active { transform: scale(.95); }
 #btn-user-account.logged-in { background: var(--accent); color: white; }
 
@@ -289,7 +303,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   height: 44px;
   display: flex;
   align-items: center;
-  background: rgba(255,255,255,0.95);
+  background: rgba(var(--surface-rgb), 0.95);
   border-radius: 14px;
   box-shadow: 0 4px 16px rgba(0,0,0,.14);
   padding: 0 4px;
@@ -309,7 +323,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   transition: all .2s;
   -webkit-tap-highlight-color: transparent;
 }
-#lang-switcher button:hover { background: rgba(58,140,79,.12); color: var(--text); }
+#lang-switcher button:hover { background: rgba(var(--accent-rgb), .12); color: var(--text); }
 #lang-switcher button.active { background: var(--accent); color: white; }
 @media (max-width: 420px) {
   /* En pantallas angostas el buscador ya ocupa casi todo — el
@@ -328,7 +342,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   top: 62px;
   left: 12px; right: 12px;
   z-index: 699;
-  background: rgba(255,255,255,0.98);
+  background: rgba(var(--surface-rgb), 0.98);
   border-radius: 16px;
   box-shadow: 0 8px 30px rgba(0,0,0,.14);
   border: 1px solid rgba(0,0,0,.06);
@@ -448,12 +462,12 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   top: 66px;
   left: 12px;
   z-index: 699;
-  background: rgba(255,255,255,0.98);
+  background: rgba(var(--surface-rgb), 0.98);
   border: 1px solid rgba(0,0,0,0.06);
   border-radius: var(--r-lg);
   min-width: 270px;
   max-width: calc(100vw - 28px);
-  box-shadow: var(--shadow-panel), 0 0 0 1px rgba(58,140,79,.05);
+  box-shadow: var(--shadow-panel), 0 0 0 1px rgba(var(--accent-rgb), .05);
   overflow: hidden;
   transform-origin: top left;
   transform: scale(.92) translate3d(0,-8px,0);
@@ -502,10 +516,10 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
    se llegó al final del scroll (truco CSS clásico, sin JS). */
 #zonas-list-scroll {
   background:
-    linear-gradient(var(--surface) 30%, rgba(255,255,255,0)),
-    linear-gradient(rgba(255,255,255,0), var(--surface) 70%) 0 100%,
-    radial-gradient(farthest-side at 50% 0, rgba(26,46,26,.10), rgba(26,46,26,0)),
-    radial-gradient(farthest-side at 50% 100%, rgba(26,46,26,.10), rgba(26,46,26,0)) 0 100%;
+    linear-gradient(var(--surface) 30%, rgba(var(--surface-rgb), 0)),
+    linear-gradient(rgba(var(--surface-rgb), 0), var(--surface) 70%) 0 100%,
+    radial-gradient(farthest-side at 50% 0, rgba(var(--text-rgb), .10), rgba(var(--text-rgb), 0)),
+    radial-gradient(farthest-side at 50% 100%, rgba(var(--text-rgb), .10), rgba(var(--text-rgb), 0)) 0 100%;
   background-repeat: no-repeat;
   background-color: var(--surface);
   background-size: 100% 24px, 100% 24px, 100% 10px, 100% 10px;
@@ -567,9 +581,9 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   position: fixed;
   bottom: 0; left: 0; right: 0;
   z-index: 710;
-  background: rgba(255,255,255,0.97);
+  background: rgba(var(--surface-rgb), 0.97);
   border-radius: var(--r-lg) var(--r-lg) 0 0;
-  border-top: 2px solid rgba(58,140,79,.15);
+  border-top: 2px solid rgba(var(--accent-rgb), .15);
   padding-bottom: env(safe-area-inset-bottom);
   transform: translateY(100%) translateZ(0);
   transition: transform .4s cubic-bezier(.16,1,.3,1);
@@ -601,7 +615,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 14px;
 }
 .zp-tag {
-  background: var(--accent-pale); border: 1px solid rgba(58,140,79,.2);
+  background: var(--accent-pale); border: 1px solid rgba(var(--accent-rgb), .2);
   border-radius: 99px; padding: 4px 12px;
   font-size: 11px; font-weight: 600; color: var(--accent);
 }
@@ -627,10 +641,10 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   border-radius: var(--r); padding: 14px;
   font-family: var(--font-b); font-size: 14px; font-weight: 700;
   cursor: pointer; transition: all .2s;
-  box-shadow: 0 6px 18px rgba(58,140,79,.3);
+  box-shadow: 0 6px 18px rgba(var(--accent-rgb), .3);
   -webkit-tap-highlight-color: transparent;
 }
-.zp-go-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(58,140,79,.38); }
+.zp-go-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(var(--accent-rgb), .38); }
 
 /* Map blur effect when zona panel open */
 #map.zona-blur {
@@ -863,7 +877,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
 .geocoder-result {
   padding: 10px 14px; font-size: 12px; color: var(--text);
   cursor: pointer; border-bottom: 1px solid var(--border);
-  transition: background .15s; line-height: 1.4; background: #fff;
+  transition: background .15s; line-height: 1.4; background: var(--surface);
 }
 .geocoder-result:last-child { border-bottom: none; }
 .geocoder-result:hover { background: var(--accent-pale); color: var(--accent); }
@@ -897,9 +911,9 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   position: fixed;
   bottom: -100%; left: 0; right: 0;
   z-index: 600;
-  background: rgba(255,255,255,0.98);
+  background: rgba(var(--surface-rgb), 0.98);
   border-radius: var(--r-lg) var(--r-lg) 0 0;
-  border-top: 2.5px solid rgba(58,140,79,.18);
+  border-top: 2.5px solid rgba(var(--accent-rgb), .18);
   bottom: 0;
   transform: translateY(100%) translateZ(0);
   transition: transform .42s cubic-bezier(.16,1,.3,1), max-height .42s cubic-bezier(.16,1,.3,1);
@@ -988,7 +1002,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
 .ev-card {
   flex-shrink: 0; width: 185px;
   background: linear-gradient(135deg, #f7fcf8, #f0f7f2);
-  border: 1px solid rgba(58,140,79,.15);
+  border: 1px solid rgba(var(--accent-rgb), .15);
   border-radius: var(--r); padding: 12px;
   transition: transform .2s, box-shadow .2s;
 }
@@ -1000,7 +1014,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
 /* Trivia */
 .trivia-box {
   background: linear-gradient(135deg, #edf7ef, #e8f4fd);
-  border: 1px solid rgba(58,140,79,.15); border-radius: var(--r);
+  border: 1px solid rgba(var(--accent-rgb), .15); border-radius: var(--r);
   padding: 14px; display: flex; gap: 11px; align-items: flex-start;
 }
 .trivia-ico { font-size: 20px; flex-shrink: 0; margin-top: 1px; }
@@ -1011,7 +1025,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
 .soc-row { display: flex; gap: 7px; flex-wrap: wrap; }
 .poi-tag {
   display: inline-block;
-  background: var(--accent-pale); border: 1px solid rgba(58,140,79,.15);
+  background: var(--accent-pale); border: 1px solid rgba(var(--accent-rgb), .15);
   border-radius: 99px; padding: 3px 10px;
   font-size: 10px; font-weight: 600; color: var(--accent);
   margin: 2px 2px 2px 0;
@@ -1032,7 +1046,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
 ═══════════════════════════════════════ */
 #overlay {
   position: fixed; inset: 0;
-  background: rgba(26,46,26,.3);
+  background: rgba(var(--text-rgb), .3);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   z-index: 700;
@@ -1046,7 +1060,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   top: 0; right: -440px;
   width: 420px; max-width: 100vw; height: 100dvh;
   z-index: 800;
-  background: #fafcfa;
+  background: var(--surface2);
   border-left: 1px solid rgba(0,0,0,.06);
   display: flex; flex-direction: column;
   transition: right .4s cubic-bezier(.16,1,.3,1);
@@ -1059,7 +1073,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   height: 60px;
   display: flex; align-items: center; justify-content: space-between;
   border-bottom: 1px solid var(--border);
-  background: rgba(255,255,255,.98);
+  background: rgba(var(--surface-rgb), .98);
   flex-shrink: 0;
 }
 .admin-title {
@@ -1069,7 +1083,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
 
 .admin-tabs {
   display: flex; border-bottom: 1px solid var(--border);
-  background: rgba(255,255,255,.98); flex-shrink: 0;
+  background: rgba(var(--surface-rgb), .98); flex-shrink: 0;
 }
 .atab {
   flex: 1; padding: 4px 8px;
@@ -1105,7 +1119,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
 
 /* POI list */
 .poi-row {
-  background: #fff;
+  background: var(--surface);
   border: 1.5px solid var(--border);
   border-radius: var(--r);
   padding: 12px 14px;
@@ -1114,7 +1128,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   transition: border-color .18s, box-shadow .18s, transform .18s;
   box-shadow: var(--shadow-xs);
 }
-.poi-row:hover { border-color: var(--accent); box-shadow: 0 4px 16px rgba(58,140,79,.12); transform: translateY(-1px); }
+.poi-row:hover { border-color: var(--accent); box-shadow: 0 4px 16px rgba(var(--accent-rgb), .12); transform: translateY(-1px); }
 /* Pin sin ciudad asignada — visible sobre todo con el filtro "Mostrar
    todo" del dropdown Ciudad, donde aparecen pines que el filtro
    geográfico normal nunca deja ver. */
@@ -1150,7 +1164,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
 }
 .fi, .fs, .fta {
   width: 100%;
-  background: #fff; border: 1.5px solid var(--border);
+  background: var(--surface); border: 1.5px solid var(--border);
   border-radius: var(--r-ctrl); padding: 3px 14px;
   font-family: var(--font-b); font-size: 14px; color: var(--text);
   outline: none; transition: border-color .2s, box-shadow .2s;
@@ -1159,7 +1173,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
 }
 .fi:focus, .fs:focus, .fta:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(58,140,79,.12);
+  box-shadow: 0 0 0 3px rgba(var(--accent-rgb), .12);
   background: var(--surface);
 }
 .fta { resize: vertical; min-height: 80px; }
@@ -1172,15 +1186,15 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
    suben las imágenes nuevas ahora mismo". Sin ninguna clase = todavía
    no se eligieron las 3 (estado neutro, ver renderList()). */
 .loc-filter-match {
-  background: #3a8c4f !important; border-color: #3a8c4f !important;
+  background: var(--accent) !important; border-color: var(--accent) !important;
   color: #fff !important;
 }
-.loc-filter-match option { color: var(--text); background: #fff; }
+.loc-filter-match option { color: var(--text); background: var(--surface); }
 .loc-filter-mismatch {
   background: #c0392b !important; border-color: #c0392b !important;
   color: #fff !important;
 }
-.loc-filter-mismatch option { color: var(--text); background: #fff; }
+.loc-filter-mismatch option { color: var(--text); background: var(--surface); }
 
 .frow { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 /* Como .frow pero apilada en 1 sola columna — para el filtro de
@@ -1192,7 +1206,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
 /* Emoji grid */
 .egrid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 7px; margin-top: 8px; }
 .eopt {
-  aspect-ratio: 1; background: #fff;
+  aspect-ratio: 1; background: var(--surface);
   border: 1.5px solid var(--border); border-radius: var(--r-ctrl);
   display: flex; align-items: center; justify-content: center;
   font-size: 20px; cursor: pointer;
@@ -1204,7 +1218,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
 
 /* Coord pick zone */
 .coord-display {
-  background: #fff; border: 1.5px dashed var(--border2);
+  background: var(--surface); border: 1.5px dashed var(--border2);
   border-radius: var(--r); padding: 11px 14px;
   font-family: var(--font-m); font-size: 11px; color: var(--text3);
   margin-bottom: 8px; transition: all .2s;
@@ -1217,10 +1231,10 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   border-radius: var(--r-ctrl); padding: 3px 13px;
   font-family: var(--font-b); font-size: 14px; font-weight: 700; color: white;
   cursor: pointer; transition: all .22s; margin-top: 6px;
-  box-shadow: 0 6px 18px rgba(58,140,79,.28);
+  box-shadow: 0 6px 18px rgba(var(--accent-rgb), .28);
   -webkit-tap-highlight-color: transparent;
 }
-.btn-primary:hover { transform: translateY(-1px) scale(1.01); box-shadow: 0 10px 26px rgba(58,140,79,.35); }
+.btn-primary:hover { transform: translateY(-1px) scale(1.01); box-shadow: 0 10px 26px rgba(var(--accent-rgb), .35); }
 .btn-primary:active { transform: translateY(0) scale(0.99); }
 .btn-outline {
   width: 100%; background: transparent;
@@ -1232,7 +1246,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
 .btn-outline:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-pale); }
 
 .btn-map-pick {
-  width: 100%; background: #fff;
+  width: 100%; background: var(--surface);
   border: 1.5px dashed var(--border2); border-radius: var(--r-ctrl); padding: 3px 11px;
   font-family: var(--font-b); font-size: 13px; font-weight: 600; color: var(--text2);
   cursor: pointer; transition: all .2s; display: flex; align-items: center;
@@ -1252,7 +1266,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   background: linear-gradient(135deg, var(--accent), var(--green-light)); color: white;
   border-radius: 99px; padding: 10px 22px;
   font-size: 13px; font-weight: 700; font-family: var(--font-b);
-  box-shadow: 0 8px 24px rgba(58,140,79,.35);
+  box-shadow: 0 8px 24px rgba(var(--accent-rgb), .35);
   white-space: nowrap;
   display: flex; align-items: center; gap: 8px;
   opacity: 0; pointer-events: none;
@@ -1294,7 +1308,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   backdrop-filter: blur(4px);
 }
 #admin-login-box {
-  position: relative; background: rgba(255,255,255,0.98);
+  position: relative; background: rgba(var(--surface-rgb), 0.98);
   border-radius: var(--r-lg); padding: 30px 26px;
   width: 100%; max-width: 320px;
   box-shadow: var(--shadow-panel); text-align: center;
@@ -1327,7 +1341,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   backdrop-filter: blur(4px);
 }
 #user-auth-box {
-  position: relative; background: rgba(255,255,255,0.98);
+  position: relative; background: rgba(var(--surface-rgb), 0.98);
   border-radius: var(--r-lg); padding: 26px 24px;
   width: 100%; max-width: 340px;
   box-shadow: var(--shadow-panel);
@@ -1381,7 +1395,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   border: 1px solid var(--border2); cursor: pointer;
   transition: all .15s;
 }
-.user-auth-rol-opt:has(input:checked) { border-color: var(--accent); background: rgba(58,140,79,.06); }
+.user-auth-rol-opt:has(input:checked) { border-color: var(--accent); background: rgba(var(--accent-rgb), .06); }
 .user-auth-rol-opt input[type="radio"] { grid-row: 1 / 3; }
 .user-auth-rol-opt span { font-family: var(--font-b); font-size: 14px; font-weight: 700; }
 .user-auth-rol-opt small { font-size: 12px; color: var(--text3); }
@@ -1409,7 +1423,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   background: rgba(0,0,0,.5); backdrop-filter: blur(4px);
 }
 #user-panel-box {
-  position: relative; background: rgba(255,255,255,0.98);
+  position: relative; background: rgba(var(--surface-rgb), 0.98);
   border-radius: var(--r-lg); padding: 26px 24px;
   width: 100%; max-width: 420px; max-height: 85vh; overflow-y: auto;
   box-shadow: var(--shadow-panel);
@@ -1444,7 +1458,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   cursor: pointer; text-align: left; transition: all .15s;
   font-family: var(--font-b);
 }
-.owner-panel-item:hover { border-color: var(--accent); background: rgba(58,140,79,.05); }
+.owner-panel-item:hover { border-color: var(--accent); background: rgba(var(--accent-rgb), .05); }
 .owner-panel-item-name { font-weight: 700; font-size: 14px; }
 .owner-panel-item-cat { font-size: 11px; color: var(--text3); }
 #owner-panel-form { display: none; flex-direction: column; }
@@ -1484,7 +1498,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   backdrop-filter: blur(4px);
 }
 .modal-box {
-  position: relative; background: rgba(255,255,255,0.98);
+  position: relative; background: rgba(var(--surface-rgb), 0.98);
 
   border-radius: var(--r-lg); padding: 30px 26px;
   width: 100%; max-width: 330px;
@@ -1512,7 +1526,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   position: fixed; bottom: 84px; left: 50%;
   transform: translateX(-50%) translateY(12px);
   z-index: 1500;
-  background: rgba(26,46,26,.92); color: white;
+  background: rgba(var(--text-rgb), .92); color: white;
   border-radius: 99px; padding: 11px 20px;
   font-size: 13px; font-weight: 600; font-family: var(--font-b);
   box-shadow: 0 8px 24px rgba(0,0,0,.2);
@@ -1530,12 +1544,12 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   #poi-panel {
     left: 20px; right: auto; bottom: 20px !important;
     width: 390px; border-radius: var(--r-lg);
-    border: 1.5px solid rgba(58,140,79,.15);
+    border: 1.5px solid rgba(var(--accent-rgb), .15);
     max-height: 74vh;
     transition: transform .42s cubic-bezier(.16,1,.3,1), opacity .3s;
     transform: translateX(-120%) !important;
     box-shadow: var(--shadow-panel);
-    background: rgba(255,255,255,0.98);
+    background: rgba(var(--surface-rgb), 0.98);
   }
   #poi-panel.open { transform: translateX(0) !important; }
   .pp-handle { display: none; }
@@ -1555,12 +1569,12 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   font-family: var(--font-b); font-size: 12px; font-weight: 700;
   cursor: pointer; display: flex; align-items: center; justify-content: center;
   gap: 5px; transition: all .2s;
-  box-shadow: 0 4px 14px rgba(26,46,26,.2);
+  box-shadow: 0 4px 14px rgba(var(--text-rgb), .2);
   -webkit-tap-highlight-color: transparent;
 }
-.btn-export:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(26,46,26,.3); }
+.btn-export:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(var(--text-rgb), .3); }
 .btn-import {
-  flex: 1; background: #fff; color: var(--text);
+  flex: 1; background: var(--surface); color: var(--text);
   border: 1.5px solid var(--border); border-radius: var(--r-ctrl);
   padding: 3px 8px;
   font-family: var(--font-b); font-size: 12px; font-weight: 700;
@@ -1599,7 +1613,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
 .color-preset.sel { border-color: var(--accent); outline: 2px solid var(--accent); outline-offset: 1px; }
 
 .rm-item {
-  background: #fff; border: 1.5px solid var(--border);
+  background: var(--surface); border: 1.5px solid var(--border);
   border-radius: var(--r); padding: 13px 14px; margin-bottom: 9px;
   position: relative; box-shadow: var(--shadow-xs);
   transition: box-shadow .18s;
@@ -1625,7 +1639,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
 
 /* Zonas admin */
 .za-row {
-  background: #fff; border: 1.5px solid var(--border);
+  background: var(--surface); border: 1.5px solid var(--border);
   border-radius: var(--r); padding: 10px 12px;
   margin-bottom: 8px;
   display: flex; align-items: center; gap: 9px;
@@ -1671,7 +1685,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
 /* Tpane background */
 .tpane { display: none; padding: 18px 20px; }
 .tpane.on { display: block; }
-.admin-body { flex: 1; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--border) transparent; background: #fafcfa; position: relative; }
+.admin-body { flex: 1; overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--border) transparent; background: var(--surface2); position: relative; }
 
 /* === FLECHAS INDICADORAS DE SCROLL — patrón reutilizable en toda la app ===
    Se agregan automáticamente por JS (ver scroll-hints.js) a cualquier
@@ -1705,7 +1719,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
 /* Style buttons inside panels */
 .sty-btn {
   flex-shrink: 0;
-  background: #fff; border: 1.5px solid var(--border);
+  background: var(--surface); border: 1.5px solid var(--border);
   border-radius: var(--r); padding: 8px 13px;
   cursor: pointer; font-size: 11px; font-weight: 700; color: var(--text2);
   font-family: var(--font-b);
@@ -1764,10 +1778,10 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   border-radius: var(--r-ctrl); padding: 3px 16px;
   font-family: var(--font-b); font-size: 13px; font-weight: 700;
   cursor: pointer; white-space: nowrap;
-  box-shadow: 0 4px 12px rgba(58,140,79,.25);
+  box-shadow: 0 4px 12px rgba(var(--accent-rgb), .25);
   transition: all .2s; -webkit-tap-highlight-color: transparent;
 }
-.geocoder-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(58,140,79,.32); }
+.geocoder-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 16px rgba(var(--accent-rgb), .32); }
 .geocoder-results {
   margin-top: 6px;
   border-radius: var(--r);
@@ -1779,7 +1793,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
 .geocoder-results.show { display: block; }
 .geocoder-item {
   padding: 10px 14px; cursor: pointer; font-size: 13px; font-weight: 500;
-  border-bottom: 1px solid var(--border); background: #fff;
+  border-bottom: 1px solid var(--border); background: var(--surface);
   transition: background .15s;
 }
 .geocoder-item:last-child { border-bottom: none; }
@@ -1802,7 +1816,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   border: 2px dashed var(--border2); border-radius: var(--r);
   position: relative; overflow: hidden; cursor: pointer;
   transition: border-color .2s, background .2s;
-  background: #fff;
+  background: var(--surface);
 }
 .img-uploader:hover { border-color: var(--accent); background: var(--accent-pale); }
 .img-uploader input[type=file] {
@@ -1962,7 +1976,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   font-family: var(--font-b); font-size: 12px; font-weight: 700;
   color: var(--text3); cursor: pointer; transition: all .15s;
 }
-.evt-camino-btn.on { border-color: var(--accent); color: var(--accent); background: rgba(58,140,79,.06); }
+.evt-camino-btn.on { border-color: var(--accent); color: var(--accent); background: rgba(var(--accent-rgb), .06); }
 
 /* [Etapa 9 — simplificada] selector de tags de categoría de evento —
    checkboxes con pinta de chip, mismo lenguaje visual que evt-camino-btn. */
@@ -1974,7 +1988,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   font-family: var(--font-b); font-size: 12px; font-weight: 600;
   color: var(--text3); cursor: pointer; transition: all .15s;
 }
-.evt-tag-chip.on { border-color: var(--accent); color: var(--accent); background: rgba(58,140,79,.06); }
+.evt-tag-chip.on { border-color: var(--accent); color: var(--accent); background: rgba(var(--accent-rgb), .06); }
 .evt-admin-row {
   display: flex; justify-content: space-between; align-items: center; gap: 10px;
   padding: 10px 12px; border-radius: var(--r-sm);
@@ -2028,3 +2042,47 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
 .evt-admin-row-cambios { font-size: 10px; color: var(--text3); }
 .evt-nombre-ok { color: var(--accent); }
 .evt-nombre-dup { color: #ef4444; }
+
+/* ═══════════════════════════════════════════
+   SKINS (PLAN_SISTEMA_SKINS.md)
+   ---------------------------------------------
+   El bloque :root de arriba define los valores de "default" (Warm
+   Editorial — el skin que ya existía, sin cambiar nada visualmente).
+   Cada skin nuevo solo pisa estas mismas variables + sus versiones
+   "-rgb" (deben ir siempre juntas, mismo color en 2 formatos, ver
+   comentario junto a --surface-rgb/--text-rgb/--accent-rgb arriba).
+   Agregar un skin nuevo = un bloque más acá, nada más — el resto del
+   CSS del sitio no se toca. js/skins.js controla el atributo
+   data-skin en <html> y qué fuente extra cargar (si el skin la usa).
+   ═══════════════════════════════════════════ */
+
+[data-skin="default"] {
+  /* Vacío a propósito: son los mismos valores que ya están en :root
+     arriba — este bloque existe solo para que el selector exista y
+     quede documentado como skin real, no para pisar nada. */
+}
+
+[data-skin="neobrutal-night"] {
+  /* Traducido 1:1 de "SmartCity — Exploración visual (Neo-Brutalist)"
+     (mockup subido) a los nombres de variable que ya usa el proyecto —
+     no se copian las clases sueltas del mockup (.phone/.sheet/.tab-btn),
+     esas eran solo para mostrar la idea. */
+  --bg:          #0a0a0c;
+  --surface:     #18181b;
+  --surface2:    #121216;
+  --border:      #27272a;
+  --border2:     #3f3f46;
+  --text:        #f4f1ea;
+  --text2:       #a1a1aa;
+  --text3:       #71717a;
+  --accent:      #facc15;
+  --accent2:     #facc15;
+  --accent-pale: #27271a;
+
+  --surface-rgb: 24, 24, 27;
+  --text-rgb:    244, 241, 234;
+  --accent-rgb:  250, 204, 21;
+
+  --font-d:      'Space Grotesk', sans-serif;
+  --font-b:      'Plus Jakarta Sans', sans-serif;
+}
