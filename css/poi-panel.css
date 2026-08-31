@@ -515,3 +515,24 @@ After modifying this file, update /AI_SESSION.md with the change and verificatio
 [data-skin="neobrutal-night"] .poi-panel__action-btn:hover {
   background: var(--poi-panel-accent-hover);
 }
+
+/* La FORMA característica del Neo-Brutalist (no solo el color) para
+   las pestañas Información/Eventos: borde grueso, esquinas superiores
+   cuadradas, línea de acento gruesa abajo de toda la fila — traducido
+   1:1 de .tabs/.tab-btn del mockup. Solo geometría, no color (el
+   color ya sale de --poi-panel-* de arriba). */
+[data-skin="neobrutal-night"] .poi-panel__tabs-row {
+  gap: 4px;
+  padding-bottom: 0;
+  border-bottom: 3px solid var(--poi-panel-accent);
+}
+[data-skin="neobrutal-night"] .poi-panel__tab-btn {
+  flex: 1;
+  border: 2px solid var(--poi-panel-slate-300);
+  border-bottom: none;
+  border-radius: 10px 10px 0 0;
+  padding: 0.5rem 0.7rem;
+}
+[data-skin="neobrutal-night"] .poi-panel__tab-btn.on {
+  border-color: var(--poi-panel-accent);
+}

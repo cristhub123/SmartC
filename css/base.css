@@ -2086,3 +2086,28 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   --font-d:      'Space Grotesk', sans-serif;
   --font-b:      'Plus Jakarta Sans', sans-serif;
 }
+
+/* Forma característica del Neo-Brutalist para la fila principal de
+   pestañas del admin (LUGARES/ZONAS/UBICACIONES/etc) — traducida 1:1
+   de .tabs/.tab-btn del mockup: caja con borde de 2px, esquinas
+   superiores redondeadas, sin borde abajo, y la fila entera apoyada
+   sobre una línea de acento gruesa. Implementada completa a pedido
+   explícito de Cris (2026-08-31): este skin se hace fiel al mockup
+   en TODO, sin mezclar con el rediseño minimalista del skin default
+   (que sigue intacto — cambiar de skin alterna entre los dos). */
+[data-skin="neobrutal-night"] .admin-tabs {
+  border-bottom: 3px solid var(--accent);
+  gap: 3px;
+  padding: 0 4px;
+}
+[data-skin="neobrutal-night"] .atab {
+  border: 2px solid var(--border2);
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  padding: 6px 8px;
+}
+[data-skin="neobrutal-night"] .atab.on {
+  background: var(--accent);
+  color: #000;
+  border-color: var(--accent);
+}
