@@ -1,25 +1,98 @@
-SmartCity — Fix permisos checkEventosTemporalesLifecycle (sección 5 del plan)
-Zip: smartcityV3.0_2026-08-29_2359_fix-permisos-eventos.zip
+smartcityV3.0_2026-08-31_PLAN-fix-cierre-paneles_y_zindex-pin.zip
+===================================================================
 
-QUÉ SE HIZO
------------
-_autoDesactivarPinTemporal() (js/eventos.js) intentaba escribir en
-Firestore (pines + cache, ambas admin-only) para CUALQUIER visitante
-público que tuviera cargado un pin de evento temporal vencido — mismo
-bug que ya se había arreglado antes para regeneratePublicCache().
-No rompía nada visible (try/catch), pero seguía siendo una escritura
-rechazada de más en cada carga.
+Ejecuta los primeros 2 planes:
+1) PLAN_FIX_CIERRE_PANELES.md (completo, Puntos 1 y 2)
+2) PLAN_FIX_ZINDEX_PIN_MAXIMIZADO.md (Punto 1 resuelto; Punto 2
+   con primer refuerzo aplicado, pendiente confirmar en dispositivo
+   táctil real)
 
-Ahora la escritura real a Firestore solo se intenta con sesión de
-admin verificada. Un visitante público sigue viendo el pin oculto en
-su pantalla igual — la desactivación permanente en Firestore queda
-para la próxima vez que un admin cargue la página.
+ARCHIVOS NUEVOS
+---------------
+- js/ui-guards.js
+  Helper compartido UIGuards.wasTextDragRelease(e): detecta cuando
+  un click "afuera" en realidad fue soltar una selección de texto
+  arrastrada desde un campo editable (input/textarea/select/
+  contenteditable) — y hay que ignorarlo, no cerrar nada.
 
-ARCHIVOS EN ESTE ZIP
----------------------
-- js/eventos.js (modificado) — _autoDesactivarPinTemporal()
-- AI_RULES.md / AI_SESSION.md (modificados) — documentación interna
+ARCHIVOS MODIFICADOS — Punto 1 (guarda anti-drag aplicada)
+------------------------------------------------------------
+- js/app.js            → click en el mapa que cierra el panel de un lugar
+- js/zones.js           → click en el mapa y click afuera que cierran el dropdown de zonas
+- js/geocoder.js        → click afuera que cierra resultados de búsqueda de dirección
+- js/eventos-form-shared.js → click afuera que cierra el buscador de pin (formulario eventos)
+- js/user-auth.js       → overlay de login/registro de usuario (el caso puntual que reportaste: contraseña)
+- js/admin-auth.js      → overlay de login de admin
+- js/user-panel.js      → overlay del panel de usuario logueado
+- js/admin.js           → overlay que cierra el panel Admin
 
-CON ESTO QUEDA CERRADO TODO PLAN_OPTIMIZACION_PERFORMANCE_2026-08-29.md
-excepto la migración de SDK Firebase (la dejaste para después a
-propósito) y la tarea manual de imágenes .png en Cloudinary.
+NOTA sobre el plan original: los archivos reales que había que tocar
+para el Punto 1 no coinciden 100% con los que listaba el plan viejo
+(user-panel.js/user-auth.js línea ~116/278 eran otros listeners, no
+de cierre). Encontré y corregí los 8 puntos de cierre reales
+revisando el código actual — quedan cubiertos todos los overlays de
+fondo con campos de texto (login admin, login usuario, panel
+usuario) más los dropdowns/paneles con click afuera.
+
+ARCHIVOS MODIFICADOS — Punto 2 (1 solo panel/menú a la vez)
+--------------------------------------------------------------
+- js/admin.js
+  * openAdmin() ahora se dispara vía OverlayManager.beforeOpen('admin', ...)
+    en vez de abrirse directo.
+  * Se registra 'admin' en OverlayManager (isOpen/close), mismo
+    patrón que ya tenían poi-panel y zonas.
+  → Resuelve el bug reportado: abrir el admin con el panel de un
+    lugar abierto ahora lo cierra automáticamente en vez de
+    solaparse. La puerta para "2 paneles a la vez" en algún caso
+    futuro sigue abierta (exclusive:false ya existía en
+    OverlayManager, sin usar por ahora).
+
+  NOTA: el registro central de overlays (OverlayManager) ya existía
+  en tu proyecto desde el 18/08 — el plan viejo decía que no existía
+  todavía. Lo único que faltaba de este punto era que admin.js se
+  sumara a ese registro, que es lo que se hizo acá.
+
+ARCHIVOS MODIFICADOS — PLAN_FIX_ZINDEX_PIN_MAXIMIZADO
+--------------------------------------------------------
+- js/markers.js
+  Punto 1: z-index forzado de expandPin() subido de 99999 a 600000
+  — ahora queda siempre por encima de los clusters (zIndexOffset:
+  500000 en cluster-grouping.js), que antes le ganaban y lo tapaban.
+
+- css/base.css (.pin-wrap.big)
+  Punto 2: agregado `isolation: isolate` como primer refuerzo para
+  el caso de pinch-zoom táctil (miniaturas tapando la imagen
+  maximizada durante el gesto). Es diagnóstico hipotético, como
+  aclaraba el propio plan — falta confirmar en un dispositivo
+  táctil real si esto ya alcanza o hace falta más.
+
+index.html
+----------
+- Agregado <script src="js/ui-guards.js"> (después de overlay-manager.js).
+- Cache-busting (?v=...) actualizado a 20260831 en todos los
+  archivos tocados + base.css, para que no quede nada serviendo
+  versión vieja desde caché.
+
+VERIFICACIÓN HECHA (sin navegador ni Firebase real)
+------------------------------------------------------
+- node --check OK en los 10 archivos .js (nuevo + 9 tocados).
+- Revisado que no hay colisión de nombres (UIGuards es la única
+  declaración global nueva).
+- Revisadas las líneas de <script>/<link> en index.html, sin
+  duplicados ni rutas rotas.
+
+PENDIENTE DE CONFIRMAR EN TU ENTORNO REAL
+--------------------------------------------
+1) Punto 1 cierre paneles: pintar/arrastrar texto en la contraseña
+   del login (admin y usuario), en un campo del admin, y en el
+   buscador de pin/geocoder/zonas — soltar afuera ya NO debe cerrar
+   nada; un click real afuera SÍ debe seguir cerrando como siempre.
+2) Punto 2 cierre paneles: con el panel de un lugar abierto, tocar
+   el botón de admin → el panel del lugar se cierra solo y se abre
+   el admin (antes quedaban solapados).
+3) Z-index Punto 1: abrir un cluster cerca de un pin maximizado →
+   el pin queda siempre arriba.
+4) Z-index Punto 2 (pinch-zoom táctil): probar en un celular/tablet
+   real si las miniaturas ya dejan de taparse durante el gesto de
+   agrandar con los dedos sobre la imagen maximizada. Si sigue
+   pasando, hace falta un segundo ajuste (ver plan).
