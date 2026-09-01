@@ -1,128 +1,41 @@
-CAMBIOS — Sistema de skins (PLAN_SISTEMA_SKINS.md), 2026-08-31
-================================================================
+CAMBIOS — Color del nombre del pin, por pin (panel público), 2026-09-01
+=========================================================================
 
-Ejecución completa del plan armado en chat consultor (adjunto
-PLAN_SISTEMA_SKINS.md que ya tenías). Incluye el requisito previo
-bloqueante (blindar base.css/poi-panel.css) con alcance ACOTADO,
-confirmado con Cris antes de programar: solo cromado estructural
-(fondos/bordes/superficies/paneles/botones que se romperían
-visualmente bajo un skin oscuro) — los colores de estado
-(error/warning/éxito) quedaron literales a propósito, no dependen
-del skin.
+Nueva feature, a pedido de Cris: se puede elegir un color propio para
+el nombre de CADA lugar en su panel público, además del color
+general que ya existía (pestaña "Interfaz", nivel "Nombre principal",
+aplica a todos los pines a la vez).
 
-ARCHIVOS EN ESTE ZIP
----------------------
-- css/base.css        (modificado)
-- css/poi-panel.css   (modificado)
-- js/settings-sync.js (modificado)
-- js/skins.js         (NUEVO)
-- index.html          (modificado)
-- ACLARACIONES_RELEVANTES.md (nuevo, para la próxima sesión)
+QUÉ CAMBIÓ
+------------
+- index.html: nuevo campo en la tab "Editar" (justo debajo de
+  "Nombre"): selector de color + hex sincronizados + botón "✕
+  Quitar" para volver al color general.
+- js/admin.js (startEdit): precarga el color guardado del pin al
+  abrir su edición (vacío si nunca se le puso uno).
+- js/pin-adjust.js (saveEdit): valida el hex (o vacío) y guarda el
+  campo nuevo `titleColor` en el pin. Wiring del selector color↔hex
+  al final del archivo, mismo patrón que "Color del borde sólido"
+  de Admin → Global.
+- js/poi-panel.js: aplica `poi.titleColor` como color inline del
+  nombre en el panel público. Si el pin no tiene uno guardado, no
+  pasa nada — sigue el color general de la pestaña "Interfaz" como
+  siempre (comportamiento de todos los pines existentes, sin tocar).
 
-QUÉ CAMBIÓ EN CADA ARCHIVO
-----------------------------
-
-css/base.css
-  - Tokens nuevos en :root: --surface-rgb, --text-rgb, --accent-rgb
-    (mismo color que --surface/--text/--accent, en formato "R,G,B"
-    para usar dentro de rgba(var(--x-rgb),.XX)).
-  - ~50 usos de color hardcodeado convertidos a variable:
-    - rgba(255,255,255,.9X) de cromado flotante real (#btn-zonas,
-      #search-bar, #btn-admin, #btn-user-account, #lang-switcher,
-      #search-results, #zonas-dropdown, #zona-panel, #poi-panel,
-      paneles admin, overlays de login/usuario, .modal-box,
-      .leaflet-control-zoom) -> rgba(var(--surface-rgb),.XX)
-    - rgba(58,140,79,...) [=--accent en decimal, ~20 usos] ->
-      rgba(var(--accent-rgb),...)
-    - rgba(26,46,26,...) [=--text en decimal, ~8 usos] ->
-      rgba(var(--text-rgb),...)
-    - #fff sólido en fondos de tarjetas/inputs/options [~14 usos]
-      -> var(--surface)
-    - #fafcfa (fondo admin) -> var(--surface2)
-    - .loc-filter-match (#3a8c4f duplicado) -> var(--accent)
-  - Dejados sin tocar a propósito: colores de estado (error/warning/
-    éxito/badges), sombras rgba(0,0,0,...), efectos decorativos
-    sobre superficies ya coloreadas (brillo de pines, botón sobre
-    banner verde), .btn-export (ver "Pendiente" abajo), toggle de
-    eventos (gris/verde tipo switch iOS).
-  - Al final del archivo: bloques [data-skin="default"] (vacío a
-    propósito, son los mismos valores que ya estaban en :root) y
-    [data-skin="neobrutal-night"] con los valores traducidos del
-    mockup subido "SmartCity — Exploración visual (Neo-Brutalist)"
-    a los nombres de variable del proyecto.
-
-css/poi-panel.css
-  - Ya estaba bien tokenizado internamente. Se agregó la variable
-    --poi-panel-slate-200 (nunca estaba definida, vivía solo como
-    fallback inline en 2 lugares), --poi-panel-accent-rgb (para el
-    rgba(13,148,136,.1) que había suelto), y se limpió un
-    color:#fff que no pasaba por variable.
-  - Al final del archivo: mismo mecanismo [data-skin="..."]. Caso
-    encontrado y resuelto: --poi-panel-slate-900 cumplía 2 roles a
-    la vez (texto principal Y fondo del botón de acción primario),
-    que necesitan valores OPUESTOS bajo un skin oscuro. Se resolvió
-    con una excepción puntual de CSS para .poi-panel__action-btn en
-    [data-skin="neobrutal-night"] (fondo acento amarillo, texto
-    negro), en vez de forzar un solo token a servir 2 roles
-    contradictorios.
-
-js/settings-sync.js
-  - Nuevas saveActiveSkin(id) / loadActiveSkin(), mismo patrón de 1
-    documento (settings/skin) que appearance/mapstyle/typography-fonts.
-
-js/skins.js (NUEVO)
-  - Objeto SKINS (default / neobrutal-night).
-  - applySkin(id): pone data-skin en <html> + inyecta la fuente
-    Google del skin solo si hace falta (Sora/Nunito del skin default
-    ya venían cargadas siempre, sin cambios ahí).
-  - resolveActiveSkin(): prioridad de 2 ramas desde el día uno
-    (preferencia de usuario logueado — placeholder documentado,
-    todavía no existe ese panel — y si no, el skin fijado por el
-    admin en Firestore).
-  - initSkinsTab(): grilla de tarjetas, mismo patrón visual que
-    "Preset de mapa" (reusa .mapa-preset-card/.mapa-preview/
-    .mapa-card-name de base.css), registrada en la pestaña
-    "typography" vía SC.registerTabPlugin junto al plugin que ya
-    tenía typography.js (ambos corren, sin conflicto).
-
-index.html
-  - Tab "🔤 Tipografía" renombrada a "🎨 Interfaz" (única tab que
-    cambia de nombre, tal cual pedía el plan).
-  - Nueva sección "SKIN DE LA INTERFAZ" al principio de esa misma
-    pestaña (grilla #skin-preset-grid), antes de "Fuentes
-    disponibles" (que sigue exactamente igual).
-  - <script src="js/skins.js"> agregado después de typography.js.
-
-PENDIENTE / CASO LÍMITE (no bloqueante, documentado)
-------------------------------------------------------
-.btn-export (base.css) usa un gradiente fijo basado en tinta oscura
-(var(--text) -> #2d4d2d) para el botón de exportar. Bajo
-neobrutal-night, --text pasa a ser claro, así que ese botón en
-particular cambiaría de "oscuro sobre claro" a "claro sobre oscuro"
-en vez de mantenerse como una tinta fija independiente del skin. No
-queda roto (sigue siendo legible), pero pierde el efecto visual de
-"tinta" buscado en ese botón puntual bajo ese skin. Se dejó así por
-decisión de alcance — si se ve raro en la prueba visual, es la
-primera línea a revisar.
+CÓMO USARLO
+-------------
+Admin → Lugares → Editar un pin → campo "Color del nombre en el
+panel" (debajo de Nombre) → elegís un color → Guardar cambios. Para
+sacarle el color propio y que vuelva a seguir el general, tocá "✕
+Quitar" antes de guardar.
 
 VERIFICACIÓN REALIZADA
 -------------------------
-- Balance de llaves { } en los 3 archivos CSS/JS tocados: base.css
-  473/473, poi-panel.css 52/52.
-- Sintaxis de js/skins.js y js/settings-sync.js validada con Node
-  (new Function(...) sin errores).
-- Balance de <div> en el bloque HTML insertado, revisado a mano.
-- NO probado en navegador real ni contra Firestore real.
-
-QUÉ PROBAR VOS (Cris)
-------------------------
-1. Abrí el admin, tab "Interfaz" — confirmá que el sitio se ve
-   EXACTAMENTE igual que antes (skin default, cero cambio visual).
-   Esta es la prueba más importante: confirma que el blindaje no
-   rompió nada.
-2. Clickeá la tarjeta "Neo-Brutalist Night" y recorré el sitio
-   (mapa, panel de lugar, admin) buscando algo con contraste raro
-   que no esté ya documentado arriba.
-3. Recargá la página (F5) con neobrutal-night activo, para
-   confirmar que settings/skin en Firestore persiste la elección
-   entre visitas.
+Sintaxis de los 3 archivos .js validada con Node (sin errores).
+Balance de <div> del bloque HTML insertado revisado a mano (+2
+abiertos / +2 cerrados, consistente). Recorrido manual del flujo de
+datos completo: form → saveEdit() → savePoiToFirestore() (guarda el
+objeto completo, sin lista blanca de campos, así que titleColor pasa
+sin problema) → AppState.loadPois() (copia todos los campos del pin,
+no solo algunos) → poi-panel.js lee poi.titleColor directo del
+mismo objeto. NO probado en navegador real ni contra Firestore real.

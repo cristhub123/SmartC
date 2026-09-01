@@ -1671,6 +1671,14 @@ campo-05:
         <label class="fl">Nombre *</label>
         <input class="fi" id="e-name" type="text">
       </div>
+      <div class="fg">
+        <label class="fl">Color del nombre en el panel <small style="color:var(--text3);font-weight:400">(opcional — vacío = usa el color general de "Interfaz")</small></label>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <input type="color" id="e-title-color" value="#1a2e1a" style="width:40px;height:34px;border:1.5px solid var(--border);border-radius:6px;padding:2px;cursor:pointer">
+          <input class="fi" id="e-title-color-hex" type="text" placeholder="#rrggbb" maxlength="7" style="width:100px;font-family:var(--font-m);font-size:12px">
+          <button type="button" class="btn-outline" id="e-title-color-clear" style="padding:6px 10px;font-size:12px">✕ Quitar</button>
+        </div>
+      </div>
       <!-- ID: identificador único del lugar (campo `id` del esquema), también usado
            como prefijo de archivo en Cloudinary. Bloqueado por defecto: solo se
            habilita tildando los 2 checkboxes de seguridad (ver wireEditIdLock en
