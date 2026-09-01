@@ -453,6 +453,13 @@ window.startEdit = function(id) {
   editingId = id;
 
   document.getElementById('e-name').value = p.name;
+  const _eTitleColor = document.getElementById('e-title-color');
+  const _eTitleColorHex = document.getElementById('e-title-color-hex');
+  if (_eTitleColor && _eTitleColorHex) {
+    const c = p.titleColor || '';
+    _eTitleColor.value = c || '#1a2e1a';
+    _eTitleColorHex.value = c;
+  }
   document.getElementById('e-desc').value = p.desc  || '';
   document.getElementById('e-hist').value = p.hist  || '';
   document.getElementById('e-soc').value  = (p.soc||[]).join(', ');

@@ -429,6 +429,11 @@ const PoiPanel = (function () {
       els.gancho.hidden = !finalGancho;
       els.description.textContent = finalDescription;
     }
+    // Color propio del nombre, por pin (opcional, tab Editar) — si no
+    // se cargó ninguno, se limpia el inline style y el CSS vuelve a
+    // usar var(--pines-title-color, var(--poi-panel-slate-900)) como
+    // siempre (color general de la pestaña "Interfaz").
+    els.title.style.color = poi.titleColor || '';
 
     // --- Campos internos (título + texto, cantidad libre, sin nombres fijos) ---
     _renderMeta(finalFields);

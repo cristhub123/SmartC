@@ -136,6 +136,11 @@ async function saveEdit() {
   const lat  = parseFloat(document.getElementById('e-lat').value);
   const lng  = parseFloat(document.getElementById('e-lng').value);
   if (!name) { toast('⚠️ El nombre no puede estar vacío'); return; }
+  const _titleColorHexVal = (document.getElementById('e-title-color-hex')||{value:''}).value.trim();
+  if (_titleColorHexVal && !/^#[0-9a-fA-F]{6}$/.test(_titleColorHexVal)) {
+    toast('⚠️ El color del nombre debe ser un hex válido (ej. #1a2e1a) o quedar vacío');
+    return;
+  }
   // ANTES: acá también se exigía al menos 1 categoría. Se relaja
   // (igual que en saveNew) para que un pin creado por importación
   // masiva — que todavía no tiene categoría asignada — se pueda
@@ -185,6 +190,10 @@ async function saveEdit() {
     tags:      document.getElementById('e-tags').value.split(',').map(s=>s.trim()).filter(Boolean),
     phone:     (document.getElementById('e-phone')||{value:''}).value.trim(),
     hours:     (document.getElementById('e-hours')||{value:''}).value.trim(),
+    // Color propio del nombre en el panel público — opcional, por
+    // pin. Vacío/undefined = sigue el color general de la pestaña
+    // "Interfaz" (var(--pines-title-color)), tal como pidió Cris.
+    titleColor: (document.getElementById('e-title-color-hex')||{value:''}).value.trim() || null,
   };
 
   // [Mejora asignación de dueño por email, 2026-08-21] El campo ahora
@@ -1913,5 +1922,32 @@ async function migrateFieldIds() {
   const btn = document.getElementById('btn-migrate-field-ids');
   if (btn) btn.addEventListener('click', migrateFieldIds);
 })();
+
+/* Color propio del nombre en el panel, por pin (tab Editar) — mismo
+   patrón de sync color<->hex que g-solid-color/g-solid-hex. */
+(function wireEditTitleColor() {
+  const colorInput = document.getElementById('e-title-color');
+  const hexInput = document.getElementById('e-title-color-hex');
+  const clearBtn = document.getElementById('e-title-color-clear');
+  if (!colorInput || !hexInput) return;
+
+  colorInput.addEventListener('input', function() {
+    hexInput.value = this.value;
+  });
+  hexInput.addEventListener('change', function() {
+    if (/^#[0-9a-fA-F]{6}$/.test(this.value)) {
+      colorInput.value = this.value;
+    } else if (this.value.trim() === '') {
+      colorInput.value = '#1a2e1a';
+    }
+  });
+  if (clearBtn) {
+    clearBtn.addEventListener('click', function() {
+      hexInput.value = '';
+      colorInput.value = '#1a2e1a';
+    });
+  }
+})();
+
 
 
