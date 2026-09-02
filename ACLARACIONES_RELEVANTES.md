@@ -1,45 +1,17 @@
-# ACLARACIONES_RELEVANTES.md — Sistema de skins (2026-08-31)
+# Aclaraciones — entrega 2026-09-02_0347
 
-Contexto para quien retome esto en otra sesión: `PLAN_SISTEMA_SKINS.md`
-(en la raíz del proyecto) quedó completamente ejecutado en esta
-entrega (los 7 pasos). Este archivo es solo para lo que no estaba
-100% decidido en el plan original y tuvo que resolverse al programar.
+## Lo que se hizo
+1. **Botón huérfano eliminado** (`index.html`): había un `<button>✕ Cerrar</button>` + un `</div>` de cierre sin ningún `<div>` que lo abriera, al principio de `<body>`. En el test de WebPageTest con latencia real, ese botón suelto llegó a ser detectado como el elemento LCP a los ~5s. Se borró el fragmento completo.
+2. **`fetchpriority="low"` en los 3 scripts de Firebase (CDN)**: le dice al navegador que baje la prioridad de red de esos archivos frente al mapa/Leaflet, sin cambiar en qué orden se EJECUTAN (siguen siendo `defer`, siguen corriendo en el mismo orden de siempre) — cero riesgo funcional.
 
-## Decisiones tomadas al ejecutar (no estaban en el plan original)
+## Lo que NO se hizo, y por qué (desvío del plan original)
+El plan original hablaba de "cargar Firebase Auth solo cuando alguien haga login" para ahorrar los 236 KB (`auth-compat.js` + `firestore-compat.js` + el `iframe.js` de OAuth de 95 KB que Firebase carga solo). Investigando el código encontré que esto **no se puede hacer así sin romper una función que ya existe**:
 
-- **Alcance del blindaje de CSS = acotado**, confirmado con Cris:
-  solo cromado estructural, no colores semánticos de estado
-  (error/warning/éxito). Si en el futuro se decide tokenizar
-  también esos, es trabajo aparte — no bloquea nada de lo ya hecho.
-- **`css/poi-panel.css` mantiene su propio identidad de color por
-  skin** (no se colapsó a los tokens globales de `base.css`). El
-  panel del lugar ya tenía su propia paleta (teal en vez de verde)
-  desde antes de este plan — unificarla con `base.css` habría sido
-  un cambio visual del skin "default" (contradice "sin cambiar nada
-  visualmente todavía" del plan). Cada skin nuevo define sus propios
-  valores `--poi-panel-*` en su bloque `[data-skin="..."]`, en
-  paralelo a los de `base.css` — dos bloques `[data-skin=...]`, uno
-  por archivo, mismo id de skin.
-- **`.poi-panel__action-btn` tiene una excepción de CSS puntual**
-  para `neobrutal-night` (ver `css/poi-panel.css`, sección SKINS al
-  final) porque el token que usa (`--poi-panel-slate-900`) cumple 2
-  roles a la vez (texto Y fondo de botón) que necesitan valores
-  opuestos bajo un skin oscuro. Si se agrega un tercer skin oscuro
-  en el futuro, va a necesitar la misma excepción repetida (o,
-  mejor, separar ese token en 2 desde el origen — quedó sin hacer
-  por no tocar de más).
+- `js/user-auth.js` y `js/admin-auth.js` llaman `firebase.auth().onAuthStateChanged(...)` de forma incondicional, apenas cargan — es lo que hoy detecta automáticamente si ya había una sesión iniciada (usuario o admin) y actualiza el botón del header sin que la persona toque nada. Si difiero la carga de Auth hasta el click en "Ingresar", esa detección automática de sesión existente se rompe.
+- El `iframe.js` de 95 KB no lo carga código del proyecto (no hay ningún `signInWithRedirect`/`getRedirectResult` en el código) — lo carga el propio SDK de Firebase Auth apenas se llama `firebase.auth()`, sea que se use popup/redirect o no. Es un comportamiento interno del SDK, no algo mal usado en el proyecto.
 
-## Pendiente real, no bloqueante
+Por eso el ahorro real de esos 236 KB solo se puede lograr con un cambio más profundo (por ejemplo: mostrar el header en estado "sin sesión" al toque, y recién confirmar/corregir a "con sesión" una vez que Auth termine de cargar en segundo plano — un patrón de hidratación progresiva). Es un cambio de comportamiento visible (aunque sea por una fracción de segundo) y toca 2 archivos que forman parte del sistema de login real, así que no lo hice sin consultarlo primero — es justamente el tipo de cambio que Cris pidió que se consulte antes de tocar.
 
-- `.btn-export` (`base.css`) pierde su efecto de gradiente "tinta"
-  bajo `neobrutal-night` (sigue legible, pero no como se ve en
-  default). Ver detalle en `CAMBIOS.txt` de esta entrega.
-- Nadie probó todavía en navegador real ni contra Firestore real —
-  ver la lista de "Qué probar vos" en `CAMBIOS.txt`.
-
-## Próximo paso sugerido (no arrancado)
-
-Nada del plan original quedó sin hacer. El plan mismo ya dejaba
-como explícitamente fuera de esta etapa: selección de skin por
-usuario final (UI), y lógica de día/noche automático por horario —
-ninguna de las dos se tocó, tal cual estaba decidido.
+## Pendiente real, sin arrancar
+- Autorizar el dominio `smart-c-eta.vercel.app` en Firebase Console → Authentication → Settings → Authorized domains (esto lo tiene que hacer Cris a mano, no es código)
+- Evaluar si vale la pena el cambio de "hidratación progresiva" del login para ahorrar los 236 KB del camino crítico de carga (pendiente de decisión de Cris)
