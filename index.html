@@ -1877,7 +1877,16 @@ campo-05:
   <!-- Firebase SDK (compat — funciona con scripts sueltos, sin build) -->
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js" defer fetchpriority="low"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js" defer fetchpriority="low"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js" defer fetchpriority="low"></script>
+  <!-- [2026-09-02] firebase-auth-compat.js se movió más abajo, justo antes de
+       admin-auth.js/user-auth.js (únicos archivos que llaman firebase.auth()).
+       Antes cargaba acá arriba y su ejecución (SDK de ~40KB + a veces dispara
+       un iframe.js de OAuth de ~95KB) bloqueaba —por orden de scripts defer—
+       la ejecución de map.js/markers.js/pins-viewport-loader.js/cluster-
+       grouping.js/poi-panel.js/admin.js, aunque nada de eso usa Auth. No se
+       cambió ningún comportamiento de login: firebase.auth() sigue existiendo
+       para cuando admin-auth.js/user-auth.js lo llaman, solo se ejecuta más
+       tarde. Verificado con grep que ningún otro archivo llama firebase.auth()
+       antes de esos dos. -->
   <script src="js/firebase-init.js?v=20260829" defer></script>
   <script src="js/firestore-sync.js?v=20260829" defer></script>
 
@@ -1918,6 +1927,10 @@ campo-05:
 
   <!-- 4. Admin panel (defines switchTab) -->
   <script src="js/admin.js?v=20260831" defer></script>
+  <!-- [2026-09-02] firebase-auth-compat.js movido acá (ver nota arriba, junto
+       a firebase-app-compat.js/firebase-firestore-compat.js) — recién acá lo
+       necesitan admin-auth.js y user-auth.js. -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js" defer fetchpriority="low"></script>
   <script src="js/admin-auth.js?v=20260831" defer></script>
   <script src="js/user-auth.js?v=20260831" defer></script>
   <script src="js/owner-panel.js?v=20260829" defer></script>
