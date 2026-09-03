@@ -399,6 +399,41 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
 .filter-row:active { cursor: grabbing; }
 .filter-row::-webkit-scrollbar { display: none; }
 
+/* [Filtro de fecha de eventos, 2026-09-03] pill con el selector de
+   fecha, arriba de la fila de categorías — solo visible con el
+   filtro "Eventos" activo (ver js/eventos-fecha-filtro.js). Estilo
+   mínimo a propósito: el look final se define aparte. */
+#eventos-fecha-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 20px 8px;
+  pointer-events: all;
+}
+.efb-input {
+  border: none;
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-family: var(--font-b);
+  font-size: 13px;
+  font-weight: 600;
+  color: #1a1a1a;
+  background: white;
+  box-shadow: 0 5px 16px rgba(0,0,0,.25);
+}
+.efb-clear {
+  border: none;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  background: white;
+  box-shadow: 0 5px 16px rgba(0,0,0,.25);
+  cursor: pointer;
+  font-size: 13px;
+  color: #1a1a1a;
+}
+
 /* Each category button — column: circle + label */
 .fbtn {
   display: flex;
