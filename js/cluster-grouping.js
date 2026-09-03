@@ -214,19 +214,25 @@ function computeAndRenderClusters() {
 
     bubble.on('click', () => {
       const bounds = L.latLngBounds(group.map(g => [g.entry.poi.lat, g.entry.poi.lng]));
-      // [FIX 2026-09-02] Antes era map.fitBounds(...) — cuando el grupo
-      // son pines muy pegados entre sí (bounds geográficos chicos),
-      // Leaflet necesita saltar casi directo a maxZoom para encuadrarlos.
-      // fitBounds anima ese salto con el mecanismo normal de zoom
-      // (setView), que tiene un techo interno (zoomAnimationThreshold,
-      // default 4 niveles): si el salto de zoom necesario lo supera,
-      // Leaflet CANCELA la animación de zoom (solo anima el paneo) y
-      // aplica el zoom de golpe al final — de ahí el "paneo suave, y de
-      // repente pantalla mega-zoomeada". flyToBounds usa el mecanismo de
-      // "vuelo" animado (Van Wijk), pensado justo para saltos grandes de
-      // zoom, y siempre queda suave sin importar la distancia — mismos
-      // parámetros (bounds/padding/maxZoom), sin perder nada del ajuste.
-      map.flyToBounds(bounds, { padding: [60, 60], maxZoom: 19 });
+      // [FIX 2026-09-02, v2] flyToBounds saltaba directo al zoom que hace
+      // falta para encuadrar TODO el grupo — con pines muy pegados eso
+      // suele ser casi el maxZoom absoluto (19) sin importar en qué zoom
+      // estaba parado el usuario, sintiéndose como un solo salto enorme.
+      // Cris pidió acercamiento progresivo: cada click avanza solo la
+      // MITAD de la distancia que falta hasta el zoom de encuadre real
+      // — map.getBoundsZoom() es el mismo cálculo interno que usa
+      // fitBounds/flyToBounds para saber "qué zoom hace falta", lo usamos
+      // acá pero sin llegar hasta el final. Si el grupo sigue agrupado
+      // tras el click (recompute con el nuevo zoom), un segundo click
+      // acerca la mitad de lo que queda, y así sucesivamente — converge
+      // en unos pocos clicks en vez de un salto único.
+      const currentZoom = map.getZoom();
+      const targetZoom = Math.min(map.getBoundsZoom(bounds, false, [60, 60]), 19);
+      const halfZoom = targetZoom > currentZoom
+        ? Math.round((currentZoom + targetZoom) / 2)
+        : targetZoom;
+      const nextZoom = Math.max(halfZoom, currentZoom + 1); // asegura que siempre acerque algo, nunca quede igual
+      map.flyTo(bounds.getCenter(), Math.min(nextZoom, 19));
     });
 
     _clusterBubbles['cb-' + idx] = bubble;
