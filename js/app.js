@@ -56,6 +56,17 @@ async function init() {
   //    correcto en vez de "saltar" después.
   if (typeof applyGlobalDim === 'function') applyGlobalDim();
   if (typeof applyGlobalOutline === 'function') applyGlobalOutline();
+  // [FIX 2026-09-03] applyShadow()/applyEyeGlowColor() (js/shadow-eye.js)
+  // se ejecutaban UNA sola vez, al momento de parsear ese script — que
+  // pasa ANTES de que este await Promise.all(...) de acá arriba termine
+  // de traer la configuración real guardada. Como nada las volvía a
+  // llamar después, la sombra y el glow de ojos quedaban SIEMPRE con el
+  // valor por defecto del código, sin importar lo que Cris hubiera
+  // guardado — se veían "reseteados" en cada carga de página aunque el
+  // dato real estuviera bien guardado en Firestore. Se vuelven a llamar
+  // acá, ya con globalSettings hidratado de verdad.
+  if (typeof applyShadow === 'function') applyShadow();
+  if (typeof applyEyeGlowColor === 'function') applyEyeGlowColor();
 
   // 3. Cargar los lugares reales desde Firestore (reemplaza el
   //    array hardcodeado que había antes).

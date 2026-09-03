@@ -12,6 +12,29 @@ After modifying this file, update /AI_SESSION.md with the change and verificatio
 /* ═══════════════════════════════════════════════════════════
    GLOBAL APPEARANCE SETTINGS
    ═══════════════════════════════════════════════════════════ */
+// [2026-09-03] Valores originales de fábrica — usados por el botón
+// "↺ Restaurar valores originales" de la pestaña Global. Deben
+// mantenerse en sync manualmente si en el futuro cambia algún default
+// de acá abajo (no hay forma automática de derivarlos sin duplicar
+// lógica en otro lado).
+const DEFAULT_GLOBAL_SETTINGS = {
+  solidPx:      0,
+  solidColor:   '#ffffff',
+  glowPx:       0,
+  glowColor:    '#60a5fa',
+  dimOpacity:   0.35,
+  pinSize:      44,
+  expandPercent: 30,
+  eyeGlowColor: '#60a5fa',
+  eyeGlowIntensity: 2,
+  nameSize:     26,
+  panelPctPortrait:  45,
+  panelPctLandscape: 34,
+  shadowOn:      true,
+  shadowColor:   '#000000',
+  shadowOpacity: 0.20,
+};
+
 const globalSettings = {
   solidPx:      0,
   solidColor:   '#ffffff',
@@ -19,7 +42,6 @@ const globalSettings = {
   glowColor:    '#60a5fa',
   dimOpacity:   0.35,
   pinSize:      44,
-  expandScale:  3.2,
   eyeGlowColor: '#60a5fa',
   nameSize:     26,
   // [2026-08-14] % de pantalla que ocupa el panel de info del lugar
@@ -30,20 +52,6 @@ const globalSettings = {
   panelPctPortrait:  45, // % del ALTO en pantallas verticales (bottom sheet)
   panelPctLandscape: 34, // % del ANCHO en pantallas cuadradas/horizontales, incluye desktop (sidebar)
 };
-
-// [2026-09-03] Copia congelada de los valores de arriba, ANTES de que
-// loadGlobalSettings() los pise con lo guardado en Firestore — es lo
-// que usa el botón "Restaurar valores originales" (no relee de
-// Firestore, no borra nada ahí: solo repone estos números/colores en
-// pantalla; para que quede guardado de verdad todavía hay que tocar
-// "Aplicar a todos los pins", igual que con cualquier otro cambio).
-//
-// `expandSize` (tamaño del edificio expandido) NO vive en el objeto
-// de arriba — lo agrega js/pin-adjust.js, que carga DESPUÉS de este
-// archivo. Se suma acá a mano con el mismo default (160) que usa ese
-// archivo, para que el botón de reset también lo cubra.
-const GLOBAL_SETTINGS_DEFAULTS = JSON.parse(JSON.stringify(globalSettings));
-GLOBAL_SETTINGS_DEFAULTS.expandSize = 160;
 
 /* Build filter string: glow first (underneath), then solid border */
 function buildFilterString(baseFilter) {
@@ -86,8 +94,6 @@ function getDynStyle() {
 }
 
 function applyGlobalDim() {
-  const sz = globalSettings.pinSize;
-  const sc = globalSettings.expandScale;
   // ANTES: acá se armaba `.pin-wrap.dim { filter: grayscale(80%);
   // opacity: ${op}; transform: scale(.9); }` — eso es lo que apagaba
   // todos los pines (y con ellos, visualmente, el mapa entero) al
@@ -95,8 +101,14 @@ function applyGlobalDim() {
   // slider "g-dim-opacity" del admin (ver más abajo, ahora no hace
   // nada — se deja el control en el HTML por si en el futuro se
   // quiere reactivar esto de otra forma, pero ya no tiene efecto).
+  // [FIX 2026-09-03] Se sacó de acá la regla vieja
+  // `.pin-wrap.big { transform: scale(${expandScale}) !important; }`
+  // — era un segundo sistema de tamaño del edificio maximizado,
+  // paralelo y en conflicto con el que realmente se usa (expandPercent,
+  // aplicado en js/pin-adjust.js sobre cada pin al expandirlo). Tener
+  // los 2 corriendo a la vez era la causa real de que el tamaño se
+  // viera inconsistente según el momento. Ver AI_SESSION.md.
   getDynStyle().textContent = `
-    .pin-wrap.big { transform: scale(${sc}) !important; }
     :root { --eye-glow-color: ${globalSettings.eyeGlowColor}; }
   `;
 }
@@ -175,12 +187,6 @@ document.getElementById('g-pin-size').addEventListener('input', function() {
   globalSettings.pinSize = parseInt(this.value);
   updateGPreview();
 });
-document.getElementById('g-expand-scale').addEventListener('input', function() {
-  const val = (parseInt(this.value) / 10).toFixed(1);
-  document.getElementById('g-expand-scale-val').textContent = val + '×';
-  globalSettings.expandScale = parseFloat(val);
-  updateGPreview();
-});
 document.getElementById('g-name-size').addEventListener('input', function() {
   document.getElementById('g-name-size-val').textContent = this.value + 'px';
   globalSettings.nameSize = parseInt(this.value);
@@ -236,11 +242,16 @@ document.querySelectorAll('.color-preset').forEach(el => {
 function updateGPreview() {
   const f   = buildFilterString();
   const sz  = globalSettings.pinSize;
-  const sc  = globalSettings.expandScale;
+  // [FIX 2026-09-03] Antes usaba expandScale (sistema retirado). Este
+  // swatch es solo decorativo (previsualización chica en el panel, no
+  // el pin real del mapa), así que alcanza con una escala aproximada
+  // que crezca con expandPercent — no necesita replicar la cuenta
+  // exacta de pin-adjust.js (esa sí mide el tamaño real en pantalla).
+  const previewScale = 1 + ((globalSettings.expandPercent || 30) / 100);
   const prev  = document.getElementById('g-preview-pin');
   const prevB = document.getElementById('g-preview-pin-big');
   if (prev)  { prev.style.fontSize = sz+'px'; prev.style.filter = f; }
-  if (prevB) { prevB.style.fontSize = sz+'px'; prevB.style.filter = f; prevB.style.transform = `scale(${sc*0.45})`; }
+  if (prevB) { prevB.style.fontSize = sz+'px'; prevB.style.filter = f; prevB.style.transform = `scale(${previewScale})`; }
 }
 
 document.getElementById('btn-apply-global').addEventListener('click', () => {
@@ -250,14 +261,23 @@ document.getElementById('btn-apply-global').addEventListener('click', () => {
   toast('✅ Apariencia global aplicada y guardada');
 });
 
-document.getElementById('btn-reset-global').addEventListener('click', () => {
-  Object.assign(globalSettings, JSON.parse(JSON.stringify(GLOBAL_SETTINGS_DEFAULTS)));
-  initGlobalTab();       // repone los sliders/colores en pantalla
-  applyGlobalDim();
-  applyGlobalOutline();
-  rebuildAllMarkers();   // vista previa en vivo con los pines reales
-  toast('↺ Valores originales repuestos — tocá "Aplicar" para guardarlos');
-});
+// [NUEVO 2026-09-03] Botón "↺ Restaurar valores originales" — pedido
+// explícito de Cris. Mismo flujo que "Aplicar apariencia global" pero
+// partiendo de DEFAULT_GLOBAL_SETTINGS en vez de lo que haya en el
+// formulario — así queda guardado de verdad, no solo visual.
+const btnResetGlobal = document.getElementById('btn-reset-global');
+if (btnResetGlobal) {
+  btnResetGlobal.addEventListener('click', () => {
+    Object.assign(globalSettings, DEFAULT_GLOBAL_SETTINGS);
+    initGlobalTab(); // repinta todos los controles con los valores default
+    if (typeof applyShadow === 'function') applyShadow();
+    if (typeof applyEyeGlowColor === 'function') applyEyeGlowColor();
+    applyGlobalDim();
+    rebuildAllMarkers();
+    saveGlobalSettings();
+    toast('↺ Apariencia global restaurada a los valores originales');
+  });
+}
 
 /* === Sincronizar los sliders con los valores REALES ya cargados
    (desde Firestore) cada vez que se abre la pestaña "Global" —
@@ -274,21 +294,25 @@ function initGlobalTab() {
   setSlider('g-glow-px',      'g-glow-px-val',      globalSettings.glowPx,                'px');
   setSlider('g-dim-opacity',  'g-dim-opacity-val',  Math.round(globalSettings.dimOpacity*100), '%');
   setSlider('g-pin-size',     'g-pin-size-val',     globalSettings.pinSize,               'px');
-  setSlider('g-expand-scale', 'g-expand-scale-val', Math.round(globalSettings.expandScale*10), '×'); // se corrige abajo
+  setSlider('g-expand-size',  'g-expand-size-val',  globalSettings.expandPercent || 30,   '%');
   setSlider('g-name-size',    'g-name-size-val',    globalSettings.nameSize,              'px');
-  const esEl = document.getElementById('g-expand-scale-val');
-  if (esEl) esEl.textContent = globalSettings.expandScale.toFixed(1) + '×';
 
   setSlider('g-panel-pct-portrait',  'g-panel-pct-portrait-val',  globalSettings.panelPctPortrait,  '%');
   setSlider('g-panel-pct-landscape', 'g-panel-pct-landscape-val', globalSettings.panelPctLandscape, '%');
 
-  // [2026-09-03] BUG ENCONTRADO: este slider (tamaño del edificio
-  // expandido, campo independiente `expandSize` agregado en
-  // js/pin-adjust.js) nunca se sincronizaba acá — por eso SIEMPRE
-  // mostraba "160" (el default fijo del HTML) al abrir la tab,
-  // sin importar el valor real cargado desde Firestore. Mismo
-  // patrón que el resto de los sliders de arriba.
-  setSlider('g-expand-size', 'g-expand-size-val', globalSettings.expandSize || 160, 'px');
+  // [FIX 2026-09-03] Sombra del pin y glow de ojos (js/shadow-eye.js)
+  // nunca se sincronizaban acá — al abrir la pestaña Global siempre se
+  // veían con el valor por defecto del HTML, aunque lo guardado fuera
+  // otra cosa. Mismo síntoma que el bug de aplicación temprana ya
+  // corregido en app.js, pero en el PANEL en vez de en el mapa.
+  const shadowToggleEl = document.getElementById('g-shadow-toggle');
+  if (shadowToggleEl) shadowToggleEl.classList.toggle('on', globalSettings.shadowOn !== false);
+  const shadowColorEl = document.getElementById('g-shadow-color');
+  if (shadowColorEl) shadowColorEl.value = globalSettings.shadowColor || '#000000';
+  setSlider('g-shadow-opacity', 'g-shadow-opacity-val', Math.round((globalSettings.shadowOpacity ?? 0.20) * 100), '%');
+  const eyeColorEl = document.getElementById('g-eye-glow-color');
+  if (eyeColorEl) eyeColorEl.value = globalSettings.eyeGlowColor || '#60a5fa';
+  setSlider('g-eye-glow-intensity', 'g-eye-glow-intensity-val', globalSettings.eyeGlowIntensity || 2, '');
 
   const solidColor = document.getElementById('g-solid-color');
   const solidHex   = document.getElementById('g-solid-hex');

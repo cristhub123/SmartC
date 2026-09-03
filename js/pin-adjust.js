@@ -11,15 +11,30 @@ After modifying this file, update /AI_SESSION.md with the change and verificatio
 /* pin-adjust.js — expand scale, per-POI offset, pinch-to-zoom */
 /* ═══════════════════════════════════════════════════════════
    EXPAND SIZE INDEPENDIENTE — desacopla tamaño en mapa del expandido
+   [2026-09-03] Rediseño pedido por Cris: el tamaño del edificio
+   maximizado ahora se expresa como % de la imagen en calidad completa
+   (la que sube a Cloudinary, 1024px reales — ver PIN_FULL_IMG_PX más
+   abajo), rango amplio 20%-200% (antes era un valor fijo en px, 80-400,
+   que se sentía limitado). Reemplaza globalSettings.expandSize (px) por
+   globalSettings.expandPercent (%). Migración: si ya había un
+   expandSize guardado de la versión vieja y todavía no hay
+   expandPercent, se convierte una sola vez para no perder el ajuste ya
+   hecho (300px con el sistema viejo ≈ 29% del sistema nuevo).
    ═══════════════════════════════════════════════════════════ */
-globalSettings.expandSize = 160; // px base del edificio expandido (independiente de pinSize)
+const PIN_FULL_IMG_PX = 1024; // resolución real de la imagen "full" (ver Cloudinary, panel de lugar)
 
-// Slider g-expand-size
+if (typeof globalSettings.expandPercent !== 'number') {
+  globalSettings.expandPercent = (typeof globalSettings.expandSize === 'number')
+    ? Math.round(globalSettings.expandSize / PIN_FULL_IMG_PX * 100)
+    : 30;
+}
+
+// Slider g-expand-size (ahora en %, ver index.html)
 const gExpandSizeSlider = document.getElementById('g-expand-size');
 if (gExpandSizeSlider) {
   gExpandSizeSlider.addEventListener('input', function() {
-    globalSettings.expandSize = parseInt(this.value);
-    document.getElementById('g-expand-size-val').textContent = this.value + 'px';
+    globalSettings.expandPercent = parseInt(this.value);
+    document.getElementById('g-expand-size-val').textContent = this.value + '%';
   });
 }
 
@@ -935,14 +950,23 @@ window.expandPin = function(id) {
   const poiScalePct  = (poi.pinScale   !== undefined ? poi.pinScale   : 100) / 100;
   const ox           = poi.pinOffsetX || 0;
   const oy           = poi.pinOffsetY || 0;
-  const baseExpandPx = globalSettings.expandSize || 160;
-  const pinMapPx     = globalSettings.pinSize    || 44;
-  // La escala del CSS .pin-wrap.big está basada en pinSize del mapa
-  // Calculamos la escala real para llegar al expandSize independiente
-  const targetPx     = baseExpandPx * poiScalePct;
-  const cssScale     = (targetPx / pinMapPx) * poiScalePct;
+  const targetPx     = PIN_FULL_IMG_PX * ((globalSettings.expandPercent || 30) / 100) * poiScalePct;
   const el = document.getElementById('pw-' + id);
   if (el) {
+    // [FIX 2026-09-03] Antes se dividía targetPx por globalSettings.pinSize
+    // (el VALOR GUARDADO del slider "Tamaño de pins en el mapa"). Si ese
+    // slider se tocaba pero todavía no se guardaba, el pin real en
+    // pantalla seguía con su tamaño viejo mientras la cuenta ya usaba el
+    // valor nuevo — los dos números dejaban de coincidir y aparecía una
+    // relación inversa entre ambos controles (uno subía, el otro bajaba
+    // visualmente). Se corrige midiendo el tamaño REAL que el pin tiene
+    // en pantalla en este momento exacto (getBoundingClientRect), en vez
+    // de confiar en esa variable — queda desacoplado de verdad, sin
+    // importar qué esté guardado o sin guardar en "Tamaño de pins en el
+    // mapa".
+    const imgEl = el.querySelector('.pin-img') || el;
+    const currentBoxPx = imgEl.getBoundingClientRect().width || globalSettings.pinSize || 44;
+    const cssScale = (targetPx / currentBoxPx) * poiScalePct;
     // Los offsets se expresan en px del mapa — dividimos por cssScale para compensar
     const tx = ox / cssScale;
     const ty = oy / cssScale;
@@ -979,7 +1003,7 @@ map.getContainer().addEventListener('touchstart', function(e) {
   e.preventDefault(); // interceptar antes que Leaflet
   _pinchActive   = true;
   _pinchBaseDist  = _pinchDist(e);
-  _pinchBaseScale = el._expandCssScale || globalSettings.expandScale || 3.2;
+  _pinchBaseScale = el._expandCssScale || 1; // el._expandCssScale siempre queda seteado por expandPin(); 1 es solo resguardo defensivo
 }, { passive: false });
 
 map.getContainer().addEventListener('touchmove', function(e) {

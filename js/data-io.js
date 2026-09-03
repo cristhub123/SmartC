@@ -120,7 +120,8 @@ function runImportChecks(data) {
   chk('settings', 'Configuración visual (outline, glow, tamaños)',
     d => {
       if (!d.settings) return 'Sin config guardada — se mantendrá la actual';
-      const keys = ['solidPx','glowPx','pinSize','expandScale'];
+      // [FIX 2026-09-03] expandScale (sistema viejo) → expandPercent
+      const keys = ['solidPx','glowPx','pinSize','expandPercent'];
       const missing = keys.filter(k => d.settings[k] === undefined);
       if (missing.length) return `Faltan campos: ${missing.join(', ')} (se usarán defaults)`;
       return true;
@@ -242,13 +243,13 @@ function confirmImport() {
     setSlider('g-solid-px', s.solidPx);
     setSlider('g-glow-px',  s.glowPx);
     setSlider('g-pin-size', s.pinSize);
-    setSlider('g-expand-scale', s.expandScale * 10);
+    setSlider('g-expand-size', s.expandPercent || 30);
     setSlider('g-name-size', s.nameSize || 26);
     document.documentElement.style.setProperty('--pp-name-size', (s.nameSize||26)+'px');
     document.getElementById('g-solid-px-val').textContent  = s.solidPx + 'px';
     document.getElementById('g-glow-px-val').textContent   = s.glowPx + 'px';
     document.getElementById('g-pin-size-val').textContent  = s.pinSize + 'px';
-    document.getElementById('g-expand-scale-val').textContent = s.expandScale + '×';
+    document.getElementById('g-expand-size-val').textContent = (s.expandPercent || 30) + '%';
     document.getElementById('g-name-size-val').textContent = (s.nameSize||26) + 'px';
   }
 
