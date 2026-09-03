@@ -31,6 +31,20 @@ const globalSettings = {
   panelPctLandscape: 34, // % del ANCHO en pantallas cuadradas/horizontales, incluye desktop (sidebar)
 };
 
+// [2026-09-03] Copia congelada de los valores de arriba, ANTES de que
+// loadGlobalSettings() los pise con lo guardado en Firestore — es lo
+// que usa el botón "Restaurar valores originales" (no relee de
+// Firestore, no borra nada ahí: solo repone estos números/colores en
+// pantalla; para que quede guardado de verdad todavía hay que tocar
+// "Aplicar a todos los pins", igual que con cualquier otro cambio).
+//
+// `expandSize` (tamaño del edificio expandido) NO vive en el objeto
+// de arriba — lo agrega js/pin-adjust.js, que carga DESPUÉS de este
+// archivo. Se suma acá a mano con el mismo default (160) que usa ese
+// archivo, para que el botón de reset también lo cubra.
+const GLOBAL_SETTINGS_DEFAULTS = JSON.parse(JSON.stringify(globalSettings));
+GLOBAL_SETTINGS_DEFAULTS.expandSize = 160;
+
 /* Build filter string: glow first (underneath), then solid border */
 function buildFilterString(baseFilter) {
   const parts = [];
@@ -236,6 +250,15 @@ document.getElementById('btn-apply-global').addEventListener('click', () => {
   toast('✅ Apariencia global aplicada y guardada');
 });
 
+document.getElementById('btn-reset-global').addEventListener('click', () => {
+  Object.assign(globalSettings, JSON.parse(JSON.stringify(GLOBAL_SETTINGS_DEFAULTS)));
+  initGlobalTab();       // repone los sliders/colores en pantalla
+  applyGlobalDim();
+  applyGlobalOutline();
+  rebuildAllMarkers();   // vista previa en vivo con los pines reales
+  toast('↺ Valores originales repuestos — tocá "Aplicar" para guardarlos');
+});
+
 /* === Sincronizar los sliders con los valores REALES ya cargados
    (desde Firestore) cada vez que se abre la pestaña "Global" —
    sin esto, el admin vería siempre la posición por defecto del
@@ -258,6 +281,14 @@ function initGlobalTab() {
 
   setSlider('g-panel-pct-portrait',  'g-panel-pct-portrait-val',  globalSettings.panelPctPortrait,  '%');
   setSlider('g-panel-pct-landscape', 'g-panel-pct-landscape-val', globalSettings.panelPctLandscape, '%');
+
+  // [2026-09-03] BUG ENCONTRADO: este slider (tamaño del edificio
+  // expandido, campo independiente `expandSize` agregado en
+  // js/pin-adjust.js) nunca se sincronizaba acá — por eso SIEMPRE
+  // mostraba "160" (el default fijo del HTML) al abrir la tab,
+  // sin importar el valor real cargado desde Firestore. Mismo
+  // patrón que el resto de los sliders de arriba.
+  setSlider('g-expand-size', 'g-expand-size-val', globalSettings.expandSize || 160, 'px');
 
   const solidColor = document.getElementById('g-solid-color');
   const solidHex   = document.getElementById('g-solid-hex');
