@@ -149,13 +149,37 @@ function computeAndRenderClusters() {
       && typeof entry.poi.lat === 'number'
       && typeof entry.poi.lng === 'number'
       && !Number.isNaN(entry.poi.lat)
-      && !Number.isNaN(entry.poi.lng));
+      && !Number.isNaN(entry.poi.lng)
+      // [FIX 2026-09-02] El pin actualmente agrandado (click del usuario,
+      // ver markers.js/expandPin) nunca debe poder terminar agrupado
+      // dentro de un cluster — si el paneo hacia ese pin (panToPoiCenter)
+      // dispara este recompute y el pin cae en la misma celda que otro
+      // vecino, quedaba oculto (visibility:hidden) justo después de
+      // agrandarse, dando la sensación de "se metió en un cluster y no
+      // abrió". Se excluye de los candidatos: se deja siempre visible,
+      // aunque eso implique que momentáneamente haya 1 pin más en pantalla
+      // que el techo `maxOnScreen` (caso excepcional, un solo pin, no
+      // rompe el objetivo real del límite).
+      && entry.poi.id !== (typeof expandedId !== 'undefined' ? expandedId : null));
 
   if (candidates.length < 2) return;
 
+  // [FIX 2026-09-02] Antes se usaba map.latLngToContainerPoint(...), que
+  // da la posición en píxeles RELATIVA AL VIEWPORT (pantalla). Esa grilla
+  // queda anclada a la pantalla, no al mapa: al panear, todos los pines
+  // se corren la misma distancia en píxeles de pantalla, pero como cada
+  // celda se calcula con Math.floor(px/cellSize), ese corrimiento parejo
+  // puede hacer que algunos pines crucen el borde de su celda y otros no
+  // (según en qué punto del ciclo de celda estaba cada uno) — reagrupando
+  // el mismo conjunto de pines sin que su posición relativa real haya
+  // cambiado. map.project(latlng, zoom) da en cambio la posición en
+  // píxeles de MUNDO al zoom actual: estable ante cualquier paneo, solo
+  // cambia con el zoom (que es el comportamiento pedido: "acercate y se
+  // separan").
+  const zoom = map.getZoom();
   const pts = candidates.map(entry => ({
     entry,
-    px: map.latLngToContainerPoint([entry.poi.lat, entry.poi.lng]),
+    px: map.project([entry.poi.lat, entry.poi.lng], zoom),
   }));
 
   const maxOnScreen = _clusterSettings.maxOnScreen || 30;
@@ -190,7 +214,19 @@ function computeAndRenderClusters() {
 
     bubble.on('click', () => {
       const bounds = L.latLngBounds(group.map(g => [g.entry.poi.lat, g.entry.poi.lng]));
-      map.fitBounds(bounds, { padding: [60, 60], maxZoom: 19 });
+      // [FIX 2026-09-02] Antes era map.fitBounds(...) — cuando el grupo
+      // son pines muy pegados entre sí (bounds geográficos chicos),
+      // Leaflet necesita saltar casi directo a maxZoom para encuadrarlos.
+      // fitBounds anima ese salto con el mecanismo normal de zoom
+      // (setView), que tiene un techo interno (zoomAnimationThreshold,
+      // default 4 niveles): si el salto de zoom necesario lo supera,
+      // Leaflet CANCELA la animación de zoom (solo anima el paneo) y
+      // aplica el zoom de golpe al final — de ahí el "paneo suave, y de
+      // repente pantalla mega-zoomeada". flyToBounds usa el mecanismo de
+      // "vuelo" animado (Van Wijk), pensado justo para saltos grandes de
+      // zoom, y siempre queda suave sin importar la distancia — mismos
+      // parámetros (bounds/padding/maxZoom), sin perder nada del ajuste.
+      map.flyToBounds(bounds, { padding: [60, 60], maxZoom: 19 });
     });
 
     _clusterBubbles['cb-' + idx] = bubble;
