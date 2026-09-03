@@ -309,13 +309,32 @@ const PoiPanel = (function () {
    *  final. */
   function _eventosVigentesDelPoi(poiId) {
     if (typeof EVENTOS === 'undefined' || typeof _eventoEsVigente !== 'function') return [];
-    const propios = EVENTOS.filter(ev => ev.poi_id === poiId && _eventoEsVigente(ev));
+    // [Filtro de fecha de eventos, 2026-09-03] con el filtro "Eventos"
+    // activo y una fecha elegida, además de los vigentes-hoy también
+    // entran los eventos del pin que ocurren ESE día aunque ya no
+    // sean vigentes respecto a hoy (caso: fecha elegida en el
+    // pasado) — así el pin siempre muestra sus eventos de la fecha
+    // seleccionada. Ver js/eventos-fecha-filtro.js.
+    const fechaActiva = (typeof activeFilter !== 'undefined' && activeFilter === '__eventos__'
+      && typeof fechaFiltroEventos !== 'undefined' && fechaFiltroEventos) ? fechaFiltroEventos : null;
+    const ocurreEnFechaActiva = ev => fechaActiva && typeof _eventoOcurreEnFecha === 'function' && _eventoOcurreEnFecha(ev, fechaActiva);
+    const propios = EVENTOS.filter(ev => ev.poi_id === poiId && (_eventoEsVigente(ev) || ocurreEnFechaActiva(ev)));
     const fechaOrden = ev => {
       const f = ev.fecha_fin || ev.fecha_inicio;
       const d = f ? new Date(f).getTime() : NaN;
       return isNaN(d) ? Infinity : d;
     };
-    return propios.sort((a, b) => fechaOrden(a) - fechaOrden(b));
+    return propios.sort((a, b) => {
+      // Con fecha activa, los eventos que ocurren ESE día van
+      // siempre arriba; el resto (otros días) queda debajo, cada
+      // grupo ordenado igual que antes por cercanía de fecha.
+      if (fechaActiva) {
+        const aMatch = ocurreEnFechaActiva(a) ? 0 : 1;
+        const bMatch = ocurreEnFechaActiva(b) ? 0 : 1;
+        if (aMatch !== bMatch) return aMatch - bMatch;
+      }
+      return fechaOrden(a) - fechaOrden(b);
+    });
   }
 
   /** [Etapa 5] Tarjetas de eventos dentro del panel público — texto
@@ -333,10 +352,20 @@ const PoiPanel = (function () {
     if (els.tabEventosBtn && typeof _eventosConfigCache !== 'undefined') {
       els.tabEventosBtn.textContent = (_eventosConfigCache && _eventosConfigCache.tituloPanelEventos) || 'Eventos';
     }
+    // [Filtro de fecha de eventos, 2026-09-03] con fecha activa, la
+    // tarjeta de un evento que NO ocurre ese día queda atenuada
+    // (opacidad configurable en Admin → Mapa) — el orden ya la deja
+    // debajo de los que sí coinciden (ver _eventosVigentesDelPoi).
+    const fechaActiva = (typeof activeFilter !== 'undefined' && activeFilter === '__eventos__'
+      && typeof fechaFiltroEventos !== 'undefined' && fechaFiltroEventos) ? fechaFiltroEventos : null;
     els.eventosList.innerHTML = eventosDelPoi.map(ev => {
       const fechas = [ev.fecha_inicio, ev.fecha_fin].filter(Boolean)
         .map(iso => { const d = new Date(iso); return isNaN(d.getTime()) ? '' : d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' }); })
         .filter(Boolean).join(' → ');
+      const noCoincideConFecha = fechaActiva && typeof _eventoOcurreEnFecha === 'function' && !_eventoOcurreEnFecha(ev, fechaActiva);
+      const dimStyle = noCoincideConFecha
+        ? ` style="opacity:${window.getOpacidadReducidaFiltroFecha ? window.getOpacidadReducidaFiltroFecha() : 0.35}"`
+        : '';
       // [Etapa 9 — simplificada] tags → labels legibles, usando el
       // catálogo que llega vía setEventosConfig() (mismo que carga
       // js/eventos.js → loadEventosConfig()).
@@ -351,7 +380,7 @@ const PoiPanel = (function () {
         ev.contactoRedSocial ? `📱 ${ev.contactoRedSocial}` : '',
         ev.contactoWeb ? `🌐 ${ev.contactoWeb}` : '',
       ].filter(Boolean);
-      return `<div class="poi-panel__evento-card">
+      return `<div class="poi-panel__evento-card"${dimStyle}>
         <strong class="poi-panel__evento-nombre">${_escapeHtml(ev.nombre || '(sin nombre)')}</strong>
         ${fechas ? `<span class="poi-panel__evento-fechas">🗓 ${_escapeHtml(fechas)}</span>` : ''}
         ${ev.horario ? `<span class="poi-panel__evento-fechas">🕒 ${_escapeHtml(ev.horario)}</span>` : ''}
@@ -1032,7 +1061,13 @@ const PoiPanel = (function () {
 
       _currentPoiId = poiId;
       _isEditMode = false;
-      _activeTab = 'info'; // [Etapa 5] cada pin nuevo arranca en la pestaña Info
+      // [Etapa 5] cada pin nuevo arranca en la pestaña Info — EXCEPTO
+      // [Filtro de fecha de eventos, 2026-09-03] con el filtro
+      // "Eventos" activo y una fecha elegida, arranca directo en
+      // "Eventos" (si el pin no tiene ninguno, _renderEventosTab lo
+      // vuelve a "info" solo, ver esa función).
+      _activeTab = (typeof activeFilter !== 'undefined' && activeFilter === '__eventos__'
+        && typeof fechaFiltroEventos !== 'undefined' && fechaFiltroEventos) ? 'eventos' : 'info';
       _render();
       _snapTo(initialState === SNAP.FULL ? SNAP.FULL : SNAP.PEEK);
 
@@ -1105,6 +1140,16 @@ const PoiPanel = (function () {
     }
   }
 
+  /** [Filtro de fecha de eventos, 2026-09-03] re-pinta el panel ya
+   *  abierto (si hay uno) sin cerrarlo/reabrirlo — usado desde
+   *  js/eventos-fecha-filtro.js cuando el usuario cambia/limpia la
+   *  fecha elegida, para que la pestaña de eventos ya abierta
+   *  refleje la fecha nueva al toque. No toca `_activeTab`: si el
+   *  panel ya estaba en "eventos" sigue ahí, no vuelve a "info". */
+  function refresh() {
+    if (_currentPoiId) _render();
+  }
+
   return {
     open,
     close,
@@ -1112,6 +1157,7 @@ const PoiPanel = (function () {
     getCurrentPoiId,
     getOpenAreaPx,
     setEventosConfig,
+    refresh,
   };
 })();
 

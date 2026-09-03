@@ -64,6 +64,16 @@ let EVENTOS = [];
 
 let markers      = {};          // id → { leafletMarker, poi }
 let activeFilter = 'all';
+
+/* [Filtro de fecha de eventos, 2026-09-03] Fecha elegida por el
+   usuario ('YYYY-MM-DD') para resaltar en el mapa los pines con
+   eventos ese día, o `null` si no hay fecha elegida. Solo tiene
+   efecto visual cuando `activeFilter === '__eventos__'`. Ver
+   js/eventos-fecha-filtro.js (lógica de matching + UI + settings
+   admin) y su uso en js/categories.js (opacidad en el mapa) y
+   js/poi-panel.js (tab por defecto + orden de la lista de eventos
+   del pin). */
+let fechaFiltroEventos = null;
 let expandedId   = null;
 let currentPoi   = null;
 let pickCtx      = null;        // 'add' | 'edit'

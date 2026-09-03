@@ -136,8 +136,14 @@ function updateFilterBar() {
       btn.classList.add('on');
       activeFilter = btn.dataset.f;
       applyFilter();
+      if (typeof window._onFilterBarUpdated === 'function') window._onFilterBarUpdated();
     });
   });
+
+  // [Filtro de fecha de eventos] misma llamada al pintar la barra la
+  // primera vez (carga inicial), no solo en cada click — ver
+  // js/eventos-fecha-filtro.js.
+  if (typeof window._onFilterBarUpdated === 'function') window._onFilterBarUpdated();
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -158,6 +164,14 @@ function updateFilterBar() {
    ═══════════════════════════════════════════════════════════ */
 function applyFilter() {
   if (typeof POIS === 'undefined') return;
+  // [Filtro de fecha de eventos, 2026-09-03] con el filtro "Eventos"
+  // activo y una fecha elegida, los pines visibles que NO tienen
+  // ningún evento ese día quedan atenuados (no ocultos) — ver
+  // js/eventos-fecha-filtro.js. `fechaOn` decide si esta capa extra
+  // de opacidad aplica en esta pasada.
+  const fechaOn = activeFilter === '__eventos__'
+    && typeof fechaFiltroEventos !== 'undefined' && fechaFiltroEventos
+    && typeof pinTieneEventoEnFecha === 'function';
   POIS.forEach(p => {
     const el = document.getElementById('pw-' + p.id);
     if (!el) return; // sin marcador dibujado (ej. sin coordenadas todavía)
@@ -165,6 +179,11 @@ function applyFilter() {
     const visible = p.active !== false && _pinMatchesActiveFilter(p);
     el.style.display = visible ? '' : 'none';
     if (markerEl) markerEl.style.visibility = visible ? '' : 'hidden';
+    if (visible && fechaOn && !pinTieneEventoEnFecha(p.id, fechaFiltroEventos)) {
+      el.style.opacity = String(window.getOpacidadReducidaFiltroFecha ? window.getOpacidadReducidaFiltroFecha() : 0.35);
+    } else {
+      el.style.opacity = ''; // vuelve a opacidad normal (pin fuera del filtro de fecha, o sin filtro activo)
+    }
   });
 }
 
