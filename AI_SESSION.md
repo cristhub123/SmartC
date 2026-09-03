@@ -1,3 +1,95 @@
+## Sesión: 2026-09-03 — Panel Global: sombra/glow "reseteados", y tamaño del edificio maximizado con relación inversa a "Tamaño de pins en el mapa"
+
+**Reportado por Cris:** (1) la configuración del panel Global se ve
+"desconfigurada" cada vez que entra, aunque esté bien guardada; (2)
+puntualmente, el tamaño del edificio maximizado (slider dedicado) se ve
+CHICO al recargar la página aunque el slider muestre el valor correcto
+guardado (ej. 300px) — y se arregla solo, temporalmente, con solo
+tocar "Aplicar cambios" sin cambiar nada; (3) además notó que el
+slider "Tamaño de pins en el mapa" y el del edificio maximizado tienen
+una relación INVERSA no deseada (subir uno baja el otro visualmente).
+
+**Causa raíz (1)+(2), confirmada leyendo el código (no solo
+hipótesis):** dos bugs reales distintos, ambos del mismo tipo
+("se aplica antes de que termine de cargar lo guardado, y nadie lo
+vuelve a aplicar después"):
+- `js/shadow-eye.js`: `applyShadow()`/`applyEyeGlowColor()` se
+  ejecutaban UNA sola vez, al parsear el script — antes de que
+  `loadGlobalSettings()` (asíncrono) trajera el valor real guardado.
+  Nada las volvía a llamar después.
+- El tamaño del edificio maximizado tenía DOS sistemas paralelos
+  compitiendo por la misma propiedad CSS del mismo pin: el viejo
+  (`expandScale`, un multiplicador fijo aplicado vía hoja de estilos
+  en `applyGlobalDim()`, corre al cargar la página) y el nuevo
+  (`expandSize`/ahora `expandPercent`, aplicado vía estilo inline
+  en `pin-adjust.js` recién al tocar un pin). Tenerlos los dos activos
+  a la vez daba un resultado visual inconsistente según el momento.
+
+**Causa raíz (3), confirmada con la fórmula:** el cálculo de escala
+del pin maximizado dividía por `globalSettings.pinSize` (el VALOR
+GUARDADO del slider "Tamaño de pins en el mapa"), no por el tamaño
+REAL que el pin tenía en pantalla en ese momento — si se tocaba ese
+slider sin guardar, los dos números (guardado vs. real en pantalla)
+dejaban de coincidir, dando la relación inversa.
+
+**Fix aplicado:**
+1. `js/app.js` (`init()`): se agregó `applyShadow()`/
+   `applyEyeGlowColor()` después de que `loadGlobalSettings()`
+   termina, mismo patrón que `applyGlobalDim()`/`applyGlobalOutline()`.
+2. **Rediseño pedido por Cris** del tamaño del edificio maximizado:
+   se retiró por completo el sistema viejo `expandScale` (slider
+   "Escala al expandir", su regla CSS en `applyGlobalDim()`, su
+   entrada en `data-io.js` import/export) — queda 1 solo sistema.
+   El nuevo campo `globalSettings.expandPercent` (rango 20%-200%,
+   antes era un px fijo 80-400 que se sentía limitado) es un % de
+   `PIN_FULL_IMG_PX = 1024` (la imagen en calidad completa que sube a
+   Cloudinary, no el pin chico del mapa) — constante nueva en
+   `js/pin-adjust.js`. Migración automática: si había un
+   `expandSize` (px) guardado de la versión vieja y no hay
+   `expandPercent` todavía, se convierte una sola vez
+   (`Math.round(expandSize/1024*100)`) para no perder el ajuste que
+   Cris ya había hecho (300px ≈ 29%).
+3. **Fix de la relación inversa**: `window.expandPin` (pin-adjust.js)
+   ahora mide el tamaño REAL del pin en pantalla con
+   `getBoundingClientRect()` en el momento exacto del click, en vez de
+   usar `globalSettings.pinSize` — queda desacoplado de verdad, sin
+   importar si ese slider se tocó o guardó o no.
+4. `js/admin-global.js`: `initGlobalTab()` (se ejecuta cada vez que se
+   abre la pestaña Global) ahora también sincroniza sombra/glow de
+   ojos/tamaño del edificio maximizado con lo realmente guardado —
+   antes esos 3 controles se quedaban siempre con el default del HTML
+   al abrir el panel, sin importar lo guardado.
+5. **Nuevo botón "↺ Restaurar valores originales"** (`btn-reset-global`)
+   en la pestaña Global — pedido explícito de Cris. Usa
+   `DEFAULT_GLOBAL_SETTINGS` (nuevo objeto en `admin-global.js`, hay
+   que mantenerlo a mano en sync si cambia algún default), aplica y
+   GUARDA de verdad (no solo visual), mismo flujo que "Aplicar".
+6. `js/data-io.js` (import/export de configuración): actualizado para
+   leer/escribir `expandPercent`/`g-expand-size` en vez de las
+   referencias viejas a `expandScale`/`g-expand-scale`, que habían
+   quedado apuntando a un slider que ya no existe en el HTML (se
+   habría roto en silencio en el próximo import).
+
+**Archivos modificados:** `js/app.js`, `js/pin-adjust.js`,
+`js/admin-global.js`, `js/data-io.js`, `index.html`. `node --check`
+sin errores en los 4 archivos JS. Barrido final confirmó que no queda
+ninguna referencia funcional a `expandScale`/`g-expand-scale` (solo
+comentarios explicativos). No se pudo probar en navegador real —
+pendiente de confirmación de Cris, sobre todo: (a) que sombra/glow ya
+no se vean "reseteados" al recargar, (b) que el tamaño del edificio
+maximizado con el nuevo rango 20%-200% dé resultados razonables sin
+volverse gigante/diminuto en los extremos, (c) que ya no haya relación
+entre ambos sliders, (d) que el botón de restaurar funcione bien.
+
+**Nota aparte, sin relación con este bug:** existe un archivo
+`indexa.html` en la raíz del proyecto — es una versión vieja e
+incompleta (953 líneas vs. 1980 de `index.html`, le faltan varias
+features actuales: preconnect, selector de idioma, login de usuario).
+No se tocó ni se referencia desde ningún lado del código activo, pero
+si Cris lo tiene abierto por error en el navegador (en vez de
+`index.html`) explicaría confusión adicional al ver "cosas viejas".
+Queda para que Cris decida si lo borra o lo deja.
+
 # AI_SESSION.md — memoria de trabajo de la sesión actual
 
 > Uso: al empezar una sesión nueva, comprobar si esta información corresponde

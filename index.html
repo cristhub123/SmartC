@@ -1165,18 +1165,11 @@ campo-05:
         </div>
       </div>
       <div class="fg">
-        <label class="fl">Tamaño del edificio maximizado (px base)</label>
-        <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Independiente del tamaño del pin en mapa</div>
+        <label class="fl">Tamaño del edificio maximizado (% de la imagen en calidad completa)</label>
+        <div style="font-size:11px;color:var(--text3);margin-bottom:4px">Independiente del tamaño del pin en mapa — 100% = tamaño real de la imagen que se sube (1024px)</div>
         <div style="display:flex;gap:10px;align-items:center;margin-top:4px">
-          <input type="range" id="g-expand-size" min="80" max="400" value="160" style="flex:1;accent-color:var(--accent)">
-          <span id="g-expand-size-val" style="font-family:var(--font-m);font-size:12px;min-width:36px;text-align:right">160px</span>
-        </div>
-      </div>
-      <div class="fg">
-        <label class="fl">Escala al expandir (multiplica el tamaño base)</label>
-        <div style="display:flex;gap:10px;align-items:center;margin-top:6px">
-          <input type="range" id="g-expand-scale" min="15" max="60" value="32" style="flex:1;accent-color:var(--accent)">
-          <span id="g-expand-scale-val" style="font-family:var(--font-m);font-size:12px;min-width:36px;text-align:right">3.2×</span>
+          <input type="range" id="g-expand-size" min="20" max="200" value="30" style="flex:1;accent-color:var(--accent)">
+          <span id="g-expand-size-val" style="font-family:var(--font-m);font-size:12px;min-width:36px;text-align:right">30%</span>
         </div>
       </div>
       <div class="fg">
@@ -1269,8 +1262,10 @@ campo-05:
           <div style="font-size:10px;color:var(--text3);margin-top:16px">Expandido</div>
         </div>
       </div>
-      <button class="btn-primary" id="btn-apply-global">✓ Aplicar a todos los pins</button>
-      <button class="btn-outline" id="btn-reset-global" style="margin-top:8px;width:100%">↺ Restaurar valores originales</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn-primary" id="btn-apply-global" style="flex:1">✓ Aplicar a todos los pins</button>
+        <button class="btn-outline" id="btn-reset-global" title="Vuelve todos los controles de esta pestaña a sus valores originales de fábrica">↺ Restaurar valores originales</button>
+      </div>
     </div>
 
     <!-- ZONAS ADMIN -->
