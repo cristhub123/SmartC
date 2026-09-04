@@ -84,11 +84,45 @@ function _clearClusterBubbles() {
   _clusterBubbles = {};
 }
 
+/* [FIX 2026-09-04 — causa real del reporte "ningún filtro se aplica
+   en PC, sí en el celular"] Antes esta función restauraba TODOS los
+   pines que habían quedado ocultos por un cluster anterior poniendo
+   `visibility=''` a ciegas — sin preguntar si ese pin todavía debía
+   estar oculto por OTRO motivo (el filtro público elegido, una
+   categoría apagada, o poi.active===false). Mientras applyFilter()
+   nunca tocaba el sistema de clusters (bug original, ya arreglado en
+   PLAN_VISIBILIDAD_PINES_UNIFICADA.md), esto nunca se notaba. Pero
+   apenas se conectó applyFilter() → scheduleClusterRecompute() (para
+   que el cluster respete el filtro), quedó expuesto: cada vez que se
+   recalculan los clusters después de cambiar el filtro, ESTA función
+   corre primero y "revive" (visibility='') a cualquier pin que estaba
+   agrupado en el cluster ANTERIOR — incluidos los que el filtro
+   nuevo dice que deberían seguir ocultos. Como esos pines filtrados
+   quedan excluidos de ser candidatos a agruparse de nuevo (isPinVisible
+   los descarta), nunca se los vuelve a ocultar después — quedan
+   visibles para siempre, pisando al filtro.
+   En pantallas grandes (PC) hay más área de mapa visible → más pines
+   terminan agrupados en clusters de entrada → el impacto de este bug
+   es mucho más notorio que en el celular (menos pines agrupados a la
+   vez, o zoom más cercano donde casi nada está en cluster).
+   Fix real: en vez de restaurar a ciegas, se delega a
+   applyPinVisibility() (js/pin-visibility.js) — la única fuente de
+   verdad — para que cada pin quede exactamente como corresponde
+   (visible si pasa el filtro, oculto si no), nunca "porque sí". */
 function _restoreHiddenByCluster() {
   _clusterHiddenIds.forEach(id => {
-    const el = document.getElementById('pw-' + id);
-    const parent = el && el.parentElement;
-    if (parent) parent.style.visibility = '';
+    const entry = typeof markers !== 'undefined' ? markers[id] : null;
+    if (entry && entry.poi && typeof applyPinVisibility === 'function') {
+      applyPinVisibility(entry.poi);
+    } else {
+      // Resguardo defensivo si por algún motivo no está disponible
+      // pin-visibility.js o el pin ya no existe en `markers` — mismo
+      // comportamiento de antes, mejor que dejarlo en un estado
+      // indefinido.
+      const el = document.getElementById('pw-' + id);
+      const parent = el && el.parentElement;
+      if (parent) parent.style.visibility = '';
+    }
   });
   _clusterHiddenIds = [];
 }
@@ -153,7 +187,20 @@ function computeAndRenderClusters() {
       // "¿este pin se ve?" — la usan por igual el filtro público y
       // el clustering, así que quedan sincronizados automáticamente
       // sin importar qué categoría/filtro se agregue o saque a futuro.
-      && (typeof isPinVisible === 'function' ? isPinVisible(entry.poi) : entry.poi.active !== false)
+      // [FIX 2026-09-04] Envuelto en try/catch: si isPinVisible()
+      // tira una excepción con algún pin puntual con datos raros, que
+      // ANTES cortaba de golpe todo este .filter() (ningún pin se
+      // agrupaba bien de ahí en más), ahora ese pin puntual se trata
+      // como "no visible" (más seguro que arriesgarse a mostrarlo mal)
+      // y se sigue evaluando el resto normalmente.
+      && (() => {
+        try {
+          return typeof isPinVisible === 'function' ? isPinVisible(entry.poi) : entry.poi.active !== false;
+        } catch (err) {
+          console.warn('[cluster-grouping.js] Error en isPinVisible para el pin', entry.poi && entry.poi.id, err);
+          return false;
+        }
+      })()
       && typeof entry.poi.lat === 'number'
       && typeof entry.poi.lng === 'number'
       && !Number.isNaN(entry.poi.lat)
