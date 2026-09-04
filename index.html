@@ -87,13 +87,6 @@ After modifying this file, update /AI_SESSION.md with the change and verificatio
 </div>
 
 <div id="filter-bar">
-  <!-- [Filtro de fecha de eventos, 2026-09-03] solo visible con el
-       filtro "Eventos" activo — ver js/eventos-fecha-filtro.js.
-       Estilo mínimo a propósito, el look final se define aparte. -->
-  <div id="eventos-fecha-bar" hidden>
-    <input type="date" id="eventos-fecha-input" class="efb-input" aria-label="Elegir fecha para ver eventos de ese día">
-    <button type="button" id="eventos-fecha-clear" class="efb-clear" title="Quitar filtro de fecha">✕</button>
-  </div>
   <div class="filter-row" id="filter-row-inner">
     <!-- populated by updateFilterBar() on load -->
   </div>
@@ -1545,24 +1538,6 @@ campo-05:
           área chica.
         </p>
       </div>
-
-      <div class="divider"><span>FILTRO DE FECHA DE EVENTOS</span></div>
-      <div class="fg" style="margin-bottom:10px">
-        <label class="fl" style="display:flex;align-items:center;gap:8px;cursor:pointer">
-          <input type="checkbox" id="fecha-filtro-enabled-toggle" style="accent-color:var(--accent);width:16px;height:16px">
-          Activar selector de fecha en el filtro "Eventos" del mapa
-        </label>
-      </div>
-      <div class="fg">
-        <label class="fl">Opacidad de lo que NO coincide con la fecha elegida (0 a 1)</label>
-        <input class="fi" id="fecha-filtro-opacidad" type="number" min="0" max="1" step="0.05" value="0.35" style="max-width:120px">
-        <p style="font-size:11px;color:var(--text3);margin-top:6px;line-height:1.4">
-          Con el filtro "Eventos" activo y una fecha elegida, los pines
-          (y dentro del panel, los eventos) que sí ocurren ese día quedan a
-          opacidad completa; el resto queda atenuado a este valor, sin
-          ocultarse.
-        </p>
-      </div>
     </div>
 
     <!-- ROADMAP -->
@@ -1934,6 +1909,7 @@ campo-05:
   <script src="js/map.js?v=20260829" defer></script>
 
   <!-- 3. Core marker logic -->
+  <script src="js/pin-visibility.js?v=20260903" defer></script>
   <script src="js/markers.js?v=20260831" defer></script>
   <script src="js/pins-viewport-loader.js?v=20260829" defer></script>
   <script src="js/cluster-grouping.js?v=20260829" defer></script>
@@ -1981,7 +1957,6 @@ campo-05:
   <script src="js/pin-geocode.js?v=20260829" defer></script>
   <script src="js/eventos-form-shared.js?v=20260831" defer></script>
   <script src="js/eventos.js?v=20260829" defer></script>
-  <script src="js/eventos-fecha-filtro.js?v=20260903" defer></script>
   <script src="js/user-panel.js?v=20260831" defer></script>
   <script src="js/usuarios-admin.js?v=20260829" defer></script>
   <script src="js/empleados.js?v=20260829" defer></script>

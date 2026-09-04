@@ -1,3 +1,64 @@
+## Sesión: 2026-09-03 (continuación) — PLAN_VISIBILIDAD_PINES_UNIFICADA.md ejecutado
+
+**Pedido de Cris:** no solo arreglar que el cluster ignorara el filtro
+público — quería resolver de raíz que "¿este pin se ve?" estuviera
+respondido por separado en 7 lugares del código, para que agregar/
+sacar/cambiar una categoría a futuro no obligue a tocar múltiples
+archivos. Plan completo entregado antes de programar (ver
+`PLAN_VISIBILIDAD_PINES_UNIFICADA.md`), confirmado por Cris.
+
+**Implementado tal cual el plan:**
+1. **Nuevo `js/pin-visibility.js`**: `isPinVisible(poi)` (decide:
+   activo + al menos 1 categoría activa + pasa el filtro público
+   elegido) + `applyPinVisibility(poi)` (aplica display/visibility al
+   DOM) + `applyAllPinVisibility()` (recorre todos los pines). Cargado
+   en `index.html` antes de `markers.js`.
+2. `cluster-grouping.js` (`computeAndRenderClusters`): el filtro de
+   candidatos pasó de `entry.poi.active !== false` a
+   `isPinVisible(entry.poi)` — este es el fix real del bug reportado
+   (clusters ya respetan el filtro público, y van a seguir
+   respetando cualquier filtro que se agregue a futuro sin tocar este
+   archivo de nuevo).
+3. `markers.js` (`makeMarker`): el chequeo de `poi.active===false`
+   hardcodeado se reemplazó por `applyPinVisibility(poi)` — de paso
+   corrige que un pin recién cargado al panear (viewport loader)
+   ignorara el filtro público activo.
+4. `admin.js` (`togglePoi`, la versión REAL — ver punto 6): usa
+   `applyPinVisibility(p)` en vez de manipular el DOM a mano.
+5. `categories.js`: `toggleCat()` y `applyFilter()` delegan ambas a
+   `applyAllPinVisibility()` + `scheduleClusterRecompute()`. Bug de
+   paso corregido en `toggleCat()`: antes un pin con 2+ categorías
+   podía quedar oculto ENTERO al apagar solo UNA de ellas (sin mirar
+   si la otra seguía activa), con resultado dependiente del orden de
+   los toggles — ahora pide "al menos 1 categoría activa", correcto.
+6. **Hallazgo de paso**: existían DOS `window.togglePoi` (app.js y
+   admin.js) — la de app.js era código muerto (admin.js la pisaba al
+   cargar después). Se rescató la única línea real que tenía y no
+   estaba en la de admin.js (`scheduleClusterRecompute()` tras
+   activar/desactivar un pin) y se borró la duplicada de app.js.
+7. `eventos.js`: las 2 funciones de auto-desactivar/reactivar pin
+   temporal (`evento_temporal`) ahora llaman a `applyPinVisibility` +
+   `scheduleClusterRecompute` en vez de su propia manipulación de DOM.
+
+**Fuera de alcance, sin tocar (a propósito):** la ocultación temporal
+que hace el propio `cluster-grouping.js` cuando un pin queda
+"tragado" dentro de una burbuja de cluster (`parent.style.visibility`
+en las líneas ~91/210 de ese archivo) — es una capa DISTINTA y
+posterior a `isPinVisible()` (agrupamiento visual, no filtro), no es
+parte de este problema y no se tocó.
+
+**Archivos modificados:** `js/pin-visibility.js` (nuevo),
+`js/cluster-grouping.js`, `js/markers.js`, `js/admin.js`, `js/app.js`,
+`js/categories.js`, `js/eventos.js`, `index.html`. `node --check` sin
+errores en los 7 archivos JS. Barrido final confirmó que no queda
+ninguna manipulación directa de display/visibility de pines fuera de
+`pin-visibility.js` (salvo la capa de clustering, fuera de alcance a
+propósito). No se pudo probar en navegador real — pendiente de
+confirmación de Cris: filtro de categoría + cluster sincronizados,
+filtro "Eventos" + cluster sincronizados, pin con 2 categorías
+(activar/desactivar cada una por separado), pin temporal de evento
+que vence con el filtro puesto.
+
 ## Sesión: 2026-09-03 — Panel Global: sombra/glow "reseteados", y tamaño del edificio maximizado con relación inversa a "Tamaño de pins en el mapa"
 
 **Reportado por Cris:** (1) la configuración del panel Global se ve
