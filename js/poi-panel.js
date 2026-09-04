@@ -1062,12 +1062,15 @@ const PoiPanel = (function () {
       _currentPoiId = poiId;
       _isEditMode = false;
       // [Etapa 5] cada pin nuevo arranca en la pestaña Info — EXCEPTO
-      // [Filtro de fecha de eventos, 2026-09-03] con el filtro
-      // "Eventos" activo y una fecha elegida, arranca directo en
-      // "Eventos" (si el pin no tiene ninguno, _renderEventosTab lo
-      // vuelve a "info" solo, ver esa función).
-      _activeTab = (typeof activeFilter !== 'undefined' && activeFilter === '__eventos__'
-        && typeof fechaFiltroEventos !== 'undefined' && fechaFiltroEventos) ? 'eventos' : 'info';
+      // [Filtro de fecha de eventos, corregido 2026-09-04] con el
+      // filtro "Eventos" activo, arranca directo en "Eventos" —
+      // INDEPENDIENTE de si hay una fecha elegida o no (la fecha solo
+      // afecta el orden/atenuado DENTRO de la lista, ver
+      // _eventosVigentesDelPoi/_renderEventosTab). El criterio es
+      // únicamente "el filtro Eventos está activo" + "el pin tiene
+      // algún evento visible al público" — si no tiene ninguno,
+      // _renderEventosTab lo vuelve a "info" solo, ver esa función.
+      _activeTab = (typeof activeFilter !== 'undefined' && activeFilter === '__eventos__') ? 'eventos' : 'info';
       _render();
       _snapTo(initialState === SNAP.FULL ? SNAP.FULL : SNAP.PEEK);
 
