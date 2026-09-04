@@ -49,8 +49,8 @@ After modifying this file, update /AI_SESSION.md with the change and verificatio
    se crea hasta que se desagrupa). Esta implementación en cambio:
    deja `makeMarker()`/`removeMarker()` 100% intactos (cada pin se
    crea siempre igual, individual, con su DOM de siempre) y solo
-   OCULTA visualmente (mismo mecanismo ya usado por togglePoi() en
-   app.js: `parent.style.visibility = 'hidden'`) los pines que caen
+   OCULTA visualmente (mismo mecanismo que usa applyPinVisibility(),
+   js/pin-visibility.js: `parent.style.visibility = 'hidden'`) los pines que caen
    dentro de un grupo, mostrando en su lugar una burbuja-marcador
    nueva con el número. Nada del resto del proyecto se entera de la
    diferencia.
@@ -132,9 +132,7 @@ function _gridGroups(pts, cellSize) {
    reintenta — hasta cumplir el techo o llegar a un tamaño de celda
    absurdo (techo de seguridad `MAX_CELL`, evita loop infinito si
    por algún motivo nunca se puede cumplir el límite). Solo agrupa
-   pines ACTIVOS (los inactivos ni entran como candidatos — quedan
-   como estaban, ocultos por poi.active===false, sin que esta
-   función los toque). */
+   pines VISIBLES — ver isPinVisible() (js/pin-visibility.js). */
 function computeAndRenderClusters() {
   _clearClusterBubbles();
   _restoreHiddenByCluster();
@@ -145,7 +143,17 @@ function computeAndRenderClusters() {
   const candidates = Object.keys(markers)
     .map(id => markers[id])
     .filter(entry => entry && entry.poi
-      && entry.poi.active !== false
+      // [FIX 2026-09-03] Antes solo miraba entry.poi.active !== false
+      // — un pin oculto por el filtro público (categoría elegida,
+      // "Eventos y actividades") o por una categoría apagada desde
+      // el admin igual entraba como candidato acá, así que las
+      // burbujas de cluster seguían contando/agrupando pines que el
+      // visitante ni podía ver. isPinVisible() (ver
+      // js/pin-visibility.js) es ahora la ÚNICA fuente de verdad de
+      // "¿este pin se ve?" — la usan por igual el filtro público y
+      // el clustering, así que quedan sincronizados automáticamente
+      // sin importar qué categoría/filtro se agregue o saque a futuro.
+      && (typeof isPinVisible === 'function' ? isPinVisible(entry.poi) : entry.poi.active !== false)
       && typeof entry.poi.lat === 'number'
       && typeof entry.poi.lng === 'number'
       && !Number.isNaN(entry.poi.lat)

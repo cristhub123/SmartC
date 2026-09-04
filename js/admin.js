@@ -379,14 +379,19 @@ window.togglePoi = function(id, btn) {
   btn.classList.toggle('on', p.active);
   const row = btn.closest('.poi-row');
   if (row) { const op = _rowOpacityFor(p); row.style.opacity = op || ''; }
-  // Show/hide marker on map
-  const m = markers[id];
-  if (m) {
-    const el = document.getElementById('pw-' + id);
-    if (el) el.style.display = p.active ? '' : 'none';
-    const markerEl = el && el.parentElement;
-    if (markerEl) markerEl.style.visibility = p.active ? '' : 'hidden';
-  }
+  // [FIX 2026-09-03] Antes acá se manipulaba el DOM del pin a mano
+  // (display/visibility). Se reemplaza por applyPinVisibility()
+  // (js/pin-visibility.js) — mismo resultado para este caso puntual,
+  // pero ahora usando la única fuente de verdad compartida con el
+  // filtro público y el sistema de clusters.
+  if (typeof applyPinVisibility === 'function') applyPinVisibility(p);
+  // [FIX 2026-09-03] Esta línea existía en la versión VIEJA/muerta de
+  // togglePoi que estaba en app.js (nunca se ejecutaba porque esta de
+  // acá la pisaba) — se rescata acá, en la versión real: activar/
+  // desactivar un pin cambia qué cuenta como candidato para el
+  // clustering (js/cluster-grouping.js), hay que recalcular para que
+  // el número de las burbujas quede correcto al toque.
+  if (typeof scheduleClusterRecompute === 'function') scheduleClusterRecompute();
   if (!p.active && expandedId === id) { collapsePin(id); closePoiPanel(); }
   savePoiToFirestore(p); // sincroniza el estado activo/inactivo con la base de datos
   syncAppStateWithPOIS(); // [NUEVO 2026-08-13] ver nota en firestore-sync.js

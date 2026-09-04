@@ -521,14 +521,10 @@ async function _autoDesactivarPinTemporal(pin) {
       return;
     }
   }
-  // Mismo criterio visual que togglePoi() (admin.js/app.js): si el
-  // marcador ya estaba dibujado en esta pestaña, se oculta ya mismo.
-  const el = document.getElementById('pw-' + pin.id);
-  if (el) {
-    el.style.display = 'none';
-    const markerEl = el.parentElement;
-    if (markerEl) markerEl.style.visibility = 'hidden';
-  }
+  // [FIX 2026-09-03] Mismo criterio que togglePoi() (admin.js), ahora
+  // centralizado — ver js/pin-visibility.js.
+  if (typeof applyPinVisibility === 'function') applyPinVisibility(pin);
+  if (typeof scheduleClusterRecompute === 'function') scheduleClusterRecompute();
   console.info(`[Etapa 4] Pin temporal "${pin.name}" (${pin.id}) auto-desactivado${esAdminReal ? '' : ' (solo visual, sin sesión de admin)'} — no le queda ningún evento vigente.`);
 }
  
@@ -543,12 +539,10 @@ async function _reactivarPinTemporal(pinId) {
     await savePoiToFirestore(p);
     syncAppStateWithPOIS();
     await regeneratePublicCache();
-    const el = document.getElementById('pw-' + pinId);
-    if (el) {
-      el.style.display = '';
-      const markerEl = el.parentElement;
-      if (markerEl) markerEl.style.visibility = '';
-    }
+    // [FIX 2026-09-03] Mismo criterio que togglePoi() (admin.js), ahora
+    // centralizado — ver js/pin-visibility.js.
+    if (typeof applyPinVisibility === 'function') applyPinVisibility(p);
+    if (typeof scheduleClusterRecompute === 'function') scheduleClusterRecompute();
     toast(`✅ Pin "${p.name}" reactivado`);
     await _loadEventosAdminList();
   } catch (err) {

@@ -318,23 +318,27 @@ function makeMarker(poi) {
       }
       wirePinImageFallback(_poiId);
 
+      // [FIX 2026-09-03] Antes acá se chequeaba `poi.active === false`
+      // directo (ver historial abajo). Se reemplaza por
+      // applyPinVisibility() (js/pin-visibility.js) — mismo efecto
+      // para pines desactivados, pero AHORA también respeta el filtro
+      // público elegido en ese momento (categoría puntual, "Eventos y
+      // actividades"). Antes, un pin recién dibujado (ej. al panear el
+      // mapa a una zona nueva, vía pins-viewport-loader.js) ignoraba
+      // el filtro activo y aparecía igual, sin importar qué filtro
+      // hubiera elegido el visitante.
+      //
       // [Etapa 4 — bug encontrado y corregido de paso, no solo para
       // eventos] Antes, el campo `active` (activo/publicado) de un pin
       // SOLO se aplicaba visualmente cuando se togleaba EN VIVO desde el
-      // panel admin (togglePoi, ver admin.js/app.js) — pero acá, al
+      // panel admin (togglePoi, ver admin.js) — pero acá, al
       // dibujar el marcador por primera vez, nunca se chequeaba. Un pin
       // ya desactivado ANTES de cargar la página (ej. un pin
       // `evento_temporal` que la Etapa 4 acaba de auto-desactivar, o
       // cualquier pin que vos hayas desactivado a mano en otra sesión)
       // igual se dibujaba y se veía normal para cualquier visitante que
-      // recién abre el mapa. Fix: mismo criterio exacto que togglePoi
-      // (display:none en el pin-wrap + visibility:hidden en el wrapper
-      // de Leaflet), aplicado ya en el momento de crear el marcador.
-      if (poi.active === false && el) {
-        el.style.display = 'none';
-        const markerElInit = el.parentElement;
-        if (markerElInit) markerElInit.style.visibility = 'hidden';
-      }
+      // recién abre el mapa.
+      if (el && typeof applyPinVisibility === 'function') applyPinVisibility(poi);
     });
   });
 

@@ -48,14 +48,16 @@ window.toggleCat = function(id, btn) {
   if (CAT[id]) CAT[id].active = newState;
   if (CUSTOM_CATS[id]) CUSTOM_CATS[id].active = newState;
   btn.classList.toggle('on', newState);
-  POIS.forEach(p => {
-    const cats = Array.isArray(p.categories) ? p.categories : [p.category];
-    if (cats.includes(id)) {
-      const el = document.getElementById('pw-' + p.id);
-      const parent = el && el.parentElement;
-      if (parent) parent.style.visibility = newState ? '' : 'hidden';
-    }
-  });
+  // [FIX 2026-09-03] Antes acá se ocultaba/mostraba el pin ENTERO
+  // apenas SU categoría se apagaba/prendía, sin mirar si el pin tenía
+  // OTRA categoría todavía activa — un pin con 2+ categorías podía
+  // quedar oculto de más, y el resultado dependía del orden en que se
+  // tocaran los toggles. applyAllPinVisibility() (js/pin-visibility.js)
+  // recalcula TODOS los pines desde cero usando isPinVisible(), que sí
+  // pide "al menos 1 categoría activa" — resuelve ese caso de paso.
+  if (typeof applyAllPinVisibility === 'function') applyAllPinVisibility();
+  // El set de pines visibles acaba de cambiar — recalcular clusters.
+  if (typeof scheduleClusterRecompute === 'function') scheduleClusterRecompute();
   renderCatsAdmin();
   updateFilterBar();
   toast(newState ? `✅ "${cat.label}" activada` : `⭕ "${cat.label}" desactivada`);
@@ -136,14 +138,8 @@ function updateFilterBar() {
       btn.classList.add('on');
       activeFilter = btn.dataset.f;
       applyFilter();
-      if (typeof window._onFilterBarUpdated === 'function') window._onFilterBarUpdated();
     });
   });
-
-  // [Filtro de fecha de eventos] misma llamada al pintar la barra la
-  // primera vez (carga inicial), no solo en cada click — ver
-  // js/eventos-fecha-filtro.js.
-  if (typeof window._onFilterBarUpdated === 'function') window._onFilterBarUpdated();
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -155,36 +151,17 @@ function updateFilterBar() {
    ningún archivo del proyecto — tocar un filtro de categoría en el
    mapa público no filtraba nada (bug de fondo, ya existente antes
    de esta etapa; se encontró al construir el filtro nuevo de
-   eventos y se aprovechó para dejarlo andando de verdad). Mismo
-   criterio visual que ya usaban togglePoi()/toggleCat() (display
-   none + visibility hidden en el wrapper de Leaflet). El campo
-   `active` (activo/publicado) de cada pin sigue mandando siempre —
-   applyFilter() nunca vuelve a mostrar un pin desactivado, sea cual
-   sea el filtro elegido.
+   eventos y se aprovechó para dejarlo andando de verdad).
+   [FIX 2026-09-03, PLAN_VISIBILIDAD_PINES_UNIFICADA.md] Ahora delega
+   TODA la decisión y la aplicación a applyAllPinVisibility()
+   (js/pin-visibility.js) — antes tenía su propia copia de la lógica
+   de mostrar/ocultar, separada de la que usaba el sistema de
+   clusters, que por eso nunca se enteraba de este filtro.
    ═══════════════════════════════════════════════════════════ */
 function applyFilter() {
-  if (typeof POIS === 'undefined') return;
-  // [Filtro de fecha de eventos, 2026-09-03] con el filtro "Eventos"
-  // activo y una fecha elegida, los pines visibles que NO tienen
-  // ningún evento ese día quedan atenuados (no ocultos) — ver
-  // js/eventos-fecha-filtro.js. `fechaOn` decide si esta capa extra
-  // de opacidad aplica en esta pasada.
-  const fechaOn = activeFilter === '__eventos__'
-    && typeof fechaFiltroEventos !== 'undefined' && fechaFiltroEventos
-    && typeof pinTieneEventoEnFecha === 'function';
-  POIS.forEach(p => {
-    const el = document.getElementById('pw-' + p.id);
-    if (!el) return; // sin marcador dibujado (ej. sin coordenadas todavía)
-    const markerEl = el.parentElement;
-    const visible = p.active !== false && _pinMatchesActiveFilter(p);
-    el.style.display = visible ? '' : 'none';
-    if (markerEl) markerEl.style.visibility = visible ? '' : 'hidden';
-    if (visible && fechaOn && !pinTieneEventoEnFecha(p.id, fechaFiltroEventos)) {
-      el.style.opacity = String(window.getOpacidadReducidaFiltroFecha ? window.getOpacidadReducidaFiltroFecha() : 0.35);
-    } else {
-      el.style.opacity = ''; // vuelve a opacidad normal (pin fuera del filtro de fecha, o sin filtro activo)
-    }
-  });
+  if (typeof applyAllPinVisibility === 'function') applyAllPinVisibility();
+  // Recalcular clusters: el set de pines visibles acaba de cambiar.
+  if (typeof scheduleClusterRecompute === 'function') scheduleClusterRecompute();
 }
 
 /** Además de "all" y las categorías normales, `activeFilter` puede

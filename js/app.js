@@ -39,10 +39,6 @@ async function init() {
     typeof loadEventosConfig === 'function' ? loadEventosConfig() : Promise.resolve(),
     typeof loadEventosFromFirestore === 'function' ? loadEventosFromFirestore() : Promise.resolve(),
     typeof loadClusterSettings === 'function' ? loadClusterSettings() : Promise.resolve(),
-    // [Filtro de fecha de eventos, 2026-09-03] mismo motivo que
-    // loadClusterSettings: lee un doc propio e independiente
-    // (settings/filtroFechaEventos), no hace falta esperarlo en fila.
-    typeof loadFiltroFechaSettings === 'function' ? loadFiltroFechaSettings() : Promise.resolve(),
   ]);
 
   // 1. Aplicar el estilo de mapa ya cargado (o el default si es la
@@ -146,24 +142,13 @@ async function init() {
     }
   });
 
-  // 7. Wire toggle POI
-  window.togglePoi = function(id, btn) {
-    const p = POIS.find(x => x.id === id);
-    if (!p) return;
-    p.active = !(p.active !== false);
-    btn.classList.toggle('on', p.active);
-    const row = btn.closest('.poi-row');
-    if (row) row.style.opacity = p.active ? '' : '.5';
-    const mEl = document.getElementById('pw-' + id);
-    const parent = mEl && mEl.parentElement;
-    if (parent) parent.style.visibility = p.active ? '' : 'hidden';
-    if (!p.active && expandedId === id) { collapsePin(id); closePoiPanel(); }
-    toast(p.active ? '✅ "' + p.name + '" activado' : '⭕ "' + p.name + '" desactivado');
-    // [NUEVO 2026-08-29] activar/desactivar un pin cambia qué cuenta
-    // como candidato para el clustering (js/cluster-grouping.js) —
-    // recalcular para que el número de las burbujas quede correcto.
-    if (typeof scheduleClusterRecompute === 'function') scheduleClusterRecompute();
-  };
+  // [FIX 2026-09-03] Se borró de acá la función window.togglePoi que
+  // vivía en este archivo — era código muerto: admin.js define la
+  // MISMA variable global (window.togglePoi) y se carga después,
+  // así que esta de acá nunca se llegaba a ejecutar en la práctica.
+  // La única línea real que tenía y no estaba en la de admin.js
+  // (scheduleClusterRecompute) se rescató para allá. Ver
+  // PLAN_VISIBILIDAD_PINES_UNIFICADA.md.
 
   // 8. Live search
   // [2026-08-29 — PLAN_OPTIMIZACION_PERFORMANCE_2026-08-29.md, punto
