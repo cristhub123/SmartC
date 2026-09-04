@@ -67,6 +67,24 @@ function applyPinVisibility(poi) {
   const visible = isPinVisible(poi);
   el.style.display = visible ? '' : 'none';
   if (markerEl) markerEl.style.visibility = visible ? '' : 'hidden';
+
+  // [Filtro de fecha de eventos, 2026-09-03] con el filtro "Eventos"
+  // activo y una fecha elegida (js/eventos-fecha-filtro.js), atenúa
+  // (no oculta) los pines visibles que no tienen ningún evento ese
+  // día. Va acá — no en categories.js/applyFilter() — porque este es
+  // el único punto real donde se decide/aplica cómo se ve cada pin
+  // (ver nota de arriba del archivo); así la atenuación se recalcula
+  // sola cada vez que se recalcula visibilidad, sin duplicar el hook
+  // en cada lugar que llama a applyAllPinVisibility().
+  const fechaOn = visible
+    && typeof activeFilter !== 'undefined' && activeFilter === '__eventos__'
+    && typeof fechaFiltroEventos !== 'undefined' && fechaFiltroEventos
+    && typeof pinTieneEventoEnFecha === 'function';
+  if (fechaOn && !pinTieneEventoEnFecha(poi.id, fechaFiltroEventos)) {
+    el.style.opacity = String(window.getOpacidadReducidaFiltroFecha ? window.getOpacidadReducidaFiltroFecha() : 0.35);
+  } else {
+    el.style.opacity = ''; // pin fuera del filtro de fecha, o sin fecha elegida: opacidad normal
+  }
 }
 
 /** Recorre todos los pines — usar después de cualquier cambio que

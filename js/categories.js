@@ -162,8 +162,16 @@ function updateFilterBar() {
       btn.classList.add('on');
       activeFilter = btn.dataset.f;
       applyFilter();
+      // [Filtro de fecha de eventos, 2026-09-03] muestra/oculta y
+      // wirea la barra de fecha según el filtro que quedó activo —
+      // ver js/eventos-fecha-filtro.js.
+      if (typeof window._onFilterBarUpdated === 'function') window._onFilterBarUpdated();
     });
   });
+
+  // Misma llamada al pintar la barra la primera vez (carga inicial),
+  // no solo en cada click.
+  if (typeof window._onFilterBarUpdated === 'function') window._onFilterBarUpdated();
 }
 
 /* ═══════════════════════════════════════════════════════════

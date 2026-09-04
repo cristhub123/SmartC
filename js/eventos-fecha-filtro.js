@@ -17,7 +17,10 @@ After modifying this file, update /AI_SESSION.md with the change and verificatio
      1. En el mapa quedan a 100% opacidad los pines con ≥1 evento
         que ocurre ese día; el resto de los pines visibles bajo ese
         filtro quedan atenuados (opacidad configurable), sin
-        ocultarse — aplicado en categories.js → applyFilter().
+        ocultarse — aplicado en js/pin-visibility.js → applyPinVisibility()
+        [reenganchado ahí el 2026-09-04, tras PLAN_VISIBILIDAD_PINES_UNIFICADA.md;
+        antes vivía en categories.js → applyFilter(), que ese plan dejó
+        delegando todo a pin-visibility.js].
      2. Al maximizar un pin con la fecha activa, el panel abre
         directo en la pestaña "Eventos" (en vez de "Info"), con los
         eventos de ese día arriba y el resto de los eventos del pin

@@ -39,6 +39,10 @@ async function init() {
     typeof loadEventosConfig === 'function' ? loadEventosConfig() : Promise.resolve(),
     typeof loadEventosFromFirestore === 'function' ? loadEventosFromFirestore() : Promise.resolve(),
     typeof loadClusterSettings === 'function' ? loadClusterSettings() : Promise.resolve(),
+    // [Filtro de fecha de eventos, 2026-09-03] mismo motivo que
+    // loadClusterSettings: lee un doc propio e independiente
+    // (settings/filtroFechaEventos), no hace falta esperarlo en fila.
+    typeof loadFiltroFechaSettings === 'function' ? loadFiltroFechaSettings() : Promise.resolve(),
   ]);
 
   // 1. Aplicar el estilo de mapa ya cargado (o el default si es la
