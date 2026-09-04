@@ -111,13 +111,32 @@ function updateFilterBar() {
 
   bar.innerHTML = html;
 
-  /* ── drag-to-scroll ── */
-  let isDragging = false, startX = 0, scrollLeft = 0, moved = false;
+  /* ── drag-to-scroll ──
+     [FIX 2026-09-04 — causa real de "los filtros no hacen nada en
+     PC, sí en el celular"] `bar.setPointerCapture(e.pointerId)` se
+     llamaba en el `pointerdown`, es decir, en CUALQUIER toque —
+     incluido un simple click sin arrastre. Es un bug conocido y
+     documentado de esta API (afecta sobre todo a mouse/desktop,
+     varía entre navegadores): una vez que el contenedor captura el
+     puntero, el click posterior puede terminar dirigido al
+     CONTENEDOR (`bar`) en vez del botón que el usuario realmente
+     tocó — y como el listener de click vive en cada botón
+     (`.fbtn`), ese click nunca le llega, aunque visualmente se vea
+     el "apretado" nativo del botón (eso es CSS del navegador, no
+     depende de JS). En el celular no se notaba porque el touch
+     suele tolerar mejor este caso.
+     Fix real (no un parche puntual — es el patrón correcto y
+     documentado para "arrastre que no debe romper el click"):
+     capturar el puntero recién cuando se CONFIRMA que es un
+     arrastre real (se cruza el umbral), nunca en el pointerdown. Un
+     click sin arrastre nunca llega a capturar nada, así que el
+     click llega íntegro al botón como corresponde. */
+  let isDragging = false, startX = 0, scrollLeft = 0, moved = false, _pid = null;
   bar.addEventListener('pointerdown', e => {
     isDragging = true; moved = false;
     startX = e.clientX;
     scrollLeft = bar.scrollLeft;
-    bar.setPointerCapture(e.pointerId);
+    _pid = e.pointerId;
   });
   bar.addEventListener('pointermove', e => {
     if (!isDragging) return;
@@ -125,10 +144,15 @@ function updateFilterBar() {
     // Umbral más alto para mouse (el pulso de la mano mueve unos pocos px
     // incluso en un simple click) — con touch/dedo el temblor es mínimo.
     const threshold = e.pointerType === 'mouse' ? 15 : 6;
-    if (Math.abs(dx) > threshold) moved = true;
-    bar.scrollLeft = scrollLeft - dx;
+    if (Math.abs(dx) > threshold) {
+      if (!moved) { moved = true; bar.setPointerCapture(_pid); }
+      bar.scrollLeft = scrollLeft - dx;
+    }
   });
-  bar.addEventListener('pointerup', () => { isDragging = false; });
+  bar.addEventListener('pointerup', e => {
+    isDragging = false;
+    if (bar.hasPointerCapture(e.pointerId)) bar.releasePointerCapture(e.pointerId);
+  });
 
   /* ── tap to filter (only if not a drag) ── */
   bar.querySelectorAll('.fbtn').forEach(btn => {
