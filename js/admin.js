@@ -166,6 +166,16 @@ async function openAdmin() {
   document.getElementById('overlay').classList.add('on');
   document.getElementById('btn-admin').classList.add('active');
 
+  // [FIX 2026-09-05] switchTab('list') se dispara ACÁ, antes del
+  // await de abajo — no al final como antes. Antes, si el usuario
+  // tocaba otra tab mientras loadPOISFromFirestore() todavía estaba
+  // en curso (1-2seg), el switchTab('list') de más abajo se ejecutaba
+  // igual al terminar la carga y le pisaba la tab recién elegida sin
+  // que hubiera tocado nada — parecía que la tab "saltaba sola".
+  // Ahora la tab por defecto se fija de entrada, y la carga de abajo
+  // solo repuebla la lista (renderList()), sin volver a tocar tabs.
+  switchTab('list');
+
   // [NUEVO 2026-08-29 — PLAN_OPTIMIZACION_PERFORMANCE_2026-08-29.md,
   // punto 6.1] El mapa público solo carga los pines del área visible
   // (ver js/pins-viewport-loader.js) — pero acá, en el panel Admin,
@@ -186,7 +196,6 @@ async function openAdmin() {
   });
 
   renderList();
-  switchTab('list');
 }
 function closeAdmin() {
   document.getElementById('admin').classList.remove('open');
