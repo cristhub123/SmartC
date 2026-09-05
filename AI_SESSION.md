@@ -1,3 +1,59 @@
+## Sesión: 2026-09-05 — Fix filtro de fecha de eventos (2 bugs reales) + PLAN_TIMEZONE_CIUDADES.md
+
+**Pedido de Cris:** en la tab "Eventos" del admin, la sección "Filtro
+de fecha de eventos" (toggle + opacidad) no guarda nada; y como
+usuario, al elegir una fecha en el filtro, los pines con evento
+activo ese día no llegan a opacidad completa.
+
+**Bug 1 (por qué no guardaba nada):** cuando esa sección se movió de
+la tab "Mapa" a la tab "Eventos" (04/09→05/09), el HTML se movió pero
+`js/eventos-fecha-filtro.js` se quedó con
+`SC.registerTabPlugin('mapa', initFiltroFechaAdminTab)` — como
+`switchTab()` solo dispara los plugins del tab que se abre, esa
+función nunca corría al entrar a "Eventos", así que el toggle y el
+campo de opacidad quedaban sin ningún listener enganchado. Fix:
+registrado ahora en `'eventos-admin'`.
+
+**Bug 2 (por qué no llegaban a opacidad completa):** bug real de
+huso horario. `ev.fecha_inicio`/`fecha_fin` se guardan en UTC
+(`_dateInputToIso`, js/eventos.js), pero la función que calculaba
+"qué día es esto" recortaba a mano los primeros 10 caracteres del
+string UTC — Córdoba es UTC-3, así que un evento cargado de noche
+(21hs en adelante) cruza la medianoche al convertirse a UTC y
+quedaba un día corrido. Fix real (no un parche): nueva función
+`_diaCalendarioEnHuso(str, tz)` que usa `Intl.DateTimeFormat` con
+`timeZone` para calcular el día calendario correcto en el huso de la
+ciudad — recibe `tz` como parámetro opcional (default
+`America/Argentina/Cordoba`), pensada para poder pasarle el huso real
+de otra ciudad el día que haga falta, sin tener que tocarla de nuevo.
+Se evaluó usar la Temporal API en vez de `Intl.DateTimeFormat` — se
+descartó por ahora porque Safari todavía no la soporta.
+
+**Pregunta de Cris, a raíz de este bug:** si conviene establecer ya
+un estándar de huso horario por ciudad para todo el proyecto (pensando
+en Chile como próxima ciudad con huso distinto). Se investigó y se
+armó `PLAN_TIMEZONE_CIUDADES.md` con el estado real: la parte de
+LECTURA (con qué día compara el filtro) quedó resuelta en esta misma
+entrega, de forma versátil (recibe `tz`, no hardcodeada). La parte de
+ESCRITURA (interpretar el `datetime-local` del form como hora de la
+ciudad del evento, no la del navegador de quien carga el evento) y el
+campo `timezone` nuevo en `locations` quedan documentados en ese plan,
+sin arrancar — se decidió posponerlos porque hoy toda la carga es de
+Córdoba, sin beneficio real todavía.
+
+**Archivos modificados:** `js/eventos-fecha-filtro.js`,
+`js/poi-panel.js` (comentario desactualizado nada más, sin cambio de
+lógica). **Archivo nuevo:** `PLAN_TIMEZONE_CIUDADES.md`.
+
+**Pruebas realizadas:** `node --check` sin errores en los 2 `.js`
+tocados; grep confirmando que no quedó ninguna referencia a la
+función vieja (`_fechaSoloDiaLocal`) ni al registro viejo
+(`registerTabPlugin('mapa', ...)` para esta sección). NO probado
+contra Firebase real ni navegador — pendiente que Cris confirme: (a)
+el toggle/opacidad de Admin → Eventos ahora persisten y sobreviven un
+F5; (b) eligiendo una fecha con evento cargado de noche, el pin llega
+a opacidad completa.
+
 ## Sesión: 2026-09-03 (continuación) — PLAN_VISIBILIDAD_PINES_UNIFICADA.md ejecutado
 
 **Pedido de Cris:** no solo arreglar que el cluster ignorara el filtro
