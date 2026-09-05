@@ -36,47 +36,85 @@ After modifying this file, update /AI_SESSION.md with the change and verificatio
 
    Sigue el mismo patrón que js/cluster-grouping.js: archivo nuevo
    dedicado, settings propios persistidos en Firestore
-   (settings/filtroFechaEventos), plugin de la tab admin "Mapa" vía
+   (settings/filtroFechaEventos), plugin de la tab admin "Eventos" vía
    SC.registerTabPlugin.
+   [FIX 2026-09-05] La sección de admin de este archivo vivía en la
+   tab "Mapa" originalmente; el 04/09→05/09 el HTML se movió a la tab
+   "Eventos" (index.html) pero este registro se quedó apuntando a
+   'mapa' — como switchTab() solo dispara los plugins del tab que se
+   abre, initFiltroFechaAdminTab() nunca corría al abrir "Eventos", así
+   que el toggle y el campo de opacidad quedaban sin ningún listener
+   enganchado (por eso no guardaba nada). Corregido más abajo.
    ═══════════════════════════════════════════════════════════ */
 
-/* ── Settings editables desde Admin → Mapa ── */
+/* ── Settings editables desde Admin → Eventos ── */
 let _filtroFechaSettings = {
   enabled: true,          // con esto en false, la feature se comporta como si no existiera
   opacidadReducida: 0.35, // opacidad (0 a 1) de lo que NO coincide con la fecha elegida
 };
 
-/** 'YYYY-MM-DD' (o un ISO completo) → Date a medianoche LOCAL.
- *  Evita el corrimiento de huso horario de `new Date('YYYY-MM-DD')`,
- *  que el motor parsea como UTC (podía correr el día en -3). */
-function _fechaSoloDiaLocal(str) {
+/* [FIX 2026-09-05 — bug real de huso horario, ver PLAN_TIMEZONE_CIUDADES.md]
+   `ev.fecha_inicio`/`ev.fecha_fin` se guardan como ISO en UTC
+   (js/eventos.js → _dateInputToIso: `new Date(v).toISOString()`).
+   La versión anterior de este archivo recortaba a mano los primeros
+   10 caracteres de ese string UTC asumiendo que ya eran el día local
+   — Córdoba es UTC-3, así que cualquier evento cargado de noche
+   (ej. 21hs en adelante) cruza la medianoche al convertirse a UTC y
+   quedaba "un día después" del real. Por eso un pin con evento real
+   ese día nunca matcheaba y quedaba atenuado en vez de a opacidad
+   completa.
+   Fix real: calcular el día calendario con el huso horario de la
+   CIUDAD del evento (no el de quien mira la pantalla), usando
+   Intl.DateTimeFormat (nativo, sin librerías — la Temporal API
+   todavía no es viable acá, Safari no la soporta). Recibe el huso
+   como parámetro, no hardcodeado: hoy todo pin es de Córdoba así que
+   se usa CIUDAD_TIMEZONE_DEFAULT, pero el día que se sume otra ciudad
+   (huso distinto, ej. Chile) alcanza con pasarle el huso real de ese
+   pin — ver PLAN_TIMEZONE_CIUDADES.md para el plan completo de esa
+   parte (todavía no implementada). */
+const CIUDAD_TIMEZONE_DEFAULT = 'America/Argentina/Cordoba';
+
+/** Cualquier fecha ('YYYY-MM-DD' sin hora, o ISO completo con hora)
+ *  → día calendario 'YYYY-MM-DD' en el huso horario `tz` (default
+ *  CIUDAD_TIMEZONE_DEFAULT). Un 'YYYY-MM-DD' sin hora ya representa
+ *  un día elegido a propósito (ej. el del selector de fecha del
+ *  filtro) — no se convierte de huso, se devuelve tal cual. */
+function _diaCalendarioEnHuso(str, tz) {
   if (!str) return null;
-  const isoDatePart = String(str).slice(0, 10);
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDatePart);
-  if (!m) return null;
-  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
-  return isNaN(d.getTime()) ? null : d;
+  const s = String(str);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s.slice(0, 10);
+  const d = new Date(s);
+  if (isNaN(d.getTime())) return null;
+  // Locale 'en-CA' es un truco conocido: da directo formato YYYY-MM-DD.
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: tz || CIUDAD_TIMEZONE_DEFAULT,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(d);
 }
+window._diaCalendarioEnHuso = _diaCalendarioEnHuso;
 
 /** ¿El evento `ev` ocurre en la fecha `fechaStr` ('YYYY-MM-DD')?
  *  Requiere `ev.activo === true` (mismo toggle base que
  *  `_eventoEsVigente`) y que `fechaStr` caiga dentro de
  *  [fecha_inicio, fecha_fin] (inclusive; sin fecha_fin = evento de 1
- *  solo día). */
-function _eventoOcurreEnFecha(ev, fechaStr) {
+ *  solo día), comparado como día calendario en el huso `tz`. */
+function _eventoOcurreEnFecha(ev, fechaStr, tz) {
   if (!ev || ev.activo !== true) return false;
-  const target = _fechaSoloDiaLocal(fechaStr);
-  const inicio = _fechaSoloDiaLocal(ev.fecha_inicio);
+  const target = _diaCalendarioEnHuso(fechaStr, tz);
+  const inicio = _diaCalendarioEnHuso(ev.fecha_inicio, tz);
   if (!target || !inicio) return false;
-  const fin = _fechaSoloDiaLocal(ev.fecha_fin) || inicio;
-  return target.getTime() >= inicio.getTime() && target.getTime() <= fin.getTime();
+  const fin = _diaCalendarioEnHuso(ev.fecha_fin, tz) || inicio;
+  // Comparación de strings 'YYYY-MM-DD': ordena igual que las fechas.
+  return target >= inicio && target <= fin;
 }
 window._eventoOcurreEnFecha = _eventoOcurreEnFecha; // usada también desde js/poi-panel.js
 
-/** ¿El pin `poiId` tiene ≥1 evento que ocurre en `fechaStr`? */
-function pinTieneEventoEnFecha(poiId, fechaStr) {
+/** ¿El pin `poiId` tiene ≥1 evento que ocurre en `fechaStr`?
+ *  `tz` es opcional (ver PLAN_TIMEZONE_CIUDADES.md) — hoy no se pasa
+ *  desde ningún lado, así que siempre cae en CIUDAD_TIMEZONE_DEFAULT. */
+function pinTieneEventoEnFecha(poiId, fechaStr, tz) {
   if (!_filtroFechaSettings.enabled || !fechaStr || typeof EVENTOS === 'undefined') return false;
-  return EVENTOS.some(ev => ev.poi_id === poiId && _eventoOcurreEnFecha(ev, fechaStr));
+  return EVENTOS.some(ev => ev.poi_id === poiId && _eventoOcurreEnFecha(ev, fechaStr, tz));
 }
 window.pinTieneEventoEnFecha = pinTieneEventoEnFecha;
 
@@ -154,9 +192,11 @@ window.saveFiltroFechaSettings = saveFiltroFechaSettings;
 window.loadFiltroFechaSettings = loadFiltroFechaSettings;
 
 /* ─────────────────────────────────────────
-   ADMIN TAB — Mapa → sección "Filtro de fecha de eventos" (se suma
-   como un plugin más de la tab 'mapa', ver js/map-settings.js —
-   SC.registerTabPlugin acumula, no reemplaza).
+   ADMIN TAB — Eventos → sección "Filtro de fecha de eventos" (se
+   suma como un plugin más de la tab 'eventos-admin' — SC.registerTabPlugin
+   acumula, no reemplaza). [FIX 2026-09-05] Antes registrado en 'mapa',
+   tab de la que esta sección ya no forma parte desde que se movió a
+   Eventos (index.html) — ver nota al principio del archivo.
    ───────────────────────────────────────── */
 function initFiltroFechaAdminTab() {
   const toggle = document.getElementById('fecha-filtro-enabled-toggle');
@@ -186,4 +226,4 @@ function initFiltroFechaAdminTab() {
     saveFiltroFechaSettings();
   });
 }
-SC.registerTabPlugin('mapa', initFiltroFechaAdminTab);
+SC.registerTabPlugin('eventos-admin', initFiltroFechaAdminTab);

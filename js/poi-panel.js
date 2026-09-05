@@ -354,7 +354,7 @@ const PoiPanel = (function () {
     }
     // [Filtro de fecha de eventos, 2026-09-03] con fecha activa, la
     // tarjeta de un evento que NO ocurre ese día queda atenuada
-    // (opacidad configurable en Admin → Mapa) — el orden ya la deja
+    // (opacidad configurable en Admin → Eventos) — el orden ya la deja
     // debajo de los que sí coinciden (ver _eventosVigentesDelPoi).
     const fechaActiva = (typeof activeFilter !== 'undefined' && activeFilter === '__eventos__'
       && typeof fechaFiltroEventos !== 'undefined' && fechaFiltroEventos) ? fechaFiltroEventos : null;
