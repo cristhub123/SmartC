@@ -1061,6 +1061,27 @@ campo-05:
       <div id="evt-categorias-catalogo-wrap"></div>
       <button type="button" class="owner-panel-add-field-btn" id="evt-categorias-add-btn">➕ Agregar categoría</button>
       <button class="geocoder-btn" id="btn-save-evt-categorias" style="margin-top:8px">Guardar categorías</button>
+
+      <!-- [PLAN_FILTRO_FECHA_EVENTOS.md] Movido acá desde Admin → Mapa
+           (04/09→05/09): conceptualmente es de Eventos, no del mapa en
+           general. Ver js/eventos-fecha-filtro.js. -->
+      <div class="divider"><span>FILTRO DE FECHA DE EVENTOS</span></div>
+      <div class="fg" style="margin-bottom:10px">
+        <label class="fl" style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <input type="checkbox" id="fecha-filtro-enabled-toggle" style="accent-color:var(--accent);width:16px;height:16px">
+          Activar selector de fecha en el filtro "Eventos" del mapa
+        </label>
+      </div>
+      <div class="fg">
+        <label class="fl">Opacidad de lo que NO coincide con la fecha elegida (0 a 1)</label>
+        <input class="fi" id="fecha-filtro-opacidad" type="number" min="0" max="1" step="0.05" value="0.35" style="max-width:120px">
+        <p style="font-size:11px;color:var(--text3);margin-top:6px;line-height:1.4">
+          Con el filtro "Eventos" activo y una fecha elegida, los pines
+          (y dentro del panel, los eventos) que sí ocurren ese día quedan a
+          opacidad completa; el resto queda atenuado a este valor, sin
+          ocultarse.
+        </p>
+      </div>
     </div>
 
     <!-- [Etapa 7, PLAN_USUARIOS_EVENTOS.md] Campos preparados para
@@ -1546,23 +1567,6 @@ campo-05:
         </p>
       </div>
 
-      <div class="divider"><span>FILTRO DE FECHA DE EVENTOS</span></div>
-      <div class="fg" style="margin-bottom:10px">
-        <label class="fl" style="display:flex;align-items:center;gap:8px;cursor:pointer">
-          <input type="checkbox" id="fecha-filtro-enabled-toggle" style="accent-color:var(--accent);width:16px;height:16px">
-          Activar selector de fecha en el filtro "Eventos" del mapa
-        </label>
-      </div>
-      <div class="fg">
-        <label class="fl">Opacidad de lo que NO coincide con la fecha elegida (0 a 1)</label>
-        <input class="fi" id="fecha-filtro-opacidad" type="number" min="0" max="1" step="0.05" value="0.35" style="max-width:120px">
-        <p style="font-size:11px;color:var(--text3);margin-top:6px;line-height:1.4">
-          Con el filtro "Eventos" activo y una fecha elegida, los pines
-          (y dentro del panel, los eventos) que sí ocurren ese día quedan a
-          opacidad completa; el resto queda atenuado a este valor, sin
-          ocultarse.
-        </p>
-      </div>
     </div>
 
     <!-- ROADMAP -->
