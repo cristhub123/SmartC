@@ -1,33 +1,38 @@
-# Tab "Categorías" del admin — fix de acceso + aviso de persistencia
+# Categorías del admin — persistencia real (Firestore)
 
-## Bug corregido
-`renderCatsAdmin()` (la función que dibuja la lista de categorías existentes
-con sus botones de activar/desactivar/eliminar) solo se llamaba desde:
-- `toggleCat()` (después de tocar el switch)
-- `deleteCat()` (después de borrar)
-- el handler de "+ Agregar Categoría"
+## Qué se agregó
+Mismo esquema que ya usa el resto de la config de la app (apariencia
+global, estilo de mapa, skin, tipografía): un solo documento en la
+colección `settings`.
 
-Nunca se llamaba al ABRIR el tab. Por eso `#cats-admin-list` arrancaba
-vacío y la única forma de "activar" el listado era crear una categoría
-nueva primero (dispara el único code path que sí renderiza).
+- **`js/settings-sync.js`**: nuevas funciones `saveCategoriesSettings()` /
+  `loadCategoriesSettings()`. Guardan/leen `settings/categories`, con:
+  - `customCats`: las categorías que crees desde el panel (con su
+    label, ícono, color y estado activo/inactivo).
+  - `builtinActive`: qué categorías BASE (las que ya vienen
+    hardcodeadas en `js/config.js`) están activas o desactivadas —
+    solo se guarda ese flag, no la categoría entera (esas no se
+    pueden borrar ni editar desde el panel, así que no hace falta).
 
-Fix: se registró `renderCatsAdmin` con `SC.registerTabPlugin('cats', ...)`
-(mecanismo ya existente en `js/config.js` / `js/admin.js`, pensado
-justamente para esto — no se tocó `switchTab()` a mano). Ahora la lista se
-puebla sola cada vez que se abre el tab "Categorías".
+- **`js/categories.js`**: las 3 acciones del tab "Categorías" ahora
+  llaman a `saveCategoriesSettings()` después de aplicar el cambio en
+  memoria:
+  - Crear categoría nueva (`btn-add-cat`)
+  - Activar/desactivar (`toggleCat`)
+  - Eliminar (`deleteCat`)
 
-## ⚠️ Importante — nada de esto se guarda todavía
-Crear una categoría, editar su color/ícono, activar/desactivar una
-categoría o eliminarla: **todo vive en memoria del navegador**
-(`CUSTOM_CATS` es un `let` en JS, y el flag `active` de las categorías
-base se pisa directo sobre el objeto `CAT` de `config.js`). No hay ninguna
-llamada a Firestore ni a localStorage en este flujo. Al recargar la
-página se pierde todo y vuelve al estado original de `config.js`.
+- **`js/app.js`**: se agregó `loadCategoriesSettings()` al mismo grupo
+  de cargas en paralelo del arranque (`Promise.all` en `init()`) que ya
+  usan apariencia/mapa/features/eventos — corre ANTES de dibujar los
+  pines y armar la barra de filtros, para que ambos nazcan ya con el
+  estado guardado.
 
-No se tocó esto en este ZIP porque es un cambio de otro alcance
-(agregar persistencia real) — queda pendiente para cuando se decida
-encarar eso.
-
-## Archivo modificado
-- `js/categories.js` (solo se agregó el registro del tab plugin al final
-  del archivo, nada más se tocó)
+## Qué falta / a tener en cuenta
+- Editar el color o el ícono de una categoría YA EXISTENTE sigue sin
+  ser posible desde el panel (nunca lo fue) — solo se puede crear,
+  activar/desactivar o eliminar. Si en algún momento se agrega esa
+  edición, tiene que llamar a `saveCategoriesSettings()` también.
+- Igual que el resto de estos guardados (`saveGlobalSettings`,
+  `saveMapSettings`, etc.), si falla el guardado (por ejemplo sin
+  sesión iniciada) tira un toast de aviso — no hay reintento
+  automático.
