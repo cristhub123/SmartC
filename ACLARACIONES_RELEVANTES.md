@@ -1,38 +1,50 @@
-# Categorías del admin — persistencia real (Firestore)
+# ACLARACIONES — fix categorías admin (2026-09-06)
 
-## Qué se agregó
-Mismo esquema que ya usa el resto de la config de la app (apariencia
-global, estilo de mapa, skin, tipografía): un solo documento en la
-colección `settings`.
+## Archivos modificados
+- `js/categories.js` (único archivo tocado)
 
-- **`js/settings-sync.js`**: nuevas funciones `saveCategoriesSettings()` /
-  `loadCategoriesSettings()`. Guardan/leen `settings/categories`, con:
-  - `customCats`: las categorías que crees desde el panel (con su
-    label, ícono, color y estado activo/inactivo).
-  - `builtinActive`: qué categorías BASE (las que ya vienen
-    hardcodeadas en `js/config.js`) están activas o desactivadas —
-    solo se guarda ese flag, no la categoría entera (esas no se
-    pueden borrar ni editar desde el panel, así que no hace falta).
+## 1) Borrado de subcategoría con 1 click sin confirmación / bypass de "Guardar cambios"
+Revisé el código a fondo (deleteCat, deleteSubcat, saveCategoriesSettings) y en el
+proyecto que me pasaste **ya existía** el `confirm()` para categorías Y para
+subcategorías, y ninguna de las dos escribe directo a Firestore — ambas solo
+tocan la memoria (CAT/CUSTOM_CATS) y marcan `_catsDirty`. El único lugar del
+código que escribe `settings/categories` en Firestore es `saveCategoriesSettings()`,
+y lo único que la llama es el botón "💾 Guardar cambios". No encontré ningún
+bypass real en este archivo.
 
-- **`js/categories.js`**: las 3 acciones del tab "Categorías" ahora
-  llaman a `saveCategoriesSettings()` después de aplicar el cambio en
-  memoria:
-  - Crear categoría nueva (`btn-add-cat`)
-  - Activar/desactivar (`toggleCat`)
-  - Eliminar (`deleteCat`)
+Posible explicación: si probaste esto en el navegador ANTES de este envío, es
+razonable que el navegador tuviera cacheada una versión previa del JS. Te
+recomiendo forzar recarga sin caché (Ctrl+Shift+R / Cmd+Shift+R) antes de
+volver a probar.
 
-- **`js/app.js`**: se agregó `loadCategoriesSettings()` al mismo grupo
-  de cargas en paralelo del arranque (`Promise.all` en `init()`) que ya
-  usan apariencia/mapa/features/eventos — corre ANTES de dibujar los
-  pines y armar la barra de filtros, para que ambos nazcan ya con el
-  estado guardado.
+De todos modos, agregué una capa extra de seguridad que no existía: si hay
+cambios sin guardar en la pestaña (incluido un borrado) y intentás recargar o
+cerrar la pestaña del navegador, ahora aparece el aviso nativo de "salir sin
+guardar los cambios" — así queda clarísimo, antes de perderlos, si lo que
+hiciste ya está en Firestore o no.
 
-## Qué falta / a tener en cuenta
-- Editar el color o el ícono de una categoría YA EXISTENTE sigue sin
-  ser posible desde el panel (nunca lo fue) — solo se puede crear,
-  activar/desactivar o eliminar. Si en algún momento se agrega esa
-  edición, tiene que llamar a `saveCategoriesSettings()` también.
-- Igual que el resto de estos guardados (`saveGlobalSettings`,
-  `saveMapSettings`, etc.), si falla el guardado (por ejemplo sin
-  sesión iniciada) tira un toast de aviso — no hay reintento
-  automático.
+## 2) No se podía editar el texto (nombre) de categorías/subcategorías
+Antes el nombre en español solo se podía tocar adentro del acordeón oculto
+"🌐 Idiomas" (que además era chico y difícil de ver — ver punto 3). Ahora cada
+categoría y cada subcategoría tiene un campo de texto SIEMPRE visible en la
+fila (mismo estilo que cualquier otro campo editable de la app) donde se edita
+directamente el nombre en español. El acordeón "🌐 Inglés / Portugués" queda
+solo para esos 2 idiomas secundarios.
+
+## 3) Textos chicos difíciles de leer (verde claro) en el panel admin
+Esto lo apliqué **solo a la pestaña Categorías** (`#tp-cats`), no al resto del
+panel admin — cambiar el color/tamaño de los textos chicos en TODAS las
+pestañas del admin (Apariencia, Eventos, Usuarios, etc.) es un trabajo bastante
+más grande, y no era el foco de esta entrega. Si querés que lo extienda al
+resto del panel, decime y lo armamos como una etapa aparte.
+
+Dentro de la pestaña Categorías: el verde clarito (`--text3`) pasa a un verde
+oscuro con buen contraste, y los tamaños de fuente chicos (9/9.5/10/11/12px)
+suben +2px. Si en algún momento activás el skin oscuro "neobrutal-night", ese
+mismo texto usa un tono claro en vez de oscuro (un verde oscuro sobre fondo
+casi negro sería igual de ilegible) — ya está contemplado.
+
+## Verificación
+`node --check` sin errores en todo el proyecto (`js/*.js`). **No probado
+todavía contra Firebase real ni en el navegador** — falta que lo confirmes en
+tu entorno.
