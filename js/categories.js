@@ -85,7 +85,7 @@ function updateFilterBar() {
 
   const allActive = activeFilter === 'all';
   let html = `<button class="fbtn ${allActive?'on':''}" data-f="all">
-    <div class="fbtn-circle" style="background:#2d4030">${LUCIDE.all}</div>
+    <div class="fbtn-circle">${LUCIDE.all}</div>
     <span class="fbtn-label">Todo</span>
   </button>`;
 
@@ -95,16 +95,19 @@ function updateFilterBar() {
   // con ≥1 evento vigente ahora mismo. Ver _pinMatchesActiveFilter().
   const eventosOn = activeFilter === '__eventos__';
   html += `<button class="fbtn ${eventosOn?'on':''}" data-f="__eventos__">
-    <div class="fbtn-circle" style="background:#c026d3">🎉</div>
+    <div class="fbtn-circle">🎉</div>
     <span class="fbtn-label">Eventos</span>
   </button>`;
 
+  // [Actualización estética 2026-09-06] cat.color ya NO se usa acá
+  // para pintar el círculo (ver nota en css/base.css) — se sigue
+  // usando en el resto de la app (pines, admin, chips de categoría).
   activeCats.forEach(([id, cat]) => {
     const isOn = activeFilter === id;
     const svg  = getCatIcon(cat, id);
     const label = cat.label.charAt(0).toUpperCase() + cat.label.slice(1).toLowerCase();
     html += `<button class="fbtn ${isOn?'on':''}" data-f="${id}">
-      <div class="fbtn-circle" style="background:${cat.color}">${svg}</div>
+      <div class="fbtn-circle">${svg}</div>
       <span class="fbtn-label">${label}</span>
     </button>`;
   });
