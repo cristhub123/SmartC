@@ -489,6 +489,18 @@ completo en `AI_SESSION.md`.
 
 ---
 
+**Nota post-Etapa B (2026-09-06, continuación 4):** las 3 rondas de
+fixes de UX sobre la Etapa B (continuación 2, 3 y 4 — ver
+`AI_SESSION.md` para el detalle de cada una) no abren una etapa nueva,
+son correcciones dentro de la Etapa B. Detalle importante para quien
+continúe: el cache-busting de `js/categories.js` en `index.html` había
+quedado en `?v=20260906` sin bumpear en 2 rondas seguidas de cambios
+de contenido — corregido a `?v=20260906-1955` recién en esta última
+ronda. **Regla a seguir de acá en adelante:** cada vez que se modifique
+un `.js` ya servido con `?v=`, bumpear ese valor en `index.html` en la
+MISMA entrega, aunque el cambio parezca chico — no asumir que un
+`?v=` de más temprano en el mismo día alcanza.
+
 ## 14. Apartado — pedido textual de Cris (corregido solo ortográficamente)
 
 > Quiero que hagamos una nueva implementación para el tema de categorías.

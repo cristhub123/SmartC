@@ -1,50 +1,36 @@
-# ACLARACIONES — fix categorías admin (2026-09-06)
+# ACLARACIONES — 2da parte del fix de categorías (2026-09-06 20:05)
 
-## Archivos modificados
-- `js/categories.js` (único archivo tocado)
+## Qué faltaba (tu pregunta)
+Sí, quedaron 2 cosas sin actualizar en la entrega anterior:
 
-## 1) Borrado de subcategoría con 1 click sin confirmación / bypass de "Guardar cambios"
-Revisé el código a fondo (deleteCat, deleteSubcat, saveCategoriesSettings) y en el
-proyecto que me pasaste **ya existía** el `confirm()` para categorías Y para
-subcategorías, y ninguna de las dos escribe directo a Firestore — ambas solo
-tocan la memoria (CAT/CUSTOM_CATS) y marcan `_catsDirty`. El único lugar del
-código que escribe `settings/categories` en Firestore es `saveCategoriesSettings()`,
-y lo único que la llama es el botón "💾 Guardar cambios". No encontré ningún
-bypass real en este archivo.
+1. **Cache-busting de `js/categories.js` en `index.html`.** Venía con
+   `?v=20260906` desde la entrega inicial de la Etapa B, y ese valor
+   NUNCA se bumpeó en las 2 rondas de fixes siguientes de hoy (ni en la
+   mía recién). Esto es probablemente la explicación real de que el
+   borrado sin confirmación / bypass del guardado te siguiera pasando:
+   el código ya estaba bien desde hace 2 entregas, pero si tu
+   navegador cacheó en algún momento del día esa URL exacta
+   (`categories.js?v=20260906`), puede haber seguido sirviendo una
+   versión vieja aunque el archivo ya estuviera corregido en el
+   servidor. Ahora quedó en `?v=20260906-1955`, que fuerza descarga
+   nueva sí o sí.
+2. **`AI_SESSION.md`** no se había actualizado con el detalle de mi
+   ronda de cambios (lo pide `AI_RULES.md` después de cada edición) —
+   ya está al día, incluyendo la explicación del punto 1.
 
-Posible explicación: si probaste esto en el navegador ANTES de este envío, es
-razonable que el navegador tuviera cacheada una versión previa del JS. Te
-recomiendo forzar recarga sin caché (Ctrl+Shift+R / Cmd+Shift+R) antes de
-volver a probar.
+De paso dejé una nota en `PLAN_CATEGORIAS_SUBCATEGORIAS.md` para que
+esto no se repita: de acá en adelante, cada vez que se toque un `.js`
+que ya se sirve con `?v=`, hay que bumpear ese valor en la MISMA
+entrega, sin asumir que un `?v=` de más temprano en el mismo día
+alcanza.
 
-De todos modos, agregué una capa extra de seguridad que no existía: si hay
-cambios sin guardar en la pestaña (incluido un borrado) y intentás recargar o
-cerrar la pestaña del navegador, ahora aparece el aviso nativo de "salir sin
-guardar los cambios" — así queda clarísimo, antes de perderlos, si lo que
-hiciste ya está en Firestore o no.
+## Qué reemplazar
+Este ZIP trae `index.html`, `AI_SESSION.md` y `PLAN_CATEGORIAS_SUBCATEGORIAS.md`.
+`js/categories.js` **no cambió** respecto al ZIP anterior
+(`smartcityV3.0_fix-categorias-editar-nombre-textos_2026-09-06_1955.zip`)
+— no hace falta volver a bajarlo, solo reemplazá estos 3 archivos.
 
-## 2) No se podía editar el texto (nombre) de categorías/subcategorías
-Antes el nombre en español solo se podía tocar adentro del acordeón oculto
-"🌐 Idiomas" (que además era chico y difícil de ver — ver punto 3). Ahora cada
-categoría y cada subcategoría tiene un campo de texto SIEMPRE visible en la
-fila (mismo estilo que cualquier otro campo editable de la app) donde se edita
-directamente el nombre en español. El acordeón "🌐 Inglés / Portugués" queda
-solo para esos 2 idiomas secundarios.
-
-## 3) Textos chicos difíciles de leer (verde claro) en el panel admin
-Esto lo apliqué **solo a la pestaña Categorías** (`#tp-cats`), no al resto del
-panel admin — cambiar el color/tamaño de los textos chicos en TODAS las
-pestañas del admin (Apariencia, Eventos, Usuarios, etc.) es un trabajo bastante
-más grande, y no era el foco de esta entrega. Si querés que lo extienda al
-resto del panel, decime y lo armamos como una etapa aparte.
-
-Dentro de la pestaña Categorías: el verde clarito (`--text3`) pasa a un verde
-oscuro con buen contraste, y los tamaños de fuente chicos (9/9.5/10/11/12px)
-suben +2px. Si en algún momento activás el skin oscuro "neobrutal-night", ese
-mismo texto usa un tono claro en vez de oscuro (un verde oscuro sobre fondo
-casi negro sería igual de ilegible) — ya está contemplado.
-
-## Verificación
-`node --check` sin errores en todo el proyecto (`js/*.js`). **No probado
-todavía contra Firebase real ni en el navegador** — falta que lo confirmes en
-tu entorno.
+## Importante para la próxima prueba
+Cuando lo subas, probá con recarga forzada (Ctrl+Shift+R / Cmd+Shift+R)
+para asegurarte de que el navegador no siga sirviendo nada cacheado del
+`?v=` viejo.

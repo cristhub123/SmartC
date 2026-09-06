@@ -1,3 +1,57 @@
+## Sesión: 2026-09-06 (continuación 4) — Nombre editable visible, refuerzo de borrado/guardado y legibilidad de textos chicos + fix de cache-busting
+
+Cris reportó 3 problemas tras probar la ronda anterior: (1) borrado de
+subcategoría sin confirmación y aparente bypass del guardado manual,
+(2) recargar sin guardar no revertía un borrado, (3) no podía editar
+el nombre de una categoría/subcategoría, (4) textos chicos del panel
+en verde muy claro, difíciles de leer.
+
+**Hallazgo importante sobre (1) y (2):** revisando el código, el
+`confirm()` y el guardado manual (sin autoguardado a Firestore) YA
+estaban correctamente implementados desde la ronda anterior
+(continuación 2 y 3, más arriba en este archivo). **La causa más
+probable real es otra:** `index.html` cargaba `js/categories.js` con
+`?v=20260906` desde la entrega inicial de la Etapa B, y esa versión
+**nunca se bumpeó** en las 2 rondas de fixes siguientes (continuación
+2 y 3) — la nota de continuación 2 decía explícitamente "index.html no
+cambió... ya tenía el ?v=20260906 de la entrega anterior, sigue
+sirviendo", asumiendo que alcanzaba con que el querystring ya existiera
+ese día. Eso es un error: el cache-busting solo fuerza una descarga
+nueva cuando el VALOR del querystring cambia; si dos contenidos
+distintos de `categories.js` se sirven bajo el mismo `?v=20260906`, un
+navegador que ya cacheó esa URL en algún momento del día puede seguir
+sirviendo una versión vieja aunque el archivo en el servidor ya esté
+actualizado. Esto explicaría por qué comportamientos "ya arreglados"
+(confirmación de borrado, guardado manual) parecían no estar aplicados.
+**Corregido ahora:** `?v=20260906-1955` en `index.html`.
+
+**Cambios de este round (`js/categories.js`):**
+- El nombre en español de cada categoría/subcategoría pasa a un campo
+  de texto SIEMPRE visible en la fila (antes solo se editaba adentro
+  del acordeón "🌐 Idiomas", oculto por defecto). El acordeón queda
+  renombrado "🌐 Inglés / Portugués" y solo maneja esos 2 idiomas.
+- Refuerzo extra (no reemplaza lo anterior, que ya estaba bien): si hay
+  cambios sin guardar (`_catsDirty`) y se intenta recargar/cerrar la
+  pestaña del navegador, ahora aparece el aviso nativo de "salir sin
+  guardar".
+- Textos chicos de la pestaña Categorías (`#tp-cats` únicamente, no el
+  resto del panel admin): se sobreescribe `--text3` por un verde bien
+  oscuro dentro de ese contenedor (con variante clara para el skin
+  "neobrutal-night", fondo oscuro), y los tamaños de fuente chicos
+  hardcodeados (9/9.5/10/11/12px) suben +2px vía selector de atributo
+  por substring del `style` inline, sin reescribir cada línea de
+  `index.html` una por una.
+
+**Archivos modificados:** `js/categories.js`, `index.html` (bump de
+cache-busting de `categories.js`), este archivo.
+
+**Pruebas realizadas:** `node --check` sin errores en todo el
+proyecto. Grep confirmando que no quedó ninguna referencia colgante a
+`data-row-label` (reemplazado por `data-name-input`). **NO probado
+contra Firebase real ni navegador** — pendiente que Cris confirme,
+especialmente con recarga forzada (Ctrl+Shift+R) para descartar
+cualquier resto de cache vieja servida bajo el `?v=` anterior.
+
 ## Sesión: 2026-09-06 (continuación 3) — Guardado manual (sin autoguardado) en la pestaña Categorías
 
 Cris marcó que la pestaña Categorías guardaba cada cambio en
