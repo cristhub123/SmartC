@@ -78,13 +78,21 @@ function getAllCats() {
 function _langEditorHTML(catId, subId, label) {
   const key = subId ? `${catId}::${subId}` : catId;
   const open = _catsUIState.openLang.has(key);
+  // [FIX solicitado por Cris — 2026-09-06] El nombre en español ahora
+  // se edita con un campo SIEMPRE visible en la fila (ver
+  // data-name-input en renderCatsAdmin) — este acordeón queda solo
+  // para EN/PT, que son secundarios y no necesitan estar siempre a la
+  // vista. LANG_CODES sigue teniendo 'es' primero porque otras partes
+  // del proyecto (getCatLabel) dependen de ese orden de fallback; acá
+  // simplemente no lo iteramos.
+  const secondaryCodes = LANG_CODES.filter(c => c !== 'es');
   return `<details class="cats-lang-details" data-lang-key="${key}" ${open?'open':''} style="margin-top:6px">
-    <summary style="cursor:pointer;font-size:11px;color:var(--text3)">🌐 Idiomas</summary>
+    <summary style="cursor:pointer;font-size:13px;color:var(--text3);font-weight:600">🌐 Inglés / Portugués</summary>
     <div style="display:flex;flex-direction:column;gap:4px;margin:6px 0 2px;padding-left:4px">
-      ${LANG_CODES.map(code => `
+      ${secondaryCodes.map(code => `
         <div style="display:flex;align-items:center;gap:6px">
-          <span style="font-size:10px;color:var(--text3);width:22px;flex-shrink:0">${LANG_NAMES[code]}</span>
-          <input type="text" class="fi" style="flex:1;font-size:12px;padding:4px 8px"
+          <span style="font-size:12px;color:var(--text3);width:26px;flex-shrink:0;font-weight:700">${LANG_NAMES[code]}</span>
+          <input type="text" class="fi" style="flex:1;font-size:14px;padding:4px 8px"
             value="${_escAttr((label && label[code]) || '')}"
             data-lang-input data-cat="${catId}" ${subId?`data-subcat="${subId}"`:''} data-lang="${code}">
         </div>`).join('')}
@@ -112,8 +120,15 @@ function renderCatsAdmin() {
     // sería engañoso.
     const subsHTML = subEntries.map(([subId, sub]) => {
       const subOn = sub.active !== false;
+      // [FIX solicitado por Cris — 2026-09-06] antes el nombre era un
+      // <span> de solo lectura (solo editable "escondido" adentro del
+      // acordeón 🌐 Idiomas) — ahora es un campo de texto SIEMPRE
+      // visible en la fila, mismo patrón .fi que cualquier otro campo
+      // editable de la app. Escribe en sub.label.es (ver listener
+      // data-name-input más abajo); EN/PT siguen en el acordeón.
       return `<div class="za-row" style="padding-left:20px;${subOn?'':'opacity:.55'}">
-        <span class="za-name" style="font-size:12px" data-row-label="${id}::${subId}">${getCatLabel(sub)}</span>
+        <input type="text" class="fi" style="flex:1;min-width:0;font-size:14px;padding:5px 10px"
+          value="${_escAttr(getCatLabel(sub,'es'))}" data-name-input data-cat="${id}" data-subcat="${subId}">
         <button class="za-edit-btn" onclick="deleteSubcat('${id}','${subId}')" title="Eliminar">🗑</button>
         <button class="za-toggle ${subOn?'on':''}" onclick="toggleSubcat('${id}','${subId}',this)" title="${subOn?'Desactivar':'Activar'}"></button>
       </div>
@@ -122,12 +137,14 @@ function renderCatsAdmin() {
     const iconEditOpen = _catsUIState.openIconEdit.has(id);
     return `<div class="za-row" style="flex-wrap:wrap;${isOn?'':'opacity:.55'}">
       <span style="font-size:18px;flex-shrink:0">${cat.icon||'🏷'}</span>
-      <span class="za-name" style="color:${cat.color}"><span data-row-label="${id}">${getCatLabel(cat)}</span> <small style="color:var(--text3);font-size:10px">(${count})</small></span>
-      ${cat.builtin?'<span style="font-size:9px;color:var(--text3);font-family:var(--font-m)">BASE</span>':`<button class="za-edit-btn" onclick="deleteCat('${id}')" title="Eliminar">🗑</button>`}
+      <input type="text" class="fi" style="flex:1;min-width:120px;font-size:14px;font-weight:600;padding:5px 10px;color:${cat.color}"
+        value="${_escAttr(getCatLabel(cat,'es'))}" data-name-input data-cat="${id}">
+      <small style="color:var(--text3);font-size:13px;flex-shrink:0">(${count})</small>
+      ${cat.builtin?'<span style="font-size:11px;color:var(--text3);font-family:var(--font-m);flex-shrink:0">BASE</span>':`<button class="za-edit-btn" onclick="deleteCat('${id}')" title="Eliminar">🗑</button>`}
       <button class="za-toggle ${isOn?'on':''}" onclick="toggleCat('${id}',this)" title="${isOn?'Desactivar':'Activar'}"></button>
       <div style="flex-basis:100%">${_langEditorHTML(id, null, cat.label)}</div>
       <details class="cats-icon-details" data-icon-key="${id}" ${iconEditOpen?'open':''} style="flex-basis:100%;margin-top:2px">
-        <summary style="cursor:pointer;font-size:11px;color:var(--text3)">✏️ Ícono y color</summary>
+        <summary style="cursor:pointer;font-size:13px;color:var(--text3);font-weight:600">✏️ Ícono y color</summary>
         <div style="display:flex;gap:10px;align-items:center;margin:6px 0 2px;padding-left:4px">
           <input type="text" class="fi" maxlength="4" style="width:56px;font-size:18px;text-align:center;padding:4px"
             value="${_escAttr(cat.icon||'')}" data-icon-input data-cat="${id}">
@@ -136,11 +153,11 @@ function renderCatsAdmin() {
         </div>
       </details>
       <details class="cats-subcats-details" data-subcat-key="${id}" ${subsOpen?'open':''} style="flex-basis:100%;margin-top:4px">
-        <summary style="cursor:pointer;font-size:11px;color:var(--text3)">📂 Subcategorías (${subEntries.length})</summary>
+        <summary style="cursor:pointer;font-size:13px;color:var(--text3);font-weight:600">📂 Subcategorías (${subEntries.length})</summary>
         <div style="margin-top:6px">${subsHTML}</div>
         <div style="display:flex;gap:6px;margin-top:6px;padding-left:20px;align-items:stretch">
-          <input type="text" class="fi" data-subcat-name-input="${id}" placeholder="Nueva subcategoría..." style="flex:1;min-width:0;font-size:12px;padding:6px 8px">
-          <button type="button" class="btn-outline" style="width:auto;flex:0 0 auto;margin-top:0;padding:6px 12px;font-size:12px;white-space:nowrap" onclick="addSubcat('${id}')">+ Agregar</button>
+          <input type="text" class="fi" data-subcat-name-input="${id}" placeholder="Nueva subcategoría..." style="flex:1;min-width:0;font-size:14px;padding:6px 8px">
+          <button type="button" class="btn-outline" style="width:auto;flex:0 0 auto;margin-top:0;padding:6px 12px;font-size:14px;white-space:nowrap" onclick="addSubcat('${id}')">+ Agregar</button>
         </div>
       </details>
     </div>`;
@@ -178,8 +195,7 @@ function _wireCatsDetailsToggles(list) {
    innerHTML) para no tener que re-atachear un listener por input.
    A propósito NO llama a renderCatsAdmin() en cada tecla/cambio —
    eso colapsaría el <details> que el admin tiene abierto justo
-   mientras está escribiendo; solo actualiza el nombre visible de esa
-   fila puntual (data-row-label) y la barra de filtros pública. */
+   mientras está escribiendo. */
 (function _wireCatsLangInputs() {
   const list = document.getElementById('cats-admin-list');
   if (!list) return;
@@ -195,9 +211,36 @@ function _wireCatsDetailsToggles(list) {
     if (!target) return;
     if (!target.label || typeof target.label !== 'object') target.label = {};
     target.label[lang] = inp.value;
-    const rowKey = subId ? `${catId}::${subId}` : catId;
-    const rowLabelEl = list.querySelector(`[data-row-label="${rowKey}"]`);
-    if (rowLabelEl) rowLabelEl.textContent = getCatLabel(target);
+    if (typeof updateFilterBar === 'function') updateFilterBar();
+    _markCatsDirty();
+  });
+
+  /* [FIX solicitado por Cris — 2026-09-06] antes el nombre (español)
+     de una categoría/subcategoría solo se podía tocar adentro del
+     acordeón "🌐 Idiomas" — ahora hay un campo siempre visible en la
+     fila (ver data-name-input en renderCatsAdmin) que escribe
+     directamente en label.es. No dispara renderCatsAdmin() en cada
+     cambio para no perder el foco/cursor del campo que se está
+     editando; el contador "(N)" y el resto de la fila no dependen de
+     este valor, así que no hace falta repintar nada más. */
+  list.addEventListener('change', (e) => {
+    const inp = e.target.closest('[data-name-input]');
+    if (!inp) return;
+    const catId = inp.dataset.cat;
+    const subId = inp.dataset.subcat || null;
+    const cat = _getCatRef(catId);
+    if (!cat) return;
+    const target = subId ? (cat.subcategories && cat.subcategories[subId]) : cat;
+    if (!target) return;
+    const val = inp.value.trim();
+    if (!val) {
+      toast('⚠️ El nombre no puede quedar vacío');
+      inp.value = getCatLabel(target, 'es');
+      return;
+    }
+    if (!target.label || typeof target.label !== 'object') target.label = {};
+    target.label.es = val;
+    inp.value = val;
     if (typeof updateFilterBar === 'function') updateFilterBar();
     _markCatsDirty();
   });
@@ -349,6 +392,20 @@ function _clearCatsDirty() {
   if (btn) { btn.textContent = '💾 Guardar cambios'; }
   if (warn) warn.style.display = 'none';
 }
+
+/* [FIX solicitado por Cris — 2026-09-06] Refuerzo extra: si hay
+   cambios sin guardar en esta pestaña (_catsDirty) y el admin intenta
+   recargar o cerrar la pestaña del navegador, se le avisa con el
+   diálogo nativo de "salir sin guardar" — así queda clarísimo, antes
+   de perderlos, que esos cambios (incluyendo un borrado) todavía NO
+   están en Firestore. Los navegadores ignoran el texto personalizado
+   y muestran su propio mensaje genérico; igual hace falta
+   returnValue para que el diálogo aparezca en todos ellos. */
+window.addEventListener('beforeunload', (e) => {
+  if (!_catsDirty) return;
+  e.preventDefault();
+  e.returnValue = '';
+});
 
 (function _wireCatsSaveButton() {
   const btn = document.getElementById('btn-save-cats');
@@ -551,7 +608,25 @@ if (_btnAddCat) {
   const s = document.createElement('style');
   s.textContent = `.cat-chip{display:inline-flex;align-items:center;gap:4px;padding:5px 11px;border-radius:99px;border:1.5px solid;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;background:transparent;font-family:var(--font-b);-webkit-tap-highlight-color:transparent;margin:3px}
   .cat-chip:hover{opacity:.85;transform:scale(1.04)}
-  #cat-chips-add,#cat-chips-edit{display:flex;flex-wrap:wrap;gap:2px;padding:8px 0 4px}`;
+  #cat-chips-add,#cat-chips-edit{display:flex;flex-wrap:wrap;gap:2px;padding:8px 0 4px}
+  /* [FIX solicitado por Cris — 2026-09-06] textos chicos de la pestaña
+     Categorías (#tp-cats) con muy bajo contraste (verde claro,
+     --text3) y difíciles de leer. Se sobreescribe --text3 SOLO
+     adentro de #tp-cats (no toca el resto del panel admin ni el mapa
+     público) por un verde bien oscuro; con el skin oscuro
+     "neobrutal-night" se usa un tono claro en su lugar, porque un
+     verde oscuro sobre fondo casi negro sería igual de ilegible.
+     Además se fuerza +2px a los tamaños de fuente chicos que ya
+     estaban hardcodeados en HTML (selector por substring del propio
+     atributo style, para no tener que reescribir cada línea de
+     index.html una por una). */
+  #tp-cats{--text3:#2f5233}
+  [data-skin="neobrutal-night"] #tp-cats{--text3:#d4d4d8}
+  #tp-cats [style*="font-size:9px"]{font-size:11px!important}
+  #tp-cats [style*="font-size:9.5px"]{font-size:11.5px!important}
+  #tp-cats [style*="font-size:10px"]{font-size:12px!important}
+  #tp-cats [style*="font-size:11px"]{font-size:13px!important}
+  #tp-cats [style*="font-size:12px"]{font-size:14px!important}`;
   document.head.appendChild(s);
 })();
 
