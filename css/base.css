@@ -388,7 +388,11 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   flex-direction: row;
   align-items: flex-end;
   gap: 14px;
-  padding: 6px 20px 4px;
+  /* [2026-09-06] antes 6px arriba: no alcanzaba para que el botón
+     activo (translateY(-5px), ver .fbtn.on .fbtn-circle) se vea
+     completo — #filter-bar tiene overflow:hidden y le recortaba la
+     parte de arriba del círculo. */
+  padding: 18px 20px 4px;
   overflow-x: auto;
   overflow-y: visible;
   scrollbar-width: none;
