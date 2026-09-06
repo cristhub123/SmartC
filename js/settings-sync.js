@@ -166,3 +166,48 @@ async function loadActiveSkin() {
   }
 }
 
+/* === CATEGORÍAS (Tab "Categorías" del admin) ===
+   [2026-09-06] Hasta ahora CUSTOM_CATS (categorías creadas por el
+   admin) y el flag `active` de las categorías base (CAT, definidas
+   en config.js) vivían SOLO en memoria del navegador — se perdían al
+   recargar. Mismo esquema de un solo documento que appearance/
+   mapstyle/skin: se guarda TODO junto (categorías propias + qué
+   categorías base están activas/inactivas) en un único doc.
+   customCats trae ya el flag `active` adentro de cada categoría
+   (ver CUSTOM_CATS[id] en js/categories.js); builtinActive es aparte
+   porque las categorías base (CAT) están hardcodeadas en config.js,
+   no se guardan completas — solo se pisa su `active`. */
+async function saveCategoriesSettings() {
+  try {
+    const builtinActive = {};
+    Object.keys(CAT).forEach(id => { builtinActive[id] = CAT[id].active !== false; });
+    await db.collection('settings').doc('categories').set({
+      customCats: CUSTOM_CATS,
+      builtinActive
+    });
+    return true;
+  } catch (err) {
+    console.error('No se pudo guardar las categorías:', err);
+    toast('⚠️ No se guardaron las categorías. ¿Iniciaste sesión?');
+    return false;
+  }
+}
+
+async function loadCategoriesSettings() {
+  try {
+    const doc = await db.collection('settings').doc('categories').get();
+    if (!doc.exists) return;
+    const data = doc.data();
+    if (data.customCats && typeof data.customCats === 'object') {
+      Object.assign(CUSTOM_CATS, data.customCats);
+    }
+    if (data.builtinActive && typeof data.builtinActive === 'object') {
+      Object.entries(data.builtinActive).forEach(([id, active]) => {
+        if (CAT[id]) CAT[id].active = active;
+      });
+    }
+  } catch (err) {
+    console.warn('No se pudieron cargar las categorías guardadas (se usan valores por defecto):', err);
+  }
+}
+

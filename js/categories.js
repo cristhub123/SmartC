@@ -60,6 +60,9 @@ window.toggleCat = function(id, btn) {
   if (typeof scheduleClusterRecompute === 'function') scheduleClusterRecompute();
   renderCatsAdmin();
   updateFilterBar();
+  // [FIX 2026-09-06] antes esto quedaba solo en memoria — ver
+  // saveCategoriesSettings() en js/settings-sync.js.
+  if (typeof saveCategoriesSettings === 'function') saveCategoriesSettings();
   toast(newState ? `✅ "${cat.label}" activada` : `⭕ "${cat.label}" desactivada`);
 };
 
@@ -69,6 +72,7 @@ window.deleteCat = function(id) {
   delete CUSTOM_CATS[id];
   renderCatsAdmin();
   updateFilterBar();
+  if (typeof saveCategoriesSettings === 'function') saveCategoriesSettings();
   toast(`🗑 "${name}" eliminada`);
 };
 
@@ -241,6 +245,7 @@ if (_btnAddCat) {
     document.getElementById('nc-icon').value = '';
     renderCatsAdmin();
     updateFilterBar();
+    if (typeof saveCategoriesSettings === 'function') saveCategoriesSettings();
     toast(`✅ Categoría "${name}" creada`);
   });
 }

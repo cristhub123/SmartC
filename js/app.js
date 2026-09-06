@@ -43,6 +43,13 @@ async function init() {
     // loadClusterSettings: lee un doc propio e independiente
     // (settings/filtroFechaEventos), no hace falta esperarlo en fila.
     typeof loadFiltroFechaSettings === 'function' ? loadFiltroFechaSettings() : Promise.resolve(),
+    // [FIX 2026-09-06] Categorías (CUSTOM_CATS + activo/inactivo de
+    // las base) — mismo motivo: doc propio e independiente
+    // (settings/categories, ver js/settings-sync.js). Tiene que
+    // resolver ANTES de drawLoadedPins()/updateFilterBar() más abajo
+    // para que pines y barra de filtros ya nazcan con el estado
+    // guardado, por eso va adentro de este Promise.all y no después.
+    typeof loadCategoriesSettings === 'function' ? loadCategoriesSettings() : Promise.resolve(),
   ]);
 
   // 1. Aplicar el estilo de mapa ya cargado (o el default si es la
