@@ -174,16 +174,33 @@ async function loadActiveSkin() {
    mapstyle/skin: se guarda TODO junto (categorías propias + qué
    categorías base están activas/inactivas) en un único doc.
    customCats trae ya el flag `active` adentro de cada categoría
-   (ver CUSTOM_CATS[id] en js/categories.js); builtinActive es aparte
-   porque las categorías base (CAT) están hardcodeadas en config.js,
-   no se guardan completas — solo se pisa su `active`. */
+   (ver CUSTOM_CATS[id] en js/categories.js).
+
+   [Etapa A, PLAN_CATEGORIAS_SUBCATEGORIAS.md — 2026-09-06] Antes
+   `builtinActive` solo persistía el flag `active` de las categorías
+   base, porque su contenido (label) vivía hardcodeado en config.js
+   sin ser editable. Ahora que el label es multi-idioma y hay
+   subcategorías anidadas (editables a futuro desde el admin, Etapa
+   B), se persiste la categoría base COMPLETA en `builtinData` (label
+   + subcategories + active) — no solo el flag. Se sigue leyendo el
+   esquema viejo `builtinActive` si `builtinData` no existe todavía,
+   para no perder el estado ya guardado en instalaciones anteriores a
+   este cambio. `languageFieldsCount` (candado de cantidad de idiomas,
+   Etapa B) vive en el mismo documento. */
 async function saveCategoriesSettings() {
   try {
-    const builtinActive = {};
-    Object.keys(CAT).forEach(id => { builtinActive[id] = CAT[id].active !== false; });
+    const builtinData = {};
+    Object.keys(CAT).forEach(id => {
+      builtinData[id] = {
+        label: CAT[id].label,
+        subcategories: CAT[id].subcategories || {},
+        active: CAT[id].active !== false
+      };
+    });
     await db.collection('settings').doc('categories').set({
       customCats: CUSTOM_CATS,
-      builtinActive
+      builtinData,
+      languageFieldsCount: (typeof languageFieldsCount === 'number' ? languageFieldsCount : 3)
     });
     return true;
   } catch (err) {
@@ -201,10 +218,21 @@ async function loadCategoriesSettings() {
     if (data.customCats && typeof data.customCats === 'object') {
       Object.assign(CUSTOM_CATS, data.customCats);
     }
-    if (data.builtinActive && typeof data.builtinActive === 'object') {
+    if (data.builtinData && typeof data.builtinData === 'object') {
+      Object.entries(data.builtinData).forEach(([id, saved]) => {
+        if (!CAT[id] || !saved) return;
+        if (saved.label) CAT[id].label = saved.label;
+        if (saved.subcategories) CAT[id].subcategories = saved.subcategories;
+        if (typeof saved.active === 'boolean') CAT[id].active = saved.active;
+      });
+    } else if (data.builtinActive && typeof data.builtinActive === 'object') {
+      // Esquema viejo (antes de este cambio) — solo traía el flag active.
       Object.entries(data.builtinActive).forEach(([id, active]) => {
         if (CAT[id]) CAT[id].active = active;
       });
+    }
+    if (typeof data.languageFieldsCount === 'number' && data.languageFieldsCount >= 3) {
+      languageFieldsCount = data.languageFieldsCount;
     }
   } catch (err) {
     console.warn('No se pudieron cargar las categorías guardadas (se usan valores por defecto):', err);

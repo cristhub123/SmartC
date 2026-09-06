@@ -95,7 +95,9 @@ async function importContentJSON(jsonText) {
     poi.name          = nombre;
     poi.category      = category;
     poi.categories    = [category];
-    poi.categoryLabel = cfg.label;
+    // [Etapa A, PLAN_CATEGORIAS_SUBCATEGORIAS.md] cfg.label ahora
+    // puede ser multi-idioma — getCatLabel() resuelve a string.
+    poi.categoryLabel = (typeof getCatLabel === 'function') ? getCatLabel(cfg) : (typeof cfg.label === 'string' ? cfg.label : '');
     poi.desc          = desc || poi.desc || '';
     poi.hist          = hist || poi.hist || 'Sin datos históricos.';
     poi.hours         = item.horario_estimado || poi.hours || '';

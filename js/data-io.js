@@ -46,7 +46,7 @@ function exportPOIs() {
       iconCyber:  p.iconCyber  || "🔵",
       iconWinter: p.iconWinter || "❄️",
       iconZombie: p.iconZombie || "☣️",
-      categoryLabel: p.categoryLabel || (CAT[p.category]||{label:p.category.toUpperCase()}).label,
+      categoryLabel: p.categoryLabel || (typeof getCatLabel === 'function' ? getCatLabel(CAT[p.category]||{label:p.category.toUpperCase()}) : ''),
     }))
   };
   const json = JSON.stringify(payload, null, 2);
@@ -217,7 +217,7 @@ function confirmImport() {
         iconCyber:  p.iconCyber  || "🔵",
         iconWinter: p.iconWinter || "❄️",
         iconZombie: p.iconZombie || "☣️",
-        categoryLabel: p.categoryLabel || (CAT[p.category]||{label:(p.category||'').toUpperCase()}).label,
+        categoryLabel: p.categoryLabel || (typeof getCatLabel === 'function' ? getCatLabel(CAT[p.category]||{label:(p.category||'').toUpperCase()}) : ''),
       };
       POIS.push(poi); makeMarker(poi);
       savePoiToFirestore(poi); // el import también persiste en Firestore

@@ -178,7 +178,7 @@ async function saveEdit() {
     ...POIS[idx], name,
     category:      mainCat,
     categories:    cats,
-    categoryLabel: cfg.label,
+    categoryLabel: getCatLabel(cfg),
     icon:          editEmoji,
     lat, lng,
     country, province, city,
@@ -524,7 +524,7 @@ async function saveNew() {
 
   const p = {
     id: slug, name,
-    category: mainCat, categories: cats, categoryLabel: cfg.label,
+    category: mainCat, categories: cats, categoryLabel: getCatLabel(cfg),
     icon: addEmoji, lat, lng, address,
     country, province, city: cityCode,
     imgB64:  window._addImgB64  || null,
@@ -1165,7 +1165,15 @@ function _resolveBulkCategory(value) {
   const target = norm(value);
   const all = (typeof getAllCats === 'function') ? getAllCats() : CAT;
   for (const [id, cfg] of Object.entries(all)) {
-    if (norm(id) === target || norm(cfg.label) === target) return { id, label: cfg.label };
+    const labelStr = (typeof getCatLabel === 'function') ? getCatLabel(cfg) : (typeof cfg.label === 'string' ? cfg.label : '');
+    // [Etapa A, PLAN_CATEGORIAS_SUBCATEGORIAS.md] cfg.label puede ser
+    // multi-idioma — además de matchear contra el idioma activo
+    // (labelStr), matchea contra CUALQUIER idioma cargado, para que
+    // "categoria: culture" (texto en inglés) siga resolviendo aunque
+    // el idioma activo de la app hoy sea español.
+    const matchesAnyLang = cfg.label && typeof cfg.label === 'object'
+      && Object.values(cfg.label).some(v => norm(v) === target);
+    if (norm(id) === target || norm(labelStr) === target || matchesAnyLang) return { id, label: labelStr };
   }
   return null;
 }

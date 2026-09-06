@@ -205,7 +205,7 @@ async function init() {
         return '<div class="sr-item" data-id="' + p.id + '">' +
           '<div class="sr-ico" style="background:' + cfg.color + '20">' + thumb + '</div>' +
           '<div><div class="sr-name">' + p.name + '</div>' +
-          '<div class="sr-cat">' + cats.map(c => (all[c]||{}).label||c).join(', ') + '</div></div>' +
+          '<div class="sr-cat">' + cats.map(c => (typeof getCatLabel === 'function' ? getCatLabel(all[c]) : '') || c).join(', ') + '</div></div>' +
           '</div>';
       }).join('');
       res.classList.add('show');

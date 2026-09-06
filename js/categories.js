@@ -14,6 +14,23 @@ After modifying this file, update /AI_SESSION.md with the change and verificatio
    ═══════════════════════════════════════════════════════════ */
 let CUSTOM_CATS = {};
 
+/* [Etapa A, PLAN_CATEGORIAS_SUBCATEGORIAS.md] `cat.label` ahora es un
+   objeto multi-idioma ({es,en,pt}) — esta función es la ÚNICA forma
+   correcta de leerlo como string (no reimplementar este fallback en
+   otro archivo, ver sección 9/10 del plan). Mismo criterio que
+   AppState.getContent(): si falta el idioma pedido, fallback completo
+   a español. Acepta también el shape legado (label string plano) para
+   no romper categorías guardadas antes de esta migración. */
+function getCatLabel(cat, lang) {
+  if (!cat) return '';
+  const label = cat.label;
+  if (typeof label === 'string') return label; // shape legado
+  if (!label || typeof label !== 'object') return '';
+  const resolvedLang = lang || (typeof AppState !== 'undefined' ? AppState.getLanguage() : 'es');
+  return label[resolvedLang] || label.es || Object.values(label).find(Boolean) || '';
+}
+window.getCatLabel = getCatLabel;
+
 function getAllCats() {
   const result = {};
   Object.entries(CAT).forEach(([k,v]) => { result[k] = {...v, builtin:true, active: v.active !== false}; });
@@ -33,7 +50,7 @@ function renderCatsAdmin() {
     }).length;
     return `<div class="za-row" style="${isOn?'':'opacity:.55'}">
       <span style="font-size:18px;flex-shrink:0">${cat.icon||'🏷'}</span>
-      <span class="za-name" style="color:${cat.color}">${cat.label} <small style="color:var(--text3);font-size:10px">(${count})</small></span>
+      <span class="za-name" style="color:${cat.color}">${getCatLabel(cat)} <small style="color:var(--text3);font-size:10px">(${count})</small></span>
       ${cat.builtin?'<span style="font-size:9px;color:var(--text3);font-family:var(--font-m)">BASE</span>':`<button class="za-edit-btn" onclick="deleteCat('${id}')" title="Eliminar">🗑</button>`}
       <button class="za-toggle ${isOn?'on':''}" onclick="toggleCat('${id}',this)" title="${isOn?'Desactivar':'Activar'}"></button>
     </div>`;
@@ -63,12 +80,12 @@ window.toggleCat = function(id, btn) {
   // [FIX 2026-09-06] antes esto quedaba solo en memoria — ver
   // saveCategoriesSettings() en js/settings-sync.js.
   if (typeof saveCategoriesSettings === 'function') saveCategoriesSettings();
-  toast(newState ? `✅ "${cat.label}" activada` : `⭕ "${cat.label}" desactivada`);
+  toast(newState ? `✅ "${getCatLabel(cat)}" activada` : `⭕ "${getCatLabel(cat)}" desactivada`);
 };
 
 window.deleteCat = function(id) {
   if (!CUSTOM_CATS[id]) return;
-  const name = CUSTOM_CATS[id].label;
+  const name = getCatLabel(CUSTOM_CATS[id]);
   delete CUSTOM_CATS[id];
   renderCatsAdmin();
   updateFilterBar();
@@ -121,7 +138,8 @@ function updateFilterBar() {
   activeCats.forEach(([id, cat]) => {
     const isOn = activeFilter === id;
     const svg  = getCatIcon(cat, id);
-    const label = cat.label.charAt(0).toUpperCase() + cat.label.slice(1).toLowerCase();
+    const labelStr = getCatLabel(cat);
+    const label = labelStr.charAt(0).toUpperCase() + labelStr.slice(1).toLowerCase();
     html += `<button class="fbtn ${isOn?'on':''}" data-f="${id}">
       <div class="fbtn-circle">${svg}</div>
       <span class="fbtn-label">${label}</span>
@@ -240,7 +258,13 @@ if (_btnAddCat) {
     const color = document.getElementById('nc-color').value;
     if (!name) { toast('⚠️ Ingresá el nombre'); return; }
     const id = 'cat_' + name.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'') + '_' + Date.now().toString(36);
-    CUSTOM_CATS[id] = {label:name.toUpperCase(), icon, color, active:true};
+    // [Etapa A, PLAN_CATEGORIAS_SUBCATEGORIAS.md] mismo shape que las
+    // categorías base (CAT): label multi-idioma + subcategories — una
+    // sola fuente de verdad para "qué es una categoría", sea builtin o
+    // custom. Arranca con el mismo texto en los 3 idiomas (todavía no
+    // hay editor de idiomas, ver Etapa B); el admin podrá corregir cada
+    // uno por separado cuando exista.
+    CUSTOM_CATS[id] = {label:{es:name.toUpperCase(), en:name.toUpperCase(), pt:name.toUpperCase()}, icon, color, active:true, subcategories:{}};
     document.getElementById('nc-name').value = '';
     document.getElementById('nc-icon').value = '';
     renderCatsAdmin();
@@ -268,7 +292,8 @@ function buildMultiCatSelector(containerId, selectedCats) {
     .filter(([,v]) => v.active !== false)
     .map(([id,cat]) => {
       const on = sel.has(id);
-      const label = cat.label.charAt(0)+cat.label.slice(1).toLowerCase();
+      const labelStr = getCatLabel(cat);
+      const label = labelStr.charAt(0)+labelStr.slice(1).toLowerCase();
       return `<button type="button" class="cat-chip ${on?'on':''}" data-cat="${id}"
         style="${on?`background:${cat.color};border-color:${cat.color};color:white`:`border-color:${cat.color}40;color:${cat.color}`}"
         onclick="toggleCatChip(this,'${id}','${containerId}')">

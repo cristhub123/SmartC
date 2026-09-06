@@ -313,7 +313,7 @@ function renderList() {
       <div class="poi-row-ico" style="background:${mainCat.color}20">${p.icon}</div>
       <div class="poi-row-info">
         <div class="poi-row-name">${p.name} ${faltaUbicacion ? '<span style="color:var(--amber);font-size:11px;font-weight:700">📍 Falta ubicación</span>' : ''} ${sinCiudad ? '<span style="color:#ef4444;font-size:11px;font-weight:700">🏙️ Sin ciudad</span>' : ''}</div>
-        <div class="poi-row-cat" style="color:${mainCat.color}">${cats.map(c=>c.label).join(' · ')}</div>
+        <div class="poi-row-cat" style="color:${mainCat.color}">${cats.map(c=>(typeof getCatLabel === 'function' ? getCatLabel(c) : '') || '—').join(' · ')}</div>
         <div style="display:flex;gap:3px;margin-top:4px">${barsHTML}</div>
         <div style="font-size:11px;color:var(--text3);margin-top:2px;display:flex;align-items:center;gap:8px">
           👁 ${p.clicks || 0} clicks

@@ -32,15 +32,39 @@ const LUCIDE = {
   default: `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>`,
 };
 
+/* [Etapa A, PLAN_CATEGORIAS_SUBCATEGORIAS.md — 2026-09-06] `label`
+   pasa de string plano a objeto multi-idioma (ES/EN/PT, mismos 3
+   idiomas de `lang-switcher.js`) y cada categoría suma
+   `subcategories` (mapa anidado, mismo shape que una categoría de
+   primer nivel). Se conservan los 7 ids tal cual para no romper
+   `poi.categories` ya guardado en Firestore. Las traducciones EN/PT
+   son un default razonable armado acá (Etapa A no incluye UI de
+   edición todavía, ver Etapa B) — el admin va a poder corregirlas a
+   mano desde el panel una vez exista el editor de idiomas.
+   `subcategories` arranca vacío en las 7: qué categoría pasa a ser
+   subcategoría de cuál es una decisión de Cris, pendiente (ver
+   PLAN_CATEGORIAS_SUBCATEGORIAS.md, sección 11, punto 2) — no se
+   inventa acá ningún árbol.
+   Para leer el label como string (UI), usar `getCatLabel(cat)`
+   (js/categories.js) — nunca leer `cat.label` directo, ver sección
+   10 del plan (mismo criterio de fallback que AppState.getContent). */
 const CAT = {
-  food:    {label:'GASTRONOMÍA',  color:'#e0603a', lucide:'food'},
-  culture: {label:'CULTURA',      color:'#5a52d8', lucide:'culture'},
-  music:   {label:'MÚSICA',       color:'#c850a8', lucide:'music'},
-  bar:     {label:'BARES',        color:'#c87020', lucide:'bar'},
-  art:     {label:'ARTE',         color:'#0d9488', lucide:'art'},
-  historic:{label:'HISTÓRICO',    color:'#7c4aed', lucide:'historic'},
-  shop:    {label:'TIENDAS',      color:'#3a8c4f', lucide:'shop'},
+  food:    {label:{es:'GASTRONOMÍA', en:'FOOD',     pt:'GASTRONOMIA'}, color:'#e0603a', lucide:'food',     subcategories:{}},
+  culture: {label:{es:'CULTURA',     en:'CULTURE',  pt:'CULTURA'},     color:'#5a52d8', lucide:'culture',  subcategories:{}},
+  music:   {label:{es:'MÚSICA',      en:'MUSIC',    pt:'MÚSICA'},      color:'#c850a8', lucide:'music',    subcategories:{}},
+  bar:     {label:{es:'BARES',       en:'BARS',     pt:'BARES'},       color:'#c87020', lucide:'bar',      subcategories:{}},
+  art:     {label:{es:'ARTE',        en:'ART',      pt:'ARTE'},        color:'#0d9488', lucide:'art',      subcategories:{}},
+  historic:{label:{es:'HISTÓRICO',   en:'HISTORIC', pt:'HISTÓRICO'},   color:'#7c4aed', lucide:'historic', subcategories:{}},
+  shop:    {label:{es:'TIENDAS',     en:'SHOPS',    pt:'LOJAS'},       color:'#3a8c4f', lucide:'shop',     subcategories:{}},
 };
+
+/* [Etapa A, PLAN_CATEGORIAS_SUBCATEGORIAS.md] Cantidad de campos de
+   idioma por categoría/subcategoría — hoy fija en 3 (ES/EN/PT),
+   mínimo duro. El candado doble (mismo patrón que el ID de un pin,
+   pin-adjust.js) para subirla vive en el admin (Etapa B, no
+   implementado todavía). Persiste en settings/categories, ver
+   js/settings-sync.js. */
+let languageFieldsCount = 3;
 
 /* [2026-08-29] POIS se carga desde Firestore, ya no arranca con
    semilla de datos de ejemplo — empieza vacío y se llena solo.
