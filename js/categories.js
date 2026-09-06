@@ -31,11 +31,65 @@ function getCatLabel(cat, lang) {
 }
 window.getCatLabel = getCatLabel;
 
+/* [Etapa B, PLAN_CATEGORIAS_SUBCATEGORIAS.md] Los 3 idiomas reales
+   hoy son ES/EN/PT (mismos que js/lang-switcher.js) — agregar más
+   idiomas queda fuera de alcance de este plan (sección 1). El
+   candado de `languageFieldsCount` (sección 3.3) queda preparado
+   para el día que se sumen más, pero mientras LANG_CODES tenga 3
+   elementos, subir ese número no agrega más campos todavía. */
+const LANG_CODES = ['es', 'en', 'pt'];
+const LANG_NAMES = { es: 'ES', en: 'EN', pt: 'PT' };
+
+/* Devuelve la categoría/subcategoría REAL (no la copia que arma
+   getAllCats()) para poder mutarla — CAT o CUSTOM_CATS, según
+   corresponda. Única forma de resolver "dónde vive de verdad este
+   id" (sección 7 del plan, AI_RULES sección 7). */
+function _getCatRef(id) {
+  return CAT[id] || CUSTOM_CATS[id] || null;
+}
+
+/* Mismo criterio de generación de id que ya usaba el alta de
+   categorías custom ('cat_' + nombre_slugificado + '_' + timestamp),
+   ahora factorizado para reusarlo también con subcategorías (sección
+   3.2 del plan — "reusar esa función, no reimplementar una nueva"). */
+function _genCatSlugId(prefix, name) {
+  return prefix + '_' + name.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'') + '_' + Date.now().toString(36);
+}
+
+/* [Etapa B] Qué categorías tienen su editor de idiomas o su sub-lista
+   de subcategorías desplegados — se preserva entre renders para que
+   activar/desactivar/agregar/eliminar (que vuelven a pintar toda la
+   lista) no cierre de golpe lo que el admin tenía abierto. */
+const _catsUIState = { openLang: new Set(), openSub: new Set() };
+
 function getAllCats() {
   const result = {};
   Object.entries(CAT).forEach(([k,v]) => { result[k] = {...v, builtin:true, active: v.active !== false}; });
   Object.entries(CUSTOM_CATS).forEach(([k,v]) => { result[k] = {...v, builtin:false}; });
   return result;
+}
+
+/* [Etapa B, PLAN_CATEGORIAS_SUBCATEGORIAS.md] Bloque de idiomas
+   reusado tanto para una categoría de primer nivel como para una
+   subcategoría — `target.label` es el mismo shape en ambas (sección
+   3.1/3.2 del plan: una sola fuente de verdad para "qué es una
+   categoría"). `catId`/`subId` viajan en data-attrs para que el
+   listener delegado (`_wireCatsLangInputs`) sepa dónde guardar. */
+function _langEditorHTML(catId, subId, label) {
+  const key = subId ? `${catId}::${subId}` : catId;
+  const open = _catsUIState.openLang.has(key);
+  return `<details class="cats-lang-details" data-lang-key="${key}" ${open?'open':''} style="margin-top:6px">
+    <summary style="cursor:pointer;font-size:11px;color:var(--text3)">🌐 Idiomas</summary>
+    <div style="display:flex;flex-direction:column;gap:4px;margin:6px 0 2px;padding-left:4px">
+      ${LANG_CODES.map(code => `
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:10px;color:var(--text3);width:22px;flex-shrink:0">${LANG_NAMES[code]}</span>
+          <input type="text" class="fi" style="flex:1;font-size:12px;padding:4px 8px"
+            value="${_escAttr((label && label[code]) || '')}"
+            data-lang-input data-cat="${catId}" ${subId?`data-subcat="${subId}"`:''} data-lang="${code}">
+        </div>`).join('')}
+    </div>
+  </details>`;
 }
 
 function renderCatsAdmin() {
@@ -48,14 +102,90 @@ function renderCatsAdmin() {
       const cs = Array.isArray(p.categories) ? p.categories : [p.category];
       return cs.includes(id);
     }).length;
-    return `<div class="za-row" style="${isOn?'':'opacity:.55'}">
+    const subs = cat.subcategories && typeof cat.subcategories === 'object' ? cat.subcategories : {};
+    const subEntries = Object.entries(subs);
+    const subsOpen = _catsUIState.openSub.has(id);
+    // [Etapa B] La sub-lista de subcategorías: cada una con su propio
+    // toggle activo/inactivo (mismo patrón .za-toggle) y su propio
+    // editor de idiomas. Sin contador de pines todavía — poi.
+    // subcategories no existe hasta la Etapa C, mostrar (0) siempre
+    // sería engañoso.
+    const subsHTML = subEntries.map(([subId, sub]) => {
+      const subOn = sub.active !== false;
+      return `<div class="za-row" style="padding-left:20px;${subOn?'':'opacity:.55'}">
+        <span class="za-name" style="font-size:12px" data-row-label="${id}::${subId}">${getCatLabel(sub)}</span>
+        <button class="za-edit-btn" onclick="deleteSubcat('${id}','${subId}')" title="Eliminar">🗑</button>
+        <button class="za-toggle ${subOn?'on':''}" onclick="toggleSubcat('${id}','${subId}',this)" title="${subOn?'Desactivar':'Activar'}"></button>
+      </div>
+      <div style="padding-left:20px">${_langEditorHTML(id, subId, sub.label)}</div>`;
+    }).join('');
+    return `<div class="za-row" style="flex-wrap:wrap;${isOn?'':'opacity:.55'}">
       <span style="font-size:18px;flex-shrink:0">${cat.icon||'🏷'}</span>
-      <span class="za-name" style="color:${cat.color}">${getCatLabel(cat)} <small style="color:var(--text3);font-size:10px">(${count})</small></span>
+      <span class="za-name" style="color:${cat.color}"><span data-row-label="${id}">${getCatLabel(cat)}</span> <small style="color:var(--text3);font-size:10px">(${count})</small></span>
       ${cat.builtin?'<span style="font-size:9px;color:var(--text3);font-family:var(--font-m)">BASE</span>':`<button class="za-edit-btn" onclick="deleteCat('${id}')" title="Eliminar">🗑</button>`}
       <button class="za-toggle ${isOn?'on':''}" onclick="toggleCat('${id}',this)" title="${isOn?'Desactivar':'Activar'}"></button>
+      <div style="flex-basis:100%">${_langEditorHTML(id, null, cat.label)}</div>
+      <details class="cats-subcats-details" data-subcat-key="${id}" ${subsOpen?'open':''} style="flex-basis:100%;margin-top:4px">
+        <summary style="cursor:pointer;font-size:11px;color:var(--text3)">📂 Subcategorías (${subEntries.length})</summary>
+        <div style="margin-top:6px">${subsHTML}</div>
+        <div style="display:flex;gap:6px;margin-top:6px;padding-left:20px">
+          <input type="text" class="fi" data-subcat-name-input="${id}" placeholder="Nueva subcategoría..." style="flex:1;font-size:12px;padding:6px 8px">
+          <button type="button" class="btn-outline" style="margin-top:0;padding:6px 10px;font-size:12px;white-space:nowrap" onclick="addSubcat('${id}')">+ Agregar</button>
+        </div>
+      </details>
     </div>`;
   }).join('');
+  _wireCatsDetailsToggles(list);
 }
+
+/* Guarda en _catsUIState qué <details> quedan abiertos, para que el
+   próximo renderCatsAdmin() (disparado por togglear/agregar/eliminar)
+   no los cierre de golpe — se re-attachea en cada render porque
+   list.innerHTML destruye los nodos anteriores. */
+function _wireCatsDetailsToggles(list) {
+  list.querySelectorAll('.cats-lang-details').forEach(d => {
+    d.addEventListener('toggle', () => {
+      const key = d.dataset.langKey;
+      if (d.open) _catsUIState.openLang.add(key); else _catsUIState.openLang.delete(key);
+    });
+  });
+  list.querySelectorAll('.cats-subcats-details').forEach(d => {
+    d.addEventListener('toggle', () => {
+      const key = d.dataset.subcatKey;
+      if (d.open) _catsUIState.openSub.add(key); else _catsUIState.openSub.delete(key);
+    });
+  });
+}
+
+/* [Etapa B] Guardado de los campos de idioma — delegado en el
+   contenedor (sobrevive a que renderCatsAdmin() reemplace el
+   innerHTML) para no tener que re-atachear un listener por input.
+   A propósito NO llama a renderCatsAdmin() en cada tecla/cambio —
+   eso colapsaría el <details> que el admin tiene abierto justo
+   mientras está escribiendo; solo actualiza el nombre visible de esa
+   fila puntual (data-row-label) y la barra de filtros pública. */
+(function _wireCatsLangInputs() {
+  const list = document.getElementById('cats-admin-list');
+  if (!list) return;
+  list.addEventListener('change', (e) => {
+    const inp = e.target.closest('[data-lang-input]');
+    if (!inp) return;
+    const catId = inp.dataset.cat;
+    const subId = inp.dataset.subcat || null;
+    const lang  = inp.dataset.lang;
+    const cat = _getCatRef(catId);
+    if (!cat) return;
+    const target = subId ? (cat.subcategories && cat.subcategories[subId]) : cat;
+    if (!target) return;
+    if (!target.label || typeof target.label !== 'object') target.label = {};
+    target.label[lang] = inp.value;
+    const rowKey = subId ? `${catId}::${subId}` : catId;
+    const rowLabelEl = list.querySelector(`[data-row-label="${rowKey}"]`);
+    if (rowLabelEl) rowLabelEl.textContent = getCatLabel(target);
+    if (typeof updateFilterBar === 'function') updateFilterBar();
+    if (typeof saveCategoriesSettings === 'function') saveCategoriesSettings();
+  });
+})();
 
 window.toggleCat = function(id, btn) {
   const all = getAllCats();
@@ -93,6 +223,52 @@ window.deleteCat = function(id) {
   toast(`🗑 "${name}" eliminada`);
 };
 
+/* [Etapa B, PLAN_CATEGORIAS_SUBCATEGORIAS.md] CRUD de subcategorías.
+   Mismo patrón que toggleCat/deleteCat de arriba, un nivel más
+   adentro (cat.subcategories[subId] en vez de CAT[id]/CUSTOM_CATS[id]
+   directo). No tocan applyAllPinVisibility/scheduleClusterRecompute
+   ni updateFilterBar todavía: hasta que exista poi.subcategories y el
+   filtrado por subcategoría (Etapa C/D), una subcategoría activa o
+   inactiva no cambia qué pin se ve en el mapa. */
+window.toggleSubcat = function(catId, subId, btn) {
+  const cat = _getCatRef(catId);
+  const sub = cat && cat.subcategories && cat.subcategories[subId];
+  if (!sub) return;
+  const newState = !(sub.active !== false);
+  sub.active = newState;
+  btn.classList.toggle('on', newState);
+  if (typeof saveCategoriesSettings === 'function') saveCategoriesSettings();
+  toast(newState ? `✅ "${getCatLabel(sub)}" activada` : `⭕ "${getCatLabel(sub)}" desactivada`);
+};
+
+window.deleteSubcat = function(catId, subId) {
+  const cat = _getCatRef(catId);
+  if (!cat || !cat.subcategories || !cat.subcategories[subId]) return;
+  const name = getCatLabel(cat.subcategories[subId]);
+  delete cat.subcategories[subId];
+  renderCatsAdmin();
+  if (typeof saveCategoriesSettings === 'function') saveCategoriesSettings();
+  toast(`🗑 "${name}" eliminada`);
+};
+
+window.addSubcat = function(catId) {
+  const cat = _getCatRef(catId);
+  if (!cat) return;
+  const input = document.querySelector(`[data-subcat-name-input="${catId}"]`);
+  const name = (input && input.value || '').trim();
+  if (!name) { toast('⚠️ Ingresá el nombre de la subcategoría'); return; }
+  if (!cat.subcategories || typeof cat.subcategories !== 'object') cat.subcategories = {};
+  const id = _genCatSlugId('subcat', name);
+  // Misma estructura que una categoría de primer nivel recién creada
+  // (sección 3.1/3.2 del plan): label multi-idioma con el mismo texto
+  // en los 3 (todavía sin distinguir por idioma) + activa por defecto.
+  cat.subcategories[id] = { label: {es:name.toUpperCase(), en:name.toUpperCase(), pt:name.toUpperCase()}, active: true };
+  _catsUIState.openSub.add(catId); // no colapsar la sub-lista que se acaba de usar
+  renderCatsAdmin();
+  if (typeof saveCategoriesSettings === 'function') saveCategoriesSettings();
+  toast(`✅ Subcategoría "${name}" creada`);
+};
+
 // [FIX 2026-09-06] Antes renderCatsAdmin() solo se llamaba desde
 // toggleCat/deleteCat/btn-add-cat — nunca al ABRIR el tab "cats" del
 // admin. Resultado: #cats-admin-list arrancaba vacío y la única forma
@@ -103,6 +279,7 @@ window.deleteCat = function(id) {
 // js/config.js) en vez de tocar switchTab() a mano.
 if (window.SC && SC.registerTabPlugin) {
   SC.registerTabPlugin('cats', renderCatsAdmin);
+  SC.registerTabPlugin('cats', _resetLangCountLock);
 }
 
 function getCatIcon(cat, id) {
@@ -328,6 +505,58 @@ function getSelectedCats(containerId) {
   fg.innerHTML = `<label class="fl">Categoría (podés elegir más de una)</label><div id="cat-chips-edit"></div>`;
 })();
 
+/* ═══════════════════════════════════════════════════════════
+   [Etapa B, PLAN_CATEGORIAS_SUBCATEGORIAS.md — sección 3.3]
+   "Cantidad de campos de idioma" — mismo patrón de doble candado que
+   el ID de un pin (resetEditIdLock/_applyEditIdLockState/
+   _wireEditIdLock en js/pin-adjust.js): el campo arranca siempre
+   bloqueado mostrando el valor actual; se habilita (borde/texto rojo)
+   solo con los 2 checkboxes tildados a la vez; destildar cualquiera
+   de los dos vuelve a bloquear y descarta el valor a medio escribir.
+   Mínimo duro: 3 (nunca menos — hoy además es el único valor con
+   efecto real, ver nota de LANG_CODES más arriba).
+   ═══════════════════════════════════════════════════════════ */
+function _resetLangCountLock() {
+  const inp   = document.getElementById('cats-lang-count');
+  const lock1 = document.getElementById('cats-lang-count-lock1');
+  const lock2 = document.getElementById('cats-lang-count-lock2');
+  const warn  = document.getElementById('cats-lang-count-warning');
+  if (inp)   { inp.value = languageFieldsCount; inp.disabled = true; inp.style.color = ''; inp.style.borderColor = ''; }
+  if (lock1) lock1.checked = false;
+  if (lock2) lock2.checked = false;
+  if (warn)  warn.style.display = 'none';
+}
+
+function _applyLangCountLockState() {
+  const inp   = document.getElementById('cats-lang-count');
+  const lock1 = document.getElementById('cats-lang-count-lock1');
+  const lock2 = document.getElementById('cats-lang-count-lock2');
+  const warn  = document.getElementById('cats-lang-count-warning');
+  if (!inp || !lock1 || !lock2) return;
+  const unlocked = lock1.checked && lock2.checked;
+  inp.disabled = !unlocked;
+  inp.style.color = unlocked ? '#ef4444' : '';
+  inp.style.borderColor = unlocked ? '#ef4444' : '';
+  if (warn) warn.style.display = unlocked ? '' : 'none';
+  if (!unlocked) inp.value = languageFieldsCount; // descarta edición a medio hacer
+}
+
+(function _wireLangCountLock() {
+  const inp   = document.getElementById('cats-lang-count');
+  const lock1 = document.getElementById('cats-lang-count-lock1');
+  const lock2 = document.getElementById('cats-lang-count-lock2');
+  if (lock1) lock1.addEventListener('change', _applyLangCountLockState);
+  if (lock2) lock2.addEventListener('change', _applyLangCountLockState);
+  if (inp) inp.addEventListener('change', () => {
+    let v = parseInt(inp.value, 10);
+    if (!Number.isFinite(v) || v < 3) v = 3; // mínimo duro, nunca se borra contenido ya cargado
+    inp.value = v;
+    languageFieldsCount = v;
+    if (typeof saveCategoriesSettings === 'function') saveCategoriesSettings();
+    toast(`✅ Cantidad de campos de idioma: ${v}`);
+  });
+})();
+
 /* ── Color presets global handler ── */
 document.querySelectorAll('.color-preset').forEach(el => {
   el.addEventListener('click', () => {
@@ -339,6 +568,7 @@ document.querySelectorAll('.color-preset').forEach(el => {
     else if (target==='newcat')  { document.getElementById('nc-color').value=c; }
   });
 });
+
 
 
 
