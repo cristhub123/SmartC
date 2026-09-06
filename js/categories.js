@@ -72,6 +72,18 @@ window.deleteCat = function(id) {
   toast(`🗑 "${name}" eliminada`);
 };
 
+// [FIX 2026-09-06] Antes renderCatsAdmin() solo se llamaba desde
+// toggleCat/deleteCat/btn-add-cat — nunca al ABRIR el tab "cats" del
+// admin. Resultado: #cats-admin-list arrancaba vacío y la única forma
+// de ver las opciones (activar/desactivar, eliminar) de las
+// categorías YA EXISTENTES era crear una categoría nueva primero,
+// porque ese era el único code path que disparaba el render. Usamos
+// el mecanismo ya existente de admin.js (SC.registerTabPlugin, ver
+// js/config.js) en vez de tocar switchTab() a mano.
+if (window.SC && SC.registerTabPlugin) {
+  SC.registerTabPlugin('cats', renderCatsAdmin);
+}
+
 function getCatIcon(cat, id) {
   const key = cat.lucide || id;
   return LUCIDE[key] || LUCIDE.default;
