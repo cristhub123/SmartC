@@ -60,7 +60,7 @@ function _genCatSlugId(prefix, name) {
    de subcategorías desplegados — se preserva entre renders para que
    activar/desactivar/agregar/eliminar (que vuelven a pintar toda la
    lista) no cierre de golpe lo que el admin tenía abierto. */
-const _catsUIState = { openLang: new Set(), openSub: new Set() };
+const _catsUIState = { openLang: new Set(), openSub: new Set(), openIconEdit: new Set() };
 
 function getAllCats() {
   const result = {};
@@ -119,18 +119,28 @@ function renderCatsAdmin() {
       </div>
       <div style="padding-left:20px">${_langEditorHTML(id, subId, sub.label)}</div>`;
     }).join('');
+    const iconEditOpen = _catsUIState.openIconEdit.has(id);
     return `<div class="za-row" style="flex-wrap:wrap;${isOn?'':'opacity:.55'}">
       <span style="font-size:18px;flex-shrink:0">${cat.icon||'🏷'}</span>
       <span class="za-name" style="color:${cat.color}"><span data-row-label="${id}">${getCatLabel(cat)}</span> <small style="color:var(--text3);font-size:10px">(${count})</small></span>
       ${cat.builtin?'<span style="font-size:9px;color:var(--text3);font-family:var(--font-m)">BASE</span>':`<button class="za-edit-btn" onclick="deleteCat('${id}')" title="Eliminar">🗑</button>`}
       <button class="za-toggle ${isOn?'on':''}" onclick="toggleCat('${id}',this)" title="${isOn?'Desactivar':'Activar'}"></button>
       <div style="flex-basis:100%">${_langEditorHTML(id, null, cat.label)}</div>
+      <details class="cats-icon-details" data-icon-key="${id}" ${iconEditOpen?'open':''} style="flex-basis:100%;margin-top:2px">
+        <summary style="cursor:pointer;font-size:11px;color:var(--text3)">✏️ Ícono y color</summary>
+        <div style="display:flex;gap:10px;align-items:center;margin:6px 0 2px;padding-left:4px">
+          <input type="text" class="fi" maxlength="4" style="width:56px;font-size:18px;text-align:center;padding:4px"
+            value="${_escAttr(cat.icon||'')}" data-icon-input data-cat="${id}">
+          <input type="color" style="width:40px;height:34px;border:1.5px solid var(--border);border-radius:6px;padding:2px;cursor:pointer"
+            value="${cat.color||'#2563eb'}" data-color-input data-cat="${id}">
+        </div>
+      </details>
       <details class="cats-subcats-details" data-subcat-key="${id}" ${subsOpen?'open':''} style="flex-basis:100%;margin-top:4px">
         <summary style="cursor:pointer;font-size:11px;color:var(--text3)">📂 Subcategorías (${subEntries.length})</summary>
         <div style="margin-top:6px">${subsHTML}</div>
-        <div style="display:flex;gap:6px;margin-top:6px;padding-left:20px">
-          <input type="text" class="fi" data-subcat-name-input="${id}" placeholder="Nueva subcategoría..." style="flex:1;font-size:12px;padding:6px 8px">
-          <button type="button" class="btn-outline" style="margin-top:0;padding:6px 10px;font-size:12px;white-space:nowrap" onclick="addSubcat('${id}')">+ Agregar</button>
+        <div style="display:flex;gap:6px;margin-top:6px;padding-left:20px;align-items:stretch">
+          <input type="text" class="fi" data-subcat-name-input="${id}" placeholder="Nueva subcategoría..." style="flex:1;min-width:0;font-size:12px;padding:6px 8px">
+          <button type="button" class="btn-outline" style="width:auto;flex:0 0 auto;margin-top:0;padding:6px 12px;font-size:12px;white-space:nowrap" onclick="addSubcat('${id}')">+ Agregar</button>
         </div>
       </details>
     </div>`;
@@ -153,6 +163,12 @@ function _wireCatsDetailsToggles(list) {
     d.addEventListener('toggle', () => {
       const key = d.dataset.subcatKey;
       if (d.open) _catsUIState.openSub.add(key); else _catsUIState.openSub.delete(key);
+    });
+  });
+  list.querySelectorAll('.cats-icon-details').forEach(d => {
+    d.addEventListener('toggle', () => {
+      const key = d.dataset.iconKey;
+      if (d.open) _catsUIState.openIconEdit.add(key); else _catsUIState.openIconEdit.delete(key);
     });
   });
 }
@@ -183,7 +199,27 @@ function _wireCatsDetailsToggles(list) {
     const rowLabelEl = list.querySelector(`[data-row-label="${rowKey}"]`);
     if (rowLabelEl) rowLabelEl.textContent = getCatLabel(target);
     if (typeof updateFilterBar === 'function') updateFilterBar();
-    if (typeof saveCategoriesSettings === 'function') saveCategoriesSettings();
+    _markCatsDirty();
+  });
+
+  /* [FIX solicitado por Cris — 2026-09-06] antes el ícono/color solo se
+     podían fijar al crear la categoría, sin forma de corregirlos
+     después — mismo problema de fondo que el nombre antes del
+     editor de idiomas. Icono/color son solo de categorías de primer
+     nivel (las subcategorías no tienen, ver sección 3.1 del plan). */
+  list.addEventListener('change', (e) => {
+    const iconInp = e.target.closest('[data-icon-input]');
+    const colorInp = e.target.closest('[data-color-input]');
+    const inp = iconInp || colorInp;
+    if (!inp) return;
+    const catId = inp.dataset.cat;
+    const cat = _getCatRef(catId);
+    if (!cat) return;
+    if (iconInp) cat.icon = iconInp.value;
+    if (colorInp) cat.color = colorInp.value;
+    renderCatsAdmin(); // el emoji/color grande de la fila necesita repintarse
+    if (typeof updateFilterBar === 'function') updateFilterBar();
+    _markCatsDirty();
   });
 })();
 
@@ -207,19 +243,30 @@ window.toggleCat = function(id, btn) {
   if (typeof scheduleClusterRecompute === 'function') scheduleClusterRecompute();
   renderCatsAdmin();
   updateFilterBar();
-  // [FIX 2026-09-06] antes esto quedaba solo en memoria — ver
-  // saveCategoriesSettings() en js/settings-sync.js.
-  if (typeof saveCategoriesSettings === 'function') saveCategoriesSettings();
+  // [FIX solicitado por Cris — 2026-09-06] antes esto se guardaba en
+  // Firestore al toque de cada click — un error acá (o cualquier otro
+  // cambio de esta pestaña) quedaba visible para cualquiera que
+  // cargue la página, sin forma de arrepentirse. Ahora TODO cambio de
+  // la pestaña Categorías (este toggle incluido) queda solo en
+  // memoria hasta que se aprieta "💾 Guardar cambios" al final de la
+  // pestaña — ver _markCatsDirty()/btn-save-cats más abajo.
+  _markCatsDirty();
   toast(newState ? `✅ "${getCatLabel(cat)}" activada` : `⭕ "${getCatLabel(cat)}" desactivada`);
 };
 
 window.deleteCat = function(id) {
   if (!CUSTOM_CATS[id]) return;
   const name = getCatLabel(CUSTOM_CATS[id]);
+  // [FIX solicitado por Cris — 2026-09-06] antes borraba directo, sin
+  // ninguna confirmación — un click de más borraba la categoría sin
+  // vuelta atrás. Un solo botón + confirm() (mismo patrón que ya usa
+  // el borrado de eventos, js/eventos.js) en vez de un candado de
+  // checkboxes: 1 click, 1 pregunta, se entiende al toque.
+  if (!confirm(`¿Eliminar la categoría "${name}"? Esta acción no se puede deshacer.`)) return;
   delete CUSTOM_CATS[id];
   renderCatsAdmin();
   updateFilterBar();
-  if (typeof saveCategoriesSettings === 'function') saveCategoriesSettings();
+  _markCatsDirty();
   toast(`🗑 "${name}" eliminada`);
 };
 
@@ -237,7 +284,7 @@ window.toggleSubcat = function(catId, subId, btn) {
   const newState = !(sub.active !== false);
   sub.active = newState;
   btn.classList.toggle('on', newState);
-  if (typeof saveCategoriesSettings === 'function') saveCategoriesSettings();
+  _markCatsDirty();
   toast(newState ? `✅ "${getCatLabel(sub)}" activada` : `⭕ "${getCatLabel(sub)}" desactivada`);
 };
 
@@ -245,9 +292,10 @@ window.deleteSubcat = function(catId, subId) {
   const cat = _getCatRef(catId);
   if (!cat || !cat.subcategories || !cat.subcategories[subId]) return;
   const name = getCatLabel(cat.subcategories[subId]);
+  if (!confirm(`¿Eliminar la subcategoría "${name}"? Esta acción no se puede deshacer.`)) return;
   delete cat.subcategories[subId];
   renderCatsAdmin();
-  if (typeof saveCategoriesSettings === 'function') saveCategoriesSettings();
+  _markCatsDirty();
   toast(`🗑 "${name}" eliminada`);
 };
 
@@ -265,9 +313,56 @@ window.addSubcat = function(catId) {
   cat.subcategories[id] = { label: {es:name.toUpperCase(), en:name.toUpperCase(), pt:name.toUpperCase()}, active: true };
   _catsUIState.openSub.add(catId); // no colapsar la sub-lista que se acaba de usar
   renderCatsAdmin();
-  if (typeof saveCategoriesSettings === 'function') saveCategoriesSettings();
+  _markCatsDirty();
   toast(`✅ Subcategoría "${name}" creada`);
 };
+
+/* ═══════════════════════════════════════════════════════════
+   [FIX solicitado por Cris — 2026-09-06] Guardado manual de TODA la
+   pestaña Categorías. Antes cada acción (activar/desactivar, borrar,
+   editar idioma/ícono/color, crear categoría o subcategoría, cambiar
+   la cantidad de campos de idioma) escribía en Firestore al toque —
+   un click de más quedaba visible para cualquiera que cargue la
+   página, sin forma de arrepentirse. Mismo patrón que ya usa la
+   pestaña "Apariencia global" (js/admin-global.js, botón
+   btn-apply-global): todo cambio de esta pestaña queda SOLO en
+   memoria del navegador (CAT/CUSTOM_CATS/languageFieldsCount) hasta
+   que se aprieta "💾 Guardar cambios" al final de la pestaña — recién
+   ahí se persiste en Firestore. Si se recarga la página sin guardar,
+   lo no guardado se pierde (a propósito: es la forma de "deshacer"
+   un error antes de que sea visible para el resto).
+   ═══════════════════════════════════════════════════════════ */
+let _catsDirty = false;
+
+function _markCatsDirty() {
+  _catsDirty = true;
+  const btn = document.getElementById('btn-save-cats');
+  const warn = document.getElementById('cats-unsaved-warning');
+  if (btn) { btn.textContent = '💾 Guardar cambios ●'; btn.style.opacity = '1'; }
+  if (warn) warn.style.display = '';
+}
+
+function _clearCatsDirty() {
+  _catsDirty = false;
+  const btn = document.getElementById('btn-save-cats');
+  const warn = document.getElementById('cats-unsaved-warning');
+  if (btn) { btn.textContent = '💾 Guardar cambios'; }
+  if (warn) warn.style.display = 'none';
+}
+
+(function _wireCatsSaveButton() {
+  const btn = document.getElementById('btn-save-cats');
+  if (!btn) return;
+  btn.addEventListener('click', async () => {
+    if (typeof saveCategoriesSettings !== 'function') return;
+    btn.disabled = true;
+    const ok = await saveCategoriesSettings();
+    btn.disabled = false;
+    if (ok) { _clearCatsDirty(); toast('✅ Cambios de categorías guardados'); }
+    // si ok es false, saveCategoriesSettings() ya mostró su propio
+    // toast de error (ver js/settings-sync.js) — no duplicar el aviso.
+  });
+})();
 
 // [FIX 2026-09-06] Antes renderCatsAdmin() solo se llamaba desde
 // toggleCat/deleteCat/btn-add-cat — nunca al ABRIR el tab "cats" del
@@ -446,7 +541,7 @@ if (_btnAddCat) {
     document.getElementById('nc-icon').value = '';
     renderCatsAdmin();
     updateFilterBar();
-    if (typeof saveCategoriesSettings === 'function') saveCategoriesSettings();
+    _markCatsDirty();
     toast(`✅ Categoría "${name}" creada`);
   });
 }
@@ -552,8 +647,8 @@ function _applyLangCountLockState() {
     if (!Number.isFinite(v) || v < 3) v = 3; // mínimo duro, nunca se borra contenido ya cargado
     inp.value = v;
     languageFieldsCount = v;
-    if (typeof saveCategoriesSettings === 'function') saveCategoriesSettings();
-    toast(`✅ Cantidad de campos de idioma: ${v}`);
+    _markCatsDirty();
+    toast(`✅ Cantidad de campos de idioma: ${v} (no olvides "Guardar cambios")`);
   });
 })();
 
