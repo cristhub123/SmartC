@@ -1,62 +1,45 @@
-CAMBIOS — Etapa B de PLAN_CATEGORIAS_SUBCATEGORIAS.md (admin: idiomas + subcategorías), 2026-09-06
-====================================================================================================
+CAMBIOS — Guardado manual en la pestaña Categorías (sin autoguardado), 2026-09-06
+====================================================================================
 
-Esta es la parte que faltaba para poder USAR lo que quedó preparado
-en la entrega anterior (Etapa A). Ahora sí hay pantalla para
-administrar todo.
+Corrige el problema de que cualquier cambio en Categorías se guardaba
+solo en Firestore, visible al toque para cualquiera que cargue la
+página. Archivos tocados: js/categories.js e index.html.
 
-QUÉ PODÉS HACER AHORA EN EL ADMIN → CATEGORÍAS
--------------------------------------------------
-- Cada categoría tiene un botón "🌐 Idiomas" que despliega 3 campos
-  de texto (ES / EN / PT) para editar el nombre en cada idioma. Se
-  guarda solo al salir del campo (no hace falta ningún botón
-  "Guardar" aparte).
-- Cada categoría tiene un botón "📂 Subcategorías" que despliega su
-  lista: podés crear una nueva (escribís el nombre y tocás
-  "+ Agregar"), activarla/desactivarla con el mismo interruptor de
-  siempre, o eliminarla con el tacho de basura. Cada subcategoría
-  también tiene su propio "🌐 Idiomas".
-- Arriba de todo, "Cantidad de campos de idioma": igual que el ID de
-  un pin, arranca bloqueado y hace falta tildar 2 casilleros de
-  seguridad para poder tocarlo. Por ahora subir ese número no cambia
-  nada visible todavía (solo hay 3 idiomas reales cargados en toda la
-  app) — queda preparado para el día que se agregue un 4to idioma,
-  que no es parte de este plan.
+QUÉ CAMBIÓ
+------------
+Nada de lo que hagas en la pestaña Categorías se guarda de una:
+- Activar/desactivar una categoría o subcategoría.
+- Editar los idiomas (🌐) de una categoría o subcategoría.
+- Editar ícono/color (✏️) de una categoría.
+- Crear o borrar una categoría o subcategoría.
+- Cambiar la cantidad de campos de idioma.
 
-QUÉ TODAVÍA NO HACE (etapas siguientes, ya en plan)
-------------------------------------------------------
-- Las subcategorías que crees acá todavía no se pueden asignar a
-  ningún lugar (eso es la Etapa C: selector de subcategorías al
-  crear/editar un pin).
-- El filtro del mapa que ve el público todavía no separa por
-  subcategoría (Etapa D) ni tiene la animación (Etapa E).
-- Por eso las subcategorías no muestran un contador de "cuántos
-  lugares tienen esta subcategoría" — siempre sería 0 hasta la Etapa C.
+Todo eso ahora queda SOLO en memoria mientras seguís en la página.
+Al final de la pestaña (debajo de "+ Agregar Categoría") hay un botón
+nuevo "💾 Guardar cambios" — es el ÚNICO que realmente escribe en
+Firestore. Mientras tengas cambios sin guardar, vas a ver un aviso en
+rojo arriba del botón y el botón va a mostrar "💾 Guardar cambios ●".
+
+Si recargás la página sin haber tocado ese botón, todo lo que hiciste
+en esa sesión se pierde — es intencional: es tu forma de "deshacer" un
+error antes de que se vuelva visible para cualquiera.
+
+Mismo patrón que ya usa la pestaña "Apariencia global" (los sliders
+tocan memoria y recién se guardan con "Aplicar a todos los pins").
 
 CÓMO PROBARLO
 ----------------
-1. Admin → tab Categorías.
-2. Tocá "🌐 Idiomas" en cualquier categoría (ej. Gastronomía), cambiá
-   el texto de "EN" y hacé click afuera del campo — el nombre de esa
-   fila se actualiza al toque, y si tenés el selector de idioma de la
-   app en inglés, la barra de filtros del mapa también cambia.
-3. Tocá "📂 Subcategorías" en esa misma categoría, escribí un nombre
-   (ej. "Parrillas") y "+ Agregar" — aparece en la lista, con su
-   propio interruptor y su propio "🌐 Idiomas".
-4. Recargá la página (F5) y volvé a Categorías — todo lo que
-   guardaste tiene que seguir ahí.
-5. Probá el candado de "Cantidad de campos de idioma": tildá los 2
-   checkboxes, el número se pone editable en rojo; destildá cualquiera
-   de los dos y se vuelve a bloquear.
-6. Confirmá que lo de siempre sigue andando: crear una categoría
-   nueva, activar/desactivar una categoría, el filtro del mapa, el
-   buscador, y la importación masiva por texto.
+1. Admin → Categorías → activá/desactivá cualquier categoría.
+2. Confirmá que aparece el aviso rojo y el botón cambia a
+   "Guardar cambios ●".
+3. Recargá la página SIN tocar el botón — el cambio tiene que haber
+   desaparecido (volvió al estado de antes).
+4. Repetí el cambio y esta vez tocá "💾 Guardar cambios" — recargá de
+   nuevo y confirmá que esta vez sí quedó guardado.
 
 VERIFICACIÓN REALIZADA
 -------------------------
-`node --check` sin errores en TODOS los archivos .js del proyecto.
-Se cruzaron los ids nuevos entre index.html y categories.js (todos
-aparecen una sola vez). Se buscaron colisiones de nombres nuevos
-contra el resto de los archivos .js — ninguna. NO probado contra
-Firebase real ni en el navegador — necesito que confirmes los pasos
-de arriba en tu entorno real.
+`node --check` sin errores en todo el proyecto. Se confirmó por grep
+que no queda ningún guardado automático fuera del botón nuevo. NO
+probado contra Firebase real ni en el navegador — pendiente que
+confirmes los 4 pasos de arriba.

@@ -1,3 +1,79 @@
+## Sesión: 2026-09-06 (continuación 3) — Guardado manual (sin autoguardado) en la pestaña Categorías
+
+Cris marcó que la pestaña Categorías guardaba cada cambio en
+Firestore al toque (activar/desactivar, editar idioma, editar
+ícono/color, crear/borrar categoría o subcategoría, cambiar cantidad
+de campos de idioma) — sin forma de arrepentirse de un error antes de
+que quede visible para cualquiera que cargue la página. Pidió
+explícitamente el mismo patrón que ya existe en "Apariencia global"
+(botón único al final de la pestaña que aplica/guarda de una).
+
+**Cambio:** se sacaron las 9 llamadas a `saveCategoriesSettings()`
+que estaban desperdigadas en `toggleCat`, `deleteCat`, `toggleSubcat`,
+`deleteSubcat`, `addSubcat`, el alta de categoría nueva, el listener
+de idiomas, el listener de ícono/color, y el candado de cantidad de
+idiomas. Todas esas acciones ahora solo tocan memoria
+(`CAT`/`CUSTOM_CATS`/`languageFieldsCount`) y llaman a
+`_markCatsDirty()`, que prende un aviso "⚠️ Tenés cambios sin
+guardar..." y cambia el texto del botón a "💾 Guardar cambios ●".
+Se agregó `<button id="btn-save-cats">` al final de la pestaña
+(`index.html`, debajo de "+ Agregar Categoría") — es el único punto
+que ahora llama a `saveCategoriesSettings()` de verdad; si la
+recargás sin tocarlo, lo no guardado se pierde (a propósito: es la
+forma de "deshacer" un error).
+
+**Archivos modificados:** `js/categories.js` (grueso: nuevo
+`_catsDirty`/`_markCatsDirty`/`_clearCatsDirty`/`_wireCatsSaveButton`,
++ las 9 llamadas removidas), `index.html` (botón + aviso al final del
+tab `tp-cats`).
+
+**Pruebas realizadas:** `node --check` sin errores en todo el
+proyecto; grep confirmando que no queda ningún `saveCategoriesSettings()`
+fuera del botón nuevo; ids `btn-save-cats`/`cats-unsaved-warning`
+cruzados entre `index.html` y `categories.js`. **NO probado contra
+Firebase real ni navegador** — pendiente que Cris confirme: hacer un
+cambio y ver el aviso + el botón cambiar, recargar sin guardar y
+confirmar que el cambio desapareció, y hacer un cambio + guardar y
+confirmar que sí persiste tras F5.
+
+## Sesión: 2026-09-06 (continuación 2) — Fixes de UX pedidos sobre la Etapa B (idiomas/subcategorías)
+
+Cris probó la Etapa B y pidió 3 correcciones, las 3 en `js/categories.js`:
+
+1. **Botón "+ Agregar" gigantesco / campo de texto invisible.** Causa
+   real: `.btn-outline` (css/base.css) tiene `width:100%` por defecto;
+   al ponerlo adentro de una fila flex junto al input sin pisarle el
+   `width` inline, el botón se quedaba con casi todo el ancho de la
+   fila y el input de texto quedaba comprimido a unos pocos píxeles
+   (por eso "no se ve lo que se escribe" — no era un problema de
+   color, era de ancho). Fix: `width:auto;flex:0 0 auto` en el botón +
+   `min-width:0` en el input.
+2. **No había forma de editar ícono/color de una categoría ya creada**
+   (solo se fijaban al crear). Se agregó un desplegable "✏️ Ícono y
+   color" por categoría (no en subcategorías — no tienen esos campos,
+   ver sección 3.1 del plan), con los mismos 2 controles del alta
+   (emoji + color picker), autoguardado en `change`. El nombre (texto)
+   ya se podía corregir desde el desplegable "🌐 Idiomas" de la Etapa
+   B — ahora entre los dos, una categoría es tan editable como
+   cualquier otra cosa del admin.
+3. **Borrado sin ningún tipo de confirmación.** Cris pidió explícitamente
+   NO un candado de checkboxes (como el del ID) sino 1 solo botón +
+   una pregunta de confirmación. Se agregó `confirm("¿Eliminar la
+   categoría/subcategoría \"X\"? Esta acción no se puede deshacer.")`
+   en `deleteCat`/`deleteSubcat` — mismo patrón ya usado en el proyecto
+   para borrar un evento (`js/eventos.js`).
+
+**Archivo modificado:** solo `js/categories.js` (index.html no cambió
+en esta ronda — ya tenía el `?v=20260906` de la entrega anterior, sigue
+sirviendo).
+
+**Pruebas realizadas:** `node --check` sin errores en todo el
+proyecto. Grep de los nuevos hooks (`data-icon-input`,
+`data-color-input`, `cats-icon-details`, `openIconEdit`) para
+confirmar que quedaron cableados en los 3 puntos (render, wiring de
+`<details>`, listener delegado). **NO probado contra navegador
+real** — pendiente que Cris confirme los 3 puntos.
+
 ## Sesión: 2026-09-06 (continuación) — Etapa B de PLAN_CATEGORIAS_SUBCATEGORIAS.md (admin: editar idiomas + CRUD subcategorías)
 
 **Alcance: UI de admin para lo que dejó preparado la Etapa A.** Tab
