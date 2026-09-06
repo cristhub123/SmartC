@@ -1,24 +1,19 @@
 # Botones de filtro inferiores — estilo mate 3D táctil
 
-## Qué cambió
-- `css/base.css`: estilos de `.fbtn` / `.fbtn-circle` / `.fbtn-label`.
-- `js/categories.js`: se quitó el `style="background:${cat.color}"` inline en los 3 lugares donde se arma el HTML de la barra de filtros (Todo / Eventos / cada categoría) — el color lo controla 100% el CSS.
+## Qué cambió (este ZIP)
+- `css/base.css`: fix de recorte — `#filter-bar` tiene `overflow:hidden` y el `.filter-row` solo tenía 6px de padding arriba. Al mover el botón activo hacia arriba (translateY(-5px)) el círculo quedaba tapado por el borde del contenedor. Se subió el padding-top de `.filter-row` de 6px a 18px (deja margen también para el hover, que suma otros -3px).
 
-## Decisión de diseño (importante para no revertir sin querer)
-1. Antes, `cat.color` se veía en el círculo también en reposo (identificaba la categoría a simple vista). Ahora todos los círculos son del mismo gris mate en reposo, y el color solo aparece en el filtro activo. `cat.color` se sigue usando en el resto de la app (pines, admin, chips) — acá ya no.
-2. [Ajuste 2026-09-06, segundo pedido] A diferencia del HTML de referencia (donde el botón activo se "hunde" hacia abajo con una sombra negra dura), acá el botón activo SUBE (translateY(-5px)) y no lleva esa sombra negra sólida — solo un glow difuso más marcado.
+## Historial de esta serie de cambios
+1. Estilos de `.fbtn` / `.fbtn-circle` / `.fbtn-label` en `css/base.css`, y se quitó el `style="background:${cat.color}"` inline en `js/categories.js` (Todo / Eventos / cada categoría) — el color ya no identifica la categoría en reposo, solo aparece en el filtro activo. `cat.color` se sigue usando en el resto de la app (pines, admin, chips).
+2. El botón activo SUBE (translateY(-5px)) en vez de bajar como en el HTML de referencia, y sin la sombra negra sólida del ejemplo — solo un glow difuso.
+3. (Este ZIP) Corregido el recorte del ícono al subir, dándole más aire arriba al contenedor de la barra.
 
 ## Color de acento
-Centralizado en una variable CSS para cambiarlo fácil más adelante:
-
+Centralizado en una variable CSS para cambiarlo fácil más adelante — está justo arriba del bloque `.fbtn` en `css/base.css`:
 ```css
-:root {
-  --filter-accent: #e06c3e; /* naranja del HTML de referencia */
-}
+:root { --filter-accent: #e06c3e; }
 ```
-Está justo arriba del bloque de estilos de `.fbtn` en `css/base.css`.
 
 ## Qué NO cambió
 - Lógica de filtrado (`applyFilter`, `activeFilter`, drag-to-scroll) — intacta.
 - Íconos: ya eran outline (Feather), no hizo falta reemplazarlos.
-- El filtro "Eventos" sigue con el emoji 🎉 dentro del mismo círculo mate.
