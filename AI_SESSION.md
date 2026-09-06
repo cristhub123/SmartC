@@ -1,3 +1,91 @@
+## Sesión: 2026-09-06 (continuación) — Etapa B de PLAN_CATEGORIAS_SUBCATEGORIAS.md (admin: editar idiomas + CRUD subcategorías)
+
+**Alcance: UI de admin para lo que dejó preparado la Etapa A.** Tab
+"Categorías" del admin (`index.html` + `js/categories.js`) ahora
+permite, por cada categoría (builtin o custom):
+- Editar sus 3 idiomas (ES/EN/PT) desde un desplegable "🌐 Idiomas"
+  con un input de texto por idioma — guarda al salir del campo
+  (evento `change`), actualiza en vivo el nombre de esa fila y la
+  barra de filtros pública, y persiste en Firestore.
+- Ver/crear/activar-desactivar/eliminar sus subcategorías desde un
+  desplegable "📂 Subcategorías (N)" — cada subcategoría con su
+  propio toggle (mismo patrón `.za-toggle` de siempre), su propio
+  editor de idiomas, y botón eliminar. Alta con un input + botón
+  "+ Agregar" dentro de cada categoría (mismo generador de id que ya
+  usaba el alta de categorías, factorizado en `_genCatSlugId`).
+- Fila superior nueva "Cantidad de campos de idioma": input numérico
+  bloqueado + candado doble (mismo patrón exacto que
+  `e-slug-lock1`/`e-slug-lock2` de `pin-adjust.js`, replicado acá como
+  `cats-lang-count-lock1`/`lock2`). Mínimo duro 3. **Nota importante:**
+  como hoy solo existen 3 idiomas reales en toda la app (ES/EN/PT,
+  `LANG_CODES` fijo en `categories.js`), subir este número más allá de
+  3 queda preparado para el futuro pero TODAVÍA NO agrega más campos
+  visibles — agregar un 4to idioma real es explícitamente "fuera de
+  alcance" del plan (sección 1). Avisado en el comentario del código y
+  acá para que no genere confusión si Cris prueba subirlo.
+
+**Detalle técnico no trivial:** como `renderCatsAdmin()` reconstruye
+todo `#cats-admin-list` con `innerHTML` cada vez que cambia algo (activar,
+eliminar, agregar), los `<details>` abiertos se perderían en cada
+render. Se agregó `_catsUIState` (dos `Set` en memoria) que registra
+qué categoría/subcategoría tiene su editor de idiomas o su sub-lista
+abierta, y se reaplica el atributo `open` en cada render — así activar
+una categoría no cierra de golpe el editor de idiomas que el admin
+tenía abierto en otra. La edición de texto de idioma en sí NO dispara
+un re-render completo (evitaría cerrar el `<details>` mientras se
+escribe) — solo actualiza el `<span data-row-label>` puntual de esa
+fila vía DOM directo.
+
+**Persistencia:** sin cambios de esquema respecto a la Etapa A — ya
+`saveCategoriesSettings()`/`loadCategoriesSettings()` (`settings-sync.js`)
+guardaban/leían `subcategories` y `label` completos dentro de
+`builtinData`/`customCats`, y `languageFieldsCount`. Esta etapa solo
+agregó la UI que los usa; se llama a `saveCategoriesSettings()` después
+de cada alta/edición/borrado (idiomas, subcategorías, cantidad de
+campos).
+
+**NO se tocó en esta entrega (etapas posteriores):**
+`poi.subcategories` (no existe todavía en ningún pin — recién se
+agrega en la Etapa C, junto con el selector en Nuevo/Editar);
+`activeFilter`/`activeSubfilter` y el filtrado real por subcategoría
+en el mapa público (Etapa D); animación de la barra de filtros (Etapa
+E). Por eso las subcategorías de esta entrega no tienen contador de
+pines (siempre sería 0 — no hay nada todavía que las asigne a un pin).
+
+**Cache-busting:** se subió `?v=` a `20260906` en los 8 `.js` tocados
+hoy entre las dos entregas (Etapa A + B): `settings-sync.js`,
+`config.js`, `admin.js`, `content-import.js`, `categories.js`,
+`pin-adjust.js`, `data-io.js`, `app.js` — para que el navegador no
+sirva la versión vieja cacheada.
+
+**Archivos modificados:** `js/categories.js` (grueso del cambio:
+`getCatLabel`/`_getCatRef`/`_genCatSlugId`/`LANG_CODES`/
+`_catsUIState`/`_langEditorHTML`/`renderCatsAdmin` reescrito/
+`_wireCatsDetailsToggles`/`_wireCatsLangInputs`/`toggleSubcat`/
+`deleteSubcat`/`addSubcat`/`_resetLangCountLock`/
+`_applyLangCountLockState`/`_wireLangCountLock`), `index.html` (markup
+del candado de cantidad de idiomas en el tab Categorías + bump de
+cache-busting en 8 scripts), `PLAN_CATEGORIAS_SUBCATEGORIAS.md`
+(registro de etapa, sección 13).
+
+**Pruebas realizadas:** `node --check` sin errores en TODOS los `.js`
+del proyecto (no solo los tocados). Grep cruzado de ids entre
+`index.html` y `categories.js` (`cats-lang-count`,
+`cats-lang-count-lock1/2`, `cats-lang-count-warning`,
+`cats-admin-list`) — cada uno aparece exactamente 1 vez en el HTML.
+Grep de nombres nuevos (`_getCatRef`, `_genCatSlugId`, `LANG_CODES`,
+`LANG_NAMES`, `_catsUIState`, `toggleSubcat`, `deleteSubcat`,
+`addSubcat`, `_resetLangCountLock`, `_applyLangCountLockState`) contra
+el resto de los `.js` del proyecto — sin colisión de nombres. **NO
+probado contra Firebase real ni navegador** — pendiente que Cris
+confirme: el desplegable de idiomas de una categoría edita y guarda
+bien (los 3 campos), crear/activar/desactivar/eliminar una
+subcategoría funciona y persiste tras F5, el candado de "cantidad de
+campos de idioma" se comporta igual que el del ID de un pin (bloqueado
+→ 2 checks → editable en rojo → destildar descarta), y que nada de lo
+que ya andaba (alta de categoría, activar/desactivar categoría,
+importación masiva, buscador, export/import JSON) se rompió.
+
 ## Sesión: 2026-09-06 — Etapa A de PLAN_CATEGORIAS_SUBCATEGORIAS.md (modelo de datos)
 
 **Alcance de esta entrega: SOLO modelo de datos, sin UI nueva**

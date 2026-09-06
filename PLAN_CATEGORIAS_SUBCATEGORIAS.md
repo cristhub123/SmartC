@@ -467,7 +467,25 @@ candado de la Etapa B. Sin UI nueva, sin tocar `activeFilter`/
 `node --check` sin errores en los 8 `.js` tocados. NO probado contra
 Firebase real ni navegador — pendiente que Cris confirme que la app
 sigue funcionando igual que antes (sin diferencia visible todavía).
-Detalle completo en `AI_SESSION.md`.
+**Etapa B — 2026-09-06 — Admin: editar idiomas + CRUD subcategorías.**
+Tab "Categorías" del admin gana: desplegable "🌐 Idiomas" por
+categoría/subcategoría (3 inputs ES/EN/PT, guarda al salir del campo,
+actualiza en vivo el nombre de la fila + la barra de filtros pública);
+desplegable "📂 Subcategorías" con alta/activar-desactivar/eliminar
+(mismo patrón `.za-toggle` de siempre); fila superior "Cantidad de
+campos de idioma" con candado doble idéntico al del ID de un pin
+(mínimo 3 — subir más de 3 no agrega campos reales todavía porque solo
+hay 3 idiomas soportados en toda la app, ver nota en `LANG_CODES`,
+`categories.js`). Se agregó `_catsUIState` para que activar/eliminar
+(que reconstruyen toda la lista) no cierren los desplegables que el
+admin tenía abiertos. Sin cambios de esquema de persistencia (la
+Etapa A ya dejó `settings-sync.js` preparado). Bump de cache-busting
+`?v=20260906` en los 8 `.js` tocados hoy. `node --check` sin errores
+en todo el proyecto; grep cruzado de ids HTML↔JS y de colisión de
+nombres nuevos, todo OK. NO probado contra Firebase real ni navegador.
+Sin tocar todavía: `poi.subcategories` (Etapa C), filtrado real por
+subcategoría en el mapa (Etapa D), animación (Etapa E). Detalle
+completo en `AI_SESSION.md`.
 
 ---
 

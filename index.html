@@ -1645,7 +1645,23 @@ campo-05:
 
     <!-- CATEGORÍAS -->
     <div class="tpane" id="tp-cats">
-      <p style="font-size:12px;color:var(--text3);margin-bottom:12px">Gestioná las categorías. Desactivar una categoría oculta todos sus lugares del mapa y filtros.</p>
+      <p style="font-size:12px;color:var(--text3);margin-bottom:12px">Gestioná las categorías. Desactivar una categoría oculta todos sus lugares del mapa y filtros. Cada categoría tiene sus 3 idiomas (🌐) y sus propias subcategorías (📂).</p>
+      <!-- [Etapa B, PLAN_CATEGORIAS_SUBCATEGORIAS.md sección 3.3] mismo
+           patrón de doble candado que el ID de un pin (e-slug-lock1/2 más
+           abajo en este mismo archivo) — ver _resetLangCountLock/
+           _applyEditIdLockState/_wireLangCountLock en js/categories.js. -->
+      <div class="fg">
+        <label class="fl">Cantidad de campos de idioma <small style="color:var(--text3);font-weight:400">(bloqueado por seguridad — mínimo 3)</small></label>
+        <input class="fi" id="cats-lang-count" type="number" min="3" disabled style="opacity:.6;width:100px">
+        <div style="display:flex;gap:14px;margin-top:6px;font-size:12px;color:var(--text3);flex-wrap:wrap">
+          <label style="display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="cats-lang-count-lock1"> Entiendo que esto afecta todos los textos de categorías</label>
+          <label style="display:flex;align-items:center;gap:5px;cursor:pointer"><input type="checkbox" id="cats-lang-count-lock2"> Quiero modificar la cantidad igual</label>
+        </div>
+        <div id="cats-lang-count-warning" style="display:none;margin-top:4px;font-size:12px;color:#ef4444">
+          ⚠️ Bajar este número no borra los textos ya cargados en los idiomas que dejen de mostrarse — solo se ocultan. Nunca puede ser menor a 3.
+        </div>
+      </div>
+      <div class="divider" style="margin-top:16px"><span>CATEGORÍAS</span></div>
       <div id="cats-admin-list"></div>
       <div class="divider" style="margin-top:16px"><span>NUEVA CATEGORÍA</span></div>
       <div class="fg">
@@ -1928,8 +1944,8 @@ campo-05:
        en CAMBIOS.txt. Para reactivar este loader habría que revertir también
        js/pois-bootstrap.js más abajo. -->
   <!-- <script src="js/pois-loader.js?v=20260829" defer></script> -->
-  <script src="js/settings-sync.js?v=20260829" defer></script>
-  <script src="js/config.js?v=20260829" defer></script>
+  <script src="js/settings-sync.js?v=20260906" defer></script>
+  <script src="js/config.js?v=20260906" defer></script>
   <script src="js/overlay-manager.js?v=20260829" defer></script>
   <script src="js/ui-guards.js?v=20260831" defer></script>
   <script src="js/scroll-hints.js?v=20260829" defer></script>
@@ -1952,7 +1968,7 @@ campo-05:
   <!-- <script src="js/pois-bootstrap.js?v=20260829" defer></script> -->
 
   <!-- 4. Admin panel (defines switchTab) -->
-  <script src="js/admin.js?v=20260831" defer></script>
+  <script src="js/admin.js?v=20260906" defer></script>
   <!-- [2026-09-02] firebase-auth-compat.js movido acá (ver nota arriba, junto
        a firebase-app-compat.js/firebase-firestore-compat.js) — recién acá lo
        necesitan admin-auth.js y user-auth.js. -->
@@ -1974,15 +1990,15 @@ campo-05:
   <script src="js/skins.js?v=20260831" defer></script>
   <script src="js/cities.js?v=20260829" defer></script>
   <script src="js/features.js?v=20260829" defer></script>
-  <script src="js/content-import.js?v=20260829" defer></script>
+  <script src="js/content-import.js?v=20260906" defer></script>
   <script src="js/roadmap.js?v=20260829" defer></script>
   <script src="js/zones.js?v=20260831" defer></script>
   <script src="js/groups.js?v=20260829" defer></script>
-  <script src="js/categories.js?v=20260829" defer></script>
+  <script src="js/categories.js?v=20260906" defer></script>
   <script src="js/shadow-eye.js?v=20260829" defer></script>
 
   <!-- 7. Features -->
-  <script src="js/pin-adjust.js?v=20260829" defer></script>
+  <script src="js/pin-adjust.js?v=20260906" defer></script>
   <script src="js/pin-geocode.js?v=20260829" defer></script>
   <script src="js/eventos-form-shared.js?v=20260831" defer></script>
   <script src="js/eventos.js?v=20260829" defer></script>
@@ -1999,10 +2015,10 @@ campo-05:
   <script src="js/autofill.js?v=20260829" defer></script>
 
   <!-- 8. Data I/O -->
-  <script src="js/data-io.js?v=20260829" defer></script>
+  <script src="js/data-io.js?v=20260906" defer></script>
 
   <!-- 9. Init orchestrator — ALWAYS LAST -->
-  <script src="js/app.js?v=20260831" defer></script>
+  <script src="js/app.js?v=20260906" defer></script>
 
 </body>
 </html>
