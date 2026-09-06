@@ -1,21 +1,33 @@
-# Botones de filtro inferiores — estilo mate 3D táctil
+# Tab "Categorías" del admin — fix de acceso + aviso de persistencia
 
-## Qué cambió (este ZIP)
-1. Highlight superior del círculo aclarado (`rgba(255,255,255,.1)` → `.32` en reposo, `.45` en activo) — antes casi no se notaba.
-2. Legibilidad del label debajo del ícono: se reemplazó el `text-shadow` de solo blur por un contorno duro (4 sombras a 1px sin blur alrededor de la letra) + una sombra difusa debajo. Sirve para cualquier fondo de mapa (calles claras, parques, etc.) sin agregar cajas ni tocar la tipografía/tamaño.
+## Bug corregido
+`renderCatsAdmin()` (la función que dibuja la lista de categorías existentes
+con sus botones de activar/desactivar/eliminar) solo se llamaba desde:
+- `toggleCat()` (después de tocar el switch)
+- `deleteCat()` (después de borrar)
+- el handler de "+ Agregar Categoría"
 
-## Historial de esta serie de cambios
-1. Estilos de `.fbtn` / `.fbtn-circle` / `.fbtn-label` en `css/base.css`, y se quitó el `style="background:${cat.color}"` inline en `js/categories.js` — el color ya no identifica la categoría en reposo, solo aparece en el filtro activo. `cat.color` se sigue usando en el resto de la app (pines, admin, chips).
-2. El botón activo SUBE (translateY(-5px)) en vez de bajar como en el HTML de referencia, sin sombra negra sólida — solo un glow difuso.
-3. Corregido el recorte del ícono al subir (más padding-top en `.filter-row`).
-4. (Este ZIP) Highlight más claro + legibilidad del texto.
+Nunca se llamaba al ABRIR el tab. Por eso `#cats-admin-list` arrancaba
+vacío y la única forma de "activar" el listado era crear una categoría
+nueva primero (dispara el único code path que sí renderiza).
 
-## Color de acento
-Centralizado en una variable CSS — está justo arriba del bloque `.fbtn` en `css/base.css`:
-```css
-:root { --filter-accent: #e06c3e; }
-```
+Fix: se registró `renderCatsAdmin` con `SC.registerTabPlugin('cats', ...)`
+(mecanismo ya existente en `js/config.js` / `js/admin.js`, pensado
+justamente para esto — no se tocó `switchTab()` a mano). Ahora la lista se
+puebla sola cada vez que se abre el tab "Categorías".
 
-## Qué NO cambió
-- Lógica de filtrado (`applyFilter`, `activeFilter`, drag-to-scroll) — intacta.
-- Íconos: ya eran outline (Feather), no hizo falta reemplazarlos.
+## ⚠️ Importante — nada de esto se guarda todavía
+Crear una categoría, editar su color/ícono, activar/desactivar una
+categoría o eliminarla: **todo vive en memoria del navegador**
+(`CUSTOM_CATS` es un `let` en JS, y el flag `active` de las categorías
+base se pisa directo sobre el objeto `CAT` de `config.js`). No hay ninguna
+llamada a Firestore ni a localStorage en este flujo. Al recargar la
+página se pierde todo y vuelve al estado original de `config.js`.
+
+No se tocó esto en este ZIP porque es un cambio de otro alcance
+(agregar persistencia real) — queda pendiente para cuando se decida
+encarar eso.
+
+## Archivo modificado
+- `js/categories.js` (solo se agregó el registro del tab plugin al final
+  del archivo, nada más se tocó)
