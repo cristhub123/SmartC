@@ -1,58 +1,182 @@
-## Sesión: 2026-09-05 — Fix filtro de fecha de eventos (2 bugs reales) + PLAN_TIMEZONE_CIUDADES.md
+## Sesión: 2026-09-06 — Etapa A de PLAN_CATEGORIAS_SUBCATEGORIAS.md (modelo de datos)
 
-**Pedido de Cris:** en la tab "Eventos" del admin, la sección "Filtro
-de fecha de eventos" (toggle + opacidad) no guarda nada; y como
-usuario, al elegir una fecha en el filtro, los pines con evento
-activo ese día no llegan a opacidad completa.
+**Alcance de esta entrega: SOLO modelo de datos, sin UI nueva**
+(Etapa A del plan). `CAT` (`js/config.js`) pasa de `label` string
+plano a `label` multi-idioma (`{es,en,pt}`) + `subcategories: {}`
+anidado (vacío en las 7 categorías — el árbol real de qué categoría
+pasa a subcategoría de cuál queda pendiente, es decisión de Cris
+desde el admin una vez exista la UI, ver sección 11.2 del plan). Se
+conservan los 7 ids tal cual para no romper `poi.categories` ya
+guardado. Se agregó `languageFieldsCount` (default 3) en
+`js/config.js`, para el candado doble de la Etapa B (todavía sin
+UI).
 
-**Bug 1 (por qué no guardaba nada):** cuando esa sección se movió de
-la tab "Mapa" a la tab "Eventos" (04/09→05/09), el HTML se movió pero
-`js/eventos-fecha-filtro.js` se quedó con
-`SC.registerTabPlugin('mapa', initFiltroFechaAdminTab)` — como
-`switchTab()` solo dispara los plugins del tab que se abre, esa
-función nunca corría al entrar a "Eventos", así que el toggle y el
-campo de opacidad quedaban sin ningún listener enganchado. Fix:
-registrado ahora en `'eventos-admin'`.
+**Consecuencia de cambiar el shape de `label` (no opcional, para no
+romper nada ya funcionando):** se agregó `getCatLabel(cat, lang)` en
+`js/categories.js` (expuesta en `window`), única forma correcta de
+leer el label como string — mismo criterio de fallback completo a
+español que ya usa `AppState.getContent()` (sección 10 del plan).
+Se actualizaron TODOS los lugares que leían `cat.label`/`CAT[x].label`
+directo como string para usar esta función en su lugar (si no, se
+hubiera roto cualquier UI que mostrara una categoría):
+`js/categories.js` (renderCatsAdmin, toggleCat, deleteCat,
+updateFilterBar, buildMultiCatSelector, alta de categoría custom —
+ahora crea el mismo shape que las builtin, con `subcategories:{}`),
+`js/content-import.js`, `js/app.js` (buscador), `js/admin.js`
+(listado de Lugares), `js/data-io.js` (export/import JSON),
+`js/pin-adjust.js` (`saveNew`, `saveEdit`, y `_resolveBulkCategory` —
+esta última además ahora matchea texto libre de categoría contra
+CUALQUIER idioma cargado del label, no solo el activo).
 
-**Bug 2 (por qué no llegaban a opacidad completa):** bug real de
-huso horario. `ev.fecha_inicio`/`fecha_fin` se guardan en UTC
-(`_dateInputToIso`, js/eventos.js), pero la función que calculaba
-"qué día es esto" recortaba a mano los primeros 10 caracteres del
-string UTC — Córdoba es UTC-3, así que un evento cargado de noche
-(21hs en adelante) cruza la medianoche al convertirse a UTC y
-quedaba un día corrido. Fix real (no un parche): nueva función
-`_diaCalendarioEnHuso(str, tz)` que usa `Intl.DateTimeFormat` con
-`timeZone` para calcular el día calendario correcto en el huso de la
-ciudad — recibe `tz` como parámetro opcional (default
-`America/Argentina/Cordoba`), pensada para poder pasarle el huso real
-de otra ciudad el día que haga falta, sin tener que tocarla de nuevo.
-Se evaluó usar la Temporal API en vez de `Intl.DateTimeFormat` — se
-descartó por ahora porque Safari todavía no la soporta.
+**Persistencia (`js/settings-sync.js`):** `saveCategoriesSettings()`/
+`loadCategoriesSettings()` ahora guardan/leen la categoría base
+COMPLETA (`builtinData`: label + subcategories + active), no solo el
+flag `active` como antes (`builtinActive`) — cambio de fondo
+documentado en el propio `AI_RULES.md` (a actualizar, ver pendiente
+abajo) según indica su sección 9. Se mantiene lectura del esquema
+viejo `builtinActive` como fallback si `builtinData` no existe
+todavía, para no perder configuración ya guardada en producción.
+También persiste `languageFieldsCount`.
 
-**Pregunta de Cris, a raíz de este bug:** si conviene establecer ya
-un estándar de huso horario por ciudad para todo el proyecto (pensando
-en Chile como próxima ciudad con huso distinto). Se investigó y se
-armó `PLAN_TIMEZONE_CIUDADES.md` con el estado real: la parte de
-LECTURA (con qué día compara el filtro) quedó resuelta en esta misma
-entrega, de forma versátil (recibe `tz`, no hardcodeada). La parte de
-ESCRITURA (interpretar el `datetime-local` del form como hora de la
-ciudad del evento, no la del navegador de quien carga el evento) y el
-campo `timezone` nuevo en `locations` quedan documentados en ese plan,
-sin arrancar — se decidió posponerlos porque hoy toda la carga es de
-Córdoba, sin beneficio real todavía.
+**NO se tocó en esta entrega (a propósito, corresponde a etapas
+posteriores del plan):** `activeFilter`/`activeSubfilter` (máquina de
+estados, Etapa D), animación de la barra de filtros (Etapa E),
+UI de admin para editar idiomas/subcategorías (Etapa B), selector de
+subcategorías en Nuevo/Editar (Etapa C), `poi.subcategories` (no se
+agregó todavía a ningún pin — no hay nada que lo lea ni lo escriba
+hasta la Etapa C/D).
 
-**Archivos modificados:** `js/eventos-fecha-filtro.js`,
-`js/poi-panel.js` (comentario desactualizado nada más, sin cambio de
-lógica). **Archivo nuevo:** `PLAN_TIMEZONE_CIUDADES.md`.
+**Pendiente para la próxima sesión de código:** actualizar
+`AI_RULES.md` sección 3/7 para reflejar que `CAT[x].label` ya no es
+string (mencionar `getCatLabel()`), y que `builtinData` reemplazó a
+`builtinActive` en `settings/categories` — no se tocó `AI_RULES.md`
+todavía en esta entrega.
 
-**Pruebas realizadas:** `node --check` sin errores en los 2 `.js`
-tocados; grep confirmando que no quedó ninguna referencia a la
-función vieja (`_fechaSoloDiaLocal`) ni al registro viejo
-(`registerTabPlugin('mapa', ...)` para esta sección). NO probado
-contra Firebase real ni navegador — pendiente que Cris confirme: (a)
-el toggle/opacidad de Admin → Eventos ahora persisten y sobreviven un
-F5; (b) eligiendo una fecha con evento cargado de noche, el pin llega
-a opacidad completa.
+**Archivos modificados:** `js/config.js`, `js/categories.js`,
+`js/settings-sync.js`, `js/content-import.js`, `js/app.js`,
+`js/admin.js`, `js/data-io.js`, `js/pin-adjust.js`,
+`PLAN_CATEGORIAS_SUBCATEGORIAS.md` (registro de etapa, sección 13).
+
+**Pruebas realizadas:** `node --check` sin errores en los 8 `.js`
+tocados; grep de todos los usos de `.label` en `js/`/`index.html`
+para confirmar que no quedó ningún lugar leyendo `cat.label` como
+string sin pasar por `getCatLabel()`. **NO probado contra Firebase
+real ni navegador** — pendiente que Cris confirme: la app sigue
+funcionando igual que antes (categorías, filtro, alta de categoría
+custom, importación masiva por texto, export/import JSON), sin
+diferencia visible todavía (Etapa A es solo modelo de datos).
+
+## Sesión: 2026-09-04 (continuación 2) — LA causa real: `setPointerCapture` en el pointerdown de la barra de filtros
+
+**Dato clave que dio Cris:** en PC el botón de filtro se "aprieta" un
+instante (efecto nativo del navegador) pero nunca queda marcado como
+seleccionado — el mapa nunca cambia. Esto descartó todo lo investigado
+antes (clusters, categorías, pin-visibility) y apuntó derecho al
+mecanismo de click en sí.
+
+**Causa real, confirmada contra reportes idénticos de otros
+proyectos reales (Chromium/Firefox/Safari, y un caso de un
+seat-picker con el mismo síntoma exacto):** `updateFilterBar()`
+(categories.js) implementa "arrastrar la barra de filtros con el
+mouse para hacer scroll horizontal" usando `bar.setPointerCapture(e.
+pointerId)` — pero lo llamaba en el `pointerdown`, es decir, en
+CUALQUIER toque, incluido un simple click sin arrastre. Es un bug
+conocido de esa API: una vez capturado el puntero, el `click`
+resultante puede terminar dirigido al CONTENEDOR (`bar`) en vez del
+botón que el usuario realmente tocó — y como el listener de click
+vive en cada botón (`.fbtn`), nunca le llega. El "apretado" que ve
+Cris es el CSS nativo del navegador (no depende de este bug); lo que
+falla es que el JS de click nunca se ejecuta.
+
+Por qué solo en PC: es un problema que afecta sobre todo a mouse/
+desktop (el touch de los celulares tolera mejor este caso particular
+de la API, según la documentación consultada), y Cris probó en 4
+navegadores de PC (todos con mouse) contra 1 solo celular (touch).
+
+**Fix real, no un caso especial inventado — es el patrón estándar y
+documentado para "arrastre que no debe romper el click de sus
+hijos"**: capturar el puntero recién cuando se CONFIRMA que es un
+arrastre real (se cruza el umbral de movimiento), nunca en el
+`pointerdown`. Un click sin arrastre nunca llega a capturar nada, así
+que el evento de click llega íntegro al botón. Se agregó también
+`releasePointerCapture` explícito en el `pointerup` (buena práctica,
+antes no estaba).
+
+**Archivo modificado:** `js/categories.js` (`updateFilterBar`).
+`node --check` sin errores. Esta vez el fix apunta directo al
+mecanismo que Cris describió (el botón "se aprieta pero no queda
+marcado"), así que hay bastante confianza de que sea la causa real —
+igual pendiente de confirmación en PC.
+
+## Sesión: 2026-09-04 (continuación) — Causa real encontrada: `_restoreHiddenByCluster()` pisaba al filtro
+
+**Cris pidió explícitamente** que la corrección anterior (try/catch)
+no fuera un parche — quería la causa real resuelta de raíz, no
+código defensivo tapando el síntoma. Se siguió investigando y se
+encontró la causa real (ver razonamiento completo en el comentario
+del propio código, `cluster-grouping.js`):
+
+`_restoreHiddenByCluster()` (corre al inicio de cada
+`computeAndRenderClusters()`) restauraba a ciegas (`visibility=''`)
+CUALQUIER pin que hubiera estado oculto por un cluster anterior — sin
+preguntar si ese pin debía seguir oculto por OTRO motivo (el filtro
+recién elegido). Como los pines filtrados quedan excluidos de volver
+a agruparse (no son candidatos), nunca se los volvía a ocultar
+después — quedaban visibles para siempre, encima del filtro.
+
+Esto es un bug DE FONDO en el sistema de clusters, que existía desde
+antes de esta sesión — pero nunca se notaba porque `applyFilter()`
+nunca disparaba un recompute de clusters (el bug original de este
+plan). Al conectar `applyFilter()` → `scheduleClusterRecompute()`
+(parte necesaria del fix de PLAN_VISIBILIDAD_PINES_UNIFICADA.md) quedó
+expuesto. En PC, con más área de mapa visible, hay más pines
+agrupados en clusters de entrada → el impacto es mucho más notorio
+que en el celular.
+
+**Fix real:** `_restoreHiddenByCluster()` ya no restaura a ciegas —
+delega a `applyPinVisibility()` (pin-visibility.js, la única fuente
+de verdad) para que cada pin quede exactamente como corresponde. No
+es una excepción/regla especial nueva: es la MISMA función central
+que ya se usa en todos lados, aplicada acá también — coherente con
+el objetivo de fondo del plan (1 sola lógica de "¿se ve este pin?").
+
+**Archivo modificado:** `js/cluster-grouping.js` (además del
+try/catch de la sesión anterior, que se mantiene — es buena práctica
+real, aislar fallas, no un parche del síntoma reportado). `node
+--check` sin errores. Pendiente: confirmación de Cris en PC.
+
+## Sesión: 2026-09-04 — Parche de robustez tras reporte de Cris (filtros sin efecto en PC, sí en celular)
+
+**Reportado:** después de la entrega de PLAN_VISIBILIDAD_PINES_UNIFICADA,
+Cris probó en 4 navegadores de PC y ningún filtro de categoría aplicaba
+nada (todos los pines quedaban siempre visibles) — en el celular sí
+funcionaba bien.
+
+**Hipótesis con más peso (no confirmada en navegador real, pendiente
+de que Cris mande la consola — F12 — al clickear un filtro en PC):**
+tanto `applyAllPinVisibility()` (pin-visibility.js) como el filtro de
+candidatos de `computeAndRenderClusters()` (cluster-grouping.js)
+recorrían TODOS los pines sin ningún try/catch — si UN SOLO pin
+tirara una excepción (ej. algún dato viejo/raro puntual de ese pin),
+el recorrido se cortaba ahí mismo y ningún pin posterior se llegaba a
+procesar, sin ningún error visible más que en la consola. Como PC
+tiene más área de mapa visible, carga más pines de una vez (viewport
+loader) — más chance de tocar un pin problemático que en el celular,
+que carga menos por vez. Encaja con el patrón reportado.
+
+**Fix aplicado (independiente de si esta es la causa real o no — es
+una mejora de robustez correcta de todas formas):** ambos recorridos
+ahora aíslan cada pin en su propio try/catch — si uno falla, se avisa
+por consola con su id (para poder investigarlo después) y se sigue
+con el resto, nunca más se corta todo por 1 solo pin.
+
+**Archivos modificados:** `js/pin-visibility.js`, `js/cluster-grouping.js`.
+`node --check` sin errores. **Pendiente real:** que Cris confirme si
+esto resolvió el problema, y si no, que mande captura de la consola
+(F12 → pestaña Console) al clickear un filtro en PC — con el try/catch
+puesto, si el problema persiste, ahora debería aparecer un
+`console.warn` señalando exactamente qué pin falla y con qué error,
+lo cual da la pista real para el siguiente paso.
 
 ## Sesión: 2026-09-03 (continuación) — PLAN_VISIBILIDAD_PINES_UNIFICADA.md ejecutado
 

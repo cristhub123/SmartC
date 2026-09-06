@@ -1,41 +1,64 @@
-CAMBIOS — Color del nombre del pin, por pin (panel público), 2026-09-01
+CAMBIOS — Etapa A de PLAN_CATEGORIAS_SUBCATEGORIAS.md (modelo de datos), 2026-09-06
 =========================================================================
 
-Nueva feature, a pedido de Cris: se puede elegir un color propio para
-el nombre de CADA lugar en su panel público, además del color
-general que ya existía (pestaña "Interfaz", nivel "Nombre principal",
-aplica a todos los pines a la vez).
+Alcance de esta entrega: SOLO modelo de datos, sin UI nueva (Etapa A
+del plan de categorías/subcategorías). No hay nada distinto para ver
+todavía en la app — el filtro y el admin de categorías funcionan
+exactamente igual que antes.
 
 QUÉ CAMBIÓ
 ------------
-- index.html: nuevo campo en la tab "Editar" (justo debajo de
-  "Nombre"): selector de color + hex sincronizados + botón "✕
-  Quitar" para volver al color general.
-- js/admin.js (startEdit): precarga el color guardado del pin al
-  abrir su edición (vacío si nunca se le puso uno).
-- js/pin-adjust.js (saveEdit): valida el hex (o vacío) y guarda el
-  campo nuevo `titleColor` en el pin. Wiring del selector color↔hex
-  al final del archivo, mismo patrón que "Color del borde sólido"
-  de Admin → Global.
-- js/poi-panel.js: aplica `poi.titleColor` como color inline del
-  nombre en el panel público. Si el pin no tiene uno guardado, no
-  pasa nada — sigue el color general de la pestaña "Interfaz" como
-  siempre (comportamiento de todos los pines existentes, sin tocar).
+- js/config.js: CAT pasa de `label` string plano a `label`
+  multi-idioma ({es, en, pt}) + `subcategories: {}` anidado (vacío en
+  las 7 categorías por ahora — qué categoría pasa a ser subcategoría
+  de cuál queda pendiente, es una decisión tuya desde el admin una
+  vez exista esa pantalla). Se conservan los 7 ids tal cual
+  (food/culture/music/bar/art/historic/shop) para no romper los pines
+  ya guardados. Nueva variable `languageFieldsCount` (default 3), para
+  el candado de cantidad de idiomas que se va a construir más
+  adelante.
+- js/categories.js: nueva función `getCatLabel(cat, lang)` — única
+  forma correcta de leer el label de una categoría como texto (con
+  fallback a español si falta un idioma, igual que ya hace el resto
+  de la app). Se actualizaron todos los lugares de este archivo que
+  mostraban el label de una categoría (lista de categorías del admin,
+  activar/desactivar, eliminar, barra de filtros, selector de
+  categorías de un pin) para usar esta función. Crear una categoría
+  nueva desde el admin ahora arma el mismo tipo de dato que las
+  categorías base (con sus 3 idiomas y su casillero de subcategorías).
+- js/content-import.js, js/app.js, js/admin.js, js/data-io.js,
+  js/pin-adjust.js: mismo ajuste — todo lugar que mostraba o guardaba
+  el nombre de una categoría (buscador, listado de Lugares,
+  export/import JSON, alta/edición de pin, importación masiva por
+  texto) usa ahora la misma función nueva, para que nada se rompa ni
+  muestre texto raro.
+- js/settings-sync.js: el guardado de categorías en Firestore ahora
+  guarda la categoría base completa (label + subcategorías + activo),
+  no solo si está activada o no como antes — necesario porque ahora
+  el label es editable. Si abrís la app y todavía tiene el guardado
+  viejo, lo sigue leyendo bien (no se pierde nada).
+
+QUÉ FALTA (etapas siguientes del mismo plan, ya anotadas)
+------------------------------------------------------------
+- Etapa B: pantalla de admin para editar los 3 idiomas y las
+  subcategorías de cada categoría, con el candado de seguridad.
+- Etapa C: selector de subcategorías al crear/editar un pin.
+- Etapa D: que el filtro del mapa realmente separe por subcategoría.
+- Etapa E: la animación de la barra de filtros.
 
 CÓMO USARLO
 -------------
-Admin → Lugares → Editar un pin → campo "Color del nombre en el
-panel" (debajo de Nombre) → elegís un color → Guardar cambios. Para
-sacarle el color propio y que vuelva a seguir el general, tocá "✕
-Quitar" antes de guardar.
+Nada nuevo para usar todavía — esta entrega es la base de datos
+interna para las etapas siguientes. Confirmá que todo lo de siempre
+sigue andando igual: categorías del filtro, activar/desactivar una
+categoría desde el admin, crear una categoría nueva, importación
+masiva por texto con "categoria: ...", y el export/import de JSON.
 
 VERIFICACIÓN REALIZADA
 -------------------------
-Sintaxis de los 3 archivos .js validada con Node (sin errores).
-Balance de <div> del bloque HTML insertado revisado a mano (+2
-abiertos / +2 cerrados, consistente). Recorrido manual del flujo de
-datos completo: form → saveEdit() → savePoiToFirestore() (guarda el
-objeto completo, sin lista blanca de campos, así que titleColor pasa
-sin problema) → AppState.loadPois() (copia todos los campos del pin,
-no solo algunos) → poi-panel.js lee poi.titleColor directo del
-mismo objeto. NO probado en navegador real ni contra Firestore real.
+`node --check` sin errores en los 8 archivos .js tocados. Se hizo un
+grep de todos los usos de ".label" en el proyecto para confirmar que
+no quedó ningún lugar leyendo el label de una categoría directo como
+texto (lo que se hubiera roto con el cambio de shape) sin pasar por
+la función nueva. NO probado contra Firebase real ni en el navegador
+— quedan pendiente de que confirmes en tu entorno real.
