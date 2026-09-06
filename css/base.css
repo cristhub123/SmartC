@@ -434,7 +434,19 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   color: #1a1a1a;
 }
 
-/* Each category button — column: circle + label */
+/* Each category button — column: circle + label
+   [Actualización estética 2026-09-06] Antes cada círculo llevaba el
+   color propio de su categoría (cat.color) también EN REPOSO, para
+   identificarla a simple vista. Decisión tomada con Cris: se
+   descarta eso a propósito — ahora todos los círculos son del mismo
+   gris mate en reposo, y el color de acento (--filter-accent) solo
+   aparece en el que está activo, imitando un botón físico que se
+   "hunde" al presionarlo. cat.color se sigue usando en el resto de
+   la app (pines, admin, chips) — acá ya no. */
+:root {
+  --filter-accent: #e06c3e;
+}
+
 .fbtn {
   display: flex;
   flex-direction: column;
@@ -452,9 +464,10 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
 }
 .fbtn:hover  { transform: translateY(-3px) scale(1.05); }
 .fbtn:active { transform: scale(.92); }
-.fbtn.on     { transform: translateY(-5px) scale(1.1); }
 
-/* ONE solid circle — flat color, no extra rings */
+/* Círculo mate — mismo gris para todas las categorías en reposo,
+   con relieve tipo "botón físico" (highlight interno arriba + sombra
+   sólida abajo, sin blur, para dar sensación de volumen). */
 .fbtn-circle {
   width: 54px;
   height: 54px;
@@ -462,24 +475,35 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 5px 16px rgba(0,0,0,.25);
-  transition: box-shadow .2s;
-  /* background set inline per category */
+  background: #27272a;
+  box-shadow: inset 0 2px 0 rgba(255,255,255,.1), 0 5px 0 #000, 0 5px 16px rgba(0,0,0,.25);
+  transition: background .2s ease, box-shadow .2s ease, transform .2s ease;
+  font-size: 22px; /* para íconos que son emoji (ej. "Eventos" 🎉), no <svg> */
 }
 .fbtn-circle svg {
   width: 22px;
   height: 22px;
-  stroke: white;
+  stroke: #a1a1aa;
   stroke-width: 2;
   fill: none;
   stroke-linecap: round;
   stroke-linejoin: round;
-}
-.fbtn.on .fbtn-circle {
-  box-shadow: 0 7px 22px rgba(0,0,0,.35);
+  transition: stroke .2s ease;
 }
 
-/* White label */
+/* Estado activo — el círculo se "hunde" (pierde la sombra sólida y
+   baja 5px) y toma el color de acento. Un solo acento global por
+   ahora (--filter-accent); si más adelante se quiere volver a un
+   color por categoría acá, alcanza con no fijar este valor y usar
+   cat.color de nuevo en su lugar. */
+.fbtn.on .fbtn-circle {
+  background: var(--filter-accent);
+  box-shadow: inset 0 2px 0 rgba(255,255,255,.2), 0 0 0 #000, 0 7px 22px rgba(0,0,0,.35);
+  transform: translateY(5px);
+}
+.fbtn.on .fbtn-circle svg { stroke: #fff; }
+
+/* Label */
 .fbtn-label {
   font-size: 10px;
   font-weight: 700;
@@ -488,6 +512,11 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   white-space: nowrap;
   text-shadow: 0 1px 5px rgba(0,0,0,.5);
   letter-spacing: .2px;
+  transition: color .2s ease, transform .2s ease;
+}
+.fbtn.on .fbtn-label {
+  color: var(--filter-accent);
+  transform: translateY(5px);
 }
 .fbtn .dot { display: none; }
 
