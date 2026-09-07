@@ -388,11 +388,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   flex-direction: row;
   align-items: flex-end;
   gap: 14px;
-  /* [2026-09-06] antes 6px arriba: no alcanzaba para que el botón
-     activo (translateY(-5px), ver .fbtn.on .fbtn-circle) se vea
-     completo — #filter-bar tiene overflow:hidden y le recortaba la
-     parte de arriba del círculo. */
-  padding: 18px 20px 4px;
+  padding: 6px 20px 4px;
   overflow-x: auto;
   overflow-y: visible;
   scrollbar-width: none;
@@ -438,19 +434,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   color: #1a1a1a;
 }
 
-/* Each category button — column: circle + label
-   [Actualización estética 2026-09-06] Antes cada círculo llevaba el
-   color propio de su categoría (cat.color) también EN REPOSO, para
-   identificarla a simple vista. Decisión tomada con Cris: se
-   descarta eso a propósito — ahora todos los círculos son del mismo
-   gris mate en reposo, y el color de acento (--filter-accent) solo
-   aparece en el que está activo, imitando un botón físico que se
-   "hunde" al presionarlo. cat.color se sigue usando en el resto de
-   la app (pines, admin, chips) — acá ya no. */
-:root {
-  --filter-accent: #e06c3e;
-}
-
+/* Each category button — column: circle + label */
 .fbtn {
   display: flex;
   flex-direction: column;
@@ -468,12 +452,9 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
 }
 .fbtn:hover  { transform: translateY(-3px) scale(1.05); }
 .fbtn:active { transform: scale(.92); }
+.fbtn.on     { transform: translateY(-5px) scale(1.1); }
 
-/* Círculo mate — mismo gris para todas las categorías en reposo,
-   con relieve suave (highlight interno arriba + sombra difusa, sin
-   la sombra sólida negra del ejemplo original).
-   [2026-09-06] Highlight superior aclarado de .1 a .32 — antes casi
-   no se notaba. */
+/* ONE solid circle — flat color, no extra rings */
 .fbtn-circle {
   width: 54px;
   height: 54px;
@@ -481,67 +462,55 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #27272a;
-  box-shadow: inset 0 2px 0 rgba(255,255,255,.32), 0 5px 16px rgba(0,0,0,.25);
-  transition: background .2s ease, box-shadow .2s ease, transform .2s ease;
-  font-size: 22px; /* para íconos que son emoji (ej. "Eventos" 🎉), no <svg> */
+  box-shadow: 0 5px 16px rgba(0,0,0,.25);
+  transition: box-shadow .2s;
+  /* background set inline per category */
 }
 .fbtn-circle svg {
   width: 22px;
   height: 22px;
-  stroke: #a1a1aa;
+  stroke: white;
   stroke-width: 2;
   fill: none;
   stroke-linecap: round;
   stroke-linejoin: round;
-  transition: stroke .2s ease;
 }
-
-/* Estado activo — [2026-09-06, pedido de Cris] al revés del ejemplo
-   original: el círculo SUBE (no baja) y toma el color de acento, sin
-   sombra negra dura — solo un glow más marcado para reforzar que
-   "flotó" hacia arriba. Highlight superior también aclarado. */
 .fbtn.on .fbtn-circle {
-  background: var(--filter-accent);
-  box-shadow: inset 0 2px 0 rgba(255,255,255,.45), 0 7px 22px rgba(0,0,0,.35);
-  transform: translateY(-5px);
+  box-shadow: 0 7px 22px rgba(0,0,0,.35);
 }
-.fbtn.on .fbtn-circle svg { stroke: #fff; }
 
-/* Label — [2026-09-06] la barra de filtros flota directo sobre el
-   mapa, que puede tener zonas muy claras (calles/parques) donde un
-   texto blanco con solo un blur de sombra se lava y se vuelve
-   ilegible. Se reemplaza por un contorno duro (4 sombras a 1px, sin
-   blur, alrededor de la letra) + una sombra difusa por debajo para
-   dar profundidad. Esto funciona como un "trazo" fijo que separa la
-   letra de cualquier fondo del mapa sin agregar cajas ni cambiar la
-   tipografía. */
+/* White label */
 .fbtn-label {
   font-size: 10px;
   font-weight: 700;
   color: white;
   font-family: var(--font-b);
   white-space: nowrap;
-  text-shadow:
-    -1px -1px 0 rgba(0,0,0,.85),
-     1px -1px 0 rgba(0,0,0,.85),
-    -1px  1px 0 rgba(0,0,0,.85),
-     1px  1px 0 rgba(0,0,0,.85),
-     0 2px 4px rgba(0,0,0,.6);
+  text-shadow: 0 1px 5px rgba(0,0,0,.5);
   letter-spacing: .2px;
-  transition: color .2s ease, transform .2s ease;
-}
-.fbtn.on .fbtn-label {
-  color: var(--filter-accent);
-  text-shadow:
-    -1px -1px 0 rgba(0,0,0,.9),
-     1px -1px 0 rgba(0,0,0,.9),
-    -1px  1px 0 rgba(0,0,0,.9),
-     1px  1px 0 rgba(0,0,0,.9),
-     0 2px 4px rgba(0,0,0,.6);
-  transform: translateY(-5px);
 }
 .fbtn .dot { display: none; }
+
+/* [Etapa E, PLAN_CATEGORIAS_SUBCATEGORIAS.md] Animación categoría↔
+   subcategorías — reusa .fbtn/.fbtn-circle/.fbtn-label tal cual, solo
+   agrega la caída/subida con fade. Referencia exacta pedida por Cris:
+   gemini-code-1788756346468.html (animación vertical en cascada, no
+   el deslizamiento horizontal en curva S del plan original). */
+.fbtn-exit-down {
+  transition: transform .3s cubic-bezier(.65,0,.35,1), opacity .28s ease !important;
+  transform: translateY(46px) scale(.6) !important;
+  opacity: 0 !important;
+  pointer-events: none;
+}
+.fbtn-enter-up {
+  opacity: 0;
+  transform: translateY(46px) scale(.6);
+}
+.fbtn-enter-up.fbtn-entered {
+  transition: transform .34s cubic-bezier(.65,0,.35,1), opacity .3s ease;
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
 
 /* Dropdown overlay */
 #zonas-dropdown {
