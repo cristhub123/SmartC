@@ -488,12 +488,40 @@ function _catHasActiveSubcats(catId) {
    `_catHasActiveSubcats()`, así que la flecha ← (que pone
    `activeFilter='all'`) o tocar una categoría sin subcategorías caen
    solos en la fila principal sin lógica extra. */
+/* [FIX 2026-09-07 — "se traba, el espaciado varía"] `updateFilterBar()`
+   no lo llama solo el click del usuario: `js/pins-viewport-loader.js`
+   (`drawLoadedPins()`) lo dispara solo, cada vez que entran pines
+   nuevos al mover/zoomear el mapa (debounce de 350ms) — y `app.js` lo
+   llama una vez al iniciar. Antes de este fix, si uno de esos
+   llamados "externos" caía justo en medio de la animación de abrir/
+   cerrar subcategorías (que tarda varios cientos de ms con sus
+   setTimeout en cascada), el `innerHTML` completo de acá abajo le
+   borraba el piso a esa animación en pleno vuelo: quedaba a mitad de
+   camino, con clases/posiciones pisadas — de ahí que a veces se
+   trabara y el espaciado saliera distinto cada vez que se abría.
+   Ahora: mientras `_filterBarBusy` es true, cualquier pedido de
+   refresco se ignora Y se recuerda (`_filterBarRenderPending`); en
+   cuanto la animación termina y suelta el flag, se dispara solo el
+   refresco pendiente (ver los `_filterBarBusy = false` de
+   _animateOpenSubcatRow/_animateCloseSubcatRow más abajo). */
+let _filterBarRenderPending = false;
+
 function updateFilterBar() {
   const bar = document.querySelector('.filter-row');
   if (!bar) return;
+  if (_filterBarBusy) { _filterBarRenderPending = true; return; }
+  _filterBarRenderPending = false;
   const showSubRow = activeFilter !== 'all' && activeFilter !== '__eventos__' && _catHasActiveSubcats(activeFilter);
   if (showSubRow) _renderSubfilterRow(bar, activeFilter);
   else _renderMainFilterRow(bar);
+}
+
+/* Se llama en cada punto donde una animación de la fila termina y
+   suelta `_filterBarBusy` — si mientras tanto quedó pedido un
+   refresco (ver arriba), se ejecuta recién ahora, ya sin choque. */
+function _releaseFilterBarBusy() {
+  _filterBarBusy = false;
+  if (_filterBarRenderPending) updateFilterBar();
 }
 
 /* [botonEs_ajustar, 2026-09-07] Separación horizontal (px) entre
@@ -530,6 +558,12 @@ function _sizeFilterBar(bar, buttonCount) {
 let _filterBarBusy = false;
 
 function _renderMainFilterRow(bar) {
+  // [FIX 2026-09-07] `updateFilterBar()` puede llegar a reconstruir
+  // esta fila mientras el usuario la tiene scrolleada (ej. la llama
+  // sola pins-viewport-loader.js al cargar pines nuevos al mover el
+  // mapa) — sin esto, cada `bar.innerHTML = html` de más abajo
+  // resetea el scroll a 0 y se siente como si "saltara" sin motivo.
+  const _prevScrollLeft = bar.scrollLeft;
   const all = getAllCats();
   const activeCats = Object.entries(all).filter(([,v]) => v.active !== false);
 
@@ -574,6 +608,7 @@ function _renderMainFilterRow(bar) {
   const mainButtons = Array.from(bar.querySelectorAll('.fbtn'));
   mainButtons.forEach((btn, idx) => _placeFbtn(btn, idx));
   _sizeFilterBar(bar, mainButtons.length);
+  bar.scrollLeft = _prevScrollLeft;
   _filterBarBusy = false;
 
   /* ── drag-to-scroll ──
@@ -648,6 +683,7 @@ function _renderMainFilterRow(bar) {
    el de su categoría padre — el modelo de datos (Etapa A) no define
    ícono propio por subcategoría. */
 function _renderSubfilterRow(bar, catId) {
+  const _prevScrollLeft = bar.scrollLeft; // ver nota en _renderMainFilterRow
   const cat = getAllCats()[catId];
   if (!cat) { activeFilter = 'all'; activeSubfilter = null; _renderMainFilterRow(bar); return; }
   const parentIcon = getCatIcon(cat, catId);
@@ -682,6 +718,7 @@ function _renderSubfilterRow(bar, catId) {
   rowButtons.forEach((btn, idx) => _placeFbtn(btn, idx));
   _sizeFilterBar(bar, rowButtons.length);
   bar.querySelectorAll('.sub-item').forEach(btn => btn.classList.add('fbtn-entered'));
+  bar.scrollLeft = _prevScrollLeft;
   _filterBarBusy = false;
 
   const drag = _attachFilterBarDragScroll(bar);
@@ -749,7 +786,7 @@ function _animateOpenSubcatRow(bar, catId, clickedBtn) {
     _appendAnimatedSubcats(bar, cat, catId);
     applyFilter();
     if (typeof window._onFilterBarUpdated === 'function') window._onFilterBarUpdated();
-    _filterBarBusy = false;
+    _releaseFilterBarBusy();
   }, 500);
 }
 
@@ -781,7 +818,7 @@ function _animateCloseSubcatRow(bar, catId) {
     activeSubfilter = null;
     applyFilter();
     if (typeof window._onFilterBarUpdated === 'function') window._onFilterBarUpdated();
-    _filterBarBusy = false;
+    _releaseFilterBarBusy();
   }, 250);
 }
 
