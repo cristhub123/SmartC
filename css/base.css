@@ -389,19 +389,14 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
      propio overflow-x — este contenedor no necesita recortar nada. */
   overflow: visible;
 }
-/* [botonEs_ajustar, 2026-09-07] La fila pasó de flex a posicionamiento
-   absoluto tipo "dock" (igual criterio que el ejemplo de referencia
-   index.html/styles.css/script.js que definió Cris): cada .fbtn tiene
-   una posición X fija en píxeles (ver --current-x, seteada desde JS
-   en js/categories.js) en vez de fluir con flexbox. Esto es lo que
-   permite el "desplazamiento en curva S" de la categoría tocada hacia
-   la izquierda sin ningún truco de FLIP/clonado — el navegador anima
-   solo el cambio de `transform`. El ancho real de `.filter-row` lo
-   fija JS (bar.style.width) según cuántos botones hay, para que el
-   scroll horizontal (overflow-x) siga funcionando igual que antes. */
 .filter-row {
   position: relative;
-  height: 80px;
+  /* [Etapa E, 2026-09-07] los .fbtn pasan a position:absolute (ver
+     más abajo) — ya no aportan altura al contenedor por su cuenta,
+     por eso ahora hace falta un alto fijo acá. El ancho scrolleable
+     lo da un espaciador invisible que arma categories.js
+     (_setFilterRowWidth), no estos hijos absolutos. */
+  height: 82px;
   padding: 6px 20px 4px;
   overflow-x: auto;
   overflow-y: visible;
@@ -449,21 +444,19 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
 }
 
 /* Each category button — column: circle + label.
-   [botonEs_ajustar, 2026-09-07] Ahora es position:absolute (ver nota
-   en .filter-row) — la X la pone JS vía --current-x + style.transform
-   inline (translate(Xpx, 0px)), calcada de initDock()/POS_OFFSET_X en
-   el ejemplo de referencia. La transición de 400ms cubic-bezier acá
-   es la que anima la curva S al mover la categoría tocada a X=0 y la
-   caída de las que no se tocaron (.fbtn-exit-down, más abajo). El
-   "levante" de hover/active/on (que antes vivía en .fbtn, cuando el
-   layout era flex) se movió a .fbtn-circle: si siguiera en .fbtn se
-   pisaría con la traslación en X que ahora vive en el `transform`
-   inline de este mismo elemento. */
+   [Etapa E, 2026-09-07] position:absolute + variable CSS
+   `--current-x` (cada botón la trae seteada inline, ver
+   categories.js _setBtnX) en vez de transform inline directo — así
+   TODOS los estados (reposo, :hover, .on, caída/subida) compiten por
+   especificidad de CSS normal, ninguno le "gana por ser inline" al
+   resto. Ver la nota grande al principio del bloque de JS
+   correspondiente en categories.js para el detalle de por qué esto
+   evita el pisado entre animaciones. */
 .fbtn {
   position: absolute;
   top: 4px;
   left: 0;
-  width: 58px;
+  width: 70px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -474,10 +467,13 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   padding: 0;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
-  transition: transform 400ms cubic-bezier(.65,0,.35,1);
+  transition: transform .4s cubic-bezier(.65,0,.35,1), opacity .3s ease;
   outline: none;
-  z-index: 2;
+  transform: translate(var(--current-x, 0px), 0px);
 }
+.fbtn:hover  { transform: translate(var(--current-x, 0px), -3px) scale(1.05); }
+.fbtn:active { transform: translate(var(--current-x, 0px), 0px) scale(.92); }
+.fbtn.on     { transform: translate(var(--current-x, 0px), -5px) scale(1.1); }
 
 /* ONE solid circle — flat color, no extra rings */
 .fbtn-circle {
@@ -488,7 +484,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   align-items: center;
   justify-content: center;
   box-shadow: 0 5px 16px rgba(0,0,0,.25);
-  transition: transform .22s cubic-bezier(.34,1.56,.64,1), box-shadow .2s;
+  transition: box-shadow .2s;
   /* background set inline per category */
 }
 .fbtn-circle svg {
@@ -500,9 +496,9 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   stroke-linecap: round;
   stroke-linejoin: round;
 }
-.fbtn:hover  .fbtn-circle { transform: translateY(-3px) scale(1.05); }
-.fbtn:active .fbtn-circle { transform: scale(.92); }
-.fbtn.on     .fbtn-circle { transform: translateY(-5px) scale(1.1); box-shadow: 0 7px 22px rgba(0,0,0,.35); }
+.fbtn.on .fbtn-circle {
+  box-shadow: 0 7px 22px rgba(0,0,0,.35);
+}
 
 /* White label */
 .fbtn-label {
@@ -516,33 +512,28 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
 }
 .fbtn .dot { display: none; }
 
-/* [botonEs_ajustar, 2026-09-07] Animación categoría↔subcategorías,
-   ahora calcada 1:1 del ejemplo de referencia de 3 archivos
-   (index.html/styles.css/script.js) que definió Cris — reemplaza la
-   versión anterior (Etapa E, solo caída/subida vertical con FLIP+clon
-   para el salto de la categoría). Con .fbtn ya absoluto (ver arriba),
-   el "salto" de la categoría tocada a X=0 no necesita FLIP ni clonar
-   el botón: alcanza con cambiar su --current-x/transform inline y la
-   transición de .fbtn ya lo anima solo (la curva S).
-   - .fbtn-exit-down: caída de los botones NO tocados (curva
-     descendente, con !important porque el X inline sigue puesto y
-     hay que pisarlo para que además de caer, no se mueva en X).
-   - .sub-item + .fbtn-entered: entrada de las subcategorías —
-     mismo criterio que el ejemplo de referencia (fade in en cascada;
-     el X final ya viene seteado desde que se crea el botón, así que
-     no hace falta togglear transform acá). */
+/* [Etapa E, PLAN_CATEGORIAS_SUBCATEGORIAS.md] Animación categoría↔
+   subcategorías — reusa .fbtn/.fbtn-circle/.fbtn-label tal cual, solo
+   agrega la caída/subida con fade. Calcada de la referencia final
+   que dio Cris (index.html/styles.css/script.js, 2026-09-07):
+   `translate(var(--current-x), Ypx)` — el eje X nunca se pierde
+   mientras cae o sube, a diferencia del intento anterior (ver
+   AI_SESSION.md) que solo animaba Y y por eso el botón "saltaba" a la
+   izquierda al caer. */
 .fbtn-exit-down {
   transition: transform .3s cubic-bezier(.65,0,.35,1), opacity .28s ease !important;
   transform: translate(var(--current-x, 0px), 46px) scale(.6) !important;
   opacity: 0 !important;
   pointer-events: none;
 }
-.sub-item {
+.fbtn-enter-up {
   opacity: 0;
+  transform: translate(var(--current-x, 0px), 46px) scale(.6);
 }
-.sub-item.fbtn-entered {
-  transition: opacity .3s ease;
+.fbtn-enter-up.fbtn-entered {
+  transition: transform .34s cubic-bezier(.65,0,.35,1), opacity .3s ease;
   opacity: 1;
+  transform: translate(var(--current-x, 0px), 0px) scale(1);
 }
 
 /* Dropdown overlay */
