@@ -502,7 +502,7 @@ function _renderMainFilterRow(bar) {
 
   const allActive = activeFilter === 'all';
   let html = `<button class="fbtn ${allActive?'on':''}" data-f="all">
-    <div class="fbtn-circle">${LUCIDE.all}</div>
+    <div class="fbtn-circle" style="background:#1c1c1e">${LUCIDE.all}</div>
     <span class="fbtn-label">Todo</span>
   </button>`;
 
@@ -512,20 +512,23 @@ function _renderMainFilterRow(bar) {
   // con ≥1 evento vigente ahora mismo. Ver _pinMatchesActiveFilter().
   const eventosOn = activeFilter === '__eventos__';
   html += `<button class="fbtn ${eventosOn?'on':''}" data-f="__eventos__">
-    <div class="fbtn-circle">🎉</div>
+    <div class="fbtn-circle" style="background:#1c1c1e">🎉</div>
     <span class="fbtn-label">Eventos</span>
   </button>`;
 
-  // [Actualización estética 2026-09-06] cat.color ya NO se usa acá
-  // para pintar el círculo (ver nota en css/base.css) — se sigue
-  // usando en el resto de la app (pines, admin, chips de categoría).
+  // [FIX 2026-09-07] La nota "ver css/base.css" del comentario de
+  // abajo (2026-09-06) prometía un reemplazo del color por categoría
+  // que nunca se llegó a escribir en el CSS — el círculo quedó sin
+  // ningún fondo (transparente) desde esa actualización. Se restaura
+  // el color de cada categoría acá mismo, igual que ya se usa en el
+  // resto de la app (pines, admin, chips de categoría).
   activeCats.forEach(([id, cat]) => {
     const isOn = activeFilter === id;
     const svg  = getCatIcon(cat, id);
     const labelStr = getCatLabel(cat);
     const label = labelStr.charAt(0).toUpperCase() + labelStr.slice(1).toLowerCase();
     html += `<button class="fbtn ${isOn?'on':''}" data-f="${id}">
-      <div class="fbtn-circle">${svg}</div>
+      <div class="fbtn-circle" style="background:${cat.color}">${svg}</div>
       <span class="fbtn-label">${label}</span>
     </button>`;
   });
@@ -605,7 +608,7 @@ function _renderSubfilterRow(bar, catId) {
   const catLabelStr = getCatLabel(cat);
   const catLabel = catLabelStr.charAt(0).toUpperCase() + catLabelStr.slice(1).toLowerCase();
   let html = `<button class="fbtn on" data-f="${catId}">
-    <div class="fbtn-circle">${parentIcon}</div>
+    <div class="fbtn-circle" style="background:${cat.color}">${parentIcon}</div>
     <span class="fbtn-label">${catLabel}</span>
   </button>`;
 
@@ -614,7 +617,7 @@ function _renderSubfilterRow(bar, catId) {
     const labelStr = getCatLabel(sub);
     const label = labelStr.charAt(0).toUpperCase() + labelStr.slice(1).toLowerCase();
     html += `<button class="fbtn sub-item ${isOn?'on':''}" data-sf="${subId}">
-      <div class="fbtn-circle">${parentIcon}</div>
+      <div class="fbtn-circle" style="background:${cat.color}">${parentIcon}</div>
       <span class="fbtn-label">${label}</span>
     </button>`;
   });
