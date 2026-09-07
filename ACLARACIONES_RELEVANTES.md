@@ -1,31 +1,32 @@
-# ACLARACIONES — Etapa C: selector de subcategorías en el pin (2026-09-06 21:00)
+# ACLARACIONES — Etapa D: filtro real por subcategoría (2026-09-06 21:45)
 
 ## Qué se hizo
-En los formularios "Nuevo" y "Editar" de un lugar, debajo de la fila de
-categorías, ahora aparece una segunda fila "Subcategoría (opcional)"
-con chips — igual que la de categorías, pero SOLO muestra las
-subcategorías de las categorías que ya tildaste en ese mismo pin (si
-tildás 2 categorías, ves la unión de las subcategorías de ambas). Si
-destildás una categoría, sus subcategorías que estuvieran tildadas se
-destildan solas (no queda ninguna "huérfana"). El campo nuevo
-`poi.subcategories` se guarda junto con el resto del pin.
+El mapa público ahora sí distingue subcategorías:
+- Tocás una categoría con subcategorías cargadas → se abre una fila
+  con "← Volver" + los chips de esas subcategorías. El mapa ya
+  muestra TODOS los pines de esa categoría (como pasaba antes).
+- Tocás una subcategoría → filtra más, solo esa. Tocarla de nuevo la
+  deselecciona (vuelve a verse toda la categoría).
+- Flecha ← → vuelve a "Todo" (confirmado por vos).
+- Categoría sin ninguna subcategoría activa → filtra normal, no abre
+  ninguna fila (confirmado por vos).
+- Con la fila de subcategorías abierta, no se puede tocar Todo/
+  Eventos/otra categoría directo — hay que volver con la flecha
+  primero (confirmado por vos).
 
-## Qué NO se hizo todavía (a propósito, es lo que sigue)
-- El filtro del mapa público todavía NO usa esto — podés asignarle
-  subcategoría a un pin, se guarda, pero en el mapa no cambia nada
-  todavía. Eso es la Etapa D.
-- La animación de la barra de filtros — Etapa E.
-- La importación masiva de pines por texto sigue sin poder asignar
-  subcategoría (es un flujo aparte, no formaba parte de este plan).
+## Qué falta (a propósito, es lo que sigue)
+Todavía SIN animación — la fila aparece/desaparece de golpe, no
+desliza. Eso es la Etapa E (deslizamiento + curva S + la flecha
+entrando desde la derecha, la Opción 1 que elegiste). Después de eso
+queda la Etapa F (QA final).
 
 ## Archivos modificados
-`js/categories.js`, `js/pin-adjust.js`, `js/admin.js`, `index.html`
-(cache-busting de esos 3 `.js` bumpeado a `?v=20260906-2100`),
-`AI_SESSION.md`, `PLAN_CATEGORIAS_SUBCATEGORIAS.md`.
+`js/config.js`, `js/categories.js`, `index.html` (cache-busting de
+esos 2 bumpeado a `?v=20260906-2145`), `AI_SESSION.md`,
+`PLAN_CATEGORIAS_SUBCATEGORIAS.md`.
 
 ## Verificación
 `node --check` sin errores en todo el proyecto. **No probado contra
-Firebase real ni navegador** — importante probar sobre todo: crear/
-editar un pin con subcategorías y confirmar que sobreviven a un
-recargado, y que un pin viejo (sin este campo) se pueda seguir
-editando sin romperse. Recargá con Ctrl+Shift+R la primera vez.
+Firebase real ni navegador** — importante probar: categoría CON
+subcategorías, categoría SIN subcategorías, tocar/destocar una
+subcategoría, y la flecha. Recargá con Ctrl+Shift+R.

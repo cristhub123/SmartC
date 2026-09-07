@@ -1,3 +1,67 @@
+## Sesión: 2026-09-06 (Etapa D) — Filtro real del mapa por subcategoría
+
+Antes de tocar código se resolvieron con Cris las 3 preguntas abiertas
+de la sección 11 que bloqueaban esta etapa:
+1. Flecha ← con subcategoría activa → vuelve a `'all'` ("Todo"), NO a
+   la categoría sin subcategoría.
+2. Categoría sin ninguna subcategoría ACTIVA cargada → filtra normal,
+   NO abre ninguna fila.
+3. Con la fila de subcategorías abierta, "Todo"/"Eventos"/otra
+   categoría NO están disponibles directo — hay que volver con la
+   flecha primero.
+
+**Cambios:**
+- `js/config.js`: nueva `let activeSubfilter = null;` junto a
+  `activeFilter`. Nuevo ícono `LUCIDE.back` (flecha ←) — única
+  definición, la Etapa E lo va a reusar tal cual para la animación.
+- `js/categories.js`:
+  - `updateFilterBar()` pasa a ser solo el punto de entrada: decide
+    fila principal vs. fila de subcategorías mirando
+    `activeFilter` + `_catHasActiveSubcats(activeFilter)` — **sin
+    bandera de estado nueva**, se deriva del estado existente (así la
+    decisión 1 y 2 de arriba caen solas, sin lógica extra).
+  - El cuerpo viejo de `updateFilterBar()` pasa tal cual a
+    `_renderMainFilterRow()`.
+  - Nueva `_renderSubfilterRow(bar, catId)`: flecha "Volver" +
+    chips de las subcategorías ACTIVAS de esa categoría (ícono =
+    el de la categoría padre, el modelo de datos no tiene ícono por
+    subcategoría). Reusa las clases `.fbtn`/`.fbtn-circle`/
+    `.fbtn-label` tal cual — mismo estado visual "activo" (elevado +
+    resaltado) que ya existía, sin CSS nuevo. Sin animación (Etapa
+    E la va a reemplazar por el deslizamiento + curva S).
+  - El drag-to-scroll (que antes vivía una sola vez, inline, adentro
+    de `updateFilterBar`) se factorizó en `_attachFilterBarDragScroll(bar)`
+    para no duplicarlo entre las 2 filas — mismo comportamiento
+    exacto (umbral 15px mouse / 6px touch, captura de puntero solo
+    tras confirmar arrastre real), ver el fix ya documentado del
+    2026-09-04.
+  - `_pinMatchesActiveFilter()` extendida (sección 4.1 del plan): si
+    hay `activeSubfilter`, además de matchear la categoría el pin
+    tiene que tener esa subcategoría en `p.subcategories`. NO se tocó
+    `pin-visibility.js` — sigue siendo el único lugar que decide
+    mostrar/ocultar, esto solo extiende el criterio que ya consulta.
+- `index.html`: bump de cache-busting de `config.js` y `categories.js`
+  a `?v=20260906-2145`.
+
+**No tocado a propósito:** cualquier animación/transición (Etapa E).
+La fila de subcategorías aparece/desaparece de una, sin transición —
+es exactamente lo que dice la sección 12 del plan para esta etapa
+("sin animación todavía").
+
+**Pruebas realizadas:** `node --check` sin errores en todo el
+proyecto. Repasado a mano el flujo completo contra la sección 4 del
+plan (las 4 reglas de la máquina de estados) y contra las 3
+respuestas de Cris de arriba. **NO probado contra Firebase real ni
+navegador** — falta confirmar en el mapa real: tocar una categoría con
+subcategorías (se abre la fila, mapa ya muestra todo lo de la
+categoría), tocar una subcategoría (filtra más), tocarla de nuevo
+(vuelve a mostrar toda la categoría), flecha (vuelve a "Todo"), y una
+categoría SIN subcategorías (filtra normal, no abre nada).
+
+**Sigue:** Etapa E (animación: deslizamiento + curva S + la flecha
+entrando desde la derecha en el lugar del primer botón, según la
+Opción 1 que eligió Cris) y Etapa F (QA final).
+
 ## Sesión: 2026-09-06 (Etapa C) — Selector de subcategorías en el pin
 
 Continuación del plan tras cerrar la Etapa B (ver más abajo). Cris

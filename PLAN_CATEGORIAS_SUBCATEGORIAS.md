@@ -531,6 +531,24 @@ completo en `AI_SESSION.md`.
 
 ---
 
+**Etapa D — 2026-09-06 — Mapa público: filtro real por subcategoría.**
+Resueltas con Cris las 3 preguntas de la sección 11 que bloqueaban
+esta etapa (flecha vuelve a `'all'`; categoría sin subcategorías
+activas filtra normal sin abrir fila; con la fila abierta no se puede
+tocar Todo/Eventos/otra categoría directo, hay que volver primero).
+Nueva `activeSubfilter` (`config.js`) junto a `activeFilter`.
+`updateFilterBar()` (`categories.js`) decide fila principal vs. fila
+de subcategorías (`_renderMainFilterRow`/`_renderSubfilterRow`) sin
+bandera de estado nueva — se deriva de `activeFilter` +
+`_catHasActiveSubcats()`. `_pinMatchesActiveFilter()` extendida según
+la sección 4.1 (categoría Y subcategoría si hay una activa) —
+`pin-visibility.js` no se tocó, sigue siendo el único que decide
+mostrar/ocultar. Sin animación (eso es la Etapa E) — la fila
+aparece/desaparece de una. **Archivos modificados:** `js/config.js`,
+`js/categories.js`, `index.html` (bump de cache-busting de esos 2).
+`node --check` sin errores en todo el proyecto. NO probado contra
+Firebase real ni navegador. Detalle completo en `AI_SESSION.md`.
+
 ## 14. Apartado — pedido textual de Cris (corregido solo ortográficamente)
 
 > Quiero que hagamos una nueva implementación para el tema de categorías.
