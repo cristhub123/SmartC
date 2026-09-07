@@ -2173,3 +2173,95 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   color: #000;
   border-color: var(--accent);
 }
+
+
+
+/* ===================================================
+   DOCK Y ANIMACIONES DE CATEGORÍAS & SUBCATEGORÍAS
+   =================================================== */
+
+/* Contenedor principal de categorías */
+#category-filters {
+  position: relative;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  height: 85px;
+}
+
+/* Estilo base del botón de categoría/subcategoría */
+.category-btn {
+  position: absolute;
+  top: 12px;
+  width: 60px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  outline: none;
+  padding: 0;
+  /* Transición S-Curve para X, y ease suave para opacidad/escala */
+  transition: transform 450ms cubic-bezier(0.65, 0, 0.35, 1),
+              opacity 300ms ease;
+  z-index: 2;
+}
+
+/* Círculo contenedor del ícono */
+.category-btn .category-icon {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: #1c1c1e;
+  color: white;
+  box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+  transition: background-color 250ms ease, box-shadow 250ms ease, transform 250ms ease;
+}
+
+.category-btn .category-label {
+  font-size: 0.68rem;
+  margin-top: 4px;
+  color: #2c2c2e;
+  font-weight: 600;
+  transition: color 250ms ease;
+}
+
+/* PASO 1: Categoría seleccionada (destacado sin elevación) */
+.category-btn.selected-parent .category-icon {
+  background-color: #e05333 !important;
+}
+
+/* PASO 1: Salida descendente en cascada (Derecha a Izquierda) */
+.category-btn.exit-down {
+  opacity: 0 !important;
+  transform: translate(var(--current-x), 50px) scale(0.6) !important;
+  pointer-events: none;
+}
+
+/* PASO 3: Estado inicial oculto para subcategorías */
+.category-btn.sub-item {
+  opacity: 0;
+  transform: translate(var(--current-x), 50px) scale(0.6);
+}
+
+/* PASO 3: Entrada ascendente de subcategorías (Izquierda a Derecha) */
+.category-btn.sub-item.enter-up {
+  opacity: 1;
+  transform: translate(var(--current-x), 0px) scale(1);
+}
+
+/* DETALLE: Elevación de la subcategoría seleccionada (-8px + sombra) */
+.category-btn.sub-item.active .category-icon {
+  transform: translateY(-8px) !important;
+  box-shadow: 0 8px 18px rgba(0,0,0,0.3) !important;
+  background-color: #1a4975 !important;
+}
+
+.category-btn.sub-item.active .category-label {
+  color: #1a4975;
+  font-weight: 700;
+}
