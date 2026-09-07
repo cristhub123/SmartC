@@ -14,6 +14,9 @@ After modifying this file, update /AI_SESSION.md with the change and verificatio
    ═══════════════════════════════════════════════════════════ */
 let CUSTOM_CATS = {};
 
+// Offset / espaciado horizontal constante para desplazamientos
+const POS_OFFSET_X = 78;
+
 /* [Etapa A, PLAN_CATEGORIAS_SUBCATEGORIAS.md] `cat.label` ahora es un
    objeto multi-idioma ({es,en,pt}) — esta función es la ÚNICA forma
    correcta de leerlo como string (no reimplementar este fallback en
@@ -78,13 +81,6 @@ function getAllCats() {
 function _langEditorHTML(catId, subId, label) {
   const key = subId ? `${catId}::${subId}` : catId;
   const open = _catsUIState.openLang.has(key);
-  // [FIX solicitado por Cris — 2026-09-06] El nombre en español ahora
-  // se edita con un campo SIEMPRE visible en la fila (ver
-  // data-name-input en renderCatsAdmin) — este acordeón queda solo
-  // para EN/PT, que son secundarios y no necesitan estar siempre a la
-  // vista. LANG_CODES sigue teniendo 'es' primero porque otras partes
-  // del proyecto (getCatLabel) dependen de ese orden de fallback; acá
-  // simplemente no lo iteramos.
   const secondaryCodes = LANG_CODES.filter(c => c !== 'es');
   return `<details class="cats-lang-details" data-lang-key="${key}" ${open?'open':''} style="margin-top:6px">
     <summary style="cursor:pointer;font-size:13px;color:var(--text3);font-weight:600">🌐 Inglés / Portugués</summary>
@@ -113,19 +109,9 @@ function renderCatsAdmin() {
     const subs = cat.subcategories && typeof cat.subcategories === 'object' ? cat.subcategories : {};
     const subEntries = Object.entries(subs);
     const subsOpen = _catsUIState.openSub.has(id);
-    // [Etapa B] La sub-lista de subcategorías: cada una con su propio
-    // toggle activo/inactivo (mismo patrón .za-toggle) y su propio
-    // editor de idiomas. Sin contador de pines todavía — poi.
-    // subcategories no existe hasta la Etapa C, mostrar (0) siempre
-    // sería engañoso.
+    
     const subsHTML = subEntries.map(([subId, sub]) => {
       const subOn = sub.active !== false;
-      // [FIX solicitado por Cris — 2026-09-06] antes el nombre era un
-      // <span> de solo lectura (solo editable "escondido" adentro del
-      // acordeón 🌐 Idiomas) — ahora es un campo de texto SIEMPRE
-      // visible en la fila, mismo patrón .fi que cualquier otro campo
-      // editable de la app. Escribe en sub.label.es (ver listener
-      // data-name-input más abajo); EN/PT siguen en el acordeón.
       return `<div class="za-row" style="padding-left:20px;${subOn?'':'opacity:.55'}">
         <input type="text" class="fi" style="flex:1;min-width:0;font-size:14px;padding:5px 10px"
           value="${_escAttr(getCatLabel(sub,'es'))}" data-name-input data-cat="${id}" data-subcat="${subId}">
@@ -165,10 +151,6 @@ function renderCatsAdmin() {
   _wireCatsDetailsToggles(list);
 }
 
-/* Guarda en _catsUIState qué <details> quedan abiertos, para que el
-   próximo renderCatsAdmin() (disparado por togglear/agregar/eliminar)
-   no los cierre de golpe — se re-attachea en cada render porque
-   list.innerHTML destruye los nodos anteriores. */
 function _wireCatsDetailsToggles(list) {
   list.querySelectorAll('.cats-lang-details').forEach(d => {
     d.addEventListener('toggle', () => {
@@ -190,12 +172,6 @@ function _wireCatsDetailsToggles(list) {
   });
 }
 
-/* [Etapa B] Guardado de los campos de idioma — delegado en el
-   contenedor (sobrevive a que renderCatsAdmin() reemplace el
-   innerHTML) para no tener que re-atachear un listener por input.
-   A propósito NO llama a renderCatsAdmin() en cada tecla/cambio —
-   eso colapsaría el <details> que el admin tiene abierto justo
-   mientras está escribiendo. */
 (function _wireCatsLangInputs() {
   const list = document.getElementById('cats-admin-list');
   if (!list) return;
@@ -215,14 +191,6 @@ function _wireCatsDetailsToggles(list) {
     _markCatsDirty();
   });
 
-  /* [FIX solicitado por Cris — 2026-09-06] antes el nombre (español)
-     de una categoría/subcategoría solo se podía tocar adentro del
-     acordeón "🌐 Idiomas" — ahora hay un campo siempre visible en la
-     fila (ver data-name-input en renderCatsAdmin) que escribe
-     directamente en label.es. No dispara renderCatsAdmin() en cada
-     cambio para no perder el foco/cursor del campo que se está
-     editando; el contador "(N)" y el resto de la fila no dependen de
-     este valor, así que no hace falta repintar nada más. */
   list.addEventListener('change', (e) => {
     const inp = e.target.closest('[data-name-input]');
     if (!inp) return;
@@ -245,11 +213,6 @@ function _wireCatsDetailsToggles(list) {
     _markCatsDirty();
   });
 
-  /* [FIX solicitado por Cris — 2026-09-06] antes el ícono/color solo se
-     podían fijar al crear la categoría, sin forma de corregirlos
-     después — mismo problema de fondo que el nombre antes del
-     editor de idiomas. Icono/color son solo de categorías de primer
-     nivel (las subcategorías no tienen, ver sección 3.1 del plan). */
   list.addEventListener('change', (e) => {
     const iconInp = e.target.closest('[data-icon-input]');
     const colorInp = e.target.closest('[data-color-input]');
@@ -260,7 +223,7 @@ function _wireCatsDetailsToggles(list) {
     if (!cat) return;
     if (iconInp) cat.icon = iconInp.value;
     if (colorInp) cat.color = colorInp.value;
-    renderCatsAdmin(); // el emoji/color grande de la fila necesita repintarse
+    renderCatsAdmin();
     if (typeof updateFilterBar === 'function') updateFilterBar();
     _markCatsDirty();
   });
@@ -274,25 +237,10 @@ window.toggleCat = function(id, btn) {
   if (CAT[id]) CAT[id].active = newState;
   if (CUSTOM_CATS[id]) CUSTOM_CATS[id].active = newState;
   btn.classList.toggle('on', newState);
-  // [FIX 2026-09-03] Antes acá se ocultaba/mostraba el pin ENTERO
-  // apenas SU categoría se apagaba/prendía, sin mirar si el pin tenía
-  // OTRA categoría todavía activa — un pin con 2+ categorías podía
-  // quedar oculto de más, y el resultado dependía del orden en que se
-  // tocaran los toggles. applyAllPinVisibility() (js/pin-visibility.js)
-  // recalcula TODOS los pines desde cero usando isPinVisible(), que sí
-  // pide "al menos 1 categoría activa" — resuelve ese caso de paso.
   if (typeof applyAllPinVisibility === 'function') applyAllPinVisibility();
-  // El set de pines visibles acaba de cambiar — recalcular clusters.
   if (typeof scheduleClusterRecompute === 'function') scheduleClusterRecompute();
   renderCatsAdmin();
   updateFilterBar();
-  // [FIX solicitado por Cris — 2026-09-06] antes esto se guardaba en
-  // Firestore al toque de cada click — un error acá (o cualquier otro
-  // cambio de esta pestaña) quedaba visible para cualquiera que
-  // cargue la página, sin forma de arrepentirse. Ahora TODO cambio de
-  // la pestaña Categorías (este toggle incluido) queda solo en
-  // memoria hasta que se aprieta "💾 Guardar cambios" al final de la
-  // pestaña — ver _markCatsDirty()/btn-save-cats más abajo.
   _markCatsDirty();
   toast(newState ? `✅ "${getCatLabel(cat)}" activada` : `⭕ "${getCatLabel(cat)}" desactivada`);
 };
@@ -300,11 +248,6 @@ window.toggleCat = function(id, btn) {
 window.deleteCat = function(id) {
   if (!CUSTOM_CATS[id]) return;
   const name = getCatLabel(CUSTOM_CATS[id]);
-  // [FIX solicitado por Cris — 2026-09-06] antes borraba directo, sin
-  // ninguna confirmación — un click de más borraba la categoría sin
-  // vuelta atrás. Un solo botón + confirm() (mismo patrón que ya usa
-  // el borrado de eventos, js/eventos.js) en vez de un candado de
-  // checkboxes: 1 click, 1 pregunta, se entiende al toque.
   if (!confirm(`¿Eliminar la categoría "${name}"? Esta acción no se puede deshacer.`)) return;
   delete CUSTOM_CATS[id];
   renderCatsAdmin();
@@ -313,13 +256,6 @@ window.deleteCat = function(id) {
   toast(`🗑 "${name}" eliminada`);
 };
 
-/* [Etapa B, PLAN_CATEGORIAS_SUBCATEGORIAS.md] CRUD de subcategorías.
-   Mismo patrón que toggleCat/deleteCat de arriba, un nivel más
-   adentro (cat.subcategories[subId] en vez de CAT[id]/CUSTOM_CATS[id]
-   directo). No tocan applyAllPinVisibility/scheduleClusterRecompute
-   ni updateFilterBar todavía: hasta que exista poi.subcategories y el
-   filtrado por subcategoría (Etapa C/D), una subcategoría activa o
-   inactiva no cambia qué pin se ve en el mapa. */
 window.toggleSubcat = function(catId, subId, btn) {
   const cat = _getCatRef(catId);
   const sub = cat && cat.subcategories && cat.subcategories[subId];
@@ -350,31 +286,13 @@ window.addSubcat = function(catId) {
   if (!name) { toast('⚠️ Ingresá el nombre de la subcategoría'); return; }
   if (!cat.subcategories || typeof cat.subcategories !== 'object') cat.subcategories = {};
   const id = _genCatSlugId('subcat', name);
-  // Misma estructura que una categoría de primer nivel recién creada
-  // (sección 3.1/3.2 del plan): label multi-idioma con el mismo texto
-  // en los 3 (todavía sin distinguir por idioma) + activa por defecto.
   cat.subcategories[id] = { label: {es:name.toUpperCase(), en:name.toUpperCase(), pt:name.toUpperCase()}, active: true };
-  _catsUIState.openSub.add(catId); // no colapsar la sub-lista que se acaba de usar
+  _catsUIState.openSub.add(catId);
   renderCatsAdmin();
   _markCatsDirty();
   toast(`✅ Subcategoría "${name}" creada`);
 };
 
-/* ═══════════════════════════════════════════════════════════
-   [FIX solicitado por Cris — 2026-09-06] Guardado manual de TODA la
-   pestaña Categorías. Antes cada acción (activar/desactivar, borrar,
-   editar idioma/ícono/color, crear categoría o subcategoría, cambiar
-   la cantidad de campos de idioma) escribía en Firestore al toque —
-   un click de más quedaba visible para cualquiera que cargue la
-   página, sin forma de arrepentirse. Mismo patrón que ya usa la
-   pestaña "Apariencia global" (js/admin-global.js, botón
-   btn-apply-global): todo cambio de esta pestaña queda SOLO en
-   memoria del navegador (CAT/CUSTOM_CATS/languageFieldsCount) hasta
-   que se aprieta "💾 Guardar cambios" al final de la pestaña — recién
-   ahí se persiste en Firestore. Si se recarga la página sin guardar,
-   lo no guardado se pierde (a propósito: es la forma de "deshacer"
-   un error antes de que sea visible para el resto).
-   ═══════════════════════════════════════════════════════════ */
 let _catsDirty = false;
 
 function _markCatsDirty() {
@@ -393,14 +311,6 @@ function _clearCatsDirty() {
   if (warn) warn.style.display = 'none';
 }
 
-/* [FIX solicitado por Cris — 2026-09-06] Refuerzo extra: si hay
-   cambios sin guardar en esta pestaña (_catsDirty) y el admin intenta
-   recargar o cerrar la pestaña del navegador, se le avisa con el
-   diálogo nativo de "salir sin guardar" — así queda clarísimo, antes
-   de perderlos, que esos cambios (incluyendo un borrado) todavía NO
-   están en Firestore. Los navegadores ignoran el texto personalizado
-   y muestran su propio mensaje genérico; igual hace falta
-   returnValue para que el diálogo aparezca en todos ellos. */
 window.addEventListener('beforeunload', (e) => {
   if (!_catsDirty) return;
   e.preventDefault();
@@ -416,19 +326,9 @@ window.addEventListener('beforeunload', (e) => {
     const ok = await saveCategoriesSettings();
     btn.disabled = false;
     if (ok) { _clearCatsDirty(); toast('✅ Cambios de categorías guardados'); }
-    // si ok es false, saveCategoriesSettings() ya mostró su propio
-    // toast de error (ver js/settings-sync.js) — no duplicar el aviso.
   });
 })();
 
-// [FIX 2026-09-06] Antes renderCatsAdmin() solo se llamaba desde
-// toggleCat/deleteCat/btn-add-cat — nunca al ABRIR el tab "cats" del
-// admin. Resultado: #cats-admin-list arrancaba vacío y la única forma
-// de ver las opciones (activar/desactivar, eliminar) de las
-// categorías YA EXISTENTES era crear una categoría nueva primero,
-// porque ese era el único code path que disparaba el render. Usamos
-// el mecanismo ya existente de admin.js (SC.registerTabPlugin, ver
-// js/config.js) en vez de tocar switchTab() a mano.
 if (window.SC && SC.registerTabPlugin) {
   SC.registerTabPlugin('cats', renderCatsAdmin);
   SC.registerTabPlugin('cats', _resetLangCountLock);
@@ -439,13 +339,6 @@ function getCatIcon(cat, id) {
   return LUCIDE[key] || LUCIDE.default;
 }
 
-/* [Etapa D, PLAN_CATEGORIAS_SUBCATEGORIAS.md — sección 4]
-   Drag-to-scroll de la fila de filtros, factorizado acá para no
-   duplicarlo entre la fila principal y la fila de subcategorías
-   (antes vivía inline, una sola vez, adentro de updateFilterBar).
-   Devuelve `consumeDragFlag()`: true la primera vez que se llama
-   después de un arrastre real (y lo resetea) — mismo criterio exacto
-   que el `if (moved) {...}` que ya existía, solo reusable. */
 function _attachFilterBarDragScroll(bar) {
   let isDragging = false, startX = 0, scrollLeft = 0, moved = false, _pid = null;
   bar.addEventListener('pointerdown', e => {
@@ -470,24 +363,12 @@ function _attachFilterBarDragScroll(bar) {
   return { consumeDragFlag() { if (moved) { moved = false; return true; } return false; } };
 }
 
-/* [Etapa D, PLAN_CATEGORIAS_SUBCATEGORIAS.md — sección 11, pregunta 3]
-   Decisión de Cris (06/09): tocar una categoría sin ninguna
-   subcategoría ACTIVA cargada filtra normal, sin abrir la fila de
-   subcategorías — por eso esto excluye las inactivas, igual que
-   `_rebuildSubcatSelector` en el admin. */
 function _catHasActiveSubcats(catId) {
   const cat = getAllCats()[catId];
   if (!cat || !cat.subcategories) return false;
   return Object.values(cat.subcategories).some(s => s.active !== false);
 }
 
-/* [Etapa D, PLAN_CATEGORIAS_SUBCATEGORIAS.md — sección 4]
-   Punto de entrada — decide qué fila mostrar. A propósito NO hace
-   falta una bandera de estado separada ("¿está abierta la fila de
-   subcategorías?"): se deriva 100% de `activeFilter` +
-   `_catHasActiveSubcats()`, así que la flecha ← (que pone
-   `activeFilter='all'`) o tocar una categoría sin subcategorías caen
-   solos en la fila principal sin lógica extra. */
 function updateFilterBar() {
   const bar = document.querySelector('.filter-row');
   if (!bar) return;
@@ -506,22 +387,12 @@ function _renderMainFilterRow(bar) {
     <span class="fbtn-label">Todo</span>
   </button>`;
 
-  // [Etapa 5] Filtro especial "Eventos y actividades" — junto a los
-  // de categoría, pero NO es una categoría real (no vive en
-  // CAT/CUSTOM_CATS): muestra cualquier pin (evento_temporal o no)
-  // con ≥1 evento vigente ahora mismo. Ver _pinMatchesActiveFilter().
   const eventosOn = activeFilter === '__eventos__';
   html += `<button class="fbtn ${eventosOn?'on':''}" data-f="__eventos__">
     <div class="fbtn-circle" style="background:#1c1c1e">🎉</div>
     <span class="fbtn-label">Eventos</span>
   </button>`;
 
-  // [FIX 2026-09-07] La nota "ver css/base.css" del comentario de
-  // abajo (2026-09-06) prometía un reemplazo del color por categoría
-  // que nunca se llegó a escribir en el CSS — el círculo quedó sin
-  // ningún fondo (transparente) desde esa actualización. Se restaura
-  // el color de cada categoría acá mismo, igual que ya se usa en el
-  // resto de la app (pines, admin, chips de categoría).
   activeCats.forEach(([id, cat]) => {
     const isOn = activeFilter === id;
     const svg  = getCatIcon(cat, id);
@@ -534,80 +405,36 @@ function _renderMainFilterRow(bar) {
   });
 
   bar.innerHTML = html;
-
-  /* ── drag-to-scroll ──
-     [FIX 2026-09-04 — causa real de "los filtros no hacen nada en
-     PC, sí en el celular"] `bar.setPointerCapture(e.pointerId)` se
-     llamaba en el `pointerdown`, es decir, en CUALQUIER toque —
-     incluido un simple click sin arrastre. Es un bug conocido y
-     documentado de esta API (afecta sobre todo a mouse/desktop,
-     varía entre navegadores): una vez que el contenedor captura el
-     puntero, el click posterior puede terminar dirigido al
-     CONTENEDOR (`bar`) en vez del botón que el usuario realmente
-     tocó — y como el listener de click vive en cada botón
-     (`.fbtn`), ese click nunca le llega, aunque visualmente se vea
-     el "apretado" nativo del botón (eso es CSS del navegador, no
-     depende de JS). En el celular no se notaba porque el touch
-     suele tolerar mejor este caso.
-     Fix real (no un parche puntual — es el patrón correcto y
-     documentado para "arrastre que no debe romper el click"):
-     capturar el puntero recién cuando se CONFIRMA que es un
-     arrastre real (se cruza el umbral), nunca en el pointerdown. Un
-     click sin arrastre nunca llega a capturar nada, así que el
-     click llega íntegro al botón como corresponde. */
   const drag = _attachFilterBarDragScroll(bar);
 
-  /* ── tap to filter (only if not a drag) ── */
   bar.querySelectorAll('.fbtn').forEach(btn => {
     btn.addEventListener('click', e => {
       if (drag.consumeDragFlag()) return;
       const id = btn.dataset.f;
-      // [Etapa E] si la categoría tocada tiene subcategorías activas,
-      // la transición a su fila de subcategorías se anima (ver
-      // _animateOpenSubcatRow) en vez de repintarse instantánea.
       if (id !== 'all' && id !== '__eventos__' && _catHasActiveSubcats(id)) {
         _animateOpenSubcatRow(bar, id, btn);
         return;
       }
       activeFilter = id;
-      // [Etapa D] cualquier click acá (Todo/Eventos/categoría sin
-      // subcategorías) arranca siempre sin subcategoría.
       activeSubfilter = null;
       updateFilterBar();
       applyFilter();
-      // [Filtro de fecha de eventos, 2026-09-03] muestra/oculta y
-      // wirea la barra de fecha según el filtro que quedó activo —
-      // ver js/eventos-fecha-filtro.js.
       if (typeof window._onFilterBarUpdated === 'function') window._onFilterBarUpdated();
     });
   });
 
-  // Misma llamada al pintar la barra la primera vez (carga inicial),
-  // no solo en cada click.
   if (typeof window._onFilterBarUpdated === 'function') window._onFilterBarUpdated();
 }
 
-/* [Etapa D, PLAN_CATEGORIAS_SUBCATEGORIAS.md — sección 4/5]
-   Fila de subcategorías de `catId` — sin animación todavía (eso es
-   la Etapa E, que reemplaza el innerHTML instantáneo de acá por el
-   deslizamiento + curva S, reusando esta misma función). Reusa la
-   clase `.fbtn`/`.fbtn-circle`/`.fbtn-label` tal cual para que el
-   estado activo (elevado + resaltado) sea idéntico al de la fila
-   principal, sin CSS nuevo. El ícono de cada chip de subcategoría es
-   el de su categoría padre — el modelo de datos (Etapa A) no define
-   ícono propio por subcategoría. */
 function _renderSubfilterRow(bar, catId) {
   const cat = getAllCats()[catId];
   if (!cat) { activeFilter = 'all'; activeSubfilter = null; _renderMainFilterRow(bar); return; }
   const parentIcon = getCatIcon(cat, catId);
   const subs = Object.entries(cat.subcategories || {}).filter(([,s]) => s.active !== false);
 
-  // [Etapa E, decisión de Cris — reemplaza el botón "Volver"] para
-  // cerrar la fila de subcategorías se vuelve a tocar la categoría
-  // misma (ya en la primera posición), no una flecha separada.
   const catLabelStr = getCatLabel(cat);
   const catLabel = catLabelStr.charAt(0).toUpperCase() + catLabelStr.slice(1).toLowerCase();
-  let html = `<button class="fbtn on" data-f="${catId}">
+  let html = `<button class="fbtn on selected-parent" data-f="${catId}">
     <div class="fbtn-circle" style="background:${cat.color}">${parentIcon}</div>
     <span class="fbtn-label">${catLabel}</span>
   </button>`;
@@ -616,7 +443,7 @@ function _renderSubfilterRow(bar, catId) {
     const isOn = activeSubfilter === subId;
     const labelStr = getCatLabel(sub);
     const label = labelStr.charAt(0).toUpperCase() + labelStr.slice(1).toLowerCase();
-    html += `<button class="fbtn sub-item ${isOn?'on':''}" data-sf="${subId}">
+    html += `<button class="fbtn sub-item ${isOn?'active on':''}" data-sf="${subId}">
       <div class="fbtn-circle" style="background:${cat.color}">${parentIcon}</div>
       <span class="fbtn-label">${label}</span>
     </button>`;
@@ -634,10 +461,8 @@ function _renderSubfilterRow(bar, catId) {
     btn.addEventListener('click', e => {
       if (drag.consumeDragFlag()) return;
       const subId = btn.dataset.sf;
-      // Toggle: tocar la misma subcategoría ya activa la deselecciona
-      // (vuelve a verse toda la categoría) — sección 4, regla 3.
       activeSubfilter = (activeSubfilter === subId) ? null : subId;
-      updateFilterBar(); // sigue siendo la misma categoría → repinta esta fila con el nuevo estado 'on'
+      updateFilterBar();
       applyFilter();
       if (typeof window._onFilterBarUpdated === 'function') window._onFilterBarUpdated();
     });
@@ -646,26 +471,22 @@ function _renderSubfilterRow(bar, catId) {
   if (typeof window._onFilterBarUpdated === 'function') window._onFilterBarUpdated();
 }
 
-/* [Etapa E, PLAN_CATEGORIAS_SUBCATEGORIAS.md] Animación de categoría
-   → fila de subcategorías, calcada del ejemplo que definió Cris
-   (gemini-code-1788756346468.html) pero sin coordenadas fijas en x
-   (acá la fila es flex + scroll horizontal, no un dock de ancho fijo):
-   1) los demás botones principales caen con fade, en cascada de
-      derecha a izquierda; 2) la categoría tocada pasa a ser el primer
-      botón (FLIP: se mueve en el DOM y se anima el salto con
-      transform, en vez de reusar coordenadas x hardcodeadas);
-      3) las subcategorías suben con fade, en cascada. */
+/* Animaciones de entrada/salida coordinadas: 
+   1) Stagger descendente de derecha a izquierda en ítcones no seleccionados
+   2) Desplazamiento S-Curve hacia la posición inicial
+   3) Despliegue ascendente de subcategorías de izquierda a derecha */
 function _animateOpenSubcatRow(bar, catId, clickedBtn) {
   const cat = getAllCats()[catId];
   if (!cat) return;
   const mainBtns = Array.from(bar.querySelectorAll('.fbtn'));
   const others = mainBtns.filter(b => b !== clickedBtn);
 
+  // Cascading descendente (Derecha a Izquierda)
   others.slice().reverse().forEach((btn, i) => {
-    setTimeout(() => btn.classList.add('fbtn-exit-down'), i * 40);
+    setTimeout(() => btn.classList.add('fbtn-exit-down', 'exit-down'), i * 40);
   });
 
-  const exitDelay = others.length * 40 + 300;
+  const exitDelay = others.length * 40 + 80;
   setTimeout(() => {
     activeFilter = catId;
     activeSubfilter = null;
@@ -673,20 +494,14 @@ function _animateOpenSubcatRow(bar, catId, clickedBtn) {
     const beforeRect = clickedBtn.getBoundingClientRect();
     others.forEach(btn => btn.remove());
 
-    // clone para largar limpio de listeners viejos (el que disparó
-    // esta misma función) y cablear el de "cerrar" en su lugar.
     const cleanBtn = clickedBtn.cloneNode(true);
     clickedBtn.replaceWith(cleanBtn);
     bar.prepend(cleanBtn);
 
-    // [FIX 2026-09-07] "on" (agranda + eleva) se agrega DESPUÉS de que
-    // termine el desplazamiento, no antes — agregarlo antes hacía que
-    // el estilo inline del salto (transform) tapara ese agrandado
-    // mientras se movía, y apareciera de golpe al final (se veía como
-    // un corte en vez de un movimiento continuo).
     const afterRect = cleanBtn.getBoundingClientRect();
     _flipTransform(cleanBtn, beforeRect, afterRect);
-    setTimeout(() => cleanBtn.classList.add('on'), 380);
+    
+    setTimeout(() => cleanBtn.classList.add('on', 'selected-parent'), 380);
     cleanBtn.addEventListener('click', () => _animateCloseSubcatRow(bar, catId));
 
     setTimeout(() => _appendAnimatedSubcats(bar, cat, catId), 140);
@@ -696,20 +511,18 @@ function _animateOpenSubcatRow(bar, catId, clickedBtn) {
   }, exitDelay);
 }
 
-/* Reversa de _animateOpenSubcatRow: las subcategorías caen en
-   cascada, y al terminar se reconstruye la fila principal normal
-   (_renderMainFilterRow) animando la vuelta: la categoría hace FLIP
-   desde el primer lugar a su posición natural, el resto de los
-   botones sube con fade en cascada. */
 function _animateCloseSubcatRow(bar, catId) {
   const catBtn = bar.querySelector(`[data-f="${catId}"]`);
   const subBtns = Array.from(bar.querySelectorAll('.sub-item'));
 
   subBtns.forEach((btn, i) => {
-    setTimeout(() => btn.classList.add('fbtn-exit-down'), i * 30);
+    setTimeout(() => {
+      btn.classList.remove('enter-up', 'fbtn-entered', 'active');
+      btn.classList.add('fbtn-exit-down', 'exit-down');
+    }, i * 30);
   });
 
-  const closeDelay = subBtns.length * 30 + 320;
+  const closeDelay = subBtns.length * 30 + 250;
   setTimeout(() => {
     subBtns.forEach(btn => btn.remove());
     activeFilter = 'all';
@@ -723,29 +536,39 @@ function _animateCloseSubcatRow(bar, catId) {
 function _appendAnimatedSubcats(bar, cat, catId) {
   const parentIcon = getCatIcon(cat, catId);
   const subs = Object.entries(cat.subcategories || {}).filter(([,s]) => s.active !== false);
+  
   subs.forEach(([subId, sub], i) => {
     const subBtn = document.createElement('button');
     subBtn.className = 'fbtn sub-item fbtn-enter-up';
     subBtn.dataset.sf = subId;
     const labelStr = getCatLabel(sub);
     const label = labelStr.charAt(0).toUpperCase() + labelStr.slice(1).toLowerCase();
+    
     subBtn.innerHTML = `<div class="fbtn-circle" style="background:${cat.color}">${parentIcon}</div><span class="fbtn-label">${label}</span>`;
     bar.appendChild(subBtn);
-    setTimeout(() => subBtn.classList.add('fbtn-entered'), i * 60 + 20);
-    subBtn.addEventListener('click', () => {
+    
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        subBtn.classList.add('fbtn-entered', 'enter-up');
+      }, i * 60 + 20);
+    });
+
+    subBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
       const subId2 = subBtn.dataset.sf;
       activeSubfilter = (activeSubfilter === subId2) ? null : subId2;
-      updateFilterBar();
+      
+      bar.querySelectorAll('.sub-item').forEach(el => el.classList.remove('active', 'on'));
+      if (activeSubfilter) {
+        subBtn.classList.add('active', 'on');
+      }
+
       applyFilter();
       if (typeof window._onFilterBarUpdated === 'function') window._onFilterBarUpdated();
     });
   });
 }
 
-/* Reconstruye la fila principal normal (misma que la carga inicial)
-   pero animando la vuelta: la categoría que se estaba viendo hace
-   FLIP desde el primer lugar a su posición real, el resto entra con
-   fade+subida en cascada. */
 function _renderMainFilterRowAnimatedReturn(bar, catId, catBtn) {
   const beforeRect = catBtn ? catBtn.getBoundingClientRect() : null;
   _renderMainFilterRow(bar);
@@ -754,7 +577,7 @@ function _renderMainFilterRowAnimatedReturn(bar, catId, catBtn) {
   Array.from(bar.querySelectorAll('.fbtn')).forEach((btn, i) => {
     if (btn === freshCatBtn) return;
     btn.classList.add('fbtn-enter-up');
-    setTimeout(() => btn.classList.add('fbtn-entered'), i * 40 + 20);
+    setTimeout(() => btn.classList.add('fbtn-entered', 'enter-up'), i * 40 + 20);
   });
 
   if (freshCatBtn && beforeRect) {
@@ -762,24 +585,16 @@ function _renderMainFilterRowAnimatedReturn(bar, catId, catBtn) {
   }
 }
 
-/* FLIP genérico: anima con transform la diferencia entre la posición
-   ANTES (beforeRect) y la posición DESPUÉS de un cambio de DOM ya
-   aplicado (afterRect) — usado para que mover una categoría de lugar
-   en la fila se vea como un desplazamiento, no un salto instantáneo. */
 function _flipTransform(el, beforeRect, afterRect) {
   const dx = beforeRect.left - afterRect.left;
   const dy = beforeRect.top - afterRect.top;
   if (!dx && !dy) return;
   el.style.transition = 'none';
   el.style.transform = `translate(${dx}px, ${dy}px)`;
-  el.getBoundingClientRect(); // fuerza reflow antes de animar
+  el.getBoundingClientRect();
   requestAnimationFrame(() => {
-    el.style.transition = 'transform .38s cubic-bezier(.65,0,.35,1)';
+    el.style.transition = 'transform .45s cubic-bezier(.65,0,.35,1)';
     el.style.transform = '';
-    // [FIX 2026-09-07] al terminar, sacar la transición inline propia
-    // del salto — si queda pegada, el próximo hover/click de este
-    // mismo botón usaría esta transición en vez de la normal de .fbtn
-    // (más corta y con rebote), y se sentiría distinta al resto.
     el.addEventListener('transitionend', function _te(e) {
       if (e.propertyName !== 'transform') return;
       el.style.transition = '';
@@ -788,40 +603,11 @@ function _flipTransform(el, beforeRect, afterRect) {
   });
 }
 
-/* ═══════════════════════════════════════════════════════════
-   [Etapa 5, PLAN_USUARIOS_EVENTOS.md] FILTRO DEL MAPA — implementación
-   real de applyFilter()
-   ---------------------------------------------------------------
-   Esta función se llamaba desde acá mismo (líneas de arriba),
-   pin-adjust.js, pin-geocode.js y data-io.js, pero nunca existía en
-   ningún archivo del proyecto — tocar un filtro de categoría en el
-   mapa público no filtraba nada (bug de fondo, ya existente antes
-   de esta etapa; se encontró al construir el filtro nuevo de
-   eventos y se aprovechó para dejarlo andando de verdad).
-   [FIX 2026-09-03, PLAN_VISIBILIDAD_PINES_UNIFICADA.md] Ahora delega
-   TODA la decisión y la aplicación a applyAllPinVisibility()
-   (js/pin-visibility.js) — antes tenía su propia copia de la lógica
-   de mostrar/ocultar, separada de la que usaba el sistema de
-   clusters, que por eso nunca se enteraba de este filtro.
-   ═══════════════════════════════════════════════════════════ */
 function applyFilter() {
   if (typeof applyAllPinVisibility === 'function') applyAllPinVisibility();
-  // Recalcular clusters: el set de pines visibles acaba de cambiar.
   if (typeof scheduleClusterRecompute === 'function') scheduleClusterRecompute();
 }
 
-/** Además de "all" y las categorías normales, `activeFilter` puede
- *  valer `'__eventos__'` — el filtro especial "Eventos y
- *  actividades" agregado en la Etapa 5 (ver updateFilterBar arriba)
- *  — que matchea cualquier pin (evento_temporal o no) con al menos
- *  un evento vigente ahora mismo. `_eventoEsVigente` está definida
- *  en js/eventos.js (Etapa 4); se referencia acá tal cual para no
- *  duplicar el criterio de "vigente" en dos archivos.
- *  [Etapa D, PLAN_CATEGORIAS_SUBCATEGORIAS.md — sección 4.1] Cuando
- *  además hay una subcategoría activa (`activeSubfilter`), un pin
- *  tiene que matchear la categoría Y la subcategoría — no se
- *  duplica la decisión de mostrar/ocultar, `pin-visibility.js` sigue
- *  siendo el único que la aplica, esto solo extiende el criterio. */
 function _pinMatchesActiveFilter(p) {
   if (activeFilter === 'all') return true;
   if (activeFilter === '__eventos__') {
@@ -843,12 +629,6 @@ if (_btnAddCat) {
     const color = document.getElementById('nc-color').value;
     if (!name) { toast('⚠️ Ingresá el nombre'); return; }
     const id = 'cat_' + name.toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'') + '_' + Date.now().toString(36);
-    // [Etapa A, PLAN_CATEGORIAS_SUBCATEGORIAS.md] mismo shape que las
-    // categorías base (CAT): label multi-idioma + subcategories — una
-    // sola fuente de verdad para "qué es una categoría", sea builtin o
-    // custom. Arranca con el mismo texto en los 3 idiomas (todavía no
-    // hay editor de idiomas, ver Etapa B); el admin podrá corregir cada
-    // uno por separado cuando exista.
     CUSTOM_CATS[id] = {label:{es:name.toUpperCase(), en:name.toUpperCase(), pt:name.toUpperCase()}, icon, color, active:true, subcategories:{}};
     document.getElementById('nc-name').value = '';
     document.getElementById('nc-icon').value = '';
@@ -859,24 +639,12 @@ if (_btnAddCat) {
   });
 }
 
-/* ── CSS para chips de categoría ── */
 (function() {
   const s = document.createElement('style');
   s.textContent = `.cat-chip{display:inline-flex;align-items:center;gap:4px;padding:5px 11px;border-radius:99px;border:1.5px solid;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;background:transparent;font-family:var(--font-b);-webkit-tap-highlight-color:transparent;margin:3px}
   .cat-chip:hover{opacity:.85;transform:scale(1.04)}
   #cat-chips-add,#cat-chips-edit,#subcat-chips-add,#subcat-chips-edit{display:flex;flex-wrap:wrap;gap:2px;padding:8px 0 4px}
   .subcat-chip{font-size:11px;padding:4px 10px}
-  /* [FIX solicitado por Cris — 2026-09-06] textos chicos de la pestaña
-     Categorías (#tp-cats) con muy bajo contraste (verde claro,
-     --text3) y difíciles de leer. Se sobreescribe --text3 SOLO
-     adentro de #tp-cats (no toca el resto del panel admin ni el mapa
-     público) por un verde bien oscuro; con el skin oscuro
-     "neobrutal-night" se usa un tono claro en su lugar, porque un
-     verde oscuro sobre fondo casi negro sería igual de ilegible.
-     Además se fuerza +2px a los tamaños de fuente chicos que ya
-     estaban hardcodeados en HTML (selector por substring del propio
-     atributo style, para no tener que reescribir cada línea de
-     index.html una por una). */
   #tp-cats{--text3:#2f5233}
   [data-skin="neobrutal-night"] #tp-cats{--text3:#d4d4d8}
   #tp-cats [style*="font-size:9px"]{font-size:11px!important}
@@ -887,12 +655,6 @@ if (_btnAddCat) {
   document.head.appendChild(s);
 })();
 
-/* [Etapa C, PLAN_CATEGORIAS_SUBCATEGORIAS.md — sección 3.2]
-   `selectedSubcats` es opcional — se usa solo para la carga inicial
-   (formulario "Editar" con un pin que ya tenía subcategorías
-   guardadas). En los toggles posteriores de categoría, el selector de
-   subcategorías se reconstruye solo (ver toggleCatChip) preservando
-   lo que ya estaba tildado. */
 function buildMultiCatSelector(containerId, selectedCats, selectedSubcats) {
   const container = document.getElementById(containerId);
   if (!container) return;
@@ -913,12 +675,6 @@ function buildMultiCatSelector(containerId, selectedCats, selectedSubcats) {
   _rebuildSubcatSelector(containerId, selectedSubcats || []);
 }
 
-/* [Etapa C, PLAN_CATEGORIAS_SUBCATEGORIAS.md — sección 3.2]
-   Recorre todas las categorías (builtin + custom) buscando en qué
-   subcategoría vive `subId` — hace falta porque los ids de
-   subcategoría son únicos globalmente (mismo criterio que el resto
-   del plan), pero el objeto vive anidado adentro de su categoría
-   padre, no hay un mapa plano ya armado. */
 function _findSubcatOwner(subId) {
   const all = getAllCats();
   for (const [catId, cat] of Object.entries(all)) {
@@ -929,18 +685,6 @@ function _findSubcatOwner(subId) {
   return null;
 }
 
-/* [Etapa C, PLAN_CATEGORIAS_SUBCATEGORIAS.md — sección 3.2]
-   Arma (o reconstruye) la fila de chips de subcategoría de un
-   formulario, filtrada dinámicamente: solo muestra subcategorías
-   ACTIVAS que pertenezcan a alguna de las categorías principales ya
-   tildadas en `catContainerId` (unión, si hay más de una tildada).
-   `forceSelected`: solo se usa en la carga inicial (ver
-   buildMultiCatSelector). Si no se pasa, preserva lo que ya estuviera
-   tildado en el selector de subcategorías actual, descartando
-   automáticamente cualquier subcategoría "huérfana" cuya categoría
-   padre se acaba de destildar (regla explícita de la sección 3.2).
-   Convención de nombres: 'cat-chips-add' -> 'subcat-chips-add',
-   'cat-chips-edit' -> 'subcat-chips-edit'. */
 function _rebuildSubcatSelector(catContainerId, forceSelected) {
   const subContainerId = catContainerId.replace('cat-chips-', 'subcat-chips-');
   const subContainer = document.getElementById(subContainerId);
@@ -952,20 +696,20 @@ function _rebuildSubcatSelector(catContainerId, forceSelected) {
     : new Set(getSelectedSubcats(subContainerId));
 
   const all = getAllCats();
-  const eligible = []; // [{subId, sub, parentColor}]
+  const eligible = [];
   mainCatIds.forEach(catId => {
     const cat = all[catId];
     if (!cat || !cat.subcategories) return;
     Object.entries(cat.subcategories).forEach(([subId, sub]) => {
       if (sub.active === false) return;
-      if (eligible.some(e => e.subId === subId)) return; // ya agregada (unión)
+      if (eligible.some(e => e.subId === subId)) return;
       eligible.push({ subId, sub, parentColor: cat.color });
     });
   });
 
   if (!eligible.length) {
     subContainer.innerHTML = mainCatIds.length
-      ? '' // categoría(s) tildada(s) pero sin subcategorías cargadas — fila vacía, sin mensaje (no es un error)
+      ? ''
       : `<span style="font-size:13px;color:var(--text3)">Elegí una categoría para ver sus subcategorías</span>`;
     return;
   }
@@ -988,8 +732,6 @@ window.toggleCatChip = function(btn, catId, containerId) {
   if (!cat) return;
   if (btn.classList.contains('on')) { btn.style.background=cat.color; btn.style.borderColor=cat.color; btn.style.color='white'; }
   else { btn.style.background=''; btn.style.borderColor=cat.color+'40'; btn.style.color=cat.color; }
-  // [Etapa C] cada toggle de categoría principal puede cambiar qué
-  // subcategorías son elegibles — se reconstruye la fila de abajo.
   _rebuildSubcatSelector(containerId);
 };
 
@@ -1007,9 +749,6 @@ function getSelectedCats(containerId) {
   return Array.from(c.querySelectorAll('.cat-chip.on')).map(b => b.dataset.cat);
 }
 
-/* [Etapa C, PLAN_CATEGORIAS_SUBCATEGORIAS.md — sección 3.2]
-   Análoga a getSelectedCats pero para el nuevo selector de
-   subcategorías (poi.subcategories). */
 function getSelectedSubcats(containerId) {
   const c = document.getElementById(containerId);
   if (!c) return [];
@@ -1030,17 +769,6 @@ function getSelectedSubcats(containerId) {
     <label class="fl" style="margin-top:6px">Subcategoría (opcional)</label><div id="subcat-chips-edit"></div>`;
 })();
 
-/* ═══════════════════════════════════════════════════════════
-   [Etapa B, PLAN_CATEGORIAS_SUBCATEGORIAS.md — sección 3.3]
-   "Cantidad de campos de idioma" — mismo patrón de doble candado que
-   el ID de un pin (resetEditIdLock/_applyEditIdLockState/
-   _wireEditIdLock en js/pin-adjust.js): el campo arranca siempre
-   bloqueado mostrando el valor actual; se habilita (borde/texto rojo)
-   solo con los 2 checkboxes tildados a la vez; destildar cualquiera
-   de los dos vuelve a bloquear y descarta el valor a medio escribir.
-   Mínimo duro: 3 (nunca menos — hoy además es el único valor con
-   efecto real, ver nota de LANG_CODES más arriba).
-   ═══════════════════════════════════════════════════════════ */
 function _resetLangCountLock() {
   const inp   = document.getElementById('cats-lang-count');
   const lock1 = document.getElementById('cats-lang-count-lock1');
@@ -1063,7 +791,7 @@ function _applyLangCountLockState() {
   inp.style.color = unlocked ? '#ef4444' : '';
   inp.style.borderColor = unlocked ? '#ef4444' : '';
   if (warn) warn.style.display = unlocked ? '' : 'none';
-  if (!unlocked) inp.value = languageFieldsCount; // descarta edición a medio hacer
+  if (!unlocked) inp.value = languageFieldsCount;
 }
 
 (function _wireLangCountLock() {
@@ -1074,7 +802,7 @@ function _applyLangCountLockState() {
   if (lock2) lock2.addEventListener('change', _applyLangCountLockState);
   if (inp) inp.addEventListener('change', () => {
     let v = parseInt(inp.value, 10);
-    if (!Number.isFinite(v) || v < 3) v = 3; // mínimo duro, nunca se borra contenido ya cargado
+    if (!Number.isFinite(v) || v < 3) v = 3;
     inp.value = v;
     languageFieldsCount = v;
     _markCatsDirty();
@@ -1082,7 +810,6 @@ function _applyLangCountLockState() {
   });
 })();
 
-/* ── Color presets global handler ── */
 document.querySelectorAll('.color-preset').forEach(el => {
   el.addEventListener('click', () => {
     const target = el.dataset.target, c = el.dataset.c;
@@ -1093,7 +820,3 @@ document.querySelectorAll('.color-preset').forEach(el => {
     else if (target==='newcat')  { document.getElementById('nc-color').value=c; }
   });
 });
-
-
-
-
