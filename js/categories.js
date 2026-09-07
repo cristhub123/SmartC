@@ -521,6 +521,25 @@ function _catHasActiveSubcats(catId) {
    Cris en su referencia. */
 const FILTER_SLOT_W = 78;
 
+/* [FIX 2026-09-07] Blindaje contra la carrera que causaba botones
+   duplicados/fantasma: `updateFilterBar()` se llama muy seguido en
+   segundo plano (cada carga de pines al mover/hacer zoom en el mapa,
+   ver pins-viewport-loader.js) y hace un `bar.innerHTML = ''` +
+   reconstrucción completa. Si eso pasa MIENTRAS
+   `_animateOpenSubcatRow`/`_animateCloseSubcatRow` todavía tienen
+   pasos pendientes en un `setTimeout` (la coreografía completa tarda
+   ~0.5-0.9s repartidos en varios pasos), esos pasos pendientes siguen
+   disparándose después y terminan agregando/tocando botones sobre una
+   fila que un refresco de fondo ya había reconstruido de cero por su
+   cuenta — de ahí los duplicados y los estados raros. Mientras
+   `_dockAnimating` es true: `updateFilterBar()` NO toca el DOM de la
+   fila (pero sigue llamando `applyFilter()`, así los pines que se
+   acaban de cargar de fondo igual quedan bien filtrados), y un click
+   nuevo en cualquier botón se ignora — no se puede interrumpir una
+   animación a mitad de camino. Apenas termina el último paso de
+   cualquiera de las dos coreografías, se vuelve a false. */
+let _dockAnimating = false;
+
 function _setBtnX(btn, x) { btn.style.setProperty('--current-x', `${x}px`); }
 
 /* Arma la lista de "casillones" de la fila principal: Todo + Eventos
@@ -559,6 +578,7 @@ function _buildSubBtn(bar, cat, subId, sub, parentIcon, x, isOn) {
   btn.innerHTML = `<div class="fbtn-circle" style="background:${cat.color}">${parentIcon}</div><span class="fbtn-label">${label}</span>`;
   btn.addEventListener('click', e => {
     e.stopPropagation();
+    if (_dockAnimating) return; // [FIX 2026-09-07] no interrumpir una animación en curso
     const wasOn = btn.classList.contains('on');
     bar.querySelectorAll('.fbtn-sub.on').forEach(b => b.classList.remove('on'));
     activeSubfilter = wasOn ? null : subId;
@@ -603,6 +623,17 @@ function updateFilterBar() {
   const bar = document.querySelector('.filter-row');
   if (!bar) return;
 
+  // [FIX 2026-09-07] ver la nota grande junto a `_dockAnimating` — si
+  // hay una coreografía animada en curso, este refresco de fondo NO
+  // toca el DOM de la fila (evita la carrera que duplicaba botones);
+  // solo re-filtra los pines (por si se acaban de cargar de nuevos) y
+  // sale.
+  if (_dockAnimating) {
+    applyFilter();
+    if (typeof window._onFilterBarUpdated === 'function') window._onFilterBarUpdated();
+    return;
+  }
+
   const items = _getMainFilterItems();
   const showSubs = activeFilter !== 'all' && activeFilter !== '__eventos__' && _catHasActiveSubcats(activeFilter);
   const openCat = showSubs ? getAllCats()[activeFilter] : null;
@@ -631,6 +662,7 @@ function updateFilterBar() {
   bar.querySelectorAll('.fbtn[data-f]').forEach(btn => {
     btn.addEventListener('click', () => {
       if (drag.consumeDragFlag()) return;
+      if (_dockAnimating) return; // [FIX 2026-09-07] no interrumpir una animación en curso
       const id = btn.dataset.f;
       // [Etapa E, decisión de Cris — reemplaza el botón "Volver"] si
       // ya está abierta la vista de subcategorías de ESTA misma
@@ -664,6 +696,7 @@ function updateFilterBar() {
 function _animateOpenSubcatRow(bar, catId, selectedBtn) {
   const cat = getAllCats()[catId];
   if (!cat) return;
+  _dockAnimating = true; // [FIX 2026-09-07] ver nota junto a la declaración de _dockAnimating
 
   const mainBtns = Array.from(bar.querySelectorAll('.fbtn[data-f]'));
   const otherBtns = mainBtns.filter(b => b !== selectedBtn);
@@ -686,10 +719,18 @@ function _animateOpenSubcatRow(bar, catId, selectedBtn) {
       const subBtn = _buildSubBtn(bar, cat, subId, sub, parentIcon, x, false);
       subBtn.classList.add('fbtn-enter-up');
       bar.appendChild(subBtn);
+      const isLast = i === subs.length - 1;
       requestAnimationFrame(() => {
-        setTimeout(() => subBtn.classList.add('fbtn-entered'), (i + 1) * 60);
+        setTimeout(() => {
+          subBtn.classList.add('fbtn-entered');
+          // [FIX 2026-09-07] recién acá termina el último paso real
+          // de la coreografía — desbloquea updateFilterBar() y los
+          // clicks nuevos.
+          if (isLast) _dockAnimating = false;
+        }, (i + 1) * 60);
       });
     });
+    if (!subs.length) _dockAnimating = false; // categoría sin subcategorías activas — no debería pasar acá (updateFilterBar ya filtra esto antes de llamar), pero por las dudas no deja el flag trabado
   }, 500);
 
   activeFilter = catId;
@@ -704,6 +745,7 @@ function _animateOpenSubcatRow(bar, catId, selectedBtn) {
    ocultos con .fbtn-exit-down) vuelven a su `--current-x` de origen
    (dataset.idx, guardado al construir la fila) y reaparecen. */
 function _animateCloseSubcatRow(bar, catId) {
+  _dockAnimating = true; // [FIX 2026-09-07] ver nota junto a la declaración de _dockAnimating
   const subBtns = Array.from(bar.querySelectorAll('.fbtn-sub'));
   const mainBtns = Array.from(bar.querySelectorAll('.fbtn[data-f]'));
 
@@ -723,6 +765,9 @@ function _animateCloseSubcatRow(bar, catId) {
     const allBtn = bar.querySelector('.fbtn[data-f="all"]');
     if (allBtn) allBtn.classList.add('on');
     _setFilterRowWidth(bar, mainBtns.length);
+    // [FIX 2026-09-07] último paso real de esta coreografía — recién
+    // acá desbloquea updateFilterBar() y los clicks nuevos.
+    _dockAnimating = false;
   }, subBtns.length * 30 + 250);
 
   activeFilter = 'all';
