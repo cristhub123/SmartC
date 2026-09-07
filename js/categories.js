@@ -558,11 +558,17 @@ function _renderMainFilterRow(bar) {
   bar.querySelectorAll('.fbtn').forEach(btn => {
     btn.addEventListener('click', e => {
       if (drag.consumeDragFlag()) return;
-      activeFilter = btn.dataset.f;
-      // [Etapa D] cualquier click acá (Todo/Eventos/categoría) arranca
-      // siempre sin subcategoría — si la categoría tildada tiene
-      // subcategorías activas, el siguiente updateFilterBar() (más
-      // abajo) va a mostrar su fila en vez de repintar esta misma.
+      const id = btn.dataset.f;
+      // [Etapa E] si la categoría tocada tiene subcategorías activas,
+      // la transición a su fila de subcategorías se anima (ver
+      // _animateOpenSubcatRow) en vez de repintarse instantánea.
+      if (id !== 'all' && id !== '__eventos__' && _catHasActiveSubcats(id)) {
+        _animateOpenSubcatRow(bar, id, btn);
+        return;
+      }
+      activeFilter = id;
+      // [Etapa D] cualquier click acá (Todo/Eventos/categoría sin
+      // subcategorías) arranca siempre sin subcategoría.
       activeSubfilter = null;
       updateFilterBar();
       applyFilter();
@@ -593,16 +599,21 @@ function _renderSubfilterRow(bar, catId) {
   const parentIcon = getCatIcon(cat, catId);
   const subs = Object.entries(cat.subcategories || {}).filter(([,s]) => s.active !== false);
 
-  let html = `<button class="fbtn" data-back="1">
-    <div class="fbtn-circle">${LUCIDE.back}</div>
-    <span class="fbtn-label">Volver</span>
+  // [Etapa E, decisión de Cris — reemplaza el botón "Volver"] para
+  // cerrar la fila de subcategorías se vuelve a tocar la categoría
+  // misma (ya en la primera posición), no una flecha separada.
+  const catLabelStr = getCatLabel(cat);
+  const catLabel = catLabelStr.charAt(0).toUpperCase() + catLabelStr.slice(1).toLowerCase();
+  let html = `<button class="fbtn on" data-f="${catId}">
+    <div class="fbtn-circle">${parentIcon}</div>
+    <span class="fbtn-label">${catLabel}</span>
   </button>`;
 
   subs.forEach(([subId, sub]) => {
     const isOn = activeSubfilter === subId;
     const labelStr = getCatLabel(sub);
     const label = labelStr.charAt(0).toUpperCase() + labelStr.slice(1).toLowerCase();
-    html += `<button class="fbtn ${isOn?'on':''}" data-sf="${subId}">
+    html += `<button class="fbtn sub-item ${isOn?'on':''}" data-sf="${subId}">
       <div class="fbtn-circle">${parentIcon}</div>
       <span class="fbtn-label">${label}</span>
     </button>`;
@@ -611,16 +622,9 @@ function _renderSubfilterRow(bar, catId) {
   bar.innerHTML = html;
   const drag = _attachFilterBarDragScroll(bar);
 
-  bar.querySelector('[data-back]').addEventListener('click', e => {
+  bar.querySelector('[data-f]').addEventListener('click', e => {
     if (drag.consumeDragFlag()) return;
-    // [Etapa D, sección 11, pregunta 1] Decisión de Cris (06/09): la
-    // flecha siempre vuelve a "Todo", nunca a la categoría sin
-    // subcategoría.
-    activeFilter = 'all';
-    activeSubfilter = null;
-    updateFilterBar();
-    applyFilter();
-    if (typeof window._onFilterBarUpdated === 'function') window._onFilterBarUpdated();
+    _animateCloseSubcatRow(bar, catId);
   });
 
   bar.querySelectorAll('[data-sf]').forEach(btn => {
@@ -637,6 +641,134 @@ function _renderSubfilterRow(bar, catId) {
   });
 
   if (typeof window._onFilterBarUpdated === 'function') window._onFilterBarUpdated();
+}
+
+/* [Etapa E, PLAN_CATEGORIAS_SUBCATEGORIAS.md] Animación de categoría
+   → fila de subcategorías, calcada del ejemplo que definió Cris
+   (gemini-code-1788756346468.html) pero sin coordenadas fijas en x
+   (acá la fila es flex + scroll horizontal, no un dock de ancho fijo):
+   1) los demás botones principales caen con fade, en cascada de
+      derecha a izquierda; 2) la categoría tocada pasa a ser el primer
+      botón (FLIP: se mueve en el DOM y se anima el salto con
+      transform, en vez de reusar coordenadas x hardcodeadas);
+      3) las subcategorías suben con fade, en cascada. */
+function _animateOpenSubcatRow(bar, catId, clickedBtn) {
+  const cat = getAllCats()[catId];
+  if (!cat) return;
+  const mainBtns = Array.from(bar.querySelectorAll('.fbtn'));
+  const others = mainBtns.filter(b => b !== clickedBtn);
+
+  others.slice().reverse().forEach((btn, i) => {
+    setTimeout(() => btn.classList.add('fbtn-exit-down'), i * 40);
+  });
+
+  const exitDelay = others.length * 40 + 300;
+  setTimeout(() => {
+    activeFilter = catId;
+    activeSubfilter = null;
+
+    const beforeRect = clickedBtn.getBoundingClientRect();
+    others.forEach(btn => btn.remove());
+
+    // clone para largar limpio de listeners viejos (el que disparó
+    // esta misma función) y cablear el de "cerrar" en su lugar.
+    const cleanBtn = clickedBtn.cloneNode(true);
+    cleanBtn.classList.add('on');
+    clickedBtn.replaceWith(cleanBtn);
+    bar.prepend(cleanBtn);
+
+    const afterRect = cleanBtn.getBoundingClientRect();
+    _flipTransform(cleanBtn, beforeRect, afterRect);
+    cleanBtn.addEventListener('click', () => _animateCloseSubcatRow(bar, catId));
+
+    setTimeout(() => _appendAnimatedSubcats(bar, cat, catId), 140);
+
+    applyFilter();
+    if (typeof window._onFilterBarUpdated === 'function') window._onFilterBarUpdated();
+  }, exitDelay);
+}
+
+/* Reversa de _animateOpenSubcatRow: las subcategorías caen en
+   cascada, y al terminar se reconstruye la fila principal normal
+   (_renderMainFilterRow) animando la vuelta: la categoría hace FLIP
+   desde el primer lugar a su posición natural, el resto de los
+   botones sube con fade en cascada. */
+function _animateCloseSubcatRow(bar, catId) {
+  const catBtn = bar.querySelector(`[data-f="${catId}"]`);
+  const subBtns = Array.from(bar.querySelectorAll('.sub-item'));
+
+  subBtns.forEach((btn, i) => {
+    setTimeout(() => btn.classList.add('fbtn-exit-down'), i * 30);
+  });
+
+  const closeDelay = subBtns.length * 30 + 320;
+  setTimeout(() => {
+    subBtns.forEach(btn => btn.remove());
+    activeFilter = 'all';
+    activeSubfilter = null;
+    _renderMainFilterRowAnimatedReturn(bar, catId, catBtn);
+    applyFilter();
+    if (typeof window._onFilterBarUpdated === 'function') window._onFilterBarUpdated();
+  }, closeDelay);
+}
+
+function _appendAnimatedSubcats(bar, cat, catId) {
+  const parentIcon = getCatIcon(cat, catId);
+  const subs = Object.entries(cat.subcategories || {}).filter(([,s]) => s.active !== false);
+  subs.forEach(([subId, sub], i) => {
+    const subBtn = document.createElement('button');
+    subBtn.className = 'fbtn sub-item fbtn-enter-up';
+    subBtn.dataset.sf = subId;
+    const labelStr = getCatLabel(sub);
+    const label = labelStr.charAt(0).toUpperCase() + labelStr.slice(1).toLowerCase();
+    subBtn.innerHTML = `<div class="fbtn-circle" style="background:${cat.color}">${parentIcon}</div><span class="fbtn-label">${label}</span>`;
+    bar.appendChild(subBtn);
+    setTimeout(() => subBtn.classList.add('fbtn-entered'), i * 60 + 20);
+    subBtn.addEventListener('click', () => {
+      const subId2 = subBtn.dataset.sf;
+      activeSubfilter = (activeSubfilter === subId2) ? null : subId2;
+      updateFilterBar();
+      applyFilter();
+      if (typeof window._onFilterBarUpdated === 'function') window._onFilterBarUpdated();
+    });
+  });
+}
+
+/* Reconstruye la fila principal normal (misma que la carga inicial)
+   pero animando la vuelta: la categoría que se estaba viendo hace
+   FLIP desde el primer lugar a su posición real, el resto entra con
+   fade+subida en cascada. */
+function _renderMainFilterRowAnimatedReturn(bar, catId, catBtn) {
+  const beforeRect = catBtn ? catBtn.getBoundingClientRect() : null;
+  _renderMainFilterRow(bar);
+
+  const freshCatBtn = bar.querySelector(`[data-f="${catId}"]`);
+  Array.from(bar.querySelectorAll('.fbtn')).forEach((btn, i) => {
+    if (btn === freshCatBtn) return;
+    btn.classList.add('fbtn-enter-up');
+    setTimeout(() => btn.classList.add('fbtn-entered'), i * 40 + 20);
+  });
+
+  if (freshCatBtn && beforeRect) {
+    _flipTransform(freshCatBtn, beforeRect, freshCatBtn.getBoundingClientRect());
+  }
+}
+
+/* FLIP genérico: anima con transform la diferencia entre la posición
+   ANTES (beforeRect) y la posición DESPUÉS de un cambio de DOM ya
+   aplicado (afterRect) — usado para que mover una categoría de lugar
+   en la fila se vea como un desplazamiento, no un salto instantáneo. */
+function _flipTransform(el, beforeRect, afterRect) {
+  const dx = beforeRect.left - afterRect.left;
+  const dy = beforeRect.top - afterRect.top;
+  if (!dx && !dy) return;
+  el.style.transition = 'none';
+  el.style.transform = `translate(${dx}px, ${dy}px)`;
+  el.getBoundingClientRect(); // fuerza reflow antes de animar
+  requestAnimationFrame(() => {
+    el.style.transition = 'transform .38s cubic-bezier(.65,0,.35,1)';
+    el.style.transform = '';
+  });
 }
 
 /* ═══════════════════════════════════════════════════════════
