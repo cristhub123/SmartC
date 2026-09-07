@@ -1,27 +1,24 @@
-# ACLARACIONES — fix de la carrera animación/refresco de fondo (2026-09-07 13:30)
+# ACLARACIONES — fix "se queda trabado al tocar de nuevo la categoría" (2026-09-07 13:45)
 
 ## La causa (resumen)
-`updateFilterBar()` se llama muy seguido en segundo plano (cada carga
-de pines al mover el mapa) y reconstruye la fila de filtros entera
-desde cero. La animación de abrir/cerrar subcategorías tarda medio
-segundo repartido en varios pasos. Si un refresco de fondo caía en el
-medio, le vaciaba el piso a la animación, y los pasos pendientes de
-la animación vieja terminaban actuando sobre la fila ya reconstruida
-— de ahí los duplicados y estados raros.
+El click de cada botón dependía de una variable calculada una sola
+vez al armar la fila (antes de abrir nada) y nunca se actualizaba,
+porque abrir/cerrar con la animación no vuelve a armar la fila desde
+cero. Entonces al tocar la categoría ya abierta, el código pensaba
+que no había nada abierto e intentaba abrir de nuevo lo mismo — sin
+cambio visible, pero corriendo la coreografía otra vez por dentro.
 
 ## El fix
-Un flag (`_dockAnimating`) que, mientras la animación está en curso:
-- bloquea que los refrescos de fondo toquen el DOM de la fila (pero
-  igual siguen filtrando los pines nuevos que se carguen)
-- bloquea que un click nuevo interrumpa la animación a mitad de
-  camino
+El click ahora chequea el estado real de la fila en ese instante
+(¿hay subcategorías visibles de esta categoría ahora mismo?), en vez
+de una variable vieja.
 
 ## Archivo modificado
-`js/categories.js` (único archivo con lógica nueva), `index.html`
-(cache-busting bumpeado a `?v=20260907-1330`), `AI_SESSION.md`.
+`js/categories.js` (único con lógica nueva), `index.html`
+(cache-busting bumpeado a `?v=20260907-1345`), `AI_SESSION.md`.
 
 ## Verificación
-`node --check` sin errores. Este es un fix a un bug que solo se
-reproduce navegando en vivo (mover el mapa mientras la animación está
-en curso) — no lo puedo verificar acá, necesito que lo confirmes en
-tu entorno. Recargá con Ctrl+Shift+R.
+`node --check` sin errores. No probado contra Firebase real ni
+navegador — necesito que confirmes: tocar una categoría (se abre),
+tocarla de nuevo (ahora debería cerrar y volver a mostrar Todo/
+Eventos/las demás). Recargá con Ctrl+Shift+R.

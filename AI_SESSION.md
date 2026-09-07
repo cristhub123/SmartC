@@ -1,3 +1,38 @@
+## Sesión: 2026-09-07 (Etapa E, fix 2) — Tocar de nuevo la categoría abierta no cerraba (se quedaba "trabado")
+
+Cris reportó: tocar una categoría la abre bien (se desplaza, suben las
+subcategorías), pero tocarla de nuevo para cerrar no hacía nada — se
+quedaba trabado.
+
+**Causa real:** el click de cada botón usaba una variable (`openCat`)
+calculada UNA sola vez al armar la fila en frío (`updateFilterBar()`)
+y capturada por clausura en ese momento. El problema es que abrir/
+cerrar con la animación (`_animateOpenSubcatRow`/
+`_animateCloseSubcatRow`) NO vuelve a llamar `updateFilterBar()` —
+mueve los botones a mano. Entonces `openCat` quedaba congelada en su
+valor de cuando se armó la fila (antes de abrir nada), aunque
+visualmente la categoría ya estuviera abierta. Al tocarla de nuevo,
+el código "creía" que no había nada abierto y, en vez de cerrar,
+intentaba abrir la misma categoría otra vez — como ya estaba todo en
+su lugar, no se veía ningún cambio (parecía trabado), pero por dentro
+sí estaba corriendo la coreografía de apertura de nuevo.
+
+**Fix:** el click ya no mira esa variable vieja — chequea el estado
+REAL en el instante del click: `id === activeFilter &&
+bar.querySelector('.fbtn-sub')` (¿hay chips de subcategoría
+visibles ahora mismo, de esta categoría?). Como `bar` es el
+contenedor vivo (nunca se destruye, solo se le cambia el contenido),
+esto siempre refleja el estado actual, sin importar si se llegó ahí
+por un render en frío o por la animación.
+
+**Archivos modificados:** `js/categories.js`, `index.html` (bump de
+cache-busting a `?v=20260907-1345`).
+
+**Pruebas realizadas:** `node --check` sin errores. Repasado a mano
+el flujo completo: abrir categoría → tocarla de nuevo → debe cerrar
+(antes no lo hacía, con este fix sí, según lectura del código). **NO
+probado contra Firebase real ni navegador.**
+
 ## Sesión: 2026-09-07 (Etapa E, fix) — Carrera entre la animación y los refrescos de fondo de la fila de filtros
 
 Cris reportó, después de la entrega de la Etapa E, botones que
