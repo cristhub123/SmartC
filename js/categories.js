@@ -439,9 +439,64 @@ function getCatIcon(cat, id) {
   return LUCIDE[key] || LUCIDE.default;
 }
 
+/* [Etapa D, PLAN_CATEGORIAS_SUBCATEGORIAS.md — sección 4]
+   Drag-to-scroll de la fila de filtros, factorizado acá para no
+   duplicarlo entre la fila principal y la fila de subcategorías
+   (antes vivía inline, una sola vez, adentro de updateFilterBar).
+   Devuelve `consumeDragFlag()`: true la primera vez que se llama
+   después de un arrastre real (y lo resetea) — mismo criterio exacto
+   que el `if (moved) {...}` que ya existía, solo reusable. */
+function _attachFilterBarDragScroll(bar) {
+  let isDragging = false, startX = 0, scrollLeft = 0, moved = false, _pid = null;
+  bar.addEventListener('pointerdown', e => {
+    isDragging = true; moved = false;
+    startX = e.clientX;
+    scrollLeft = bar.scrollLeft;
+    _pid = e.pointerId;
+  });
+  bar.addEventListener('pointermove', e => {
+    if (!isDragging) return;
+    const dx = e.clientX - startX;
+    const threshold = e.pointerType === 'mouse' ? 15 : 6;
+    if (Math.abs(dx) > threshold) {
+      if (!moved) { moved = true; bar.setPointerCapture(_pid); }
+      bar.scrollLeft = scrollLeft - dx;
+    }
+  });
+  bar.addEventListener('pointerup', e => {
+    isDragging = false;
+    if (bar.hasPointerCapture(e.pointerId)) bar.releasePointerCapture(e.pointerId);
+  });
+  return { consumeDragFlag() { if (moved) { moved = false; return true; } return false; } };
+}
+
+/* [Etapa D, PLAN_CATEGORIAS_SUBCATEGORIAS.md — sección 11, pregunta 3]
+   Decisión de Cris (06/09): tocar una categoría sin ninguna
+   subcategoría ACTIVA cargada filtra normal, sin abrir la fila de
+   subcategorías — por eso esto excluye las inactivas, igual que
+   `_rebuildSubcatSelector` en el admin. */
+function _catHasActiveSubcats(catId) {
+  const cat = getAllCats()[catId];
+  if (!cat || !cat.subcategories) return false;
+  return Object.values(cat.subcategories).some(s => s.active !== false);
+}
+
+/* [Etapa D, PLAN_CATEGORIAS_SUBCATEGORIAS.md — sección 4]
+   Punto de entrada — decide qué fila mostrar. A propósito NO hace
+   falta una bandera de estado separada ("¿está abierta la fila de
+   subcategorías?"): se deriva 100% de `activeFilter` +
+   `_catHasActiveSubcats()`, así que la flecha ← (que pone
+   `activeFilter='all'`) o tocar una categoría sin subcategorías caen
+   solos en la fila principal sin lógica extra. */
 function updateFilterBar() {
   const bar = document.querySelector('.filter-row');
   if (!bar) return;
+  const showSubRow = activeFilter !== 'all' && activeFilter !== '__eventos__' && _catHasActiveSubcats(activeFilter);
+  if (showSubRow) _renderSubfilterRow(bar, activeFilter);
+  else _renderMainFilterRow(bar);
+}
+
+function _renderMainFilterRow(bar) {
   const all = getAllCats();
   const activeCats = Object.entries(all).filter(([,v]) => v.active !== false);
 
@@ -497,36 +552,19 @@ function updateFilterBar() {
      arrastre real (se cruza el umbral), nunca en el pointerdown. Un
      click sin arrastre nunca llega a capturar nada, así que el
      click llega íntegro al botón como corresponde. */
-  let isDragging = false, startX = 0, scrollLeft = 0, moved = false, _pid = null;
-  bar.addEventListener('pointerdown', e => {
-    isDragging = true; moved = false;
-    startX = e.clientX;
-    scrollLeft = bar.scrollLeft;
-    _pid = e.pointerId;
-  });
-  bar.addEventListener('pointermove', e => {
-    if (!isDragging) return;
-    const dx = e.clientX - startX;
-    // Umbral más alto para mouse (el pulso de la mano mueve unos pocos px
-    // incluso en un simple click) — con touch/dedo el temblor es mínimo.
-    const threshold = e.pointerType === 'mouse' ? 15 : 6;
-    if (Math.abs(dx) > threshold) {
-      if (!moved) { moved = true; bar.setPointerCapture(_pid); }
-      bar.scrollLeft = scrollLeft - dx;
-    }
-  });
-  bar.addEventListener('pointerup', e => {
-    isDragging = false;
-    if (bar.hasPointerCapture(e.pointerId)) bar.releasePointerCapture(e.pointerId);
-  });
+  const drag = _attachFilterBarDragScroll(bar);
 
   /* ── tap to filter (only if not a drag) ── */
   bar.querySelectorAll('.fbtn').forEach(btn => {
     btn.addEventListener('click', e => {
-      if (moved) { moved = false; return; }
-      bar.querySelectorAll('.fbtn').forEach(b => b.classList.remove('on'));
-      btn.classList.add('on');
+      if (drag.consumeDragFlag()) return;
       activeFilter = btn.dataset.f;
+      // [Etapa D] cualquier click acá (Todo/Eventos/categoría) arranca
+      // siempre sin subcategoría — si la categoría tildada tiene
+      // subcategorías activas, el siguiente updateFilterBar() (más
+      // abajo) va a mostrar su fila en vez de repintar esta misma.
+      activeSubfilter = null;
+      updateFilterBar();
       applyFilter();
       // [Filtro de fecha de eventos, 2026-09-03] muestra/oculta y
       // wirea la barra de fecha según el filtro que quedó activo —
@@ -537,6 +575,67 @@ function updateFilterBar() {
 
   // Misma llamada al pintar la barra la primera vez (carga inicial),
   // no solo en cada click.
+  if (typeof window._onFilterBarUpdated === 'function') window._onFilterBarUpdated();
+}
+
+/* [Etapa D, PLAN_CATEGORIAS_SUBCATEGORIAS.md — sección 4/5]
+   Fila de subcategorías de `catId` — sin animación todavía (eso es
+   la Etapa E, que reemplaza el innerHTML instantáneo de acá por el
+   deslizamiento + curva S, reusando esta misma función). Reusa la
+   clase `.fbtn`/`.fbtn-circle`/`.fbtn-label` tal cual para que el
+   estado activo (elevado + resaltado) sea idéntico al de la fila
+   principal, sin CSS nuevo. El ícono de cada chip de subcategoría es
+   el de su categoría padre — el modelo de datos (Etapa A) no define
+   ícono propio por subcategoría. */
+function _renderSubfilterRow(bar, catId) {
+  const cat = getAllCats()[catId];
+  if (!cat) { activeFilter = 'all'; activeSubfilter = null; _renderMainFilterRow(bar); return; }
+  const parentIcon = getCatIcon(cat, catId);
+  const subs = Object.entries(cat.subcategories || {}).filter(([,s]) => s.active !== false);
+
+  let html = `<button class="fbtn" data-back="1">
+    <div class="fbtn-circle">${LUCIDE.back}</div>
+    <span class="fbtn-label">Volver</span>
+  </button>`;
+
+  subs.forEach(([subId, sub]) => {
+    const isOn = activeSubfilter === subId;
+    const labelStr = getCatLabel(sub);
+    const label = labelStr.charAt(0).toUpperCase() + labelStr.slice(1).toLowerCase();
+    html += `<button class="fbtn ${isOn?'on':''}" data-sf="${subId}">
+      <div class="fbtn-circle">${parentIcon}</div>
+      <span class="fbtn-label">${label}</span>
+    </button>`;
+  });
+
+  bar.innerHTML = html;
+  const drag = _attachFilterBarDragScroll(bar);
+
+  bar.querySelector('[data-back]').addEventListener('click', e => {
+    if (drag.consumeDragFlag()) return;
+    // [Etapa D, sección 11, pregunta 1] Decisión de Cris (06/09): la
+    // flecha siempre vuelve a "Todo", nunca a la categoría sin
+    // subcategoría.
+    activeFilter = 'all';
+    activeSubfilter = null;
+    updateFilterBar();
+    applyFilter();
+    if (typeof window._onFilterBarUpdated === 'function') window._onFilterBarUpdated();
+  });
+
+  bar.querySelectorAll('[data-sf]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      if (drag.consumeDragFlag()) return;
+      const subId = btn.dataset.sf;
+      // Toggle: tocar la misma subcategoría ya activa la deselecciona
+      // (vuelve a verse toda la categoría) — sección 4, regla 3.
+      activeSubfilter = (activeSubfilter === subId) ? null : subId;
+      updateFilterBar(); // sigue siendo la misma categoría → repinta esta fila con el nuevo estado 'on'
+      applyFilter();
+      if (typeof window._onFilterBarUpdated === 'function') window._onFilterBarUpdated();
+    });
+  });
+
   if (typeof window._onFilterBarUpdated === 'function') window._onFilterBarUpdated();
 }
 
@@ -568,7 +667,12 @@ function applyFilter() {
  *  — que matchea cualquier pin (evento_temporal o no) con al menos
  *  un evento vigente ahora mismo. `_eventoEsVigente` está definida
  *  en js/eventos.js (Etapa 4); se referencia acá tal cual para no
- *  duplicar el criterio de "vigente" en dos archivos. */
+ *  duplicar el criterio de "vigente" en dos archivos.
+ *  [Etapa D, PLAN_CATEGORIAS_SUBCATEGORIAS.md — sección 4.1] Cuando
+ *  además hay una subcategoría activa (`activeSubfilter`), un pin
+ *  tiene que matchear la categoría Y la subcategoría — no se
+ *  duplica la decisión de mostrar/ocultar, `pin-visibility.js` sigue
+ *  siendo el único que la aplica, esto solo extiende el criterio. */
 function _pinMatchesActiveFilter(p) {
   if (activeFilter === 'all') return true;
   if (activeFilter === '__eventos__') {
@@ -576,7 +680,10 @@ function _pinMatchesActiveFilter(p) {
       && EVENTOS.some(ev => ev.poi_id === p.id && _eventoEsVigente(ev));
   }
   const cats = Array.isArray(p.categories) && p.categories.length ? p.categories : [p.category];
-  return cats.includes(activeFilter);
+  if (!cats.includes(activeFilter)) return false;
+  if (activeSubfilter === null) return true;
+  const subs = Array.isArray(p.subcategories) ? p.subcategories : [];
+  return subs.includes(activeSubfilter);
 }
 
 const _btnAddCat = document.getElementById('btn-add-cat');
