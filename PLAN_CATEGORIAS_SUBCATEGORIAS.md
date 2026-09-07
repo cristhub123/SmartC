@@ -549,6 +549,29 @@ aparece/desaparece de una. **Archivos modificados:** `js/config.js`,
 `node --check` sin errores en todo el proyecto. NO probado contra
 Firebase real ni navegador. Detalle completo en `AI_SESSION.md`.
 
+**Etapa E — 2026-09-07 — Animación categoría↔subcategorías.** Cris
+pasó su propia referencia (3 archivos HTML/CSS/JS) con la animación
+exacta que quería — vertical (caen/suben con fade), sin flecha ←
+separada (tocar la categoría de nuevo cierra), reemplazando el
+deslizamiento horizontal con curva S de este mismo plan (sección 5) y
+el botón "Volver" de la Etapa D. Pidió explícitamente reemplazar por
+completo un intento anterior (técnica FLIP) que no había quedado
+documentado acá — se sacó entero, sin dejar los dos sistemas
+conviviendo (generaban pisado real entre animaciones). Implementación
+final: `.fbtn` pasa a `position:absolute` posicionado con la variable
+CSS `--current-x` (nunca `transform` inline directo, así `:hover`/
+`.on`/animación compiten por especificidad de CSS normal sin pisarse).
+`updateFilterBar()` sigue siendo el punto de entrada "en frío" —
+seguro de llamar seguido (cada carga de pines al mover el mapa) sin
+animar de más. La coreografía animada
+(`_animateOpenSubcatRow`/`_animateCloseSubcatRow`) solo la dispara un
+click real. **Archivos modificados:** `js/categories.js`,
+`js/config.js`, `css/base.css`, `index.html` (bump de cache-busting).
+`node --check` sin errores. NO probado contra Firebase real ni
+navegador — la altura/posición exactas del dock son un cálculo a mano,
+van a necesitar ajuste fino en el navegador. Detalle completo en
+`AI_SESSION.md`.
+
 ## 14. Apartado — pedido textual de Cris (corregido solo ortográficamente)
 
 > Quiero que hagamos una nueva implementación para el tema de categorías.

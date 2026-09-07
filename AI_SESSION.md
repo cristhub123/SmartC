@@ -1,3 +1,120 @@
+## Sesión: 2026-09-07 (Etapa E) — Animación de categoría↔subcategorías
+
+Cris pasó 2 ejemplos de referencia (HTML standalone) con la animación
+que quería, y pidió explícitamente reemplazar POR COMPLETO cualquier
+intento anterior — no dejar conviviendo dos sistemas de animación.
+
+**Contexto:** en una ronda anterior de este mismo día (sin registrar
+en este archivo — quedó sin documentar, se corrige acá) ya se había
+escrito una primera versión de la Etapa E usando flexbox normal +
+técnica FLIP (`getBoundingClientRect` antes/después + `transform`
+calculado). Cris la probó, trajo su propio ejemplo de referencia
+(`gemini-code-1788756346468.html`, después afinado a 3 archivos
+`index.html`/`styles.css`/`script.js` con categorías generadas
+dinámicamente) y pidió replicar ESA mecánica exacta, no la FLIP.
+
+**Decisiones tomadas con Cris antes de programar (no inventadas):**
+1. Sin flecha ← separada — para cerrar la vista de subcategorías se
+   vuelve a tocar la misma categoría (ya movida al primer lugar).
+   Reemplaza el botón "Volver" de la Etapa D.
+2. Animación vertical (caen/suben con fade), NO el deslizamiento
+   horizontal con curva S que describía el plan original — Cris la
+   diseñó a su gusto con esa referencia.
+
+**Por qué se sacó el intento FLIP entero en vez de dejarlo convivir:**
+los dos usaban `.fbtn`/`.filter-row` con layouts incompatibles
+(flexbox normal vs. position:absolute con variable CSS `--current-x`)
+y nombres de clase parecidos (`fbtn-exit-down`/`fbtn-enter-up` ya
+existían con OTRA semántica) — dejar los dos generaba exactamente el
+pisado que Cris preguntó si iba a pasar. Se borró completo
+(`_animateOpenSubcatRow`/`_animateCloseSubcatRow`/
+`_appendAnimatedSubcats`/`_renderMainFilterRowAnimatedReturn`/
+`_flipTransform` viejas, más el CSS de esa versión) y se reescribió
+con los mismos 2 nombres de función principales (para no romper nada
+que ya los llamara) pero con la lógica nueva, calcada del ejemplo.
+
+**Cambios (`js/categories.js`):**
+- `FILTER_SLOT_W = 78` (mismo valor que usó Cris), `_setBtnX(btn,x)`,
+  `_getMainFilterItems()`, `_buildMainBtn()`, `_buildSubBtn()`,
+  `_setFilterRowWidth()` (espaciador invisible para que el drag-scroll
+  siga funcionando — los `.fbtn` ahora son `position:absolute` y no le
+  dan ancho de scroll al contenedor por sí solos).
+- `updateFilterBar()`: reescrita como punto de entrada "en frío" —
+  arma la fila completa y la deja YA en el estado correcto según
+  `activeFilter`/`activeSubfilter` actuales, sin animar. Se sigue
+  llamando muy seguido (cada carga de pines al mover el mapa), tiene
+  que ser barata y siempre terminar bien parada, animada o no.
+- `_animateOpenSubcatRow()`/`_animateCloseSubcatRow()`: la coreografía
+  animada de verdad, calcada 1:1 de `handleCategoryClick`/
+  `resetToMain` del script.js de Cris — solo se dispara con un click
+  real del usuario, nunca desde `updateFilterBar()`.
+- **Decisión técnica clave (la respuesta a "se van a pisar las
+  animaciones"):** la posición de reposo de cada botón NO se escribe
+  como `transform` inline — solo se escribe la variable CSS
+  `--current-x` (`_setBtnX`). El `transform` final lo arma el propio
+  CSS (`.fbtn`, `:hover`, `.on`, `.fbtn-exit-down`, `.fbtn-enter-up`)
+  leyendo esa variable. Si el `transform` de reposo se hubiera escrito
+  inline (como en el ejemplo de Cris, que no tenía `:hover` propio
+  para pisar), el `:hover`/`.on` que YA existían en la app hubiesen
+  quedado inútiles — un estilo inline le gana a una clase sin
+  `!important`, pase lo que pase con `:hover`/`:active`. Con la
+  variable, cada estado compite por especificidad de CSS normal como
+  siempre.
+
+**Cambios (`css/base.css`):**
+- `.filter-row`: pasa de `display:flex` a `position:relative` + alto
+  fijo `82px` (los hijos ya no le dan altura, son absolutos).
+- `.fbtn`: pasa a `position:absolute; left:0; width:70px;
+  transform:translate(var(--current-x,0px), 0px)`. `:hover`/`.on`
+  ahora arman su `transform` completo leyendo la misma variable (ver
+  arriba). Transición unificada `.4s cubic-bezier(.65,0,.35,1)`
+  (antes `.22s` con rebote — se unificó al valor del ejemplo de Cris,
+  el hover/tap va a sentirse un poco menos "rebotón" que antes, es
+  intencional).
+- `.fbtn-exit-down`/`.fbtn-enter-up(.fbtn-entered)`: reescritas para
+  usar `translate(var(--current-x), Ypx)` en vez de solo `translateY`
+  — el intento FLIP anterior tenía un bug acá (perdía la X al caer,
+  el botón "saltaba" a la izquierda mientras caía en vez de caer
+  derecho en su lugar).
+
+**Archivos modificados:** `js/categories.js`, `js/config.js` (se sacó
+`LUCIDE.back`, ya no se usa — la flecha se reemplazó por tocar la
+categoría de nuevo), `css/base.css`, `index.html` (bump de
+cache-busting de los 3).
+
+**No tocado a propósito:** el color de fondo de cada círculo
+(`background:${cat.color}` inline) ya estaba corregido de una ronda
+anterior del mismo día (el comentario de la Etapa D prometía este
+color y no se había escrito) — se mantuvo tal cual, no forma parte de
+esta etapa.
+
+**Pendiente/riesgo conocido, no de esta etapa:** `_attachFilterBarDragScroll(bar)`
+se vuelve a llamar en cada `updateFilterBar()` (cada carga de pines al
+mover el mapa) sobre el MISMO elemento `.filter-row` sin sacar los
+listeners de pointer anteriores — acumula listeners duplicados con el
+tiempo. Esto NO es nuevo de esta etapa, ya pasaba en el código antes
+de todo este plan (`bar.addEventListener('pointerdown', ...)` vivía
+inline en el `updateFilterBar()` original). Vale la pena una limpieza
+aparte en algún momento (guardar la referencia y hacer
+`removeEventListener` antes de re-atachear, o mover el listener a
+`bar` UNA sola vez fuera de `updateFilterBar()`), pero no se tocó acá
+para no salirse del pedido puntual de esta ronda.
+
+**Pruebas realizadas:** `node --check` sin errores en todo el
+proyecto, balance de llaves `{}` verificado en `base.css`. Grep
+confirmando que no queda ninguna referencia a los nombres de la
+versión FLIP vieja (`_flipTransform`, `_appendAnimatedSubcats`,
+`_renderMainFilterRowAnimatedReturn`) fuera de comentarios
+explicativos, y que `.filter-row`/`#filter-bar` no se usan en ningún
+otro archivo del proyecto de una forma que dependiera del layout flex
+viejo. **NO probado contra Firebase real ni navegador** — la altura
+exacta de `.filter-row` (82px) y el `top:4px` de `.fbtn` son un
+cálculo a mano (circle 54px + gap 5px + label ~14px), van a necesitar
+un ajuste fino mirándolo en el navegador real, así lo dice el propio
+plan para esta etapa.
+
+**Sigue:** Etapa F (QA final).
+
 ## Sesión: 2026-09-06 (Etapa D) — Filtro real del mapa por subcategoría
 
 Antes de tocar código se resolvieron con Cris las 3 preguntas abiertas
