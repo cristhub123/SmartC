@@ -664,10 +664,20 @@ function updateFilterBar() {
       if (drag.consumeDragFlag()) return;
       if (_dockAnimating) return; // [FIX 2026-09-07] no interrumpir una animación en curso
       const id = btn.dataset.f;
+      // [FIX 2026-09-07 — bug "se queda trabado al volver a tocar la
+      // categoría"] Antes esto miraba `openCat`, una variable
+      // calculada UNA sola vez al armar la fila y capturada acá por
+      // clausura — pero abrir/cerrar la fila con la animación NO pasa
+      // por acá de nuevo (no se vuelve a llamar updateFilterBar()),
+      // así que `openCat` quedaba congelada con su valor viejo aunque
+      // la fila ya estuviera abierta de verdad. Ahora se chequea el
+      // estado REAL en el momento del click: ¿esta misma categoría
+      // está activa Y hay chips de subcategoría visibles ahora mismo?
+      const isOpenNow = id === activeFilter && !!bar.querySelector('.fbtn-sub');
       // [Etapa E, decisión de Cris — reemplaza el botón "Volver"] si
       // ya está abierta la vista de subcategorías de ESTA misma
       // categoría (quedó primera, con .on), tocarla de nuevo cierra.
-      if (openCat && id === activeFilter) { _animateCloseSubcatRow(bar, id); return; }
+      if (isOpenNow) { _animateCloseSubcatRow(bar, id); return; }
       if (id !== 'all' && id !== '__eventos__' && _catHasActiveSubcats(id)) { _animateOpenSubcatRow(bar, id, btn); return; }
       activeFilter = id;
       activeSubfilter = null;
