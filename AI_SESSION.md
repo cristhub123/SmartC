@@ -1,3 +1,46 @@
+## Sesión: 2026-09-07 (Etapa E, fix) — Carrera entre la animación y los refrescos de fondo de la fila de filtros
+
+Cris reportó, después de la entrega de la Etapa E, botones que
+desaparecían, quedaban tildados solos, o se duplicaban movimientos.
+Pidió entender la causa antes de seguir.
+
+**Causa real (confirmada leyendo el código, no una suposición):**
+`updateFilterBar()` se llama muy seguido en segundo plano — cada
+carga de pines al mover/hacer zoom en el mapa (`drawLoadedPins()` en
+`pins-viewport-loader.js`) — y hace `bar.innerHTML = ''` +
+reconstrucción completa de la fila. La coreografía animada
+(`_animateOpenSubcatRow`/`_animateCloseSubcatRow`) no es instantánea:
+tarda ~0.5-0.9s repartidos en varios `setTimeout`. Si un refresco de
+fondo se disparaba EN EL MEDIO de esos pasos, `updateFilterBar()` le
+vaciaba el contenido a la fila que la animación todavía estaba
+tocando — y los pasos de la coreografía que quedaban pendientes
+igual se ejecutaban después, agregando/tocando botones sobre una fila
+que ya había sido reconstruida de cero por su cuenta. De ahí los
+duplicados y los estados raros que describió Cris.
+
+**Fix:** nuevo flag `_dockAnimating` (`js/categories.js`). Mientras
+está en `true` (desde el primer paso de cualquiera de las 2
+coreografías hasta el último real, no antes):
+- `updateFilterBar()` NO toca el DOM de la fila — sigue llamando
+  `applyFilter()` igual, así los pines recién cargados de fondo
+  quedan bien filtrados, pero la fila visual espera a que la
+  animación termine.
+- Un click nuevo en cualquier botón (principal o subcategoría) se
+  ignora — no se puede interrumpir una animación a mitad de camino.
+
+**Archivos modificados:** `js/categories.js`, `index.html` (bump de
+cache-busting a `?v=20260907-1330`).
+
+**Pruebas realizadas:** `node --check` sin errores en todo el
+proyecto. Repasado a mano cada punto donde se lee/escribe
+`_dockAnimating`, confirmando que el flag se pone en `true` como
+primera línea de cada coreografía y se vuelve a `false` recién en su
+último paso real (nunca antes). **NO probado contra Firebase real ni
+navegador** — es el fix a un bug que Cris solo pudo reproducir
+navegando en vivo (mover el mapa mientras la animación estaba en
+curso), así que la confirmación real depende de que lo prueba él en
+su entorno.
+
 ## Sesión: 2026-09-07 (Etapa E) — Animación de categoría↔subcategorías
 
 Cris pasó 2 ejemplos de referencia (HTML standalone) con la animación
