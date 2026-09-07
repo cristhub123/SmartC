@@ -481,380 +481,256 @@ function _catHasActiveSubcats(catId) {
   return Object.values(cat.subcategories).some(s => s.active !== false);
 }
 
-/* [Etapa D, PLAN_CATEGORIAS_SUBCATEGORIAS.md — sección 4]
-   Punto de entrada — decide qué fila mostrar. A propósito NO hace
-   falta una bandera de estado separada ("¿está abierta la fila de
-   subcategorías?"): se deriva 100% de `activeFilter` +
-   `_catHasActiveSubcats()`, así que la flecha ← (que pone
-   `activeFilter='all'`) o tocar una categoría sin subcategorías caen
-   solos en la fila principal sin lógica extra. */
-/* [FIX 2026-09-07 — "se traba, el espaciado varía"] `updateFilterBar()`
-   no lo llama solo el click del usuario: `js/pins-viewport-loader.js`
-   (`drawLoadedPins()`) lo dispara solo, cada vez que entran pines
-   nuevos al mover/zoomear el mapa (debounce de 350ms) — y `app.js` lo
-   llama una vez al iniciar. Antes de este fix, si uno de esos
-   llamados "externos" caía justo en medio de la animación de abrir/
-   cerrar subcategorías (que tarda varios cientos de ms con sus
-   setTimeout en cascada), el `innerHTML` completo de acá abajo le
-   borraba el piso a esa animación en pleno vuelo: quedaba a mitad de
-   camino, con clases/posiciones pisadas — de ahí que a veces se
-   trabara y el espaciado saliera distinto cada vez que se abría.
-   Ahora: mientras `_filterBarBusy` es true, cualquier pedido de
-   refresco se ignora Y se recuerda (`_filterBarRenderPending`); en
-   cuanto la animación termina y suelta el flag, se dispara solo el
-   refresco pendiente (ver los `_filterBarBusy = false` de
-   _animateOpenSubcatRow/_animateCloseSubcatRow más abajo). */
-let _filterBarRenderPending = false;
+/* [Etapa E, PLAN_CATEGORIAS_SUBCATEGORIAS.md] Reescrito 2026-09-07:
+   reemplaza ENTERO el intento anterior (FLIP con getBoundingClientRect,
+   flexbox normal) por el mecanismo exacto que pidió Cris — calcado de
+   su ejemplo de referencia (index.html/styles.css/script.js que subió,
+   con `--current-x` + position:absolute) — generalizado acá para N
+   categorías reales (el ejemplo tenía 5 fijas) y conectado al filtro
+   real de la app (activeFilter/activeSubfilter + applyFilter()).
 
+   Por qué el intento anterior se sacó por completo en vez de
+   convivir con este: los dos usaban `.fbtn`/`.filter-row` con
+   layouts incompatibles (flexbox normal vs. position:absolute +
+   `--current-x`) y clases con nombres parecidos — dejar los dos
+   generaba exactamente el pisado que Cris pidió evitar. Se borraron
+   `_animateOpenSubcatRow`/`_animateCloseSubcatRow`/
+   `_appendAnimatedSubcats`/`_renderMainFilterRowAnimatedReturn`/
+   `_flipTransform` viejas y se vuelven a escribir con estos mismos
+   nombres (evita romper si algo más los llamaba) pero con la lógica
+   nueva.
+
+   CLAVE del porqué no hay conflicto entre el "reposo" (fila normal)
+   y las clases de animación: la posición de reposo de cada botón
+   NUNCA se escribe como `transform` inline — solo se escribe la
+   variable CSS `--current-x` (ver `_setBtnX`), y es el propio CSS
+   (`.fbtn`, `.fbtn:hover`, `.fbtn.on`, `.fbtn-exit-down`,
+   `.fbtn-enter-up`) el que arma el `transform` final leyendo esa
+   variable. Si el `transform` de reposo se hubiera escrito inline
+   (como en el ejemplo de Cris, que no tiene estados :hover propios
+   para pisar), el CSS existente `.fbtn:hover`/`.fbtn.on` de la app
+   (que sí existían antes de esta etapa) hubiese quedado inútil — un
+   estilo inline siempre le gana a una clase sin !important, sin
+   importar :hover/:active. Con la variable, en cambio, cada clase
+   compite en igualdad de condiciones y gana la de mayor especificidad
+   de siempre (`.fbtn.on` le gana a `.fbtn`, como ya pasaba). */
+
+/* Ancho de cada "casillero" de la fila — categorías y subcategorías
+   comparten el mismo ancho para que las cuentas de posición sean una
+   sola multiplicación (índice * FILTER_SLOT_W). Mismo valor que usó
+   Cris en su referencia. */
+const FILTER_SLOT_W = 78;
+
+function _setBtnX(btn, x) { btn.style.setProperty('--current-x', `${x}px`); }
+
+/* Arma la lista de "casillones" de la fila principal: Todo + Eventos
+   (fijos, no son categorías reales — no viven en CAT/CUSTOM_CATS) +
+   las categorías activas, mismo orden que ya usaba la fila antes de
+   esta etapa. */
+function _getMainFilterItems() {
+  const items = [
+    { id: 'all', label: 'Todo', iconHTML: LUCIDE.all, color: '#1c1c1e' },
+    { id: '__eventos__', label: 'Eventos', iconHTML: '🎉', color: '#1c1c1e' }
+  ];
+  Object.entries(getAllCats()).filter(([, v]) => v.active !== false).forEach(([id, cat]) => {
+    const labelStr = getCatLabel(cat);
+    const label = labelStr.charAt(0).toUpperCase() + labelStr.slice(1).toLowerCase();
+    items.push({ id, label, iconHTML: getCatIcon(cat, id), color: cat.color });
+  });
+  return items;
+}
+
+function _buildMainBtn(item, x, isOn) {
+  const btn = document.createElement('button');
+  btn.className = 'fbtn' + (isOn ? ' on' : '');
+  btn.dataset.f = item.id;
+  _setBtnX(btn, x);
+  btn.innerHTML = `<div class="fbtn-circle" style="background:${item.color}">${item.iconHTML}</div><span class="fbtn-label">${item.label}</span>`;
+  return btn;
+}
+
+function _buildSubBtn(bar, cat, subId, sub, parentIcon, x, isOn) {
+  const btn = document.createElement('button');
+  btn.className = 'fbtn fbtn-sub' + (isOn ? ' on' : '');
+  btn.dataset.sf = subId;
+  _setBtnX(btn, x);
+  const labelStr = getCatLabel(sub);
+  const label = labelStr.charAt(0).toUpperCase() + labelStr.slice(1).toLowerCase();
+  btn.innerHTML = `<div class="fbtn-circle" style="background:${cat.color}">${parentIcon}</div><span class="fbtn-label">${label}</span>`;
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    const wasOn = btn.classList.contains('on');
+    bar.querySelectorAll('.fbtn-sub.on').forEach(b => b.classList.remove('on'));
+    activeSubfilter = wasOn ? null : subId;
+    if (!wasOn) btn.classList.add('on');
+    applyFilter();
+    if (typeof window._onFilterBarUpdated === 'function') window._onFilterBarUpdated();
+  });
+  return btn;
+}
+
+/* Espaciador invisible (altura 1px, en el flujo normal — a
+   diferencia de los `.fbtn`, que son position:absolute y por eso NO
+   le dan ancho de scroll al contenedor por sí solos) para que
+   `.filter-row` siga siendo scrolleable horizontalmente con drag
+   (`_attachFilterBarDragScroll`) sin importar cuántos casilleros haya
+   — categorías reales activas, o subcategorías de la que esté
+   abierta, lo que sea más ancho. */
+function _setFilterRowWidth(bar, slots) {
+  let spacer = bar.querySelector('.filter-row-spacer');
+  if (!spacer) {
+    spacer = document.createElement('div');
+    spacer.className = 'filter-row-spacer';
+    spacer.style.cssText = 'height:1px;pointer-events:none;';
+    bar.appendChild(spacer);
+  } else {
+    bar.appendChild(spacer); // reordena al final, no tapa nada (1px de alto)
+  }
+  spacer.style.width = (slots * FILTER_SLOT_W) + 'px';
+}
+
+/* [Etapa D→E, PLAN_CATEGORIAS_SUBCATEGORIAS.md — sección 4]
+   Punto de entrada "en frío": arma la fila completa desde cero y la
+   deja YA en el estado que le corresponda a `activeFilter`/
+   `activeSubfilter` actuales, de una sola vez, SIN animación. Se
+   llama muy seguido (cada carga de pines al mover el mapa, ver
+   pins-viewport-loader.js) — tiene que ser barata y siempre terminar
+   en el estado correcto esté o no abierta una categoría, animado o
+   no. La coreografía animada (caída/subida en cascada) es aparte,
+   solo la dispara un click real del usuario — ver
+   _animateOpenSubcatRow/_animateCloseSubcatRow más abajo. */
 function updateFilterBar() {
   const bar = document.querySelector('.filter-row');
   if (!bar) return;
-  if (_filterBarBusy) { _filterBarRenderPending = true; return; }
-  _filterBarRenderPending = false;
-  const showSubRow = activeFilter !== 'all' && activeFilter !== '__eventos__' && _catHasActiveSubcats(activeFilter);
-  if (showSubRow) _renderSubfilterRow(bar, activeFilter);
-  else _renderMainFilterRow(bar);
-}
 
-/* Se llama en cada punto donde una animación de la fila termina y
-   suelta `_filterBarBusy` — si mientras tanto quedó pedido un
-   refresco (ver arriba), se ejecuta recién ahora, ya sin choque. */
-function _releaseFilterBarBusy() {
-  _filterBarBusy = false;
-  if (_filterBarRenderPending) updateFilterBar();
-}
+  const items = _getMainFilterItems();
+  const showSubs = activeFilter !== 'all' && activeFilter !== '__eventos__' && _catHasActiveSubcats(activeFilter);
+  const openCat = showSubs ? getAllCats()[activeFilter] : null;
+  const subs = openCat ? Object.entries(openCat.subcategories || {}).filter(([, s]) => s.active !== false) : [];
 
-/* [botonEs_ajustar, 2026-09-07] Separación horizontal (px) entre
-   botones de la fila de filtros — mismo rol que POS_OFFSET_X en el
-   ejemplo de referencia (index.html/styles.css/script.js). Con esto
-   se calcula la posición X de cada botón (idx * FBTN_STEP_X) y se
-   guarda en --current-x + `style.transform` inline; ver _placeFbtn().
-   Los botones son .fbtn (position:absolute, ver css/base.css). */
-const FBTN_STEP_X = 68;
+  bar.innerHTML = '';
 
-/* Coloca un botón de la fila en su posición X (idx-ésima), guardando
-   el índice en dataset.idx para poder recalcularla más adelante
-   (por ejemplo al volver de la fila de subcategorías). No toca Y —
-   eso lo maneja .fbtn-exit-down / .sub-item cuando corresponde. */
-function _placeFbtn(btn, idx) {
-  const x = idx * FBTN_STEP_X;
-  btn.dataset.idx = idx;
-  btn.style.setProperty('--current-x', `${x}px`);
-  btn.style.transform = `translate(${x}px, 0px)`;
-}
-
-/* Ajusta el ancho real de la fila para que el scroll horizontal por
-   arrastre (_attachFilterBarDragScroll) tenga contenido de sobra para
-   recorrer — con .fbtn absoluto, el contenedor ya no crece solo. */
-function _sizeFilterBar(bar, buttonCount) {
-  bar.style.width = `${buttonCount * FBTN_STEP_X + 60}px`;
-}
-
-/* [botonEs_ajustar, 2026-09-07] true mientras la animación de
-   apertura/cierre de la fila de subcategorías está en curso — mismo
-   rol que `isSubView` en el ejemplo de referencia ("Bloquea clics
-   durante la animación activa"). Evita que un segundo tap a mitad de
-   la animación arranque otra fila encima de la que ya está corriendo. */
-let _filterBarBusy = false;
-
-function _renderMainFilterRow(bar) {
-  // [FIX 2026-09-07] `updateFilterBar()` puede llegar a reconstruir
-  // esta fila mientras el usuario la tiene scrolleada (ej. la llama
-  // sola pins-viewport-loader.js al cargar pines nuevos al mover el
-  // mapa) — sin esto, cada `bar.innerHTML = html` de más abajo
-  // resetea el scroll a 0 y se siente como si "saltara" sin motivo.
-  const _prevScrollLeft = bar.scrollLeft;
-  const all = getAllCats();
-  const activeCats = Object.entries(all).filter(([,v]) => v.active !== false);
-
-  const allActive = activeFilter === 'all';
-  let html = `<button class="fbtn ${allActive?'on':''}" data-f="all">
-    <div class="fbtn-circle" style="background:#1c1c1e">${LUCIDE.all}</div>
-    <span class="fbtn-label">Todo</span>
-  </button>`;
-
-  // [Etapa 5] Filtro especial "Eventos y actividades" — junto a los
-  // de categoría, pero NO es una categoría real (no vive en
-  // CAT/CUSTOM_CATS): muestra cualquier pin (evento_temporal o no)
-  // con ≥1 evento vigente ahora mismo. Ver _pinMatchesActiveFilter().
-  const eventosOn = activeFilter === '__eventos__';
-  html += `<button class="fbtn ${eventosOn?'on':''}" data-f="__eventos__">
-    <div class="fbtn-circle" style="background:#1c1c1e">🎉</div>
-    <span class="fbtn-label">Eventos</span>
-  </button>`;
-
-  // [FIX 2026-09-07] La nota "ver css/base.css" del comentario de
-  // abajo (2026-09-06) prometía un reemplazo del color por categoría
-  // que nunca se llegó a escribir en el CSS — el círculo quedó sin
-  // ningún fondo (transparente) desde esa actualización. Se restaura
-  // el color de cada categoría acá mismo, igual que ya se usa en el
-  // resto de la app (pines, admin, chips de categoría).
-  activeCats.forEach(([id, cat]) => {
-    const isOn = activeFilter === id;
-    const svg  = getCatIcon(cat, id);
-    const labelStr = getCatLabel(cat);
-    const label = labelStr.charAt(0).toUpperCase() + labelStr.slice(1).toLowerCase();
-    html += `<button class="fbtn ${isOn?'on':''}" data-f="${id}">
-      <div class="fbtn-circle" style="background:${cat.color}">${svg}</div>
-      <span class="fbtn-label">${label}</span>
-    </button>`;
+  const mainItemsToShow = openCat ? items.filter(it => it.id === activeFilter) : items;
+  mainItemsToShow.forEach((item, idx) => {
+    const realIdx = items.findIndex(it => it.id === item.id);
+    const btn = _buildMainBtn(item, openCat ? 0 : realIdx * FILTER_SLOT_W, item.id === activeFilter);
+    btn.dataset.idx = realIdx; // posición "de origen" — la usa el cierre animado para saber a dónde volver
+    bar.appendChild(btn);
   });
 
-  bar.innerHTML = html;
+  if (openCat) {
+    const parentIcon = getCatIcon(openCat, activeFilter);
+    subs.forEach(([subId, sub], i) => {
+      bar.appendChild(_buildSubBtn(bar, openCat, subId, sub, parentIcon, (i + 1) * FILTER_SLOT_W, activeSubfilter === subId));
+    });
+  }
 
-  // [botonEs_ajustar, 2026-09-07] posiciona cada botón en X (dock de
-  // posiciones absolutas, ver _placeFbtn) y ajusta el ancho de la fila
-  // para que el drag-to-scroll siga teniendo contenido para recorrer.
-  const mainButtons = Array.from(bar.querySelectorAll('.fbtn'));
-  mainButtons.forEach((btn, idx) => _placeFbtn(btn, idx));
-  _sizeFilterBar(bar, mainButtons.length);
-  bar.scrollLeft = _prevScrollLeft;
-  _filterBarBusy = false;
-
-  /* ── drag-to-scroll ──
-     [FIX 2026-09-04 — causa real de "los filtros no hacen nada en
-     PC, sí en el celular"] `bar.setPointerCapture(e.pointerId)` se
-     llamaba en el `pointerdown`, es decir, en CUALQUIER toque —
-     incluido un simple click sin arrastre. Es un bug conocido y
-     documentado de esta API (afecta sobre todo a mouse/desktop,
-     varía entre navegadores): una vez que el contenedor captura el
-     puntero, el click posterior puede terminar dirigido al
-     CONTENEDOR (`bar`) en vez del botón que el usuario realmente
-     tocó — y como el listener de click vive en cada botón
-     (`.fbtn`), ese click nunca le llega, aunque visualmente se vea
-     el "apretado" nativo del botón (eso es CSS del navegador, no
-     depende de JS). En el celular no se notaba porque el touch
-     suele tolerar mejor este caso.
-     Fix real (no un parche puntual — es el patrón correcto y
-     documentado para "arrastre que no debe romper el click"):
-     capturar el puntero recién cuando se CONFIRMA que es un
-     arrastre real (se cruza el umbral), nunca en el pointerdown. Un
-     click sin arrastre nunca llega a capturar nada, así que el
-     click llega íntegro al botón como corresponde. */
+  _setFilterRowWidth(bar, openCat ? 1 + subs.length : items.length);
   const drag = _attachFilterBarDragScroll(bar);
 
-  /* ── tap to filter (only if not a drag) ── */
-  bar.querySelectorAll('.fbtn').forEach(btn => {
-    btn.addEventListener('click', e => {
+  bar.querySelectorAll('.fbtn[data-f]').forEach(btn => {
+    btn.addEventListener('click', () => {
       if (drag.consumeDragFlag()) return;
-      if (_filterBarBusy) return; // [botonEs_ajustar] bloquea clics durante la animación activa
       const id = btn.dataset.f;
-      // [botonEs_ajustar, 2026-09-07] si la fila de subcategorías ya
-      // está abierta y se vuelve a tocar la misma categoría (ahora
-      // primera en la fila), se cierra — mismo criterio que
-      // `if (isSubView && currentActiveCategory === cat.id) resetToMain()`
-      // del ejemplo de referencia.
-      if (activeFilter === id && bar.querySelector('.sub-item')) {
-        _animateCloseSubcatRow(bar, id);
-        return;
-      }
-      // [Etapa E] si la categoría tocada tiene subcategorías activas,
-      // la transición a su fila de subcategorías se anima (ver
-      // _animateOpenSubcatRow) en vez de repintarse instantánea.
-      if (id !== 'all' && id !== '__eventos__' && _catHasActiveSubcats(id)) {
-        _animateOpenSubcatRow(bar, id, btn);
-        return;
-      }
+      // [Etapa E, decisión de Cris — reemplaza el botón "Volver"] si
+      // ya está abierta la vista de subcategorías de ESTA misma
+      // categoría (quedó primera, con .on), tocarla de nuevo cierra.
+      if (openCat && id === activeFilter) { _animateCloseSubcatRow(bar, id); return; }
+      if (id !== 'all' && id !== '__eventos__' && _catHasActiveSubcats(id)) { _animateOpenSubcatRow(bar, id, btn); return; }
       activeFilter = id;
-      // [Etapa D] cualquier click acá (Todo/Eventos/categoría sin
-      // subcategorías) arranca siempre sin subcategoría.
       activeSubfilter = null;
       updateFilterBar();
       applyFilter();
-      // [Filtro de fecha de eventos, 2026-09-03] muestra/oculta y
-      // wirea la barra de fecha según el filtro que quedó activo —
-      // ver js/eventos-fecha-filtro.js.
       if (typeof window._onFilterBarUpdated === 'function') window._onFilterBarUpdated();
     });
   });
 
-  // Misma llamada al pintar la barra la primera vez (carga inicial),
-  // no solo en cada click.
+  applyFilter();
   if (typeof window._onFilterBarUpdated === 'function') window._onFilterBarUpdated();
 }
 
-/* [Etapa D, PLAN_CATEGORIAS_SUBCATEGORIAS.md — sección 4/5]
-   Fila de subcategorías de `catId` — sin animación todavía (eso es
-   la Etapa E, que reemplaza el innerHTML instantáneo de acá por el
-   deslizamiento + curva S, reusando esta misma función). Reusa la
-   clase `.fbtn`/`.fbtn-circle`/`.fbtn-label` tal cual para que el
-   estado activo (elevado + resaltado) sea idéntico al de la fila
-   principal, sin CSS nuevo. El ícono de cada chip de subcategoría es
-   el de su categoría padre — el modelo de datos (Etapa A) no define
-   ícono propio por subcategoría. */
-function _renderSubfilterRow(bar, catId) {
-  const _prevScrollLeft = bar.scrollLeft; // ver nota en _renderMainFilterRow
-  const cat = getAllCats()[catId];
-  if (!cat) { activeFilter = 'all'; activeSubfilter = null; _renderMainFilterRow(bar); return; }
-  const parentIcon = getCatIcon(cat, catId);
-  const subs = Object.entries(cat.subcategories || {}).filter(([,s]) => s.active !== false);
-
-  // [Etapa E, decisión de Cris — reemplaza el botón "Volver"] para
-  // cerrar la fila de subcategorías se vuelve a tocar la categoría
-  // misma (ya en la primera posición), no una flecha separada.
-  const catLabelStr = getCatLabel(cat);
-  const catLabel = catLabelStr.charAt(0).toUpperCase() + catLabelStr.slice(1).toLowerCase();
-  let html = `<button class="fbtn on" data-f="${catId}">
-    <div class="fbtn-circle" style="background:${cat.color}">${parentIcon}</div>
-    <span class="fbtn-label">${catLabel}</span>
-  </button>`;
-
-  subs.forEach(([subId, sub]) => {
-    const isOn = activeSubfilter === subId;
-    const labelStr = getCatLabel(sub);
-    const label = labelStr.charAt(0).toUpperCase() + labelStr.slice(1).toLowerCase();
-    html += `<button class="fbtn sub-item ${isOn?'on':''}" data-sf="${subId}">
-      <div class="fbtn-circle" style="background:${cat.color}">${parentIcon}</div>
-      <span class="fbtn-label">${label}</span>
-    </button>`;
-  });
-
-  bar.innerHTML = html;
-
-  // [botonEs_ajustar, 2026-09-07] mismo esquema de posiciones que la
-  // fila principal: la categoría padre queda en X=0 y cada
-  // subcategoría a continuación (ver _placeFbtn/FBTN_STEP_X).
-  const rowButtons = Array.from(bar.querySelectorAll('.fbtn'));
-  rowButtons.forEach((btn, idx) => _placeFbtn(btn, idx));
-  _sizeFilterBar(bar, rowButtons.length);
-  bar.querySelectorAll('.sub-item').forEach(btn => btn.classList.add('fbtn-entered'));
-  bar.scrollLeft = _prevScrollLeft;
-  _filterBarBusy = false;
-
-  const drag = _attachFilterBarDragScroll(bar);
-
-  bar.querySelector('[data-f]').addEventListener('click', e => {
-    if (drag.consumeDragFlag()) return;
-    _animateCloseSubcatRow(bar, catId);
-  });
-
-  bar.querySelectorAll('[data-sf]').forEach(btn => {
-    btn.addEventListener('click', e => {
-      if (drag.consumeDragFlag()) return;
-      const subId = btn.dataset.sf;
-      // Toggle: tocar la misma subcategoría ya activa la deselecciona
-      // (vuelve a verse toda la categoría) — sección 4, regla 3.
-      activeSubfilter = (activeSubfilter === subId) ? null : subId;
-      updateFilterBar(); // sigue siendo la misma categoría → repinta esta fila con el nuevo estado 'on'
-      applyFilter();
-      if (typeof window._onFilterBarUpdated === 'function') window._onFilterBarUpdated();
-    });
-  });
-
-  if (typeof window._onFilterBarUpdated === 'function') window._onFilterBarUpdated();
-}
-
-/* [botonEs_ajustar, 2026-09-07] Animación de categoría → fila de
-   subcategorías, calcada 1:1 de handleCategoryClick() en el ejemplo
-   de referencia (index.html/styles.css/script.js provisto por Cris),
-   adaptada a esta fila (dinámica, con datos reales y scroll):
-   1) STAGGER DESCENDENTE: los demás botones principales caen con
-      fade, en cascada de derecha a izquierda (.fbtn-exit-down) —
-      quedan ocultos pero siguen en el DOM (no se borran), para poder
-      restaurarlos tal cual al cerrar.
-   2) DESPLAZAMIENTO EN S: la categoría tocada viaja a X=0 (se
-      actualiza su --current-x/transform inline) — como el botón ya
-      es position:absolute, la transición de .fbtn anima ese cambio
-      sola, sin necesidad de FLIP ni de clonar el nodo.
-   3) STAGGER ASCENDENTE: las subcategorías se agregan y entran con
-      fade en cascada de izquierda a derecha (ver _appendAnimatedSubcats). */
-function _animateOpenSubcatRow(bar, catId, clickedBtn) {
+/* [Etapa E] Coreografía de apertura — calcada 1:1 del ejemplo de
+   referencia de Cris (handleCategoryClick de su script.js):
+   1) los demás botones principales caen con fade, en cascada de
+      derecha a izquierda (40ms entre uno y otro);
+   2) la categoría tocada viaja a la posición 0 (solo cambia
+      `--current-x`, el CSS anima el resto — ver nota grande arriba);
+   3) las subcategorías suben con fade, en cascada (60ms entre una y
+      otra). Generalizada para N categorías reales y conectada al
+      filtro real (activeFilter/activeSubfilter + applyFilter()) —
+      el mapa ya filtra por toda la categoría desde el instante del
+      toque, no espera a que termine la animación (así lo pidió Cris
+      en la Etapa D). */
+function _animateOpenSubcatRow(bar, catId, selectedBtn) {
   const cat = getAllCats()[catId];
   if (!cat) return;
-  _filterBarBusy = true;
 
-  const mainBtns = Array.from(bar.querySelectorAll('.fbtn'));
-  const others = mainBtns.filter(b => b !== clickedBtn);
-
-  // 1. Stagger descendente: derecha a izquierda.
-  const sortedOthers = others.slice().sort((a, b) => parseInt(b.dataset.idx, 10) - parseInt(a.dataset.idx, 10));
+  const mainBtns = Array.from(bar.querySelectorAll('.fbtn[data-f]'));
+  const otherBtns = mainBtns.filter(b => b !== selectedBtn);
+  const sortedOthers = otherBtns.slice().sort((a, b) => b.dataset.idx - a.dataset.idx);
   sortedOthers.forEach((btn, i) => {
     setTimeout(() => btn.classList.add('fbtn-exit-down'), i * 40);
   });
 
-  // 2. Desplazamiento en S: la categoría tocada viaja al extremo izquierdo.
   setTimeout(() => {
-    clickedBtn.style.setProperty('--current-x', '0px');
-    clickedBtn.style.transform = 'translate(0px, 0px)';
-    clickedBtn.classList.add('on');
+    _setBtnX(selectedBtn, 0);
+    selectedBtn.classList.add('on');
   }, 80);
 
-  // 3. Stagger ascendente: las subcategorías entran de izquierda a derecha.
   setTimeout(() => {
-    activeFilter = catId;
-    activeSubfilter = null;
-    _appendAnimatedSubcats(bar, cat, catId);
-    applyFilter();
-    if (typeof window._onFilterBarUpdated === 'function') window._onFilterBarUpdated();
-    _releaseFilterBarBusy();
+    const parentIcon = getCatIcon(cat, catId);
+    const subs = Object.entries(cat.subcategories || {}).filter(([, s]) => s.active !== false);
+    _setFilterRowWidth(bar, 1 + subs.length);
+    subs.forEach(([subId, sub], i) => {
+      const x = (i + 1) * FILTER_SLOT_W;
+      const subBtn = _buildSubBtn(bar, cat, subId, sub, parentIcon, x, false);
+      subBtn.classList.add('fbtn-enter-up');
+      bar.appendChild(subBtn);
+      requestAnimationFrame(() => {
+        setTimeout(() => subBtn.classList.add('fbtn-entered'), (i + 1) * 60);
+      });
+    });
   }, 500);
+
+  activeFilter = catId;
+  activeSubfilter = null;
+  applyFilter();
+  if (typeof window._onFilterBarUpdated === 'function') window._onFilterBarUpdated();
 }
 
-/* Reversa de _animateOpenSubcatRow — calcada de resetToMain() del
-   ejemplo de referencia: las subcategorías caen en cascada y se
-   eliminan, y recién ahí los botones principales (que nunca se habían
-   borrado, solo ocultado con .fbtn-exit-down) vuelven a su X original. */
+/* [Etapa E] Reversa — calcada de resetToMain() del ejemplo de Cris:
+   las subcategorías caen en cascada y se sacan del DOM; al terminar,
+   los botones principales (que nunca se borraron, solo quedaron
+   ocultos con .fbtn-exit-down) vuelven a su `--current-x` de origen
+   (dataset.idx, guardado al construir la fila) y reaparecen. */
 function _animateCloseSubcatRow(bar, catId) {
-  _filterBarBusy = true;
-  const subBtns = Array.from(bar.querySelectorAll('.sub-item'));
+  const subBtns = Array.from(bar.querySelectorAll('.fbtn-sub'));
+  const mainBtns = Array.from(bar.querySelectorAll('.fbtn[data-f]'));
 
   subBtns.forEach((btn, i) => {
     setTimeout(() => {
       btn.classList.remove('fbtn-entered');
-      btn.classList.add('fbtn-exit-down');
-      setTimeout(() => btn.remove(), 280);
+      btn.classList.add('fbtn-enter-up');
+      setTimeout(() => btn.remove(), 250);
     }, i * 30);
   });
 
   setTimeout(() => {
-    const mainBtns = Array.from(bar.querySelectorAll('.fbtn:not(.sub-item)'));
     mainBtns.forEach(btn => {
-      const idx = parseInt(btn.dataset.idx, 10) || 0;
-      _placeFbtn(btn, idx);
+      _setBtnX(btn, parseInt(btn.dataset.idx, 10) * FILTER_SLOT_W);
       btn.classList.remove('fbtn-exit-down', 'on');
     });
+    const allBtn = bar.querySelector('.fbtn[data-f="all"]');
+    if (allBtn) allBtn.classList.add('on');
+    _setFilterRowWidth(bar, mainBtns.length);
+  }, subBtns.length * 30 + 250);
 
-    activeFilter = 'all';
-    activeSubfilter = null;
-    applyFilter();
-    if (typeof window._onFilterBarUpdated === 'function') window._onFilterBarUpdated();
-    _releaseFilterBarBusy();
-  }, 250);
+  activeFilter = 'all';
+  activeSubfilter = null;
+  applyFilter();
+  if (typeof window._onFilterBarUpdated === 'function') window._onFilterBarUpdated();
 }
 
-/* Crea y anima la entrada de cada subcategoría — mismo patrón que la
-   creación de subBtn en handleCategoryClick() del ejemplo de
-   referencia: se posiciona con --current-x ya en su X final, se
-   agrega al DOM y recién ahí, con un pequeño delay en cascada, se le
-   suma `.fbtn-entered` (fade in; ver .sub-item en css/base.css). */
-function _appendAnimatedSubcats(bar, cat, catId) {
-  const parentIcon = getCatIcon(cat, catId);
-  const subs = Object.entries(cat.subcategories || {}).filter(([, s]) => s.active !== false);
-  subs.forEach(([subId, sub], i) => {
-    const subBtn = document.createElement('button');
-    subBtn.className = 'fbtn sub-item';
-    subBtn.dataset.sf = subId;
-    _placeFbtn(subBtn, i + 1); // posición 0 la ocupa la categoría padre
-    const labelStr = getCatLabel(sub);
-    const label = labelStr.charAt(0).toUpperCase() + labelStr.slice(1).toLowerCase();
-    subBtn.innerHTML = `<div class="fbtn-circle" style="background:${cat.color}">${parentIcon}</div><span class="fbtn-label">${label}</span>`;
-    bar.appendChild(subBtn);
-
-    requestAnimationFrame(() => {
-      setTimeout(() => subBtn.classList.add('fbtn-entered'), (i + 1) * 60);
-    });
-
-    subBtn.addEventListener('click', () => {
-      if (_filterBarBusy) return;
-      const subId2 = subBtn.dataset.sf;
-      activeSubfilter = (activeSubfilter === subId2) ? null : subId2;
-      updateFilterBar();
-      applyFilter();
-      if (typeof window._onFilterBarUpdated === 'function') window._onFilterBarUpdated();
-    });
-  });
-  _sizeFilterBar(bar, subs.length + 1);
-}
 
 /* ═══════════════════════════════════════════════════════════
    [Etapa 5, PLAN_USUARIOS_EVENTOS.md] FILTRO DEL MAPA — implementación

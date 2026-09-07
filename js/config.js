@@ -29,10 +29,6 @@ const LUCIDE = {
   historic:`<svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="1"/><path d="M2 10l10-8 10 8"/><line x1="12" y1="21" x2="12" y2="14"/><rect x="9" y="14" width="6" height="7"/></svg>`,
   shop:    `<svg viewBox="0 0 24 24"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>`,
   all:     `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`,
-  /* [Etapa D, PLAN_CATEGORIAS_SUBCATEGORIAS.md — sección 3/5] botón
-     "Volver" de la fila de subcategorías — único lugar donde se
-     define este ícono, la Etapa E (animación) lo reusa tal cual. */
-  back:    `<svg viewBox="0 0 24 24"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>`,
   default: `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>`,
 };
 
@@ -100,8 +96,10 @@ let activeFilter = 'all';
    sentido cuando `activeFilter` es el id de una categoría normal — se
    resetea a null en cualquier otro caso (ver updateFilterBar() y
    _pinMatchesActiveFilter() en categories.js). Decisión de Cris
-   (06/09): la flecha ← siempre vuelve a 'all', nunca a la categoría
-   sin subcategoría. */
+   (06/09): cerrar la vista de subcategorías siempre vuelve a 'all',
+   nunca a la categoría sin subcategoría — al principio esto lo hacía
+   una flecha ← aparte; desde la Etapa E (07/09) se reemplazó por
+   tocar de nuevo la categoría misma (ver categories.js). */
 let activeSubfilter = null;
 
 /* [Filtro de fecha de eventos, 2026-09-03] Fecha elegida por el
