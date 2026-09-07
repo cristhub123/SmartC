@@ -569,7 +569,8 @@ window.startEdit = function(id) {
   // Multi-category chips — populated after getAllCats is available (deferred)
   setTimeout(() => {
     const cats = Array.isArray(p.categories) && p.categories.length ? p.categories : (p.category ? [p.category] : []);
-    if (typeof buildMultiCatSelector === 'function') buildMultiCatSelector('cat-chips-edit', cats);
+    const subcats = Array.isArray(p.subcategories) ? p.subcategories : [];
+    if (typeof buildMultiCatSelector === 'function') buildMultiCatSelector('cat-chips-edit', cats, subcats);
   }, 0);
 
   document.getElementById('tab-edit-btn').style.display = 'flex';

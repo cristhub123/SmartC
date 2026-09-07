@@ -608,7 +608,8 @@ if (_btnAddCat) {
   const s = document.createElement('style');
   s.textContent = `.cat-chip{display:inline-flex;align-items:center;gap:4px;padding:5px 11px;border-radius:99px;border:1.5px solid;font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;background:transparent;font-family:var(--font-b);-webkit-tap-highlight-color:transparent;margin:3px}
   .cat-chip:hover{opacity:.85;transform:scale(1.04)}
-  #cat-chips-add,#cat-chips-edit{display:flex;flex-wrap:wrap;gap:2px;padding:8px 0 4px}
+  #cat-chips-add,#cat-chips-edit,#subcat-chips-add,#subcat-chips-edit{display:flex;flex-wrap:wrap;gap:2px;padding:8px 0 4px}
+  .subcat-chip{font-size:11px;padding:4px 10px}
   /* [FIX solicitado por Cris — 2026-09-06] textos chicos de la pestaña
      Categorías (#tp-cats) con muy bajo contraste (verde claro,
      --text3) y difíciles de leer. Se sobreescribe --text3 SOLO
@@ -630,7 +631,13 @@ if (_btnAddCat) {
   document.head.appendChild(s);
 })();
 
-function buildMultiCatSelector(containerId, selectedCats) {
+/* [Etapa C, PLAN_CATEGORIAS_SUBCATEGORIAS.md — sección 3.2]
+   `selectedSubcats` es opcional — se usa solo para la carga inicial
+   (formulario "Editar" con un pin que ya tenía subcategorías
+   guardadas). En los toggles posteriores de categoría, el selector de
+   subcategorías se reconstruye solo (ver toggleCatChip) preservando
+   lo que ya estaba tildado. */
+function buildMultiCatSelector(containerId, selectedCats, selectedSubcats) {
   const container = document.getElementById(containerId);
   if (!container) return;
   const all = getAllCats();
@@ -647,6 +654,76 @@ function buildMultiCatSelector(containerId, selectedCats) {
         ${label}
       </button>`;
     }).join('');
+  _rebuildSubcatSelector(containerId, selectedSubcats || []);
+}
+
+/* [Etapa C, PLAN_CATEGORIAS_SUBCATEGORIAS.md — sección 3.2]
+   Recorre todas las categorías (builtin + custom) buscando en qué
+   subcategoría vive `subId` — hace falta porque los ids de
+   subcategoría son únicos globalmente (mismo criterio que el resto
+   del plan), pero el objeto vive anidado adentro de su categoría
+   padre, no hay un mapa plano ya armado. */
+function _findSubcatOwner(subId) {
+  const all = getAllCats();
+  for (const [catId, cat] of Object.entries(all)) {
+    if (cat.subcategories && cat.subcategories[subId]) {
+      return { catId, cat, sub: cat.subcategories[subId] };
+    }
+  }
+  return null;
+}
+
+/* [Etapa C, PLAN_CATEGORIAS_SUBCATEGORIAS.md — sección 3.2]
+   Arma (o reconstruye) la fila de chips de subcategoría de un
+   formulario, filtrada dinámicamente: solo muestra subcategorías
+   ACTIVAS que pertenezcan a alguna de las categorías principales ya
+   tildadas en `catContainerId` (unión, si hay más de una tildada).
+   `forceSelected`: solo se usa en la carga inicial (ver
+   buildMultiCatSelector). Si no se pasa, preserva lo que ya estuviera
+   tildado en el selector de subcategorías actual, descartando
+   automáticamente cualquier subcategoría "huérfana" cuya categoría
+   padre se acaba de destildar (regla explícita de la sección 3.2).
+   Convención de nombres: 'cat-chips-add' -> 'subcat-chips-add',
+   'cat-chips-edit' -> 'subcat-chips-edit'. */
+function _rebuildSubcatSelector(catContainerId, forceSelected) {
+  const subContainerId = catContainerId.replace('cat-chips-', 'subcat-chips-');
+  const subContainer = document.getElementById(subContainerId);
+  if (!subContainer) return;
+
+  const mainCatIds = getSelectedCats(catContainerId);
+  const previouslyOn = forceSelected !== undefined
+    ? new Set(forceSelected)
+    : new Set(getSelectedSubcats(subContainerId));
+
+  const all = getAllCats();
+  const eligible = []; // [{subId, sub, parentColor}]
+  mainCatIds.forEach(catId => {
+    const cat = all[catId];
+    if (!cat || !cat.subcategories) return;
+    Object.entries(cat.subcategories).forEach(([subId, sub]) => {
+      if (sub.active === false) return;
+      if (eligible.some(e => e.subId === subId)) return; // ya agregada (unión)
+      eligible.push({ subId, sub, parentColor: cat.color });
+    });
+  });
+
+  if (!eligible.length) {
+    subContainer.innerHTML = mainCatIds.length
+      ? '' // categoría(s) tildada(s) pero sin subcategorías cargadas — fila vacía, sin mensaje (no es un error)
+      : `<span style="font-size:13px;color:var(--text3)">Elegí una categoría para ver sus subcategorías</span>`;
+    return;
+  }
+
+  subContainer.innerHTML = eligible.map(({subId, sub, parentColor}) => {
+    const on = previouslyOn.has(subId);
+    const labelStr = getCatLabel(sub);
+    const label = labelStr.charAt(0)+labelStr.slice(1).toLowerCase();
+    return `<button type="button" class="cat-chip subcat-chip ${on?'on':''}" data-subcat="${subId}"
+      style="${on?`background:${parentColor};border-color:${parentColor};color:white`:`border-color:${parentColor}40;color:${parentColor}`}"
+      onclick="toggleSubcatChip(this,'${subId}')">
+      ${label}
+    </button>`;
+  }).join('');
 }
 
 window.toggleCatChip = function(btn, catId, containerId) {
@@ -655,6 +732,17 @@ window.toggleCatChip = function(btn, catId, containerId) {
   if (!cat) return;
   if (btn.classList.contains('on')) { btn.style.background=cat.color; btn.style.borderColor=cat.color; btn.style.color='white'; }
   else { btn.style.background=''; btn.style.borderColor=cat.color+'40'; btn.style.color=cat.color; }
+  // [Etapa C] cada toggle de categoría principal puede cambiar qué
+  // subcategorías son elegibles — se reconstruye la fila de abajo.
+  _rebuildSubcatSelector(containerId);
+};
+
+window.toggleSubcatChip = function(btn, subId) {
+  btn.classList.toggle('on');
+  const owner = _findSubcatOwner(subId);
+  const color = owner ? owner.cat.color : '#666';
+  if (btn.classList.contains('on')) { btn.style.background=color; btn.style.borderColor=color; btn.style.color='white'; }
+  else { btn.style.background=''; btn.style.borderColor=color+'40'; btn.style.color=color; }
 };
 
 function getSelectedCats(containerId) {
@@ -663,16 +751,27 @@ function getSelectedCats(containerId) {
   return Array.from(c.querySelectorAll('.cat-chip.on')).map(b => b.dataset.cat);
 }
 
+/* [Etapa C, PLAN_CATEGORIAS_SUBCATEGORIAS.md — sección 3.2]
+   Análoga a getSelectedCats pero para el nuevo selector de
+   subcategorías (poi.subcategories). */
+function getSelectedSubcats(containerId) {
+  const c = document.getElementById(containerId);
+  if (!c) return [];
+  return Array.from(c.querySelectorAll('.subcat-chip.on')).map(b => b.dataset.subcat);
+}
+
 (function patchAddForm() {
   const fg = document.getElementById('a-cat')?.closest('.fg');
   if (!fg) return;
-  fg.innerHTML = `<label class="fl">Categoría * (podés elegir más de una)</label><div id="cat-chips-add"></div>`;
+  fg.innerHTML = `<label class="fl">Categoría * (podés elegir más de una)</label><div id="cat-chips-add"></div>
+    <label class="fl" style="margin-top:6px">Subcategoría (opcional)</label><div id="subcat-chips-add"></div>`;
   buildMultiCatSelector('cat-chips-add', []);
 })();
 (function patchEditForm() {
   const fg = document.getElementById('e-cat')?.closest('.fg');
   if (!fg) return;
-  fg.innerHTML = `<label class="fl">Categoría (podés elegir más de una)</label><div id="cat-chips-edit"></div>`;
+  fg.innerHTML = `<label class="fl">Categoría (podés elegir más de una)</label><div id="cat-chips-edit"></div>
+    <label class="fl" style="margin-top:6px">Subcategoría (opcional)</label><div id="subcat-chips-edit"></div>`;
 })();
 
 /* ═══════════════════════════════════════════════════════════

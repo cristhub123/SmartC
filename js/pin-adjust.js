@@ -148,6 +148,8 @@ async function saveEdit() {
 
   const name = document.getElementById('e-name').value.trim();
   const cats = (typeof getSelectedCats === 'function') ? getSelectedCats('cat-chips-edit') : [document.getElementById('e-cat')?.value].filter(Boolean);
+  // [Etapa C, PLAN_CATEGORIAS_SUBCATEGORIAS.md — sección 3.2]
+  const subcats = (typeof getSelectedSubcats === 'function') ? getSelectedSubcats('subcat-chips-edit') : [];
   const lat  = parseFloat(document.getElementById('e-lat').value);
   const lng  = parseFloat(document.getElementById('e-lng').value);
   if (!name) { toast('⚠️ El nombre no puede estar vacío'); return; }
@@ -178,6 +180,8 @@ async function saveEdit() {
     ...POIS[idx], name,
     category:      mainCat,
     categories:    cats,
+    // [Etapa C, PLAN_CATEGORIAS_SUBCATEGORIAS.md — sección 3.2]
+    subcategories: subcats,
     categoryLabel: getCatLabel(cfg),
     icon:          editEmoji,
     lat, lng,
@@ -479,6 +483,8 @@ function updateAddIdPreview() {
 async function saveNew() {
   const name = document.getElementById('a-name').value.trim();
   const cats = (typeof getSelectedCats === 'function') ? getSelectedCats('cat-chips-add') : [];
+  // [Etapa C, PLAN_CATEGORIAS_SUBCATEGORIAS.md — sección 3.2]
+  const subcats = (typeof getSelectedSubcats === 'function') ? getSelectedSubcats('subcat-chips-add') : [];
   const lat  = parseFloat(document.getElementById('a-lat').value);
   const lng  = parseFloat(document.getElementById('a-lng').value);
   const address = document.getElementById('a-address')?.value.trim() || '';
@@ -524,7 +530,10 @@ async function saveNew() {
 
   const p = {
     id: slug, name,
-    category: mainCat, categories: cats, categoryLabel: getCatLabel(cfg),
+    category: mainCat, categories: cats,
+    // [Etapa C, PLAN_CATEGORIAS_SUBCATEGORIAS.md — sección 3.2]
+    subcategories: subcats,
+    categoryLabel: getCatLabel(cfg),
     icon: addEmoji, lat, lng, address,
     country, province, city: cityCode,
     imgB64:  window._addImgB64  || null,
