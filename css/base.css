@@ -381,7 +381,13 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   border: none;
   box-shadow: none;
   pointer-events: none;
-  overflow: hidden;
+  /* [FIX 2026-09-07] overflow:hidden acá recortaba la parte de
+     arriba de cualquier ícono elevado/agrandado (.fbtn.on, hover, y
+     sobre todo el salto animado de categoría→subcategorías, cuya
+     curva de rebote se pasa un poco del tamaño final antes de
+     asentarse). El scroll horizontal ya lo maneja .filter-row con su
+     propio overflow-x — este contenedor no necesita recortar nada. */
+  overflow: visible;
 }
 .filter-row {
   display: flex;
