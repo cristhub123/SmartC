@@ -501,6 +501,36 @@ un `.js` ya servido con `?v=`, bumpear ese valor en `index.html` en la
 MISMA entrega, aunque el cambio parezca chico — no asumir que un
 `?v=` de más temprano en el mismo día alcanza.
 
+**Etapa C — 2026-09-06 — Admin: selector de subcategorías en el pin.**
+Formularios "Nuevo"/"Editar" (`pin-adjust.js`) ganan una segunda fila de
+chips debajo de la de categorías: "Subcategoría (opcional)"
+(`js/categories.js`, `#subcat-chips-add`/`#subcat-chips-edit`),
+filtrada dinámicamente — solo muestra subcategorías ACTIVAS de las
+categorías principales ya tildadas en ese mismo formulario (unión si
+hay más de una tildada), mismo patrón visual `.cat-chip` que la fila
+de categorías (color heredado de la categoría padre). Al destildar una
+categoría principal, sus subcategorías que estuvieran tildadas se
+destildan solas (regla explícita de la sección 3.2, sin subcategorías
+"huérfanas"); al volver a tildarla, lo que estaba tildado antes en las
+categorías que siguen activas se preserva. Nuevo campo
+`poi.subcategories: string[]` guardado en `saveNew`/`saveEdit`
+(`pin-adjust.js`) — como `savePoiToFirestore` reemplaza el documento
+entero (`merge:false`), no hizo falta tocar `firestore-sync.js`.
+`admin.js` precarga `p.subcategories` al abrir "Editar". Reusa
+`getAllCats()`/`getCatLabel()` de la Etapa A, no reimplementa nada.
+**Archivos modificados:** `js/categories.js`, `js/pin-adjust.js`,
+`js/admin.js`, `index.html` (bump de cache-busting de los 3 `.js`
+tocados — incluido `admin.js`, que no tenía bump desde temprano hoy).
+`node --check` sin errores en todo el proyecto. NO probado contra
+Firebase real ni navegador — falta confirmar que un pin guardado con
+subcategorías las mantenga después de recargar, y que un pin viejo
+(sin ese campo) siga guardando sin romperse. Sin tocar todavía: filtro
+real del mapa público por subcategoría (Etapa D — hoy el campo se
+guarda pero nada lo lee todavía), animación (Etapa E). Detalle
+completo en `AI_SESSION.md`.
+
+---
+
 ## 14. Apartado — pedido textual de Cris (corregido solo ortográficamente)
 
 > Quiero que hagamos una nueva implementación para el tema de categorías.

@@ -1,3 +1,68 @@
+## Sesión: 2026-09-06 (Etapa C) — Selector de subcategorías en el pin
+
+Continuación del plan tras cerrar la Etapa B (ver más abajo). Cris
+confirmó seguir con la Etapa C sin preguntas pendientes.
+
+**Cambios:**
+- `js/categories.js`: `buildMultiCatSelector(containerId, selectedCats, selectedSubcats)`
+  gana un 3er parámetro opcional; internamente arma/reconstruye una
+  segunda fila de chips (`_rebuildSubcatSelector`) con la convención de
+  nombres `cat-chips-X` → `subcat-chips-X`. Esa fila se filtra
+  dinámicamente: unión de subcategorías ACTIVAS de todas las
+  categorías principales tildadas en ese formulario. `toggleCatChip`
+  ahora dispara `_rebuildSubcatSelector` en cada click — al destildar
+  una categoría, sus subcategorías tildadas se caen solas (regla de la
+  sección 3.2, no deja "huérfanas"); al re-tildarla, lo que seguía
+  siendo válido se preserva (lee el estado actual del DOM antes de
+  reconstruir, salvo en la carga inicial que usa `selectedSubcats`).
+  Nuevas `toggleSubcatChip`, `getSelectedSubcats`, `_findSubcatOwner`
+  (color del chip = color de la categoría padre). `patchAddForm`/
+  `patchEditForm` agregan los divs `#subcat-chips-add`/`-edit` + label
+  "Subcategoría (opcional)" debajo de la fila de categorías.
+- `js/pin-adjust.js`: `saveNew`/`saveEdit` leen `getSelectedSubcats(...)`
+  y guardan `poi.subcategories: string[]` junto con `categories`.
+- `js/admin.js`: al abrir "Editar", precarga `p.subcategories` pasando
+  el 3er argumento nuevo a `buildMultiCatSelector`.
+- `index.html`: bump de cache-busting de `categories.js`,
+  `pin-adjust.js` y `admin.js` a `?v=20260906-2100` — los 3 archivos
+  tocados hoy, aplicando la regla que quedó anotada en el plan tras el
+  problema de cache de la ronda anterior (ver entrada de abajo,
+  "continuación 4").
+
+**Decisiones tomadas sin volver a preguntar** (Cris ya había dicho que
+no hacía falta): las subcategorías inactivas no aparecen como opción
+(mismo criterio que las categorías principales — `active !== false`);
+si no hay ninguna categoría principal tildada, el selector de
+subcategorías muestra un texto guía en vez de quedar vacío sin
+explicación; el color de cada chip de subcategoría hereda el de su
+categoría padre (no tienen color propio, no estaba definido en el
+modelo de datos de la Etapa A).
+
+**No tocado a propósito (fuera de alcance de Etapa C):** la
+importación masiva de pines por texto (`confirmBulkFullImport`,
+`js/pin-adjust.js` ~L1428) sigue sin poder asignar subcategoría — es
+un flujo aparte (`PLAN_IMPORTACION_MASIVA.md`), no formaba parte de
+este plan. `pin-visibility.js` no cambió — el campo se guarda pero
+todavía nada lo lee (eso es la Etapa D).
+
+**Pruebas realizadas:** `node --check` sin errores en todo el
+proyecto. Grep de todos los call-sites de `buildMultiCatSelector`
+confirmando que ninguno quedó con la firma vieja de 2 argumentos
+rota, y que ningún otro archivo (`owner-panel.js`, `eventos.js`) usa
+este selector (eventos usa categoría fija `'evento'`, no pasa por
+acá). **NO probado contra Firebase real ni navegador** — falta
+confirmar: (a) crear un pin nuevo con 2 categorías + subcategorías de
+ambas, guardar, recargar y que las subcategorías sigan ahí; (b) editar
+un pin viejo sin `subcategories` (campo inexistente) y que no rompa
+nada; (c) destildar una categoría con subcategorías tildadas y
+confirmar que se destildan solas: (d) confirmar visualmente que el
+color de los chips de subcategoría se ve bien (hereda de la categoría
+padre, puede quedar parecido si dos categorías padre comparten tono).
+
+**Sigue:** Etapa D (filtro real del mapa público por subcategoría) y
+Etapa E (animación) — Etapa C solo deja el dato guardado, el mapa
+público no cambia todavía.
+
 ## Sesión: 2026-09-06 (continuación 4) — Nombre editable visible, refuerzo de borrado/guardado y legibilidad de textos chicos + fix de cache-busting
 
 Cris reportó 3 problemas tras probar la ronda anterior: (1) borrado de
