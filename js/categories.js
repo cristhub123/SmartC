@@ -676,12 +676,17 @@ function _animateOpenSubcatRow(bar, catId, clickedBtn) {
     // clone para largar limpio de listeners viejos (el que disparó
     // esta misma función) y cablear el de "cerrar" en su lugar.
     const cleanBtn = clickedBtn.cloneNode(true);
-    cleanBtn.classList.add('on');
     clickedBtn.replaceWith(cleanBtn);
     bar.prepend(cleanBtn);
 
+    // [FIX 2026-09-07] "on" (agranda + eleva) se agrega DESPUÉS de que
+    // termine el desplazamiento, no antes — agregarlo antes hacía que
+    // el estilo inline del salto (transform) tapara ese agrandado
+    // mientras se movía, y apareciera de golpe al final (se veía como
+    // un corte en vez de un movimiento continuo).
     const afterRect = cleanBtn.getBoundingClientRect();
     _flipTransform(cleanBtn, beforeRect, afterRect);
+    setTimeout(() => cleanBtn.classList.add('on'), 380);
     cleanBtn.addEventListener('click', () => _animateCloseSubcatRow(bar, catId));
 
     setTimeout(() => _appendAnimatedSubcats(bar, cat, catId), 140);
@@ -771,6 +776,15 @@ function _flipTransform(el, beforeRect, afterRect) {
   requestAnimationFrame(() => {
     el.style.transition = 'transform .38s cubic-bezier(.65,0,.35,1)';
     el.style.transform = '';
+    // [FIX 2026-09-07] al terminar, sacar la transición inline propia
+    // del salto — si queda pegada, el próximo hover/click de este
+    // mismo botón usaría esta transición en vez de la normal de .fbtn
+    // (más corta y con rebote), y se sentiría distinta al resto.
+    el.addEventListener('transitionend', function _te(e) {
+      if (e.propertyName !== 'transform') return;
+      el.style.transition = '';
+      el.removeEventListener('transitionend', _te);
+    });
   });
 }
 
