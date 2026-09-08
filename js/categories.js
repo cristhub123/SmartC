@@ -557,7 +557,19 @@ let _dockAnimating = false;
    sin importar en qué instante de la coreografía esté cada botón. */
 function _setDockAnimating(bar, val) {
   _dockAnimating = val;
-  if (bar) bar.classList.toggle('is-animating', val);
+  if (bar) {
+    bar.classList.toggle('is-animating', val);
+    if (val) {
+      // [FIX <fecha-hoy>] al arrancar cualquiera de las 2
+      // coreografías, limpia cualquier `js-hover` que haya quedado
+      // prendido — típicamente el botón recién tocado, que en ese
+      // instante todavía tiene el mouse encima. Arranca la animación
+      // sin ningún botón en estado "hovered" (ver `_attachHoverState`
+      // más abajo para el motivo por el que esto ya no se maneja con
+      // `:hover` nativo de CSS).
+      bar.querySelectorAll('.fbtn.js-hover').forEach(b => b.classList.remove('js-hover'));
+    }
+  }
 }
 
 function _setBtnX(btn, x) { btn.style.setProperty('--current-x', `${x}px`); }
@@ -579,12 +591,49 @@ function _getMainFilterItems() {
   return items;
 }
 
+/* [FIX <fecha-hoy>] Reemplaza el `:hover` nativo de CSS de los
+   `.fbtn` por un estado manejado a mano vía `pointerenter`/
+   `pointerleave` + una clase propia (`js-hover`, ver base.css).
+   Motivo: cuando un elemento se mueve con `transform` animado (que
+   es justo cómo se mueven estos botones, vía `--current-x` +
+   transición), los navegadores NO re-testean el hover contra la
+   posición VISUAL real del elemento en cada frame de la animación —
+   solo lo recalculan ante un movimiento real del mouse (comportamiento
+   documentado como bug en varios motores de renderizado, ej. WebKit
+   #158554: "Using animation and transition to drive transform styles
+   gives incorrect hitbox"). Como consecuencia, cada vez que el mouse
+   pasa por delante de un botón mientras este se está desplazando, el
+   navegador SÍ recalcula en ese instante y `.fbtn:hover` (con más
+   especificidad que las clases transitorias de la coreografía en
+   ciertos pasos) pisaba el `transform` de la animación — el botón se
+   frenaba o saltaba, repetidas veces si el mouse seguía en el camino.
+   `pointer-events:none` durante la animación (ver
+   `.filter-row.is-animating .fbtn` en base.css) no alcanzaba porque
+   no limpia un `:hover` que ya estaba activo antes de aplicarse (el
+   click que abre/cierra dejó el mouse encima del botón).
+   Con el hover manejado acá, el estilo queda 100% bajo control de
+   este código: se ignora directamente mientras `_dockAnimating` es
+   true (chequeado en el momento del evento, no depende de cuándo el
+   navegador decida recalcular el hit-test), y `_setDockAnimating`
+   limpia cualquier `js-hover` que haya quedado prendido al arrancar
+   una coreografía. */
+function _attachHoverState(btn) {
+  btn.addEventListener('pointerenter', () => {
+    if (_dockAnimating) return;
+    btn.classList.add('js-hover');
+  });
+  btn.addEventListener('pointerleave', () => {
+    btn.classList.remove('js-hover');
+  });
+}
+
 function _buildMainBtn(item, x, isOn) {
   const btn = document.createElement('button');
   btn.className = 'fbtn' + (isOn ? ' on' : '');
   btn.dataset.f = item.id;
   _setBtnX(btn, x);
   btn.innerHTML = `<div class="fbtn-circle" style="background:${item.color}">${item.iconHTML}</div><span class="fbtn-label">${item.label}</span>`;
+  _attachHoverState(btn);
   return btn;
 }
 
@@ -606,6 +655,7 @@ function _buildSubBtn(bar, cat, subId, sub, parentIcon, x, isOn) {
     applyFilter();
     if (typeof window._onFilterBarUpdated === 'function') window._onFilterBarUpdated();
   });
+  _attachHoverState(btn);
   return btn;
 }
 
