@@ -471,24 +471,27 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   outline: none;
   transform: translate(var(--current-x, 0px), 0px);
 }
-.fbtn:hover  { transform: translate(var(--current-x, 0px), -3px) scale(1.05); }
-.fbtn:active { transform: translate(var(--current-x, 0px), 0px) scale(.92); }
-.fbtn.on     { transform: translate(var(--current-x, 0px), -5px) scale(1.1); }
+/* [FIX <fecha-hoy>] `.fbtn:hover` nativo REEMPLAZADO por
+   `.fbtn.js-hover` — la clase la maneja `_attachHoverState()` en
+   categories.js (ver la nota grande ahí para el motivo completo: el
+   `:hover` nativo de CSS no es confiable en elementos que se mueven
+   con `transform` animado — es un comportamiento documentado como
+   bug en varios motores de renderizado, no un capricho de esta app).
+   Mismos valores visuales que tenía `:hover` antes, ahora aplicados
+   por clase en vez de pseudo-clase. */
+.fbtn.js-hover { transform: translate(var(--current-x, 0px), -3px) scale(1.05); }
+.fbtn:active   { transform: translate(var(--current-x, 0px), 0px) scale(.92); }
+.fbtn.on       { transform: translate(var(--current-x, 0px), -5px) scale(1.1); }
 
-/* [FIX <fecha-hoy>] Mientras la coreografía de apertura/cierre de
+/* [FIX 2026-09-08] Mientras la coreografía de apertura/cierre de
    subcategorías está en curso (`_dockAnimating` en categories.js,
    ver `_setDockAnimating`), NADA puede alterar el momentum de los
-   botones que se están desplazando — ni siquiera el hover, que es
-   puro CSS y no pasa por los bloqueos de JS. En ciertos instantes de
-   la coreografía (un botón de subcategoría recién entrando, antes de
-   sumar `.fbtn-entered`; un botón principal en el pequeño delay
-   antes de sumar `.fbtn-exit-down`) `.fbtn:hover` tiene más
-   especificidad que la clase de animación de ese instante y le gana,
-   pisando el transform — si el mouse queda en el camino de la
-   animación, el botón se frena o salta a otro lado. `is-animating`
-   (toggleada por `_setDockAnimating`) corta el problema de raíz
-   desactivando toda interacción de mouse en los botones mientras
-   dura el desplazamiento — no hay hover posible hasta que termina. */
+   botones que se están desplazando. Con el hover ahora manejado a
+   mano (arriba) esto ya no es la defensa principal contra ese
+   problema puntual, pero se mantiene como resguardo general: corta
+   clicks y cualquier otra interacción de mouse en los botones
+   mientras dura el desplazamiento — no hay forma de tocarlos hasta
+   que termina. */
 .filter-row.is-animating .fbtn { pointer-events: none; }
 
 /* ONE solid circle — flat color, no extra rings */
