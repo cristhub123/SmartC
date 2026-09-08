@@ -1804,3 +1804,62 @@ sesión.
 — pendiente que Cris pruebe: (a) con su cuenta real de admin, que
 sigue entrando normal; (b) con la cuenta de prueba común, que el
 engranaje ahora la manda al login en vez de abrir el panel.
+
+## Sesión 2026-09-08 — fix hover interrumpe animación de categorías + fix botones que desaparecen
+
+**Pedido de Cris:** en la fila de filtros de categorías, si el mouse queda en
+el camino de la animación de apertura/cierre de subcategorías (Etapa E), el
+hover interrumpe la animación (el botón se frena o salta a otro lado).
+Además reportó (verificado en mobile, repetible con Cultura y con
+Gastronomía): al volver de la vista de subcategorías al inicio, algunas
+categorías no reaparecían — quedaban invisibles aunque el resto de la fila
+se veía normal.
+
+**Bug 1 — hover interrumpe la animación. Causa real:** `_dockAnimating`
+bloqueaba clicks nuevos y refrescos de fondo, pero no el `:hover` (es CSS
+puro, no pasa por JS). En ciertos instantes de la coreografía — un botón de
+subcategoría recién entrando (antes de sumar `.fbtn-entered`, 1 sola clase)
+o un botón principal en el delay antes de sumar `.fbtn-exit-down` — la regla
+`.fbtn:hover` tenía más especificidad CSS que la clase de animación de ese
+instante y le ganaba, pisando el `transform`. Si el mouse estaba en el
+camino, el botón se veía frenado o saltando a otro lado.
+
+**Fix 1:** nueva función `_setDockAnimating(bar, val)` en `categories.js`
+que centraliza el toggle del flag y además prende/apaga una clase
+`is-animating` en `.filter-row`. En `base.css`, `.filter-row.is-animating
+.fbtn { pointer-events: none; }` — corta toda interacción de mouse
+(incluido el hover) en los botones mientras dura cualquiera de las dos
+coreografías, sin importar el instante. Reemplazadas las 5 asignaciones
+directas de `_dockAnimating = true/false` por el helper.
+
+**Bug 2 — categorías que desaparecen al volver. Causa real:**
+`pins-viewport-loader.js` llama a `updateFilterBar()` en cada
+moveend/zoomend del mapa (muy frecuente en mobile). Si eso ocurre mientras
+la fila de subcategorías está abierta y en reposo (ya no `_dockAnimating`,
+esperando que el usuario haga algo), `updateFilterBar()` redibuja la fila
+mostrando SOLO la categoría activa + sus subcategorías (comportamiento
+correcto para ese instante) — pero de paso elimina del DOM a los demás
+botones principales (Todo, Eventos, el resto de categorías), que hasta
+entonces seguían ahí solo ocultos con `.fbtn-exit-down`. `updateFilterBar()`
+nunca los vuelve a crear por ese camino. Cuando el usuario después cierra la
+fila (`_animateCloseSubcatRow`), el `mainBtns` que había capturado al
+arrancar la función queda incompleto — repone lo que sí sigue en el DOM,
+pero no puede reponer lo que ya no está. Resultado: solo la categoría que
+se estaba cerrando reaparece en su lugar; el resto queda vacío.
+
+**Fix 2:** al final de `_animateCloseSubcatRow`, una vez terminada la
+transición CSS de reposicionamiento (.4s), se llama a `updateFilterBar()`
+para reconciliar la fila contra el estado real. En el caso normal (nada se
+perdió) no se nota — los botones ya están en su posición final y
+`updateFilterBar()` los redibuja idénticos. En el caso del bug, reconstruye
+lo que faltaba, con los mismos listeners de click reales (no se duplicó esa
+lógica).
+
+**Archivos modificados:** `js/categories.js`, `css/base.css`.
+
+**Pruebas realizadas:** `node --check` sin errores en `js/categories.js`.
+No probado contra el navegador real — pendiente que Cris confirme: (a) que
+pasar el mouse por el camino de la animación ya no la interrumpe; (b) que
+tras abrir una categoría, mover/hacer zoom en el mapa varias veces, y volver
+atrás, todas las categorías reaparecen (repetir con al menos 2-3 categorías
+distintas, como reportó).

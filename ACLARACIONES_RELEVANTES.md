@@ -1,24 +1,35 @@
-# ACLARACIONES — fix "se queda trabado al tocar de nuevo la categoría" (2026-09-07 13:45)
+# Aclaraciones relevantes — fix hover + fix botones que desaparecen (2026-09-08)
 
-## La causa (resumen)
-El click de cada botón dependía de una variable calculada una sola
-vez al armar la fila (antes de abrir nada) y nunca se actualizaba,
-porque abrir/cerrar con la animación no vuelve a armar la fila desde
-cero. Entonces al tocar la categoría ya abierta, el código pensaba
-que no había nada abierto e intentaba abrir de nuevo lo mismo — sin
-cambio visible, pero corriendo la coreografía otra vez por dentro.
+## Qué se entrega
+- `js/categories.js` — modificado
+- `css/base.css` — modificado
+- `AI_SESSION.md` — actualizado con el log de esta sesión (reemplaza el que ya tenías, no lo pisa: es el mismo archivo con la entrada nueva agregada al final)
 
-## El fix
-El click ahora chequea el estado real de la fila en ese instante
-(¿hay subcategorías visibles de esta categoría ahora mismo?), en vez
-de una variable vieja.
+## Resumen de los 2 fixes (detalle completo en la entrada nueva de AI_SESSION.md)
 
-## Archivo modificado
-`js/categories.js` (único con lógica nueva), `index.html`
-(cache-busting bumpeado a `?v=20260907-1345`), `AI_SESSION.md`.
+**1) Hover interrumpe la animación:** el `:hover` es CSS puro y no pasaba
+por el bloqueo de `_dockAnimating`. En ciertos instantes de la coreografía
+le ganaba en especificidad a la clase de animación de ese momento y pisaba
+el `transform`. Ahora, mientras dura cualquier animación de la fila de
+categorías, se desactiva `pointer-events` en todos los botones (clase
+`is-animating` en `.filter-row`) — cero interacción de mouse posible hasta
+que termina, tal como pediste.
 
-## Verificación
-`node --check` sin errores. No probado contra Firebase real ni
-navegador — necesito que confirmes: tocar una categoría (se abre),
-tocarla de nuevo (ahora debería cerrar y volver a mostrar Todo/
-Eventos/las demás). Recargá con Ctrl+Shift+R.
+**2) Categorías que desaparecían al volver atrás:** confirmado que la causa
+es que mover/hacer zoom en el mapa mientras la fila de subcategorías está
+abierta dispara un refresco de fondo que borraba del DOM a las categorías
+ocultas y nunca las volvía a crear. Al cerrar la fila, ahora se reconcilia
+automáticamente contra el estado real de las categorías apenas termina la
+animación de cierre.
+
+## Qué pruebo yo antes de que lo pruebes vos
+- `node --check` en `categories.js`: sin errores de sintaxis.
+- No lo corrí en navegador — no tengo forma de simular mouse/mapa acá.
+
+## Qué te pido que confirmes
+1. Pasar el mouse por encima del camino de la animación (abrir y cerrar
+   categorías) y confirmar que ya no se traba ni salta.
+2. Abrir una categoría con subcategorías, mover o hacer zoom en el mapa
+   varias veces (para forzar el refresco de fondo), volver atrás, y
+   confirmar que TODAS las categorías reaparecen — probar con al menos 2-3
+   categorías distintas, como reportaste con Cultura y Gastronomía.
