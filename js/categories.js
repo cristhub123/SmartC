@@ -540,6 +540,26 @@ const FILTER_SLOT_W = 78;
    cualquiera de las dos coreografías, se vuelve a false. */
 let _dockAnimating = false;
 
+/* [FIX <fecha-hoy>] `_dockAnimating` por sí solo bloqueaba clicks y
+   refrescos de fondo durante la coreografía, pero NO bloqueaba el
+   :hover — es puro CSS, no pasa por JS. En ciertos instantes de la
+   coreografía (botones de subcategoría recién entrando, antes de
+   sumar `.fbtn-entered`; botones principales durante el pequeño
+   delay antes de sumar `.fbtn-exit-down`) la regla `.fbtn:hover`
+   tiene MÁS especificidad CSS que la clase de animación de ese
+   instante y le gana, pisando el transform que la animación necesita
+   — así el mouse "frena" el botón o lo hace saltar a otro lado si
+   está en el camino. Esta función centraliza el toggle de
+   `_dockAnimating` y además prende/apaga la clase `is-animating` en
+   la fila, que en CSS (ver `.filter-row.is-animating .fbtn` en
+   base.css) desactiva `pointer-events` en todos los botones mientras
+   dura la animación — así el hover no puede aplicarse en absoluto,
+   sin importar en qué instante de la coreografía esté cada botón. */
+function _setDockAnimating(bar, val) {
+  _dockAnimating = val;
+  if (bar) bar.classList.toggle('is-animating', val);
+}
+
 function _setBtnX(btn, x) { btn.style.setProperty('--current-x', `${x}px`); }
 
 /* Arma la lista de "casillones" de la fila principal: Todo + Eventos
@@ -706,7 +726,7 @@ function updateFilterBar() {
 function _animateOpenSubcatRow(bar, catId, selectedBtn) {
   const cat = getAllCats()[catId];
   if (!cat) return;
-  _dockAnimating = true; // [FIX 2026-09-07] ver nota junto a la declaración de _dockAnimating
+  _setDockAnimating(bar, true); // [FIX 2026-09-07 / <fecha-hoy>] ver nota junto a _setDockAnimating
 
   const mainBtns = Array.from(bar.querySelectorAll('.fbtn[data-f]'));
   const otherBtns = mainBtns.filter(b => b !== selectedBtn);
@@ -736,11 +756,11 @@ function _animateOpenSubcatRow(bar, catId, selectedBtn) {
           // [FIX 2026-09-07] recién acá termina el último paso real
           // de la coreografía — desbloquea updateFilterBar() y los
           // clicks nuevos.
-          if (isLast) _dockAnimating = false;
+          if (isLast) _setDockAnimating(bar, false);
         }, (i + 1) * 60);
       });
     });
-    if (!subs.length) _dockAnimating = false; // categoría sin subcategorías activas — no debería pasar acá (updateFilterBar ya filtra esto antes de llamar), pero por las dudas no deja el flag trabado
+    if (!subs.length) _setDockAnimating(bar, false); // categoría sin subcategorías activas — no debería pasar acá (updateFilterBar ya filtra esto antes de llamar), pero por las dudas no deja el flag trabado
   }, 500);
 
   activeFilter = catId;
@@ -755,7 +775,7 @@ function _animateOpenSubcatRow(bar, catId, selectedBtn) {
    ocultos con .fbtn-exit-down) vuelven a su `--current-x` de origen
    (dataset.idx, guardado al construir la fila) y reaparecen. */
 function _animateCloseSubcatRow(bar, catId) {
-  _dockAnimating = true; // [FIX 2026-09-07] ver nota junto a la declaración de _dockAnimating
+  _setDockAnimating(bar, true); // [FIX 2026-09-07 / <fecha-hoy>] ver nota junto a _setDockAnimating
   const subBtns = Array.from(bar.querySelectorAll('.fbtn-sub'));
   const mainBtns = Array.from(bar.querySelectorAll('.fbtn[data-f]'));
 
@@ -777,7 +797,39 @@ function _animateCloseSubcatRow(bar, catId) {
     _setFilterRowWidth(bar, mainBtns.length);
     // [FIX 2026-09-07] último paso real de esta coreografía — recién
     // acá desbloquea updateFilterBar() y los clicks nuevos.
-    _dockAnimating = false;
+    _setDockAnimating(bar, false);
+
+    // [FIX <fecha-hoy>] BUG REAL: mientras la fila de subcategorías
+    // está abierta y en reposo (ya NO _dockAnimating, esperando a que
+    // el usuario haga algo), cualquier refresco de fondo dispara
+    // updateFilterBar() (ver pins-viewport-loader.js, se llama en
+    // CADA moveend/zoomend del mapa — muy frecuente en mobile). Ese
+    // refresco, con una categoría abierta, redibuja la fila mostrando
+    // SOLO la categoría activa + sus subcategorías (`openCat`, más
+    // arriba en este archivo) — es el comportamiento correcto para
+    // ese instante, pero de paso ELIMINA del DOM a los demás botones
+    // principales (Todo, Eventos, el resto de categorías) que hasta
+    // entonces seguían ahí solo ocultos con `.fbtn-exit-down`, y
+    // updateFilterBar() nunca los vuelve a crear por ese camino. Si
+    // eso pasó, cuando el usuario cierra la fila (acá), `mainBtns`
+    // (capturado arriba, al arrancar esta función) queda incompleto:
+    // este cierre repone lo que SÍ sigue en el DOM, pero no puede
+    // reponer lo que ya no está. Resultado: solo la categoría que se
+    // estaba cerrando reaparece en su lugar; el resto queda vacío
+    // (justo lo que reportó Cris con Cultura y Gastronomía).
+    //
+    // Arreglo: reconciliar la fila contra el estado real UNA VEZ que
+    // termina de jugarse la transición CSS de reposicionamiento de
+    // arriba (.4s, ver `.fbtn { transition: transform .4s ... }` en
+    // base.css) llamando a `updateFilterBar()` — la única función que
+    // arma la fila completa (mismos listeners de click, sin duplicar
+    // esa lógica acá). En el caso normal (nada se perdió) esto no se
+    // nota: los botones ya están en su posición final y
+    // updateFilterBar() los redibuja idénticos. En el caso del bug,
+    // reconstruye lo que faltaba.
+    setTimeout(() => {
+      if (typeof updateFilterBar === 'function') updateFilterBar();
+    }, 400);
   }, subBtns.length * 30 + 250);
 
   activeFilter = 'all';
