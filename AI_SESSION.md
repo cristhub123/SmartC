@@ -1863,3 +1863,45 @@ pasar el mouse por el camino de la animación ya no la interrumpe; (b) que
 tras abrir una categoría, mover/hacer zoom en el mapa varias veces, y volver
 atrás, todas las categorías reaparecen (repetir con al menos 2-3 categorías
 distintas, como reportó).
+
+## Sesión 2026-09-08 (cont.) — el hover seguía interrumpiendo con pointer-events:none; causa real distinta
+
+**Reporte de Cris tras probar el fix anterior:** las categorías ya no
+desaparecían, pero el hover seguía interrumpiendo la animación. Pidió
+investigar en internet casos similares antes de tocar nada, y aportó un
+dato clave: si mueve el mouse activamente por delante del ícono mientras
+anima, el botón se traba repetidas veces, "como si el mouse funcionara
+como una barrera".
+
+**Investigación:** confirmado con reportes de bugs documentados en motores
+de renderizado (WebKit #158554, entre otros) que cuando un elemento se
+mueve vía `transform` animado, el navegador NO re-testea el `:hover`
+contra la posición visual real del elemento en cada frame — solo
+recalcula el hit-test ante un movimiento real del mouse. `pointer-events:
+none` no alcanzaba porque no limpia un `:hover` que ya estaba activo antes
+de aplicarse (el click que abre/cierra la fila deja el mouse encima del
+botón desde el instante 0). Y como Cris describió, si el mouse SÍ se
+mueve por el camino, el navegador recalcula en cada uno de esos instantes
+y `.fbtn:hover` (con más especificidad que la clase de animación de ese
+paso puntual) pisa el transform una y otra vez — de ahí el efecto
+"barrera".
+
+**Fix real:** se reemplazó el `:hover` nativo de CSS por un estado
+manejado a mano. Nueva función `_attachHoverState(btn)` en
+`categories.js` (llamada desde `_buildMainBtn` y `_buildSubBtn`, únicos
+2 lugares donde se crean botones) que escucha `pointerenter`/
+`pointerleave` y prende/apaga una clase `js-hover` — ignorando el evento
+directamente si `_dockAnimating` es true, sin depender de cuándo decida
+el navegador recalcular. `_setDockAnimating` además limpia cualquier
+`js-hover` que haya quedado prendido al arrancar una coreografía (por si
+`pointerleave` no llegó a disparar). En `base.css`, `.fbtn:hover` pasó a
+ser `.fbtn.js-hover` con los mismos valores visuales; `pointer-events:
+none` durante `is-animating` se mantiene como resguardo general (bloquea
+clicks) pero ya no es la defensa principal para este problema puntual.
+
+**Archivos modificados:** `js/categories.js`, `css/base.css`.
+
+**Pruebas realizadas:** `node --check` sin errores en `js/categories.js`.
+No probado contra el navegador real — pendiente que Cris confirme que
+mover el mouse activamente por el camino de la animación (como describió)
+ya no la traba, en varias pasadas y con distintas categorías.

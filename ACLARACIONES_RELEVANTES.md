@@ -1,35 +1,25 @@
-# Aclaraciones relevantes — fix hover + fix botones que desaparecen (2026-09-08)
+# Aclaraciones relevantes — fix real del hover (2026-09-08, segunda vuelta)
 
-## Qué se entrega
-- `js/categories.js` — modificado
-- `css/base.css` — modificado
-- `AI_SESSION.md` — actualizado con el log de esta sesión (reemplaza el que ya tenías, no lo pisa: es el mismo archivo con la entrada nueva agregada al final)
+## Por qué el fix anterior (pointer-events:none) no alcanzaba
+No limpiaba un `:hover` que ya estaba activo desde antes de aplicarse (el
+click que abre/cierra la fila deja el mouse encima del botón). Y cuando
+vos movías el mouse activamente por el camino de la animación, el
+navegador SÍ recalculaba el hover en cada uno de esos instantes — ahí
+`.fbtn:hover` le seguía ganando en especificidad a la clase de animación
+de ese paso puntual y pisaba el `transform`. De ahí el efecto "barrera"
+que describiste.
 
-## Resumen de los 2 fixes (detalle completo en la entrada nueva de AI_SESSION.md)
-
-**1) Hover interrumpe la animación:** el `:hover` es CSS puro y no pasaba
-por el bloqueo de `_dockAnimating`. En ciertos instantes de la coreografía
-le ganaba en especificidad a la clase de animación de ese momento y pisaba
-el `transform`. Ahora, mientras dura cualquier animación de la fila de
-categorías, se desactiva `pointer-events` en todos los botones (clase
-`is-animating` en `.filter-row`) — cero interacción de mouse posible hasta
-que termina, tal como pediste.
-
-**2) Categorías que desaparecían al volver atrás:** confirmado que la causa
-es que mover/hacer zoom en el mapa mientras la fila de subcategorías está
-abierta dispara un refresco de fondo que borraba del DOM a las categorías
-ocultas y nunca las volvía a crear. Al cerrar la fila, ahora se reconcilia
-automáticamente contra el estado real de las categorías apenas termina la
-animación de cierre.
-
-## Qué pruebo yo antes de que lo pruebes vos
-- `node --check` en `categories.js`: sin errores de sintaxis.
-- No lo corrí en navegador — no tengo forma de simular mouse/mapa acá.
+## El fix real
+Se saca el `:hover` nativo de CSS de estos botones. Ahora el hover se
+maneja a mano con JS (`pointerenter`/`pointerleave` + una clase propia
+`js-hover`), y se ignora directamente mientras la animación está en
+curso — sin depender de que el navegador decida cuándo recalcular el
+hit-test contra un elemento que se está moviendo. Es la solución estándar
+para este tipo de problema (confirmado en reportes de bugs documentados
+de motores de renderizado, no es una app rara haciendo algo raro).
 
 ## Qué te pido que confirmes
-1. Pasar el mouse por encima del camino de la animación (abrir y cerrar
-   categorías) y confirmar que ya no se traba ni salta.
-2. Abrir una categoría con subcategorías, mover o hacer zoom en el mapa
-   varias veces (para forzar el refresco de fondo), volver atrás, y
-   confirmar que TODAS las categorías reaparecen — probar con al menos 2-3
-   categorías distintas, como reportaste con Cultura y Gastronomía.
+Repetí justo lo que describiste: mientras la fila anima (abrir o cerrar
+una categoría), mové el mouse activamente por delante de los íconos por
+donde pasa la animación, varias veces y con distintas categorías, y
+confirmá que ya no se traba ni salta.
