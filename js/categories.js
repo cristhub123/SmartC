@@ -481,22 +481,50 @@ function _catHasActiveSubcats(catId) {
   return Object.values(cat.subcategories).some(s => s.active !== false);
 }
 
-/* Animación de categorías y subcategorías.
-   Los botones conservan su posición horizontal en --current-x. El estado
-   de la coreografía vive en .filter-row.is-animating, que es compartido
-   por JavaScript y CSS: mientras está activo, los botones no reciben hover
-   ni interacción del puntero. */
+/* [Etapa E, PLAN_CATEGORIAS_SUBCATEGORIAS.md] Reescrito 2026-09-07:
+   reemplaza ENTERO el intento anterior (FLIP con getBoundingClientRect,
+   flexbox normal) por el mecanismo exacto que pidió Cris — calcado de
+   su ejemplo de referencia (index.html/styles.css/script.js que subió,
+   con `--current-x` + position:absolute) — generalizado acá para N
+   categorías reales (el ejemplo tenía 5 fijas) y conectado al filtro
+   real de la app (activeFilter/activeSubfilter + applyFilter()).
 
+   Por qué el intento anterior se sacó por completo en vez de
+   convivir con este: los dos usaban `.fbtn`/`.filter-row` con
+   layouts incompatibles (flexbox normal vs. position:absolute +
+   `--current-x`) y clases con nombres parecidos — dejar los dos
+   generaba exactamente el pisado que Cris pidió evitar. Se borraron
+   `_animateOpenSubcatRow`/`_animateCloseSubcatRow`/
+   `_appendAnimatedSubcats`/`_renderMainFilterRowAnimatedReturn`/
+   `_flipTransform` viejas y se vuelven a escribir con estos mismos
+   nombres (evita romper si algo más los llamaba) pero con la lógica
+   nueva.
+
+   CLAVE del porqué no hay conflicto entre el "reposo" (fila normal)
+   y las clases de animación: la posición de reposo de cada botón
+   NUNCA se escribe como `transform` inline — solo se escribe la
+   variable CSS `--current-x` (ver `_setBtnX`), y es el propio CSS
+   (`.fbtn`, `.fbtn:hover`, `.fbtn.on`, `.fbtn-exit-down`,
+   `.fbtn-enter-up`) el que arma el `transform` final leyendo esa
+   variable. Si el `transform` de reposo se hubiera escrito inline
+   (como en el ejemplo de Cris, que no tiene estados :hover propios
+   para pisar), el CSS existente `.fbtn:hover`/`.fbtn.on` de la app
+   (que sí existían antes de esta etapa) hubiese quedado inútil — un
+   estilo inline siempre le gana a una clase sin !important, sin
+   importar :hover/:active. Con la variable, en cambio, cada clase
+   compite en igualdad de condiciones y gana la de mayor especificidad
+   de siempre (`.fbtn.on` le gana a `.fbtn`, como ya pasaba). */
+
+/* Ancho de cada "casillero" de la fila — categorías y subcategorías
+   comparten el mismo ancho para que las cuentas de posición sean una
+   sola multiplicación (índice * FILTER_SLOT_W). Mismo valor que usó
+   Cris en su referencia. */
 const FILTER_SLOT_W = 78;
 
-function _isDockAnimating() {
-  return !!document.querySelector('.filter-row.is-animating');
-}
-
-function _setDockAnimating(value) {
-  const bar = document.querySelector('.filter-row');
-  if (bar) bar.classList.toggle('is-animating', value);
-}
+/* Estado de animación de la fila: `.is-animating` vive en el propio
+   contenedor y es la única señal compartida entre JS y CSS. Mientras
+   está activa, la fila no reconstruye sus botones y el hover queda
+   deshabilitado. */
 
 function _setBtnX(btn, x) { btn.style.setProperty('--current-x', `${x}px`); }
 
@@ -536,7 +564,7 @@ function _buildSubBtn(bar, cat, subId, sub, parentIcon, x, isOn) {
   btn.innerHTML = `<div class="fbtn-circle" style="background:${cat.color}">${parentIcon}</div><span class="fbtn-label">${label}</span>`;
   btn.addEventListener('click', e => {
     e.stopPropagation();
-    if (_isDockAnimating()) return;
+    if (bar.classList.contains('is-animating')) return;
     const wasOn = btn.classList.contains('on');
     bar.querySelectorAll('.fbtn-sub.on').forEach(b => b.classList.remove('on'));
     activeSubfilter = wasOn ? null : subId;
@@ -581,7 +609,8 @@ function updateFilterBar() {
   const bar = document.querySelector('.filter-row');
   if (!bar) return;
 
-  if (_isDockAnimating()) {
+  // Durante una coreografía, los refrescos de fondo no reconstruyen la fila.
+  if (bar.classList.contains('is-animating')) {
     applyFilter();
     if (typeof window._onFilterBarUpdated === 'function') window._onFilterBarUpdated();
     return;
@@ -615,10 +644,17 @@ function updateFilterBar() {
   bar.querySelectorAll('.fbtn[data-f]').forEach(btn => {
     btn.addEventListener('click', () => {
       if (drag.consumeDragFlag()) return;
-      if (_isDockAnimating()) return;
+      if (bar.classList.contains('is-animating')) return;
       const id = btn.dataset.f;
-      // El estado de apertura se comprueba sobre el DOM actual porque
-      // la apertura y el cierre se ejecutan sin reconstruir la fila.
+      // [FIX 2026-09-07 — bug "se queda trabado al volver a tocar la
+      // categoría"] Antes esto miraba `openCat`, una variable
+      // calculada UNA sola vez al armar la fila y capturada acá por
+      // clausura — pero abrir/cerrar la fila con la animación NO pasa
+      // por acá de nuevo (no se vuelve a llamar updateFilterBar()),
+      // así que `openCat` quedaba congelada con su valor viejo aunque
+      // la fila ya estuviera abierta de verdad. Ahora se chequea el
+      // estado REAL en el momento del click: ¿esta misma categoría
+      // está activa Y hay chips de subcategoría visibles ahora mismo?
       const isOpenNow = id === activeFilter && !!bar.querySelector('.fbtn-sub');
       // [Etapa E, decisión de Cris — reemplaza el botón "Volver"] si
       // ya está abierta la vista de subcategorías de ESTA misma
@@ -652,7 +688,7 @@ function updateFilterBar() {
 function _animateOpenSubcatRow(bar, catId, selectedBtn) {
   const cat = getAllCats()[catId];
   if (!cat) return;
-  _setDockAnimating(true);
+  bar.classList.add('is-animating');
 
   const mainBtns = Array.from(bar.querySelectorAll('.fbtn[data-f]'));
   const otherBtns = mainBtns.filter(b => b !== selectedBtn);
@@ -679,11 +715,14 @@ function _animateOpenSubcatRow(bar, catId, selectedBtn) {
       requestAnimationFrame(() => {
         setTimeout(() => {
           subBtn.classList.add('fbtn-entered');
-              if (isLast) _setDockAnimating(false);
+          // [FIX 2026-09-07] recién acá termina el último paso real
+          // de la coreografía — desbloquea updateFilterBar() y los
+          // clicks nuevos.
+          if (isLast) bar.classList.remove('is-animating');
         }, (i + 1) * 60);
       });
     });
-    if (!subs.length) _setDockAnimating(false);
+    if (!subs.length) bar.classList.remove('is-animating');
   }, 500);
 
   activeFilter = catId;
@@ -698,7 +737,7 @@ function _animateOpenSubcatRow(bar, catId, selectedBtn) {
    ocultos con .fbtn-exit-down) vuelven a su `--current-x` de origen
    (dataset.idx, guardado al construir la fila) y reaparecen. */
 function _animateCloseSubcatRow(bar, catId) {
-  _setDockAnimating(true);
+  bar.classList.add('is-animating');
   const subBtns = Array.from(bar.querySelectorAll('.fbtn-sub'));
   const mainBtns = Array.from(bar.querySelectorAll('.fbtn[data-f]'));
 
@@ -718,7 +757,9 @@ function _animateCloseSubcatRow(bar, catId) {
     const allBtn = bar.querySelector('.fbtn[data-f="all"]');
     if (allBtn) allBtn.classList.add('on');
     _setFilterRowWidth(bar, mainBtns.length);
-    _setDockAnimating(false);
+    // [FIX 2026-09-07] último paso real de esta coreografía — recién
+    // acá desbloquea updateFilterBar() y los clicks nuevos.
+    bar.classList.remove('is-animating');
   }, subBtns.length * 30 + 250);
 
   activeFilter = 'all';
