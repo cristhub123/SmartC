@@ -406,10 +406,6 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   cursor: grab;
 }
 .filter-row:active { cursor: grabbing; }
-
-/* Durante la coreografía, el puntero pertenece a la fila y no a los
-   botones. Así :hover no puede cambiar el transform que está animándose. */
-.filter-row.is-animating .fbtn { pointer-events: none; }
 .filter-row::-webkit-scrollbar { display: none; }
 
 /* [Filtro de fecha de eventos, 2026-09-03] pill con el selector de
@@ -447,7 +443,10 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   color: #1a1a1a;
 }
 
-/* Category buttons. --current-x controla únicamente la posición horizontal. */
+/* Each category button — column: circle + label.
+   [Etapa E, 2026-09-07] position:absolute + variable CSS
+   `--current-x` (cada botón la trae seteada inline, ver
+   categories.js _setBtnX) en vez de transform inline directo. */
 .fbtn {
   position: absolute;
   top: 4px;
@@ -467,9 +466,14 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   outline: none;
   transform: translate(var(--current-x, 0px), 0px);
 }
-.fbtn:hover  { transform: translate(var(--current-x, 0px), -3px) scale(1.05); }
-.fbtn:active { transform: translate(var(--current-x, 0px), 0px) scale(.92); }
-.fbtn.on     { transform: translate(var(--current-x, 0px), -5px) scale(1.1); }
+.filter-row:not(.is-animating) .fbtn:hover {
+  transform: translate(var(--current-x, 0px), -3px) scale(1.05);
+}
+.filter-row:not(.is-animating) .fbtn:active {
+  transform: translate(var(--current-x, 0px), 0px) scale(.92);
+}
+.fbtn.on { transform: translate(var(--current-x, 0px), -5px) scale(1.1); }
+.filter-row.is-animating .fbtn { pointer-events: none; }
 
 /* ONE solid circle — flat color, no extra rings */
 .fbtn-circle {
@@ -508,7 +512,14 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
 }
 .fbtn .dot { display: none; }
 
-/* Animación vertical de entrada/salida de los botones. */
+/* [Etapa E, PLAN_CATEGORIAS_SUBCATEGORIAS.md] Animación categoría↔
+   subcategorías — reusa .fbtn/.fbtn-circle/.fbtn-label tal cual, solo
+   agrega la caída/subida con fade. Calcada de la referencia final
+   que dio Cris (index.html/styles.css/script.js, 2026-09-07):
+   `translate(var(--current-x), Ypx)` — el eje X nunca se pierde
+   mientras cae o sube, a diferencia del intento anterior (ver
+   AI_SESSION.md) que solo animaba Y y por eso el botón "saltaba" a la
+   izquierda al caer. */
 .fbtn-exit-down {
   transition: transform .3s cubic-bezier(.65,0,.35,1), opacity .28s ease !important;
   transform: translate(var(--current-x, 0px), 46px) scale(.6) !important;
