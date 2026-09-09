@@ -406,6 +406,10 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   cursor: grab;
 }
 .filter-row:active { cursor: grabbing; }
+
+/* Durante la coreografía, el puntero pertenece a la fila y no a los
+   botones. Así :hover no puede cambiar el transform que está animándose. */
+.filter-row.is-animating .fbtn { pointer-events: none; }
 .filter-row::-webkit-scrollbar { display: none; }
 
 /* [Filtro de fecha de eventos, 2026-09-03] pill con el selector de
@@ -443,15 +447,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   color: #1a1a1a;
 }
 
-/* Each category button — column: circle + label.
-   [Etapa E, 2026-09-07] position:absolute + variable CSS
-   `--current-x` (cada botón la trae seteada inline, ver
-   categories.js _setBtnX) en vez de transform inline directo — así
-   TODOS los estados (reposo, :hover, .on, caída/subida) compiten por
-   especificidad de CSS normal, ninguno le "gana por ser inline" al
-   resto. Ver la nota grande al principio del bloque de JS
-   correspondiente en categories.js para el detalle de por qué esto
-   evita el pisado entre animaciones. */
+/* Category buttons. --current-x controla únicamente la posición horizontal. */
 .fbtn {
   position: absolute;
   top: 4px;
@@ -471,28 +467,9 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   outline: none;
   transform: translate(var(--current-x, 0px), 0px);
 }
-/* [FIX <fecha-hoy>] `.fbtn:hover` nativo REEMPLAZADO por
-   `.fbtn.js-hover` — la clase la maneja `_attachHoverState()` en
-   categories.js (ver la nota grande ahí para el motivo completo: el
-   `:hover` nativo de CSS no es confiable en elementos que se mueven
-   con `transform` animado — es un comportamiento documentado como
-   bug en varios motores de renderizado, no un capricho de esta app).
-   Mismos valores visuales que tenía `:hover` antes, ahora aplicados
-   por clase en vez de pseudo-clase. */
-.fbtn.js-hover { transform: translate(var(--current-x, 0px), -3px) scale(1.05); }
-.fbtn:active   { transform: translate(var(--current-x, 0px), 0px) scale(.92); }
-.fbtn.on       { transform: translate(var(--current-x, 0px), -5px) scale(1.1); }
-
-/* [FIX 2026-09-08] Mientras la coreografía de apertura/cierre de
-   subcategorías está en curso (`_dockAnimating` en categories.js,
-   ver `_setDockAnimating`), NADA puede alterar el momentum de los
-   botones que se están desplazando. Con el hover ahora manejado a
-   mano (arriba) esto ya no es la defensa principal contra ese
-   problema puntual, pero se mantiene como resguardo general: corta
-   clicks y cualquier otra interacción de mouse en los botones
-   mientras dura el desplazamiento — no hay forma de tocarlos hasta
-   que termina. */
-.filter-row.is-animating .fbtn { pointer-events: none; }
+.fbtn:hover  { transform: translate(var(--current-x, 0px), -3px) scale(1.05); }
+.fbtn:active { transform: translate(var(--current-x, 0px), 0px) scale(.92); }
+.fbtn.on     { transform: translate(var(--current-x, 0px), -5px) scale(1.1); }
 
 /* ONE solid circle — flat color, no extra rings */
 .fbtn-circle {
@@ -531,14 +508,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
 }
 .fbtn .dot { display: none; }
 
-/* [Etapa E, PLAN_CATEGORIAS_SUBCATEGORIAS.md] Animación categoría↔
-   subcategorías — reusa .fbtn/.fbtn-circle/.fbtn-label tal cual, solo
-   agrega la caída/subida con fade. Calcada de la referencia final
-   que dio Cris (index.html/styles.css/script.js, 2026-09-07):
-   `translate(var(--current-x), Ypx)` — el eje X nunca se pierde
-   mientras cae o sube, a diferencia del intento anterior (ver
-   AI_SESSION.md) que solo animaba Y y por eso el botón "saltaba" a la
-   izquierda al caer. */
+/* Animación vertical de entrada/salida de los botones. */
 .fbtn-exit-down {
   transition: transform .3s cubic-bezier(.65,0,.35,1), opacity .28s ease !important;
   transform: translate(var(--current-x, 0px), 46px) scale(.6) !important;
