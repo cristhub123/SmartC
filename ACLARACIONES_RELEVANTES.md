@@ -1,25 +1,28 @@
-# Aclaraciones relevantes — fix real del hover (2026-09-08, segunda vuelta)
+# ACLARACIONES_RELEVANTES — entrega 2026-09-17 (sliders desktop de tamaño de pin)
 
-## Por qué el fix anterior (pointer-events:none) no alcanzaba
-No limpiaba un `:hover` que ya estaba activo desde antes de aplicarse (el
-click que abre/cierra la fila deja el mouse encima del botón). Y cuando
-vos movías el mouse activamente por el camino de la animación, el
-navegador SÍ recalculaba el hover en cada uno de esos instantes — ahí
-`.fbtn:hover` le seguía ganando en especificidad a la clase de animación
-de ese paso puntual y pisaba el `transform`. De ahí el efecto "barrera"
-que describiste.
-
-## El fix real
-Se saca el `:hover` nativo de CSS de estos botones. Ahora el hover se
-maneja a mano con JS (`pointerenter`/`pointerleave` + una clase propia
-`js-hover`), y se ignora directamente mientras la animación está en
-curso — sin depender de que el navegador decida cuándo recalcular el
-hit-test contra un elemento que se está moviendo. Es la solución estándar
-para este tipo de problema (confirmado en reportes de bugs documentados
-de motores de renderizado, no es una app rara haciendo algo raro).
-
-## Qué te pido que confirmes
-Repetí justo lo que describiste: mientras la fila anima (abrir o cerrar
-una categoría), mové el mouse activamente por delante de los íconos por
-donde pasa la animación, varias veces y con distintas categorías, y
-confirmá que ya no se traba ni salta.
+- **No se va a ver ningún cambio visual hasta que ajustes los sliders
+  nuevos a mano.** Los defaults de "Tamaño de pins en el mapa (desktop)"
+  y "Tamaño del edificio maximizado (desktop)" arrancan con el mismo
+  valor que su par mobile, a propósito, para no romper nada al
+  desplegar. Andá a la tab Global, movelos hasta que se vean bien en
+  desktop, y tocá "Aplicar apariencia global" para que quede guardado en
+  Firestore (si no tocás ese botón, el cambio se pierde al recargar).
+- Cache-busting bumpeado a `?v=20260917` en los 3 `<script>` tocados
+  (`admin-global.js`, `pin-adjust.js`, `roadmap.js`) para que no quede
+  cacheada la versión vieja al desplegar.
+- Pendiente de probar en navegador real (no se puede probar acá, solo se
+  corrió `node --check` sobre los 3 `.js` para confirmar que no hay
+  errores de sintaxis):
+  1. Que el pin en mapa y el maximizado se vean bien en desktop tras
+     ajustar los 2 sliders nuevos.
+  2. Que el mobile sigue exactamente igual que antes de este cambio.
+  3. Que al agrandar/achicar la ventana del navegador cruzando ~768px de
+     ancho, el tamaño del pin en el mapa cambia solo, sin recargar la
+     página.
+- El breakpoint de 768px está hardcodeado en un solo lugar
+  (`DESKTOP_BREAKPOINT_MQ` en `js/admin-global.js`) — si en algún
+  momento querés ajustarlo, es ese único número el que hay que tocar.
+- Quedó registrada en el Roadmap (`r34`) y en
+  `PLAN_TAMANO_PIN_ADAPTATIVO.md` la idea de fondo que planteaste
+  (tamaño como % del espacio libre de pantalla en vez de breakpoint
+  fijo) — no se implementó ahora, es para retomar después del MVP.

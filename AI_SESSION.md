@@ -1905,3 +1905,49 @@ clicks) pero ya no es la defensa principal para este problema puntual.
 No probado contra el navegador real — pendiente que Cris confirme que
 mover el mouse activamente por el camino de la animación (como describió)
 ya no la traba, en varias pasadas y con distintas categorías.
+
+## Sesión 2026-09-17 — Tamaño de pin en mapa/maximizado distinto para mobile y desktop
+
+Cris reportó: el tamaño de pin (mapa y maximizado) que ajustó y funciona
+bien en mobile no es óptimo en desktop con la misma configuración — un
+valor fijo en px/% no se adapta al espacio real de pantalla, mucho mayor
+en desktop.
+
+**Solución aplicada (rápida y aditiva, decidida así por apuro de tiempo
+con el MVP — la solución de fondo queda planificada, no implementada, en
+`PLAN_TAMANO_PIN_ADAPTATIVO.md`):** 2 sliders nuevos en la tab Global,
+separados de sus pares mobile existentes (que no se tocaron):
+- `globalSettings.pinSizeDesktop` — slider "Tamaño de pins en el mapa
+  (desktop)" (`#g-pin-size-desktop`).
+- `globalSettings.expandPercentDesktop` — slider "Tamaño del edificio
+  maximizado (desktop)" (`#g-expand-size-desktop`).
+
+Detección centralizada en `isDesktopViewport()` (`js/admin-global.js`,
+`window.matchMedia('(min-width: 768px)')`, expuesta en
+`window.isDesktopViewport` — una sola fuente de verdad, ver AI_RULES.md
+sección 7), reusada en `rebuildAllMarkers()` (mismo archivo) y en
+`expandPin()` (`js/pin-adjust.js`). Un listener de `matchMedia`
+(`change`) dispara `rebuildAllMarkers()` de nuevo si la ventana cruza el
+breakpoint en vivo (resize de ventana en desktop).
+
+Defaults de los 2 campos nuevos = mismo valor que su par mobile
+(`DEFAULT_GLOBAL_SETTINGS` y `globalSettings`/lazy-init en
+`pin-adjust.js`), para no cambiar nada hasta que Cris los ajuste a mano.
+
+**Archivos modificados:** `js/admin-global.js`, `js/pin-adjust.js`,
+`index.html` (2 `<input type="range">` nuevos en la tab Global, sin
+cambiar cache-busting de los `<script>` — pendiente revisar si hace
+falta bump de versión al entregar).
+
+**Roadmap:** agregada entrada `r34` en `js/roadmap.js` con la idea de
+fondo (tamaño como % del espacio libre de pantalla, no breakpoint fijo)
+— cita textual de Cris + evaluación de Claude. Detalle completo del plan
+en `PLAN_TAMANO_PIN_ADAPTATIVO.md` (archivo nuevo en la raíz).
+
+**Pruebas realizadas:** `node --check` sin errores en `js/admin-global.js`,
+`js/pin-adjust.js` y `js/roadmap.js`. No probado contra navegador real —
+pendiente que Cris confirme: (a) que el pin en mapa y el maximizado se
+vean bien en desktop tras ajustar los 2 sliders nuevos; (b) que el mobile
+sigue exactamente igual que antes; (c) que al agrandar/achicar la ventana
+del navegador cruzando ~768px de ancho, el pin del mapa cambia de tamaño
+solo, sin recargar la página.
