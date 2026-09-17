@@ -38,6 +38,23 @@ if (gExpandSizeSlider) {
   });
 }
 
+// [2026-09-17] EXPAND SIZE — versión desktop, independiente de la de
+// mobile. Mismo criterio de detección que rebuildAllMarkers()
+// (window.isDesktopViewport, definido en admin-global.js — una sola
+// fuente de verdad, ver AI_RULES.md sección 7). Arranca en el mismo
+// valor que expandPercent para no cambiar nada hasta que Cris lo
+// ajuste a mano.
+if (typeof globalSettings.expandPercentDesktop !== 'number') {
+  globalSettings.expandPercentDesktop = globalSettings.expandPercent || 30;
+}
+const gExpandSizeDesktopSlider = document.getElementById('g-expand-size-desktop');
+if (gExpandSizeDesktopSlider) {
+  gExpandSizeDesktopSlider.addEventListener('input', function() {
+    globalSettings.expandPercentDesktop = parseInt(this.value);
+    document.getElementById('g-expand-size-desktop-val').textContent = this.value + '%';
+  });
+}
+
 /* ═══════════════════════════════════════════════════════════
    AJUSTE POR POI — VERSIÓN DEFINITIVA Y LIMPIA
    Maneja pinScale, pinOffsetX, pinOffsetY guardados en cada POI
@@ -959,7 +976,15 @@ window.expandPin = function(id) {
   const poiScalePct  = (poi.pinScale   !== undefined ? poi.pinScale   : 100) / 100;
   const ox           = poi.pinOffsetX || 0;
   const oy           = poi.pinOffsetY || 0;
-  const targetPx     = PIN_FULL_IMG_PX * ((globalSettings.expandPercent || 30) / 100) * poiScalePct;
+  // [2026-09-17] En desktop se usa expandPercentDesktop (si está
+  // cargado); en mobile, el expandPercent de siempre, sin tocar.
+  // isDesktopViewport() vive en admin-global.js (una sola fuente de
+  // verdad, admin-global.js carga antes que este archivo).
+  const isDesktop    = typeof isDesktopViewport === 'function' && isDesktopViewport();
+  const expandPct    = isDesktop
+    ? (globalSettings.expandPercentDesktop || globalSettings.expandPercent || 30)
+    : (globalSettings.expandPercent || 30);
+  const targetPx     = PIN_FULL_IMG_PX * (expandPct / 100) * poiScalePct;
   const el = document.getElementById('pw-' + id);
   if (el) {
     // [FIX 2026-09-03] Antes se dividía targetPx por globalSettings.pinSize

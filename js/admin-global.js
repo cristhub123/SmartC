@@ -24,7 +24,9 @@ const DEFAULT_GLOBAL_SETTINGS = {
   glowColor:    '#60a5fa',
   dimOpacity:   0.35,
   pinSize:      44,
+  pinSizeDesktop: 44,
   expandPercent: 30,
+  expandPercentDesktop: 30,
   eyeGlowColor: '#60a5fa',
   eyeGlowIntensity: 2,
   nameSize:     26,
@@ -42,6 +44,7 @@ const globalSettings = {
   glowColor:    '#60a5fa',
   dimOpacity:   0.35,
   pinSize:      44,
+  pinSizeDesktop: 44,
   eyeGlowColor: '#60a5fa',
   nameSize:     26,
   // [2026-08-14] % de pantalla que ocupa el panel de info del lugar
@@ -52,6 +55,24 @@ const globalSettings = {
   panelPctPortrait:  45, // % del ALTO en pantallas verticales (bottom sheet)
   panelPctLandscape: 34, // % del ANCHO en pantallas cuadradas/horizontales, incluye desktop (sidebar)
 };
+
+/* [2026-09-17] Detección desktop vs. mobile para los tamaños de pin
+   independientes (ver "Tamaño de pins en el mapa (desktop)" y "Tamaño
+   del edificio maximizado (desktop)" en la tab Global). Fuente única
+   de verdad: ancho de viewport vía matchMedia (no user-agent, no lee
+   orientación — es un criterio distinto y separado del que usa el
+   panel de info, ver panelPctPortrait/panelPctLandscape más abajo).
+   Expuesta en window para que pin-adjust.js (expandPin) la reuse en
+   vez de reimplementar el criterio. */
+const DESKTOP_BREAKPOINT_MQ = window.matchMedia('(min-width: 768px)');
+function isDesktopViewport() { return DESKTOP_BREAKPOINT_MQ.matches; }
+window.isDesktopViewport = isDesktopViewport;
+// Si la ventana del navegador cruza el breakpoint en vivo (resize de
+// ventana en desktop, no hace falta rotar un celular para esto),
+// reconstruir los marcadores con el tamaño que corresponda — sin esto
+// quedarían con el tamaño del modo anterior hasta la próxima acción
+// que dispare rebuildAllMarkers().
+DESKTOP_BREAKPOINT_MQ.addEventListener('change', () => rebuildAllMarkers());
 
 /* Build filter string: glow first (underneath), then solid border */
 function buildFilterString(baseFilter) {
@@ -115,7 +136,11 @@ function applyGlobalDim() {
 
 /* FIX: rebuildAllMarkers — fully recreates marker with new size AND rewires click */
 function rebuildAllMarkers() {
-  const sz = globalSettings.pinSize;
+  // [2026-09-17] En desktop se usa pinSizeDesktop (si está cargado);
+  // en mobile, el pinSize de siempre, sin tocar.
+  const sz = isDesktopViewport()
+    ? (globalSettings.pinSizeDesktop || globalSettings.pinSize)
+    : globalSettings.pinSize;
   // Collapse any expanded pin first to avoid stale state
   if (expandedId !== null) { collapsePin(expandedId); closePoiPanel(); }
 
@@ -186,6 +211,10 @@ document.getElementById('g-pin-size').addEventListener('input', function() {
   document.getElementById('g-pin-size-val').textContent = this.value + 'px';
   globalSettings.pinSize = parseInt(this.value);
   updateGPreview();
+});
+document.getElementById('g-pin-size-desktop').addEventListener('input', function() {
+  document.getElementById('g-pin-size-desktop-val').textContent = this.value + 'px';
+  globalSettings.pinSizeDesktop = parseInt(this.value);
 });
 document.getElementById('g-name-size').addEventListener('input', function() {
   document.getElementById('g-name-size-val').textContent = this.value + 'px';
@@ -294,7 +323,9 @@ function initGlobalTab() {
   setSlider('g-glow-px',      'g-glow-px-val',      globalSettings.glowPx,                'px');
   setSlider('g-dim-opacity',  'g-dim-opacity-val',  Math.round(globalSettings.dimOpacity*100), '%');
   setSlider('g-pin-size',     'g-pin-size-val',     globalSettings.pinSize,               'px');
+  setSlider('g-pin-size-desktop', 'g-pin-size-desktop-val', globalSettings.pinSizeDesktop || globalSettings.pinSize, 'px');
   setSlider('g-expand-size',  'g-expand-size-val',  globalSettings.expandPercent || 30,   '%');
+  setSlider('g-expand-size-desktop', 'g-expand-size-desktop-val', globalSettings.expandPercentDesktop || globalSettings.expandPercent || 30, '%');
   setSlider('g-name-size',    'g-name-size-val',    globalSettings.nameSize,              'px');
 
   setSlider('g-panel-pct-portrait',  'g-panel-pct-portrait-val',  globalSettings.panelPctPortrait,  '%');
