@@ -1,45 +1,15 @@
-CAMBIOS — Guardado manual en la pestaña Categorías (sin autoguardado), 2026-09-06
-====================================================================================
+CAMBIOS — Etapas 1, 2 y 3 de PLAN_CORRECCIONES_ADMIN.md (26/09/2026)
 
-Corrige el problema de que cualquier cambio en Categorías se guardaba
-solo en Firestore, visible al toque para cualquiera que cargue la
-página. Archivos tocados: js/categories.js e index.html.
+Archivos modificados:
+- js/utils.js         → nueva función confirmarBorrado() (Etapa 1, helper genérico)
+- js/admin.js          → askDelete() repone el título del modal (Etapa 1, ajuste de seguridad)
+- js/cities.js         → confirmación al borrar una ubicación (Etapa 1)
+- js/typography.js     → confirmación al borrar preset y al quitar fuente (Etapa 1)
+- js/settings-sync.js  → guarda/restaura color e icon de categorías base (Etapa 2)
+- js/usuarios-admin.js → _saveCuentaPlan usa .set(merge:true) en vez de .update() (Etapa 3)
 
-QUÉ CAMBIÓ
-------------
-Nada de lo que hagas en la pestaña Categorías se guarda de una:
-- Activar/desactivar una categoría o subcategoría.
-- Editar los idiomas (🌐) de una categoría o subcategoría.
-- Editar ícono/color (✏️) de una categoría.
-- Crear o borrar una categoría o subcategoría.
-- Cambiar la cantidad de campos de idioma.
+También actualizado:
+- PLAN_CORRECCIONES_ADMIN.md → Etapas 1, 2 y 3 marcadas ✅ Completada con el detalle de qué se hizo
 
-Todo eso ahora queda SOLO en memoria mientras seguís en la página.
-Al final de la pestaña (debajo de "+ Agregar Categoría") hay un botón
-nuevo "💾 Guardar cambios" — es el ÚNICO que realmente escribe en
-Firestore. Mientras tengas cambios sin guardar, vas a ver un aviso en
-rojo arriba del botón y el botón va a mostrar "💾 Guardar cambios ●".
-
-Si recargás la página sin haber tocado ese botón, todo lo que hiciste
-en esa sesión se pierde — es intencional: es tu forma de "deshacer" un
-error antes de que se vuelva visible para cualquiera.
-
-Mismo patrón que ya usa la pestaña "Apariencia global" (los sliders
-tocan memoria y recién se guardan con "Aplicar a todos los pins").
-
-CÓMO PROBARLO
-----------------
-1. Admin → Categorías → activá/desactivá cualquier categoría.
-2. Confirmá que aparece el aviso rojo y el botón cambia a
-   "Guardar cambios ●".
-3. Recargá la página SIN tocar el botón — el cambio tiene que haber
-   desaparecido (volvió al estado de antes).
-4. Repetí el cambio y esta vez tocá "💾 Guardar cambios" — recargá de
-   nuevo y confirmá que esta vez sí quedó guardado.
-
-VERIFICACIÓN REALIZADA
--------------------------
-`node --check` sin errores en todo el proyecto. Se confirmó por grep
-que no queda ningún guardado automático fuera del botón nuevo. NO
-probado contra Firebase real ni en el navegador — pendiente que
-confirmes los 4 pasos de arriba.
+Verificación hecha: node --check sin errores en los 6 archivos .js.
+Falta: probar en el navegador contra Firestore real (ver el detalle de cada etapa en el plan).
