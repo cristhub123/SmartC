@@ -1951,3 +1951,43 @@ vean bien en desktop tras ajustar los 2 sliders nuevos; (b) que el mobile
 sigue exactamente igual que antes; (c) que al agrandar/achicar la ventana
 del navegador cruzando ~768px de ancho, el pin del mapa cambia de tamaño
 solo, sin recargar la página.
+
+## 2026-09-26 — Traducción global de la interfaz pública (i18n ES/EN/PT)
+
+Arranqué la parte 4 del pedido de Cris (de 4 partes totales: campos de
+info vinculados por idioma, título/párrafo multi-idioma, eventos
+multi-idioma, traducción global — Cris eligió empezar por esta última,
+"las 3 sub-partes juntas": motor + textos fijos, categorías, zonas).
+
+**Archivo nuevo:** `js/i18n.js` — motor de traducción (diccionario
+ES/EN/PT, `I18N.t()`/`I18N.tf()` para mensajes con datos variables,
+`data-i18n*` sobre HTML estático + llamadas directas en JS para
+contenido dinámico). Cargado justo después de `lang-switcher.js`.
+
+**Archivos modificados:** `index.html` (data-i18n en todo el header,
+buscador, zonas, filtro de fecha, y los overlays user-auth/user-panel
+completos — desde `<div id="user-auth-overlay">` hasta el cierre de
+`up-pane-eventos`, sin tocar nada de `<div id="admin">` en adelante,
+que sigue 100% español a propósito), `js/categories.js` (labels
+Todo/Eventos + auto-refresco en LANGUAGE_CHANGED), `js/zones.js`
+(`z.label={en,pt}` nuevo con fallback a `z.name`, `getZoneLabel()`,
+editor admin en acordeón, dropdown/panel público traducidos),
+`js/poi-panel.js` (cascarón fijo del panel real — el que arma
+`_ensureDom()` dinámicamente, NO el markup viejo `#poi-panel` de
+index.html que quedó como dead code sin tocar — más la tarjeta pública
+de evento), `js/user-auth.js`, `js/user-panel.js`, `js/owner-panel.js`,
+`js/empleados.js`, `js/eventos-form-shared.js` (todos sus toasts/
+errores/botones dinámicos más visibles, vía `I18N.t()`/`I18N.tf()`).
+
+**Hallazgo importante que cambió el plan sobre la marcha:** las
+categorías YA tenían el esquema multi-idioma completo (Etapas A-D de
+`PLAN_CATEGORIAS_SUBCATEGORIAS.md`, de otra sesión) — solo le faltaba
+el auto-refresco. Los "grupos" (`js/groups.js`) resultaron ser 100%
+internos del admin, nunca públicos — se sacaron del alcance. Ver
+`ACLARACIONES_RELEVANTES.md` de esta entrega para el detalle completo,
+incluidos los gaps que quedaron sin traducir (un puñado de errores del
+form de guardar evento en `user-panel.js`, y el locale de fecha fijo
+en `es-AR`).
+
+**Pruebas realizadas:** `node --check` sin errores en los 9 `.js`
+tocados/nuevos. No probado contra navegador real.

@@ -60,20 +60,24 @@ After modifying this file, update /AI_SESSION.md with the change and verificatio
   <button id="btn-zonas"><span class="zico"></span></button>
   <div id="search-bar">
     <span id="search-bar-icon">🔍</span>
-    <input id="search-input" type="text" placeholder="Buscar lugares, eventos...">
+    <input id="search-input" type="text" data-i18n-placeholder="search_placeholder" placeholder="Buscar lugares, eventos...">
   </div>
-  <div id="lang-switcher" title="Idioma de la página">
+  <div id="lang-switcher" data-i18n-title="lang_switcher_title" title="Idioma de la página">
     <button type="button" data-lang-switch="es">ES</button>
     <button type="button" data-lang-switch="en">EN</button>
     <button type="button" data-lang-switch="pt">PT</button>
   </div>
-  <button id="btn-user-account" title="Ingresar / Registrarme">👤</button>
-  <button id="btn-admin" title="Administrador">⚙</button>
+  <!-- [i18n 2026-09-26] title real (in/out) lo mantiene js/user-auth.js
+       según haya o no sesión — data-i18n-title solo cubre la carga
+       inicial (logueado en otro idioma guardado, etc.); ver nota en
+       ese archivo. -->
+  <button id="btn-user-account" data-i18n-title="btn_account_title_out" title="Ingresar / Registrarme">👤</button>
+  <button id="btn-admin" data-i18n-title="btn_admin_title" title="Administrador">⚙</button>
 </div>
 <div id="search-results"></div>
 
 <div id="zonas-dropdown">
-  <div class="zd-header">Navegá por zona</div>
+  <div class="zd-header" data-i18n="zonas_dropdown_header">Navegá por zona</div>
   <div id="zonas-list-scroll"><!-- items generados por JS --></div>
 </div>
 
@@ -91,8 +95,8 @@ After modifying this file, update /AI_SESSION.md with the change and verificatio
        filtro "Eventos" activo — ver js/eventos-fecha-filtro.js.
        Estilo mínimo a propósito, el look final se define aparte. -->
   <div id="eventos-fecha-bar" hidden>
-    <input type="date" id="eventos-fecha-input" class="efb-input" aria-label="Elegir fecha para ver eventos de ese día">
-    <button type="button" id="eventos-fecha-clear" class="efb-clear" title="Quitar filtro de fecha">✕</button>
+    <input type="date" id="eventos-fecha-input" class="efb-input" data-i18n-aria="eventos_fecha_aria" aria-label="Elegir fecha para ver eventos de ese día">
+    <button type="button" id="eventos-fecha-clear" class="efb-clear" data-i18n-title="eventos_fecha_clear_title" title="Quitar filtro de fecha">✕</button>
   </div>
   <div class="filter-row" id="filter-row-inner">
     <!-- populated by updateFilterBar() on load -->
@@ -107,7 +111,7 @@ After modifying this file, update /AI_SESSION.md with the change and verificatio
       <div>
         <div class="pp-cat" id="pp-cat">CULTURA</div>
         <div style="display:flex;align-items:center;gap:8px">
-          <button id="pp-eye-btn" title="Cambiar modo visual" style="background:none;border:none;cursor:pointer;padding:0;flex-shrink:0;position:relative;width:22px;height:22px;display:flex;align-items:center;justify-content:center;">
+          <button id="pp-eye-btn" data-i18n-title="pp_eye_title" title="Cambiar modo visual" style="background:none;border:none;cursor:pointer;padding:0;flex-shrink:0;position:relative;width:22px;height:22px;display:flex;align-items:center;justify-content:center;">
             <span id="pp-eye-icon" style="font-size:18px;line-height:1;animation:eyeglow 2s ease-in-out infinite;">👁</span>
           </button>
           <div class="pp-name" id="pp-name">—</div>
@@ -115,7 +119,7 @@ After modifying this file, update /AI_SESSION.md with the change and verificatio
         <!-- visual mode mini picker (shown on eye tap) -->
         <div id="pp-vis-picker" style="display:none;flex-wrap:wrap;gap:7px;margin-top:8px;padding:8px;background:rgba(0,0,0,.04);border-radius:10px;"></div>
       </div>
-      <button class="btn-x" id="pp-close" style="flex-shrink:0;margin-top:2px">✕</button>
+      <button class="btn-x" id="pp-close" data-i18n-title="pp_close_title" style="flex-shrink:0;margin-top:2px">✕</button>
     </div>
     <div class="pp-desc" id="pp-desc" style="margin-top:4px"></div>
     <div id="pp-tags" class="poi-tag-row" style="display:flex;margin-top:4px"></div>
@@ -132,7 +136,7 @@ After modifying this file, update /AI_SESSION.md with the change and verificatio
   </div>
 <!-- modo visual movido al eye-icon junto al nombre -->
   <div class="pp-sec">
-    <div class="sec-lbl">Eventos</div>
+    <div class="sec-lbl" data-i18n="pp_sec_eventos">Eventos</div>
     <div class="ev-scroll" id="pp-evts" data-scroll-hint="horizontal"></div>
   </div>
   <div class="pp-sec">
@@ -165,62 +169,62 @@ After modifying this file, update /AI_SESSION.md with the change and verificatio
      administrador (#admin-login-overlay) — ver js/user-auth.js -->
 <div id="user-auth-overlay">
   <div id="user-auth-box">
-    <button id="user-auth-close" class="btn-x" title="Cerrar">✕</button>
+    <button id="user-auth-close" class="btn-x" data-i18n-title="cerrar" title="Cerrar">✕</button>
 
     <div id="user-auth-tabs">
-      <button id="user-auth-tab-login" class="user-auth-tab active">Ingresar</button>
-      <button id="user-auth-tab-register" class="user-auth-tab">Crear cuenta</button>
+      <button id="user-auth-tab-login" class="user-auth-tab active" data-i18n="ua_tab_login">Ingresar</button>
+      <button id="user-auth-tab-register" class="user-auth-tab" data-i18n="ua_tab_register">Crear cuenta</button>
     </div>
 
     <!-- Tab: Ingresar -->
     <div id="user-auth-pane-login" class="user-auth-pane on">
-      <input id="user-auth-login-email" type="email" placeholder="Correo electrónico" autocomplete="username">
-      <input id="user-auth-login-pass" type="password" placeholder="Contraseña" autocomplete="current-password">
-      <button id="user-auth-login-btn" class="btn-primary">Ingresar</button>
-      <div class="user-auth-divider"><span>o</span></div>
-      <button id="user-auth-google-btn" class="user-auth-google-btn">Continuar con Google</button>
+      <input id="user-auth-login-email" type="email" data-i18n-placeholder="ua_email_ph" placeholder="Correo electrónico" autocomplete="username">
+      <input id="user-auth-login-pass" type="password" data-i18n-placeholder="ua_pass_ph" placeholder="Contraseña" autocomplete="current-password">
+      <button id="user-auth-login-btn" class="btn-primary" data-i18n="ua_login_btn">Ingresar</button>
+      <div class="user-auth-divider"><span data-i18n="ua_divider_o">o</span></div>
+      <button id="user-auth-google-btn" class="user-auth-google-btn" data-i18n="ua_google_btn">Continuar con Google</button>
       <p id="user-auth-login-error" class="user-auth-error"></p>
     </div>
 
     <!-- Tab: Crear cuenta -->
     <div id="user-auth-pane-register" class="user-auth-pane">
-      <input id="user-auth-register-nombre" type="text" placeholder="Tu nombre" autocomplete="name">
-      <input id="user-auth-register-email" type="email" placeholder="Correo electrónico" autocomplete="username">
-      <input id="user-auth-register-pass" type="password" placeholder="Contraseña (mín. 6 caracteres)" autocomplete="new-password">
+      <input id="user-auth-register-nombre" type="text" data-i18n-placeholder="ua_nombre_ph" placeholder="Tu nombre" autocomplete="name">
+      <input id="user-auth-register-email" type="email" data-i18n-placeholder="ua_email_ph" placeholder="Correo electrónico" autocomplete="username">
+      <input id="user-auth-register-pass" type="password" data-i18n-placeholder="ua_pass_register_ph" placeholder="Contraseña (mín. 6 caracteres)" autocomplete="new-password">
       <div class="user-auth-rol-picker">
         <label class="user-auth-rol-opt">
           <input type="radio" name="user-auth-rol" value="usuario_comun" checked>
-          <span>Usuario</span>
-          <small>Explorar lugares y eventos</small>
+          <span data-i18n="ua_rol_usuario">Usuario</span>
+          <small data-i18n="ua_rol_usuario_desc">Explorar lugares y eventos</small>
         </label>
         <label class="user-auth-rol-opt">
           <input type="radio" name="user-auth-rol" value="dueno_negocio">
-          <span>Dueño de negocio</span>
-          <small>Administrar mi pin/negocio</small>
+          <span data-i18n="ua_rol_dueno">Dueño de negocio</span>
+          <small data-i18n="ua_rol_dueno_desc">Administrar mi pin/negocio</small>
         </label>
       </div>
-      <button id="user-auth-register-btn" class="btn-primary">Crear cuenta</button>
+      <button id="user-auth-register-btn" class="btn-primary" data-i18n="ua_register_btn">Crear cuenta</button>
       <p id="user-auth-register-error" class="user-auth-error"></p>
     </div>
 
     <!-- Paso extra solo cuando Google Sign-In crea una cuenta nueva
          (no se puede elegir el rol antes del popup de Google) -->
     <div id="user-auth-google-role-step" class="user-auth-pane">
-      <p class="user-auth-google-role-intro">¡Hola, <span id="user-auth-google-role-name"></span>! Elegí con qué tipo de cuenta querés seguir:</p>
+      <p class="user-auth-google-role-intro"><span data-i18n="ua_google_role_intro_pre">¡Hola,</span> <span id="user-auth-google-role-name"></span><span data-i18n="ua_google_role_intro_post">! Elegí con qué tipo de cuenta querés seguir:</span></p>
       <div class="user-auth-rol-picker">
         <label class="user-auth-rol-opt">
           <input type="radio" name="user-auth-google-rol" value="usuario_comun" checked>
-          <span>Usuario</span>
-          <small>Explorar lugares y eventos</small>
+          <span data-i18n="ua_rol_usuario">Usuario</span>
+          <small data-i18n="ua_rol_usuario_desc">Explorar lugares y eventos</small>
         </label>
         <label class="user-auth-rol-opt">
           <input type="radio" name="user-auth-google-rol" value="dueno_negocio">
-          <span>Dueño de negocio</span>
-          <small>Administrar mi pin/negocio</small>
+          <span data-i18n="ua_rol_dueno">Dueño de negocio</span>
+          <small data-i18n="ua_rol_dueno_desc">Administrar mi pin/negocio</small>
         </label>
       </div>
-      <button id="user-auth-google-role-confirm-btn" class="btn-primary">Confirmar</button>
-      <button id="user-auth-google-role-cancel-btn" class="user-auth-cancel-btn">Cancelar</button>
+      <button id="user-auth-google-role-confirm-btn" class="btn-primary" data-i18n="confirmar">Confirmar</button>
+      <button id="user-auth-google-role-cancel-btn" class="user-auth-cancel-btn" data-i18n="cancelar">Cancelar</button>
       <p id="user-auth-google-role-error" class="user-auth-error"></p>
     </div>
   </div>
@@ -236,58 +240,58 @@ After modifying this file, update /AI_SESSION.md with the change and verificatio
      Ver js/user-panel.js. -->
 <div id="user-panel-overlay">
   <div id="user-panel-box">
-    <button id="user-panel-close" class="btn-x" title="Cerrar">✕</button>
+    <button id="user-panel-close" class="btn-x" data-i18n-title="cerrar" title="Cerrar">✕</button>
 
     <div id="user-panel-tabs">
-      <button type="button" class="user-panel-tab active" data-up-tab="info">Info</button>
-      <button type="button" class="user-panel-tab" id="up-tab-btn-pines" data-up-tab="pines">📍 Pines</button>
-      <button type="button" class="user-panel-tab" data-up-tab="eventos">🎉 Eventos</button>
+      <button type="button" class="user-panel-tab active" data-up-tab="info" data-i18n="up_tab_info">Info</button>
+      <button type="button" class="user-panel-tab" id="up-tab-btn-pines" data-up-tab="pines" data-i18n="up_tab_pines">📍 Pines</button>
+      <button type="button" class="user-panel-tab" data-up-tab="eventos" data-i18n="up_tab_eventos">🎉 Eventos</button>
     </div>
 
     <!-- ── Solapa Info ── -->
     <div id="up-pane-info" class="user-panel-pane on">
       <div id="user-account-name"></div>
       <div id="user-account-role"></div>
-      <button id="user-account-logout-btn" class="user-auth-cancel-btn">Cerrar sesión</button>
+      <button id="user-account-logout-btn" class="user-auth-cancel-btn" data-i18n="up_logout_btn">Cerrar sesión</button>
     </div>
 
     <!-- ── Solapa Pines (contenido de js/owner-panel.js, solo
          dueño de negocio) ── -->
     <div id="up-pane-pines" class="user-panel-pane">
-      <p id="up-pines-disabled" class="owner-panel-loading" style="display:none">Esta sección es para cuentas de dueño de negocio — administrá acá los pines que te asignaron.</p>
+      <p id="up-pines-disabled" class="owner-panel-loading" style="display:none" data-i18n="up_pines_disabled">Esta sección es para cuentas de dueño de negocio — administrá acá los pines que te asignaron.</p>
 
       <div id="owner-panel-list"></div>
-      <p id="owner-panel-empty" style="display:none">Todavía no tenés ningún lugar asignado. Pasale tu UID (Firebase Console → Authentication → Users, o pedíselo a quien administra la app) para que te lo asignen.</p>
+      <p id="owner-panel-empty" style="display:none" data-i18n="op_empty">Todavía no tenés ningún lugar asignado. Pasale tu UID (Firebase Console → Authentication → Users, o pedíselo a quien administra la app) para que te lo asignen.</p>
 
       <div id="owner-panel-form">
-        <button type="button" id="owner-panel-back-btn" class="owner-panel-back-inline" style="display:none">← Volver</button>
+        <button type="button" id="owner-panel-back-btn" class="owner-panel-back-inline" style="display:none" data-i18n="volver">← Volver</button>
         <h4 id="owner-edit-name"></h4>
         <div class="fg">
-          <label class="fl">Descripción corta</label>
+          <label class="fl" data-i18n="op_desc_label">Descripción corta</label>
           <textarea class="fta" id="owner-edit-desc" rows="3"></textarea>
         </div>
         <div class="fg">
-          <label class="fl">Historia / Trivia</label>
+          <label class="fl" data-i18n="op_hist_label">Historia / Trivia</label>
           <textarea class="fta" id="owner-edit-hist" rows="3"></textarea>
         </div>
         <div class="fg">
-          <label class="fl">Teléfono</label>
+          <label class="fl" data-i18n="op_phone_label">Teléfono</label>
           <input class="fi" id="owner-edit-phone" type="tel" placeholder="Ej: +54 351 123-4567">
         </div>
         <div class="fg">
-          <label class="fl">Horario</label>
-          <input class="fi" id="owner-edit-hours" type="text" placeholder="Ej: Lun–Vie 9–18hs, Sáb 10–14hs">
+          <label class="fl" data-i18n="op_hours_label">Horario</label>
+          <input class="fi" id="owner-edit-hours" type="text" data-i18n-placeholder="op_hours_ph" placeholder="Ej: Lun–Vie 9–18hs, Sáb 10–14hs">
         </div>
         <div class="fg">
-          <label class="fl">Tags / Subcategorías (separados por coma)</label>
-          <input class="fi" id="owner-edit-tags" type="text" placeholder="Ej: Comida árabe, Sin TACC, Delivery">
+          <label class="fl" data-i18n="op_tags_label">Tags / Subcategorías (separados por coma)</label>
+          <input class="fi" id="owner-edit-tags" type="text" data-i18n-placeholder="op_tags_ph" placeholder="Ej: Comida árabe, Sin TACC, Delivery">
         </div>
         <div class="fg">
-          <label class="fl">Campos de información (título + texto)</label>
+          <label class="fl" data-i18n="op_fields_label">Campos de información (título + texto)</label>
           <div id="owner-edit-fields-wrap"></div>
-          <button type="button" id="owner-edit-add-field-btn" class="owner-panel-add-field-btn">+ Agregar campo</button>
+          <button type="button" id="owner-edit-add-field-btn" class="owner-panel-add-field-btn" data-i18n="op_add_field_btn">+ Agregar campo</button>
         </div>
-        <button id="owner-panel-save-btn" class="btn-primary">Guardar cambios</button>
+        <button id="owner-panel-save-btn" class="btn-primary" data-i18n="guardar_cambios">Guardar cambios</button>
         <p id="owner-panel-error" class="user-auth-error"></p>
       </div>
 
@@ -296,28 +300,28 @@ After modifying this file, update /AI_SESSION.md with the change and verificatio
            (sin invitación por mail), que queda con acceso a administrar
            los MISMOS pines que el dueño. Ver js/empleados.js. -->
       <div id="empleados-block" style="display:none">
-        <div class="divider"><span>EMPLEADOS CON ACCESO A TUS PINES</span></div>
+        <div class="divider"><span data-i18n="emp_divider">EMPLEADOS CON ACCESO A TUS PINES</span></div>
         <div id="empleados-list"></div>
-        <p id="empleados-empty" style="display:none;font-size:12px;color:var(--text3)">Todavía no diste de alta ningún empleado.</p>
+        <p id="empleados-empty" style="display:none;font-size:12px;color:var(--text3)" data-i18n="emp_empty">Todavía no diste de alta ningún empleado.</p>
 
-        <button type="button" id="btn-mostrar-form-empleado" class="owner-panel-add-field-btn">+ Dar de alta un empleado</button>
+        <button type="button" id="btn-mostrar-form-empleado" class="owner-panel-add-field-btn" data-i18n="emp_add_btn">+ Dar de alta un empleado</button>
         <div id="empleado-form" style="display:none">
           <div class="fg">
-            <label class="fl">Nombre</label>
+            <label class="fl" data-i18n="emp_nombre_label">Nombre</label>
             <input class="fi" id="empleado-nombre" type="text">
           </div>
           <div class="fg">
-            <label class="fl">Mail</label>
+            <label class="fl" data-i18n="emp_email_label">Mail</label>
             <input class="fi" id="empleado-email" type="email">
           </div>
           <div class="fg">
-            <label class="fl">Contraseña (mínimo 6 caracteres)</label>
+            <label class="fl" data-i18n="emp_pass_label">Contraseña (mínimo 6 caracteres)</label>
             <input class="fi" id="empleado-pass" type="password">
           </div>
-          <p style="font-size:11px;color:var(--text3);margin-top:-4px;margin-bottom:8px">Se la pasás vos directamente — no se manda ningún mail de invitación.</p>
+          <p style="font-size:11px;color:var(--text3);margin-top:-4px;margin-bottom:8px" data-i18n="emp_no_invite_note">Se la pasás vos directamente — no se manda ningún mail de invitación.</p>
           <div id="empleado-form-error" style="color:#ef4444;font-size:12px;margin-bottom:8px"></div>
-          <button class="btn-primary" id="btn-crear-empleado">Crear cuenta de empleado</button>
-          <button type="button" id="btn-cancelar-empleado" class="user-auth-cancel-btn">Cancelar</button>
+          <button class="btn-primary" id="btn-crear-empleado" data-i18n="emp_create_btn">Crear cuenta de empleado</button>
+          <button type="button" id="btn-cancelar-empleado" class="user-auth-cancel-btn" data-i18n="cancelar">Cancelar</button>
         </div>
       </div>
     </div>
@@ -328,120 +332,120 @@ After modifying this file, update /AI_SESSION.md with the change and verificatio
       <div id="up-eventos-list-wrap">
         <div id="up-eventos-list"></div>
         <div id="up-eventos-empty" style="display:none">
-          <p class="owner-panel-loading">Todavía no tenés ningún evento.</p>
-          <button type="button" id="btn-up-add-evento" class="btn-primary">➕ Agregar evento</button>
-          <p id="up-eventos-disabled-msg" style="display:none;font-size:12px;color:var(--text3);text-align:center;margin-top:8px">La creación de eventos está deshabilitada por el momento — probá más adelante.</p>
+          <p class="owner-panel-loading" data-i18n="up_evt_empty">Todavía no tenés ningún evento.</p>
+          <button type="button" id="btn-up-add-evento" class="btn-primary" data-i18n="up_evt_add_btn">➕ Agregar evento</button>
+          <p id="up-eventos-disabled-msg" style="display:none;font-size:12px;color:var(--text3);text-align:center;margin-top:8px" data-i18n="up_evt_disabled_msg">La creación de eventos está deshabilitada por el momento — probá más adelante.</p>
         </div>
       </div>
 
       <!-- Formulario de alta/edición (autoservicio) -->
       <div id="up-evt-form" style="display:none">
-        <button type="button" id="up-evt-form-back-btn" class="owner-panel-back-inline">← Volver</button>
-        <h4 id="up-evt-form-title">Nuevo evento</h4>
+        <button type="button" id="up-evt-form-back-btn" class="owner-panel-back-inline" data-i18n="volver">← Volver</button>
+        <h4 id="up-evt-form-title" data-i18n="up_evt_form_title_new">Nuevo evento</h4>
         <div class="fg">
-          <label class="fl">Nombre del evento *</label>
-          <input class="fi" id="up-evt-nombre" type="text" placeholder="Ej: Feria de anime de septiembre">
+          <label class="fl" data-i18n="up_evt_nombre_label">Nombre del evento *</label>
+          <input class="fi" id="up-evt-nombre" type="text" data-i18n-placeholder="up_evt_nombre_ph" placeholder="Ej: Feria de anime de septiembre">
           <div id="up-evt-nombre-preview" style="font-size:11px;margin-top:4px"></div>
         </div>
         <div class="fg">
-          <label class="fl">Descripción</label>
-          <textarea class="fta" id="up-evt-descripcion" placeholder="¿De qué se trata el evento?"></textarea>
+          <label class="fl" data-i18n="up_evt_desc_label">Descripción</label>
+          <textarea class="fta" id="up-evt-descripcion" data-i18n-placeholder="up_evt_desc_ph" placeholder="¿De qué se trata el evento?"></textarea>
         </div>
         <div class="fg">
-          <label class="fl">Categoría del evento (tags) *</label>
+          <label class="fl" data-i18n="up_evt_categoria_label">Categoría del evento (tags) *</label>
           <div class="evt-tags-wrap" id="up-evt-tags-wrap"></div>
         </div>
         <div class="frow">
           <div>
-            <label class="fl">Fecha de inicio *</label>
+            <label class="fl" data-i18n="up_evt_fecha_inicio_label">Fecha de inicio *</label>
             <input class="fi" id="up-evt-fecha-inicio" type="datetime-local">
           </div>
           <div>
-            <label class="fl">Fecha de fin *</label>
+            <label class="fl" data-i18n="up_evt_fecha_fin_label">Fecha de fin *</label>
             <input class="fi" id="up-evt-fecha-fin" type="datetime-local">
           </div>
         </div>
         <div class="fg">
-          <label class="fl">Horario *</label>
-          <input class="fi" id="up-evt-horario" type="text" placeholder='Ej: "Viernes a domingo, 16 a 22hs" o "Sábado 3 y domingo 4, de 10 a 18hs"'>
+          <label class="fl" data-i18n="up_evt_horario_label">Horario *</label>
+          <input class="fi" id="up-evt-horario" type="text" data-i18n-placeholder="up_evt_horario_ph" placeholder='Ej: "Viernes a domingo, 16 a 22hs" o "Sábado 3 y domingo 4, de 10 a 18hs"'>
         </div>
         <div class="fg" style="display:flex;align-items:center;gap:8px">
           <input type="checkbox" id="up-evt-entrada-gratis" checked style="width:auto">
-          <label class="fl" style="margin:0" for="up-evt-entrada-gratis">Entrada gratuita</label>
+          <label class="fl" style="margin:0" for="up-evt-entrada-gratis" data-i18n="up_evt_gratis_label">Entrada gratuita</label>
         </div>
         <div class="fg" id="up-evt-valor-entrada-block" style="display:none">
-          <label class="fl">Valor de la entrada</label>
-          <input class="fi" id="up-evt-valor-entrada" type="text" placeholder="Ej: $5000, o $3000 anticipada / $4000 en puerta">
+          <label class="fl" data-i18n="up_evt_valor_label">Valor de la entrada</label>
+          <input class="fi" id="up-evt-valor-entrada" type="text" data-i18n-placeholder="up_evt_valor_ph" placeholder="Ej: $5000, o $3000 anticipada / $4000 en puerta">
         </div>
         <div class="fg" id="up-evt-direccion-block">
-          <label class="fl">Dirección exacta del evento *</label>
-          <input class="fi" id="up-evt-direccion" type="text" placeholder="Ej: Av. Colón 1234, Córdoba">
+          <label class="fl" data-i18n="up_evt_direccion_label">Dirección exacta del evento *</label>
+          <input class="fi" id="up-evt-direccion" type="text" data-i18n-placeholder="up_evt_direccion_ph" placeholder="Ej: Av. Colón 1234, Córdoba">
         </div>
         <p id="up-evt-direccion-inherited-info" style="display:none;font-size:12px;color:var(--text3);margin-top:-6px;margin-bottom:8px"></p>
-        <div class="divider"><span>CONTACTO DEL EVENTO (al menos 1) *</span></div>
+        <div class="divider"><span data-i18n="up_evt_contacto_divider">CONTACTO DEL EVENTO (al menos 1) *</span></div>
         <div class="frow">
           <div>
-            <label class="fl">Mail</label>
+            <label class="fl" data-i18n="up_evt_mail_label">Mail</label>
             <input class="fi" id="up-evt-contacto-email" type="text" placeholder="ej. contacto@evento.com">
           </div>
           <div>
-            <label class="fl">Red social</label>
+            <label class="fl" data-i18n="up_evt_social_label">Red social</label>
             <input class="fi" id="up-evt-contacto-social" type="text" placeholder="ej. @evento en Instagram">
           </div>
         </div>
         <div class="frow">
           <div>
-            <label class="fl">Teléfono</label>
+            <label class="fl" data-i18n="up_evt_telefono_label">Teléfono</label>
             <input class="fi" id="up-evt-contacto-telefono" type="text" placeholder="ej. 351 123 4567">
           </div>
           <div>
-            <label class="fl">Página web</label>
+            <label class="fl" data-i18n="up_evt_web_label">Página web</label>
             <input class="fi" id="up-evt-contacto-web" type="text" placeholder="ej. www.evento.com">
           </div>
         </div>
 
         <div id="up-evt-lugar-block">
-          <div class="divider"><span>LUGAR DEL EVENTO</span></div>
+          <div class="divider"><span data-i18n="up_evt_lugar_divider">LUGAR DEL EVENTO</span></div>
           <div class="evt-camino-toggle">
-            <button type="button" class="evt-camino-btn on" id="up-evt-camino-a-btn">Ya existe el pin</button>
-            <button type="button" class="evt-camino-btn" id="up-evt-camino-b-btn">Todavía no existe</button>
+            <button type="button" class="evt-camino-btn on" id="up-evt-camino-a-btn" data-i18n="up_evt_camino_a_btn">Ya existe el pin</button>
+            <button type="button" class="evt-camino-btn" id="up-evt-camino-b-btn" data-i18n="up_evt_camino_b_btn">Todavía no existe</button>
           </div>
           <div id="up-evt-camino-a-pane">
             <div class="fg">
-              <label class="fl">Buscar pin existente</label>
-              <input class="fi" id="up-evt-buscar-pin-input" type="text" placeholder="Escribí el nombre del lugar...">
+              <label class="fl" data-i18n="up_evt_buscar_pin_label">Buscar pin existente</label>
+              <input class="fi" id="up-evt-buscar-pin-input" type="text" data-i18n-placeholder="up_evt_buscar_pin_ph" placeholder="Escribí el nombre del lugar...">
               <div class="geocoder-results" id="up-evt-buscar-pin-results"></div>
             </div>
             <div class="fg" id="up-evt-pin-seleccionado" style="display:none">
-              <label class="fl">Pin elegido</label>
+              <label class="fl" data-i18n="up_evt_pin_elegido_label">Pin elegido</label>
               <div class="owner-panel-item" style="cursor:default;display:flex;align-items:center;justify-content:space-between">
                 <span class="up-evt-pin-seleccionado-name"></span>
-                <button type="button" class="img-clear" id="up-evt-pin-seleccionado-quitar" title="Quitar">✕</button>
+                <button type="button" class="img-clear" id="up-evt-pin-seleccionado-quitar" data-i18n-title="quitar" title="Quitar">✕</button>
               </div>
             </div>
           </div>
           <div id="up-evt-camino-b-pane" style="display:none">
             <div class="fg">
-              <label class="fl">Nombre del lugar (nuevo pin) *</label>
-              <input class="fi" id="up-evt-pin-nombre" type="text" placeholder="Ej: Patio del Colegio San Martín">
+              <label class="fl" data-i18n="up_evt_pin_nombre_label">Nombre del lugar (nuevo pin) *</label>
+              <input class="fi" id="up-evt-pin-nombre" type="text" data-i18n-placeholder="up_evt_pin_nombre_ph" placeholder="Ej: Patio del Colegio San Martín">
             </div>
             <div class="fg">
-              <label class="fl">🔍 Buscar dirección o lugar</label>
+              <label class="fl" data-i18n="up_evt_buscar_dir_label">🔍 Buscar dirección o lugar</label>
               <div class="geocoder-row">
                 <input class="fi geocoder-input" id="geo-input-up-evt" type="text" placeholder="Ej: Colegio San Martín, Córdoba…">
-                <button class="geocoder-btn" id="geo-btn-up-evt">Buscar</button>
+                <button class="geocoder-btn" id="geo-btn-up-evt" data-i18n="buscar">Buscar</button>
               </div>
               <div class="geocoder-results" id="geo-results-up-evt"></div>
-              <div class="coord-display" id="up-evt-pin-coord-display">Sin coordenadas — buscá una dirección o hacé click en el mapa</div>
+              <div class="coord-display" id="up-evt-pin-coord-display" data-i18n="zona_no_coords">Sin coordenadas — buscá una dirección o hacé click en el mapa</div>
               <input type="hidden" id="up-evt-pin-lat"><input type="hidden" id="up-evt-pin-lng">
-              <button class="btn-map-pick" id="btn-pick-up-evento-pin" type="button">📍 O hacer clic en el mapa</button>
+              <button class="btn-map-pick" id="btn-pick-up-evento-pin" type="button" data-i18n="up_evt_pick_map_btn">📍 O hacer clic en el mapa</button>
             </div>
           </div>
         </div>
 
         <div id="up-evt-cambios-info" style="font-size:11px;color:var(--text3);margin:8px 0"></div>
         <div id="up-evt-form-error" style="color:#ef4444;font-size:12px;margin-bottom:8px"></div>
-        <button class="btn-primary" id="btn-save-up-evento">✓ Crear evento</button>
+        <button class="btn-primary" id="btn-save-up-evento" data-i18n="up_evt_crear_btn">✓ Crear evento</button>
       </div>
     </div>
   </div>
@@ -1331,6 +1335,7 @@ campo-05:
       <div class="divider" style="margin-top:16px"><span>EDITAR ZONA</span></div>
       <div id="zona-edit-form" style="display:none">
         <div class="fg"><label class="fl">Nombre</label><input class="fi" id="ze-name" type="text"></div>
+        <div id="ze-name-lang-wrap"></div>
         <div class="fg"><label class="fl">Tags (separados por coma)</label><input class="fi" id="ze-tags" type="text"></div>
 
         <div class="divider"><span>UBICACIÓN EN EL MAPA</span></div>
@@ -1963,6 +1968,7 @@ campo-05:
   <!-- Módulo de Estado Centralizado (Central Store) -->
   <script src="js/app-state.js?v=20260829" defer></script>
   <script src="js/lang-switcher.js?v=20260829" defer></script>
+  <script src="js/i18n.js?v=20260926" defer></script>
   <!-- [DESCONECTADO 2026-08-13 — smartcityV3.0_fix-mapa-pines. NO BORRAR ESTA NOTA
        en una limpieza futura: explica por qué este script sigue en el repo pero
        sin cargarse.] js/pois-loader.js hidrataba AppState/window.POIS con los 4
