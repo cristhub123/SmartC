@@ -608,5 +608,49 @@ if (document.getElementById('img-input-banner-edit')) {
 
 /* ── Patch startEdit: ya integrado en la definición base arriba ── */
 
+/* ═══════════════════════════════════════════════════════════
+   CONFIRMACIÓN DE BORRADO GENÉRICA [NUEVO — Etapa 1,
+   PLAN_CORRECCIONES_ADMIN.md]
+   ---------------------------------------------------------------
+   Reutiliza el mismo modal #modal-confirm que ya usa Lugares
+   (askDelete/mc-cancel/mc-delete en admin.js) para que otras
+   pestañas (Ubicaciones, Tipografía, y a futuro Temas/Roadmap/
+   Grupos/Categorías/Eventos) puedan pedir la misma confirmación
+   sin reinventar el modal.
+
+   A PROPÓSITO no se toca la lógica de askDelete() de Lugares: acá
+   solo se agregan listeners NUEVOS a los mismos botones (mc-cancel/
+   mc-delete), en paralelo a los que ya tiene admin.js. Cuando se
+   borra un lugar, pendingDelId queda en null salvo que askDelete()
+   lo haya seteado, así que el callback genérico (_pendingConfirmCb)
+   se ejecuta sin pisar ni depender de esa otra lógica, y viceversa.
+
+   Uso: confirmarBorrado('¿Borrar "Centro" de Ubicaciones?', () => {
+     // lo que efectivamente borra
+   });
+   ═══════════════════════════════════════════════════════════ */
+let _pendingConfirmCb = null;
+
+function confirmarBorrado(mensaje, onConfirm, titulo) {
+  const modal = document.getElementById('modal-confirm');
+  if (!modal) { if (onConfirm) onConfirm(); return; } // fallback si el modal no existe en el DOM
+  const titleEl = modal.querySelector('h3');
+  const msgEl = document.getElementById('modal-msg');
+  if (titleEl) titleEl.textContent = titulo || '¿Eliminar?';
+  if (msgEl) msgEl.textContent = mensaje || 'Esta acción no se puede deshacer.';
+  _pendingConfirmCb = onConfirm;
+  modal.classList.add('on');
+}
+
+document.getElementById('mc-cancel')?.addEventListener('click', () => {
+  _pendingConfirmCb = null;
+});
+document.getElementById('mc-delete')?.addEventListener('click', () => {
+  if (!_pendingConfirmCb) return;
+  const cb = _pendingConfirmCb;
+  _pendingConfirmCb = null;
+  cb();
+});
+
 
 

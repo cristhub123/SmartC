@@ -51,11 +51,18 @@ function _renderLocationsList() {
     </div>`).join('');
 
   wrap.querySelectorAll('[data-delete-location]').forEach(btn => {
-    btn.addEventListener('click', async () => {
+    btn.addEventListener('click', () => {
       const id = btn.dataset.deleteLocation;
-      await deleteLocation(id);
-      await _reloadLocations();
-      toast('🗑️ Ubicación borrada');
+      const loc = _locations.find(l => l.id === id);
+      const nombre = loc ? `${loc.countryLabel} · ${loc.provinceLabel} · ${loc.cityLabel}` : 'esta ubicación';
+      // [FIX Etapa 1 — PLAN_CORRECCIONES_ADMIN.md] antes borraba al toque,
+      // sin ninguna confirmación. El borrado en sí (deleteLocation) queda
+      // igual, solo se antepone la pregunta.
+      confirmarBorrado(`¿Eliminar "${nombre}" de Ubicaciones? Esta acción no se puede deshacer.`, async () => {
+        await deleteLocation(id);
+        await _reloadLocations();
+        toast('🗑️ Ubicación borrada');
+      }, '¿Eliminar ubicación?');
     });
   });
 }

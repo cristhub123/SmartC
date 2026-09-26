@@ -124,12 +124,18 @@ async function _addTypoFont() {
   toast(`✅ "${name}" agregada — ya la podés elegir en cualquier nivel`);
 }
 
-async function _removeTypoFont(name) {
-  _typoFonts = _typoFonts.filter(f => f !== name);
-  await saveTypographyFonts(_typoFonts);
-  _renderTypoFontsList();
-  _renderTypoFontSelects();
-  toast(`🗑️ "${name}" quitada de la lista de disponibles (los presets que ya la tenían elegida caen a la fuente por defecto)`);
+function _removeTypoFont(name) {
+  // [FIX Etapa 1 — PLAN_CORRECCIONES_ADMIN.md] antes borraba al toque,
+  // sin ninguna confirmación, aunque afecta a cualquier preset que la
+  // tenga elegida. El borrado en sí queda igual, solo se antepone la
+  // pregunta.
+  confirmarBorrado(`¿Quitar la fuente "${name}"? Los presets que ya la tenían elegida caen a la fuente por defecto.`, async () => {
+    _typoFonts = _typoFonts.filter(f => f !== name);
+    await saveTypographyFonts(_typoFonts);
+    _renderTypoFontsList();
+    _renderTypoFontSelects();
+    toast(`🗑️ "${name}" quitada de la lista de disponibles (los presets que ya la tenían elegida caen a la fuente por defecto)`);
+  }, '¿Quitar fuente?');
 }
 
 /* ─────────────────────────────────────────────────────────────
@@ -243,15 +249,20 @@ async function _saveTypoPreset() {
   }
 }
 
-async function _deleteTypoPreset() {
+function _deleteTypoPreset() {
   if (!_typoEditingId) { toast('⚠️ No hay ningún preset guardado seleccionado'); return; }
   const preset = _typoPresets.find(p => p.id === _typoEditingId);
-  await deleteTypographyPreset(_typoEditingId);
-  _typoEditingId = null;
-  await _reloadTypoPresets();
-  _loadPresetIntoForm(null);
-  _applyTypographyCSSVars();
-  toast(`🗑️ Preset "${preset ? preset.name : ''}" borrado`);
+  // [FIX Etapa 1 — PLAN_CORRECCIONES_ADMIN.md] antes borraba al toque,
+  // sin ninguna confirmación. El borrado en sí queda igual, solo se
+  // antepone la pregunta.
+  confirmarBorrado(`¿Eliminar el preset "${preset ? preset.name : ''}"? Esta acción no se puede deshacer.`, async () => {
+    await deleteTypographyPreset(_typoEditingId);
+    _typoEditingId = null;
+    await _reloadTypoPresets();
+    _loadPresetIntoForm(null);
+    _applyTypographyCSSVars();
+    toast(`🗑️ Preset "${preset ? preset.name : ''}" borrado`);
+  }, '¿Eliminar preset?');
 }
 
 async function _reloadTypoPresets() {

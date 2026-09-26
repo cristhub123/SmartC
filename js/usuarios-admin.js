@@ -157,7 +157,11 @@ async function _saveCuentaPlan() {
   });
   btn.textContent = 'Guardando...'; btn.disabled = true;
   try {
-    await db.collection('usuarios').doc(_cuentaPlanUid).update({ plan, premiumEnabled });
+    // [FIX Etapa 3 — PLAN_CORRECCIONES_ADMIN.md] .update() fallaba entero
+    // si la cuenta todavía no tenía documento creado en Firestore
+    // ("no existe el documento"). .set(..., {merge:true}) lo crea si
+    // falta y no pisa el resto de sus campos si ya existe.
+    await db.collection('usuarios').doc(_cuentaPlanUid).set({ plan, premiumEnabled }, { merge: true });
     toast('✅ Cuenta actualizada');
   } catch (err) {
     console.warn('[Etapa 7] Error guardando plan de cuenta:', err);

@@ -194,7 +194,14 @@ async function saveCategoriesSettings() {
       builtinData[id] = {
         label: CAT[id].label,
         subcategories: CAT[id].subcategories || {},
-        active: CAT[id].active !== false
+        active: CAT[id].active !== false,
+        // [FIX Etapa 2 — PLAN_CORRECCIONES_ADMIN.md] faltaban color/icon acá
+        // — se guardaba todo lo demás pero el color/ícono editado en
+        // categories.js se perdía al recargar porque nunca viajaba a
+        // Firestore. Ver loadCategoriesSettings() abajo, que ahora los
+        // restaura.
+        color: CAT[id].color,
+        icon: CAT[id].icon
       };
     });
     await db.collection('settings').doc('categories').set({
@@ -224,6 +231,11 @@ async function loadCategoriesSettings() {
         if (saved.label) CAT[id].label = saved.label;
         if (saved.subcategories) CAT[id].subcategories = saved.subcategories;
         if (typeof saved.active === 'boolean') CAT[id].active = saved.active;
+        // [FIX Etapa 2 — PLAN_CORRECCIONES_ADMIN.md] restaura color/icon
+        // guardados arriba (docs viejos sin estos campos no rompen nada,
+        // simplemente quedan con el color/icon original de config.js).
+        if (saved.color) CAT[id].color = saved.color;
+        if (saved.icon) CAT[id].icon = saved.icon;
       });
     } else if (data.builtinActive && typeof data.builtinActive === 'object') {
       // Esquema viejo (antes de este cambio) — solo traía el flag active.

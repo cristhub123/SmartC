@@ -617,6 +617,11 @@ document.getElementById('btn-cancel-edit').addEventListener('click', () => {
 window.askDelete = function(id) {
   pendingDelId = id;
   const p = POIS.find(x => x.id === id);
+  // [Etapa 1 PLAN_CORRECCIONES_ADMIN.md] repone el título del modal por
+  // las dudas — ahora el mismo modal lo reutilizan otras pestañas vía
+  // confirmarBorrado() (js/utils.js) y pueden haberlo cambiado.
+  const titleEl = document.querySelector('#modal-confirm h3');
+  if (titleEl) titleEl.textContent = '¿Eliminar lugar?';
   document.getElementById('modal-msg').textContent = `¿Eliminar "${p?.name||'este lugar'}"? Esta acción no se puede deshacer.`;
   document.getElementById('modal-confirm').classList.add('on');
 };
