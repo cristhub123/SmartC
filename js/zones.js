@@ -141,6 +141,80 @@ const ZONAS_SEED = [
  *  antes, así que no hizo falta tocar el resto de las funciones. */
 let ZONAS = [];
 
+/* [i18n 2026-09-26] `z.name` (español) sigue siendo la fuente de
+   verdad legado — admin, orden A-Z, búsqueda y guardado NO cambian.
+   `z.label` es un objeto NUEVO y opcional `{en, pt}` (ES vive en
+   `z.name`, no se duplica) que el admin puede cargar desde el
+   acordeón "🌐 Inglés / Portugués" del form de zonas — mismo criterio
+   de fallback que getCatLabel()/AppState.getContent(): si falta el
+   idioma pedido (porque el admin no lo cargó todavía), se usa
+   z.name. Única forma correcta de leer el nombre público de una
+   zona — no reimplementar este fallback en otro archivo. */
+function getZoneLabel(z, lang) {
+  if (!z) return '';
+  const resolvedLang = lang || (typeof AppState !== 'undefined' ? AppState.getLanguage() : 'es');
+  if (resolvedLang !== 'es' && z.label && typeof z.label === 'object' && z.label[resolvedLang]) {
+    return z.label[resolvedLang];
+  }
+  return z.name || '';
+}
+window.getZoneLabel = getZoneLabel;
+
+const SECONDARY_ZONE_LANGS = ['en', 'pt'];
+const ZONE_LANG_NAMES = { en: 'EN', pt: 'PT' };
+
+/** Dibuja el acordeón EN/PT debajo de #ze-name (mismo patrón visual
+ *  que _langEditorHTML de categories.js, adaptado a un solo campo). */
+function _renderZonaLangEditor(label) {
+  const wrap = document.getElementById('ze-name-lang-wrap');
+  if (!wrap) return;
+  const l = label || {};
+  wrap.innerHTML = `<details class="cats-lang-details" style="margin-top:-4px;margin-bottom:10px">
+    <summary style="cursor:pointer;font-size:13px;color:var(--text3);font-weight:600">🌐 Inglés / Portugués</summary>
+    <div style="display:flex;flex-direction:column;gap:4px;margin:6px 0 2px;padding-left:4px">
+      ${SECONDARY_ZONE_LANGS.map(code => `
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:12px;color:var(--text3);width:26px;flex-shrink:0;font-weight:700">${ZONE_LANG_NAMES[code]}</span>
+          <input type="text" class="fi" style="flex:1;font-size:14px;padding:4px 8px"
+            value="${_escAttr(l[code] || '')}" data-zona-lang-input data-lang="${code}"
+            placeholder="(usa el nombre en español si se deja vacío)">
+        </div>`).join('')}
+    </div>
+  </details>`;
+}
+
+/** Lee lo que el admin cargó en el acordeón — solo al guardar. */
+function _readZonaLangFromForm() {
+  const out = {};
+  document.querySelectorAll('#ze-name-lang-wrap [data-zona-lang-input]').forEach(inp => {
+    const v = inp.value.trim();
+    if (v) out[inp.dataset.lang] = v;
+  });
+  return out;
+}
+
+/** [i18n 2026-09-26] Refresca SOLO los textos ya pintados en pantalla
+ *  (dropdown público de zonas + panel de zona abierto) cuando cambia
+ *  el idioma — sin volver a abrir/animar nada, mismo criterio de
+ *  "parchear el texto en el lugar" que ya usa poi-panel.js para su
+ *  cascarón fijo. */
+function _refreshZonaPublicI18n() {
+  if (typeof zonasOpen !== 'undefined' && zonasOpen) buildZonasDropdown();
+  const panel = document.getElementById('zona-panel');
+  if (panel && panel.classList.contains('open') && lastZonaId) {
+    const z = ZONAS.find(x => x.id === lastZonaId);
+    if (z) {
+      const nameEl = document.getElementById('zp-name');
+      if (nameEl) nameEl.textContent = getZoneLabel(z);
+      const goBtn = document.getElementById('zp-go');
+      if (goBtn) goBtn.textContent = `${window.I18N ? I18N.t('zona_go_to') : '📍 Ir a'} ${getZoneLabel(z)}`;
+    }
+  }
+}
+if (typeof AppState !== 'undefined') {
+  AppState.on(AppState.EVENTS.LANGUAGE_CHANGED, _refreshZonaPublicI18n);
+}
+
 let zonasOpen   = false;
 let lastZonaId  = null; // persistencia inteligente
 
@@ -339,6 +413,7 @@ window.startNewZona = startNewZona;
  */
 function _fillZonaForm(z) {
   document.getElementById('ze-name').value = z.name || '';
+  _renderZonaLangEditor(z.label);
   document.getElementById('ze-tags').value = (z.tags||[]).join(', ');
 
   // Campos de ubicación — mismo sistema que los lugares: buscador
@@ -483,6 +558,7 @@ document.getElementById('btn-save-zona').addEventListener('click', () => {
   }
 
   const tags = document.getElementById('ze-tags').value.split(',').map(s=>s.trim()).filter(Boolean);
+  const langFields = _readZonaLangFromForm(); // {en?, pt?} — ver getZoneLabel()
   const attrCount = document.querySelectorAll('[id^="ze-al-"]').length;
   const attrs = [];
   for (let i=0; i<attrCount; i++) {
@@ -499,7 +575,7 @@ document.getElementById('btn-save-zona').addEventListener('click', () => {
       return;
     }
     z = {
-      id, name, tags, attrs,
+      id, name, tags, attrs, label: langFields,
       lat: latEl ? lat : 0,
       lng: lngEl ? lng : 0,
       zoom: parseInt(document.getElementById('ze-zoom')?.value) || 15,
@@ -513,6 +589,7 @@ document.getElementById('btn-save-zona').addEventListener('click', () => {
     z.name = name;
     z.tags = tags;
     z.attrs = attrs;
+    z.label = langFields;
     if (latEl) z.lat = lat;
     if (lngEl) z.lng = lng;
     const zoomEl = document.getElementById('ze-zoom');
@@ -569,8 +646,8 @@ function buildZonasDropdown() {
     row.className = 'zd-item';
     row.dataset.id = z.id;
     row.innerHTML = `
-      <span class="zd-name">${z.name}</span>
-      <button class="zd-info-btn" data-id="${z.id}" title="Ver info">ⓘ</button>`;
+      <span class="zd-name">${getZoneLabel(z)}</span>
+      <button class="zd-info-btn" data-id="${z.id}" title="${window.I18N ? I18N.t('zona_info_btn_title') : 'Ver info'}">ⓘ</button>`;
     row.querySelector('.zd-name').addEventListener('click', () => navigateToZona(z));
     row.querySelector('.zd-info-btn').addEventListener('click', e => {
       e.stopPropagation(); openZonaPanel(z);
@@ -605,16 +682,17 @@ function openZonaPanel(z) {
   closeZonasDropdown();
   function _openZonaPanelNow() {
     lastZonaId = z.id;
-    document.getElementById('zp-name').textContent = z.name;
+    document.getElementById('zp-name').textContent = getZoneLabel(z);
     const body = document.getElementById('zp-body');
     const tags = z.tags.map(t => `<span class="zp-tag">${t}</span>`).join('');
     const attrs = z.attrs.map(a =>
       `<div class="zp-attr"><span class="zp-attr-label">${a.l}</span><span class="zp-attr-val">${a.v}</span></div>`
     ).join('');
+    const zoneLabel = getZoneLabel(z);
     body.innerHTML = `
       <div class="zp-tag-row">${tags}</div>
       ${attrs}
-      <button class="zp-go-btn" id="zp-go">📍 Ir a ${z.name}</button>`;
+      <button class="zp-go-btn" id="zp-go">${window.I18N ? I18N.t('zona_go_to') : '📍 Ir a'} ${zoneLabel}</button>`;
     document.getElementById('zp-go').addEventListener('click', () => navigateToZona(z));
     document.getElementById('zona-panel').classList.add('open');
     document.getElementById('map').classList.add('zona-blur');

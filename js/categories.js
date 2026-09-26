@@ -533,9 +533,10 @@ function _setBtnX(btn, x) { btn.style.setProperty('--current-x', `${x}px`); }
    las categorías activas, mismo orden que ya usaba la fila antes de
    esta etapa. */
 function _getMainFilterItems() {
+  const _t = (k) => (window.I18N ? I18N.t(k) : k);
   const items = [
-    { id: 'all', label: 'Todo', iconHTML: LUCIDE.all, color: '#1c1c1e' },
-    { id: '__eventos__', label: 'Eventos', iconHTML: '🎉', color: '#1c1c1e' }
+    { id: 'all', label: _t('filter_all'), iconHTML: LUCIDE.all, color: '#1c1c1e' },
+    { id: '__eventos__', label: _t('filter_events'), iconHTML: '🎉', color: '#1c1c1e' }
   ];
   Object.entries(getAllCats()).filter(([, v]) => v.active !== false).forEach(([id, cat]) => {
     const labelStr = getCatLabel(cat);
@@ -1074,6 +1075,19 @@ document.querySelectorAll('.color-preset').forEach(el => {
     else if (target==='newcat')  { document.getElementById('nc-color').value=c; }
   });
 });
+
+/* [i18n 2026-09-26] La fila de filtros pública (Todo/Eventos/
+   categorías) ya resolvía bien el idioma activo en cada label
+   (getCatLabel ya leía AppState.getLanguage()) pero nunca se
+   refrescaba SOLA al tocar el selector de idioma del header — recién
+   se veía el cambio si el admin togleaba algo. Con esto alcanza con
+   updateFilterBar(), que ya es idempotente (ver su propio comentario
+   sobre "barata y siempre termina en el estado correcto"). */
+if (typeof AppState !== 'undefined') {
+  AppState.on(AppState.EVENTS.LANGUAGE_CHANGED, () => {
+    if (typeof updateFilterBar === 'function') updateFilterBar();
+  });
+}
 
 
 

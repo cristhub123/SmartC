@@ -238,9 +238,9 @@ function _upShowEventosForm() {
 
 document.getElementById('btn-up-add-evento')?.addEventListener('click', () => {
   const cfg = (window.EventosShared ? EventosShared.getConfig() : { creacionEventosHabilitada: true });
-  if (!cfg.creacionEventosHabilitada) { toast('⚠️ La creación de eventos está deshabilitada por ahora'); return; }
+  if (!cfg.creacionEventosHabilitada) { toast(window.I18N ? I18N.t('toast_evt_creation_disabled') : '⚠️ La creación de eventos está deshabilitada por ahora'); return; }
   _upResetEvtForm();
-  document.getElementById('up-evt-form-title').textContent = 'Nuevo evento';
+  document.getElementById('up-evt-form-title').textContent = (window.I18N ? I18N.t('up_evt_form_title_new') : 'Nuevo evento');
   document.getElementById('up-evt-lugar-block').style.display = '';
   document.getElementById('up-evt-cambios-info').textContent = '';
   _upShowEventosForm();
@@ -323,11 +323,12 @@ function _upStartEdit(eventoId) {
     EventosShared.syncDireccionBlock('up-evt-', 'a', ev.poi_id);
   }
 
-  document.getElementById('up-evt-form-title').textContent = `Editando: ${ev.nombre || ''}`;
+  document.getElementById('up-evt-form-title').textContent = `${window.I18N ? I18N.t('up_evt_form_title_edit_prefix') : 'Editando:'} ${ev.nombre || ''}`;
   document.getElementById('up-evt-lugar-block').style.display = 'none'; // la edición no toca el lugar
   const cambios = (typeof ev.cambiosRestantes === 'number') ? ev.cambiosRestantes : 0;
   document.getElementById('up-evt-cambios-info').textContent =
-    `Este guardado va a consumir 1 de tus ${cambios} cambio${cambios === 1 ? '' : 's'} disponible${cambios === 1 ? '' : 's'}.`;
+    (window.I18N ? I18N.tf('up_evt_cambios_restantes', cambios)
+      : `Este guardado va a consumir 1 de tus ${cambios} cambio${cambios === 1 ? '' : 's'} disponible${cambios === 1 ? '' : 's'}.`);
   document.getElementById('btn-save-up-evento').textContent = '💾 Guardar cambios';
   _upSyncNombrePreview();
   _upShowEventosForm();
@@ -349,10 +350,11 @@ async function saveUpEvento() {
   const comunes = EventosFormCommon.readCamposComunes('up-evt-');
   const { nombre, descripcion, fecha_inicio, fecha_fin, horario, entradaGratis, valorEntrada,
           contactoEmail, contactoRedSocial, contactoTelefono, contactoWeb, tags } = comunes;
-  if (!nombre) { toast('⚠️ Ingresá el nombre del evento'); return; }
+  if (!nombre) { toast(window.I18N ? I18N.t('toast_evt_nombre_required') : '⚠️ Ingresá el nombre del evento'); return; }
 
-  const originalBtnText = editando ? '💾 Guardar cambios' : '✓ Crear evento';
-  btn.textContent = 'Guardando...'; btn.disabled = true;
+  const _t = (k) => (window.I18N ? I18N.t(k) : k);
+  const originalBtnText = editando ? _t('up_evt_guardar_cambios_btn') : _t('up_evt_crear_btn');
+  btn.textContent = _t('pp_guardando'); btn.disabled = true;
 
   const uid = UserAuth.getCurrentUser().uid;
   let poi_id, city;
@@ -371,7 +373,7 @@ async function saveUpEvento() {
   } else {
     const cfg = EventosShared.getConfig();
     if (!cfg.creacionEventosHabilitada) {
-      if (errEl) errEl.textContent = '⚠️ La creación de eventos está deshabilitada por ahora.';
+      if (errEl) errEl.textContent = (window.I18N ? I18N.t('toast_evt_creation_disabled') : '⚠️ La creación de eventos está deshabilitada por ahora.');
       btn.textContent = originalBtnText; btn.disabled = false;
       return;
     }
@@ -473,7 +475,7 @@ function _upResetEvtForm() {
     if (el) el.value = '';
   });
   document.getElementById('up-evt-cambios-info').textContent = '';
-  document.getElementById('btn-save-up-evento').textContent = '✓ Crear evento';
+  document.getElementById('btn-save-up-evento').textContent = (window.I18N ? I18N.t('up_evt_crear_btn') : '✓ Crear evento');
   _upEvtEditingId = null;
   _upQuitarSeleccion();
   _syncUpEvtPinCoordDisplay();

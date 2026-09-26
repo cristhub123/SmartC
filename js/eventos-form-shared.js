@@ -83,7 +83,7 @@ window.EventosFormCommon = (function () {
       .filter(p => (p.name || '').toLowerCase().includes(q))
       .slice(0, 8);
     if (!matches.length) {
-      wrap.innerHTML = '<div class="geocoder-result"><strong>Sin resultados</strong><span>Probá con otro nombre</span></div>';
+      wrap.innerHTML = `<div class="geocoder-result"><strong>${window.I18N ? I18N.t('evt_no_results') : 'Sin resultados'}</strong><span>${window.I18N ? I18N.t('evt_no_results_hint') : 'Probá con otro nombre'}</span></div>`;
       wrap.classList.add('show');
       return;
     }

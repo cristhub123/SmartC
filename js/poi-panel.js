@@ -202,7 +202,7 @@ const PoiPanel = (function () {
         <div class="poi-panel__handle"></div>
       </div>
       <div data-role="lang-row" style="display:flex;justify-content:flex-end;align-items:center;gap:4px;padding:0 1.5rem 0.25rem;">
-        <button type="button" data-role="eye-btn" title="Ver otra imagen de este lugar" style="border:none;background:transparent;padding:2px 4px;border-radius:6px;cursor:pointer;font-size:1rem;line-height:1;display:flex;align-items:center;gap:4px;color:#94a3b8;">
+        <button type="button" data-role="eye-btn" title="" style="border:none;background:transparent;padding:2px 4px;border-radius:6px;cursor:pointer;font-size:1rem;line-height:1;display:flex;align-items:center;gap:4px;color:#94a3b8;">
           <span data-role="eye-icon">👁️</span><span data-role="eye-count" style="font-size:0.75rem;font-weight:700;"></span>
         </button>
       </div>
@@ -221,8 +221,8 @@ const PoiPanel = (function () {
            es editable por el admin (ver evt-config-titulo-panel en
            el admin, cargado acá vía loadEventosConfig()). -->
       <div class="poi-panel__tabs-row" data-role="tabs-row" hidden>
-        <button type="button" class="poi-panel__tab-btn on" data-role="tab-info-btn" data-tab="info">Info</button>
-        <button type="button" class="poi-panel__tab-btn" data-role="tab-eventos-btn" data-tab="eventos">Eventos</button>
+        <button type="button" class="poi-panel__tab-btn on" data-role="tab-info-btn" data-tab="info"></button>
+        <button type="button" class="poi-panel__tab-btn" data-role="tab-eventos-btn" data-tab="eventos"></button>
       </div>
       <div class="poi-panel__subtitle-row" data-role="subtitle-row">
         <p class="poi-panel__subtitle" data-role="subtitle"></p>
@@ -234,7 +234,7 @@ const PoiPanel = (function () {
             <p class="poi-panel__body" data-role="description"></p>
           </div>
           <div data-role="meta-section" hidden>
-            <p class="poi-panel__section-title">Datos</p>
+            <p class="poi-panel__section-title" data-role="meta-section-title"></p>
             <div class="poi-panel__meta-row" data-role="meta-row"></div>
           </div>
         </div>
@@ -244,7 +244,6 @@ const PoiPanel = (function () {
       </div>
       <div class="poi-panel__footer">
         <button type="button" class="poi-panel__action-btn" data-role="action-btn">
-          Editar
         </button>
       </div>
     `;
@@ -273,6 +272,7 @@ const PoiPanel = (function () {
       gancho: panel.querySelector('[data-role="gancho"]'),
       description: panel.querySelector('[data-role="description"]'),
       metaSection: panel.querySelector('[data-role="meta-section"]'),
+      metaSectionTitle: panel.querySelector('[data-role="meta-section-title"]'),
       metaRow: panel.querySelector('[data-role="meta-row"]'),
       actionBtn: panel.querySelector('[data-role="action-btn"]'),
     };
@@ -280,9 +280,26 @@ const PoiPanel = (function () {
     _els.tabInfoBtn.addEventListener('click', () => _setActiveTab('info'));
     _els.tabEventosBtn.addEventListener('click', () => _setActiveTab('eventos'));
 
+    // [i18n 2026-09-26] Textos fijos del "cascarón" del panel (pestaña
+    // Info, título de sección "Datos") que el template arma UNA sola
+    // vez — a diferencia del resto del contenido, esto no pasa por
+    // _render() en cada apertura, así que hace falta aplicarlo acá Y
+    // re-aplicarlo cada vez que cambia el idioma (ver suscripción en
+    // _bindAppStateEvents). El resto de los textos fijos del panel
+    // (ojito, "Eventos" default, Editar/Guardar) SÍ se resetean solos
+    // en cada _render(), no hace falta tocarlos acá.
+    _applyStaticChromeI18n();
+
     _bindStaticEvents();
     _applyPanelSizeVars();
     return _els;
+  }
+
+  function _applyStaticChromeI18n() {
+    if (!_els) return;
+    const _t = (k) => (window.I18N ? I18N.t(k) : k);
+    _els.tabInfoBtn.textContent = _t('poi_tab_info');
+    _els.metaSectionTitle.textContent = _t('pp_datos_label');
   }
 
   /** [Etapa 5] Cambia de pestaña sin volver a pintar todo el panel —
@@ -350,7 +367,12 @@ const PoiPanel = (function () {
       return;
     }
     if (els.tabEventosBtn && typeof _eventosConfigCache !== 'undefined') {
-      els.tabEventosBtn.textContent = (_eventosConfigCache && _eventosConfigCache.tituloPanelEventos) || 'Eventos';
+      // [i18n 2026-09-26] El rótulo custom que puso el admin
+      // (tituloPanelEventos) queda tal cual lo escribió — es un solo
+      // idioma, no forma parte de este alcance (ver ACLARACIONES_
+      // RELEVANTES.md). Solo el DEFAULT ("Eventos") se traduce.
+      const _t = (k) => (window.I18N ? I18N.t(k) : k);
+      els.tabEventosBtn.textContent = (_eventosConfigCache && _eventosConfigCache.tituloPanelEventos) || _t('pp_sec_eventos');
     }
     // [Filtro de fecha de eventos, 2026-09-03] con fecha activa, la
     // tarjeta de un evento que NO ocurre ese día queda atenuada
@@ -373,7 +395,8 @@ const PoiPanel = (function () {
       const tagsLabels = (ev.tags || [])
         .map(id => (catalogo.find(c => c.id === id) || {}).label || id)
         .filter(Boolean);
-      const entradaTxt = ev.entradaGratis === false ? `💵 ${ev.valorEntrada || 'Entrada paga'}` : '🆓 Entrada gratuita';
+      const _t = (k) => (window.I18N ? I18N.t(k) : k);
+      const entradaTxt = ev.entradaGratis === false ? `💵 ${ev.valorEntrada || _t('evt_entrada_paga')}` : `🆓 ${_t('evt_entrada_gratuita')}`;
       const contactos = [
         ev.contactoTelefono ? `📞 ${ev.contactoTelefono}` : '',
         ev.contactoEmail ? `✉️ ${ev.contactoEmail}` : '',
@@ -381,7 +404,7 @@ const PoiPanel = (function () {
         ev.contactoWeb ? `🌐 ${ev.contactoWeb}` : '',
       ].filter(Boolean);
       return `<div class="poi-panel__evento-card"${dimStyle}>
-        <strong class="poi-panel__evento-nombre">${_escapeHtml(ev.nombre || '(sin nombre)')}</strong>
+        <strong class="poi-panel__evento-nombre">${_escapeHtml(ev.nombre || _t('evt_sin_nombre'))}</strong>
         ${fechas ? `<span class="poi-panel__evento-fechas">🗓 ${_escapeHtml(fechas)}</span>` : ''}
         ${ev.horario ? `<span class="poi-panel__evento-fechas">🕒 ${_escapeHtml(ev.horario)}</span>` : ''}
         <span class="poi-panel__evento-fechas">${entradaTxt}</span>
@@ -475,7 +498,8 @@ const PoiPanel = (function () {
     const isAdmin = _isAdminActive();
     els.actionBtn.hidden = !isAdmin;
     if (isAdmin) {
-      els.actionBtn.textContent = _isEditMode ? 'Guardar cambios' : 'Editar';
+      const _t = (k) => (window.I18N ? I18N.t(k) : k);
+      els.actionBtn.textContent = _isEditMode ? _t('guardar_cambios') : _t('pp_editar_btn');
     }
   }
 
@@ -609,7 +633,7 @@ const PoiPanel = (function () {
     els.eyeCount.textContent = '';
 
     els.eyeBtn.style.cursor = hasMultiple ? 'pointer' : 'default';
-    els.eyeBtn.title = hasMultiple ? 'Ver otra imagen de este lugar' : '';
+    els.eyeBtn.title = hasMultiple ? (window.I18N ? I18N.t('pp_eye_other_image_title') : 'Ver otra imagen de este lugar') : '';
   }
 
   function _formatSubtitle(poi) {
@@ -748,7 +772,7 @@ const PoiPanel = (function () {
     };
 
     els.actionBtn.disabled = true;
-    els.actionBtn.textContent = 'Guardando...';
+    els.actionBtn.textContent = (window.I18N ? I18N.t('pp_guardando') : 'Guardando...');
 
     Promise.resolve(AppState.updatePoi({ id: _currentPoiId, content: updatedContent }))
       .finally(() => {
@@ -1033,6 +1057,7 @@ const PoiPanel = (function () {
     _unsubscribers.push(
       AppState.on(AppState.EVENTS.LANGUAGE_CHANGED, ({ lang }) => {
         _currentLang = lang;
+        _applyStaticChromeI18n();
         if (_currentPoiId) _render();
       })
     );

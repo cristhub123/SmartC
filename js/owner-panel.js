@@ -53,7 +53,8 @@ let _ownerFieldsState = [];
 async function _loadOwnerPins() {
   const listEl  = document.getElementById('owner-panel-list');
   const emptyEl = document.getElementById('owner-panel-empty');
-  listEl.innerHTML = '<p class="owner-panel-loading">Cargando tus lugares...</p>';
+  const _t = (k) => (window.I18N ? I18N.t(k) : k);
+  listEl.innerHTML = `<p class="owner-panel-loading">${_t('op_loading')}</p>`;
   emptyEl.style.display = 'none';
 
   const uid = UserAuth.getCurrentUser().uid;
@@ -63,7 +64,7 @@ async function _loadOwnerPins() {
     snap.forEach(doc => _ownerPins.push({ id: doc.id, ...doc.data() }));
   } catch (err) {
     console.warn('Error cargando pines del dueño:', err);
-    listEl.innerHTML = '<p class="owner-panel-loading">⚠️ No se pudieron cargar tus lugares. Probá de nuevo.</p>';
+    listEl.innerHTML = `<p class="owner-panel-loading">${_t('op_load_error')}</p>`;
     return;
   }
 
@@ -118,15 +119,16 @@ function _backToOwnerList() {
 /* ── Editor simple de campos "título + texto" (independiente del admin) ── */
 function _paintOwnerFieldsRows() {
   const wrap = document.getElementById('owner-edit-fields-wrap');
+  const _t = (k) => (window.I18N ? I18N.t(k) : k);
   if (!_ownerFieldsState.length) {
-    wrap.innerHTML = '<p class="owner-panel-loading">Todavía no tenés ningún campo cargado.</p>';
+    wrap.innerHTML = `<p class="owner-panel-loading">${_t('op_fields_empty')}</p>`;
     return;
   }
   wrap.innerHTML = _ownerFieldsState.map((f, i) => `
     <div class="owner-field-row" data-idx="${i}">
-      <input type="text" class="owner-field-title" placeholder="Título (ej: Dato curioso)" value="${_escAttr(f.title || '')}">
-      <textarea class="owner-field-text" placeholder="Texto" rows="2">${_escHtml(f.text || '')}</textarea>
-      <button type="button" class="owner-field-remove" title="Quitar este campo">✕</button>
+      <input type="text" class="owner-field-title" placeholder="${_t('op_field_title_ph')}" value="${_escAttr(f.title || '')}">
+      <textarea class="owner-field-text" placeholder="${_t('op_field_text_ph')}" rows="2">${_escHtml(f.text || '')}</textarea>
+      <button type="button" class="owner-field-remove" title="${_t('op_field_remove_title')}">✕</button>
     </div>
   `).join('');
   wrap.querySelectorAll('.owner-field-row').forEach(row => {
@@ -176,7 +178,8 @@ async function saveOwnerEdit() {
       return { id: `campo-${String(nextNum).padStart(2, '0')}`, title: (f.title || '').trim(), text: (f.text || '').trim() };
     });
 
-  btn.textContent = 'Guardando...'; btn.disabled = true; errEl.textContent = '';
+  const _t2 = (k) => (window.I18N ? I18N.t(k) : k);
+  btn.textContent = _t2('pp_guardando'); btn.disabled = true; errEl.textContent = '';
   try {
     // merge:true + solo esta ruta de "content" — no toca content.en/pt
     // del mismo pin (mismo patrón que saveFieldsPartialToFirestore en
@@ -213,13 +216,13 @@ async function saveOwnerEdit() {
       }
     }
 
-    toast('✅ Cambios guardados');
+    toast(_t2('toast_cambios_guardados'));
     _backToOwnerList();
   } catch (err) {
     console.warn('Error guardando edición de dueño:', err);
-    errEl.textContent = '⚠️ No se pudo guardar. Probá de nuevo.';
+    errEl.textContent = _t2('op_save_error');
   } finally {
-    btn.textContent = 'Guardar cambios'; btn.disabled = false;
+    btn.textContent = _t2('guardar_cambios'); btn.disabled = false;
   }
 }
 

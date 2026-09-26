@@ -63,22 +63,34 @@ firebase.auth().onAuthStateChanged(async (user) => {
 function _renderUserAccountButton() {
   const btn = document.getElementById('btn-user-account');
   if (!btn) return;
+  const _t = (k) => (window.I18N ? I18N.t(k) : k);
   if (_currentUser && _currentUserProfile) {
     const label = _currentUserProfile.nombre || _currentUser.email || 'Cuenta';
     btn.classList.add('logged-in');
-    btn.title = `${label} · ${_userRoleLabel(_currentUserProfile.rol)} (tocar para ver tu panel)`;
+    btn.title = `${label} · ${_userRoleLabel(_currentUserProfile.rol)} ${_t('btn_account_tap_hint')}`;
     btn.textContent = '👤';
   } else {
     btn.classList.remove('logged-in');
-    btn.title = 'Ingresar / Registrarme';
+    btn.title = _t('btn_account_title_out');
     btn.textContent = '👤';
   }
 }
 
+/* [i18n 2026-09-26] Traducido vía I18N — antes eran 2 strings fijos
+   en español. Ver js/i18n.js (claves ua_rol_dueno/ua_rol_usuario). */
 function _userRoleLabel(rol) {
-  if (rol === 'dueno_negocio') return 'Dueño de negocio';
-  if (rol === 'usuario_comun') return 'Usuario';
+  const _t = (k) => (window.I18N ? I18N.t(k) : k);
+  if (rol === 'dueno_negocio') return _t('ua_rol_dueno');
+  if (rol === 'usuario_comun') return _t('ua_rol_usuario');
   return rol || '—';
+}
+
+/* [i18n 2026-09-26] El botón del header muestra texto traducido
+   (título con rol, o "Ingresar / Registrarme") — hay que
+   re-renderizarlo cuando cambia el idioma, igual que ya hace
+   poi-panel.js con su propio contenido. */
+if (typeof AppState !== 'undefined') {
+  AppState.on(AppState.EVENTS.LANGUAGE_CHANGED, () => _renderUserAccountButton());
 }
 
 /* Click en el botón de cuenta del header: si hay sesión, abre el
@@ -125,13 +137,14 @@ function _clearUserAuthErrors() {
 
 /* ── Login con email/contraseña ── */
 async function doUserLogin() {
+  const _t = (k) => (window.I18N ? I18N.t(k) : k);
   const email = document.getElementById('user-auth-login-email').value.trim();
   const pass  = document.getElementById('user-auth-login-pass').value;
   const errEl = document.getElementById('user-auth-login-error');
   const btn   = document.getElementById('user-auth-login-btn');
-  if (!email || !pass) { errEl.textContent = '⚠️ Completá los dos campos'; return; }
+  if (!email || !pass) { errEl.textContent = _t('ua_err_campos_ambos'); return; }
 
-  btn.textContent = 'Ingresando...'; btn.disabled = true;
+  btn.textContent = _t('ua_ingresando'); btn.disabled = true;
   try {
     await firebase.auth().signInWithEmailAndPassword(email, pass);
     document.getElementById('user-auth-login-pass').value = '';
@@ -139,19 +152,20 @@ async function doUserLogin() {
   } catch (err) {
     console.warn('Login de usuario — error:', err.code);
     if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found') {
-      errEl.textContent = '⚠️ Correo o contraseña incorrectos';
+      errEl.textContent = _t('ua_err_credenciales');
     } else if (err.code === 'auth/too-many-requests') {
-      errEl.textContent = '⚠️ Demasiados intentos. Probá de nuevo en unos minutos.';
+      errEl.textContent = _t('ua_err_too_many');
     } else {
-      errEl.textContent = '⚠️ No se pudo iniciar sesión. Revisá tu conexión.';
+      errEl.textContent = _t('ua_err_login_generic');
     }
   } finally {
-    btn.textContent = 'Ingresar'; btn.disabled = false;
+    btn.textContent = _t('ua_login_btn'); btn.disabled = false;
   }
 }
 
 /* ── Registro con email/contraseña + rol elegido en el formulario ── */
 async function doUserRegister() {
+  const _t = (k) => (window.I18N ? I18N.t(k) : k);
   const nombre = document.getElementById('user-auth-register-nombre').value.trim();
   const email  = document.getElementById('user-auth-register-email').value.trim();
   const pass   = document.getElementById('user-auth-register-pass').value;
@@ -159,29 +173,29 @@ async function doUserRegister() {
   const errEl  = document.getElementById('user-auth-register-error');
   const btn    = document.getElementById('user-auth-register-btn');
 
-  if (!nombre || !email || !pass) { errEl.textContent = '⚠️ Completá todos los campos'; return; }
-  if (pass.length < 6) { errEl.textContent = '⚠️ La contraseña necesita al menos 6 caracteres'; return; }
-  if (!rolEl) { errEl.textContent = '⚠️ Elegí un tipo de cuenta'; return; }
+  if (!nombre || !email || !pass) { errEl.textContent = _t('ua_err_campos_todos'); return; }
+  if (pass.length < 6) { errEl.textContent = _t('ua_err_pass_corta'); return; }
+  if (!rolEl) { errEl.textContent = _t('ua_err_elegir_rol'); return; }
 
-  btn.textContent = 'Creando cuenta...'; btn.disabled = true;
+  btn.textContent = _t('ua_creando_cuenta'); btn.disabled = true;
   try {
     const cred = await firebase.auth().createUserWithEmailAndPassword(email, pass);
     await _createUserProfile(cred.user.uid, { email, nombre, rol: rolEl.value });
     hideUserAuth();
-    toast(`✅ Cuenta creada — ¡bienvenido/a, ${nombre}!`);
+    toast(window.I18N ? I18N.tf('toast_cuenta_creada', nombre) : `✅ Cuenta creada — ¡bienvenido/a, ${nombre}!`);
   } catch (err) {
     console.warn('Registro de usuario — error:', err.code);
     if (err.code === 'auth/email-already-in-use') {
-      errEl.textContent = '⚠️ Ese correo ya tiene una cuenta';
+      errEl.textContent = _t('ua_err_email_en_uso');
     } else if (err.code === 'auth/invalid-email') {
-      errEl.textContent = '⚠️ Correo inválido';
+      errEl.textContent = _t('ua_err_email_invalido');
     } else if (err.code === 'auth/weak-password') {
-      errEl.textContent = '⚠️ Contraseña muy débil (mínimo 6 caracteres)';
+      errEl.textContent = _t('ua_err_pass_debil');
     } else {
-      errEl.textContent = '⚠️ No se pudo crear la cuenta. Revisá tu conexión.';
+      errEl.textContent = _t('ua_err_register_generic');
     }
   } finally {
-    btn.textContent = 'Crear cuenta'; btn.disabled = false;
+    btn.textContent = _t('ua_register_btn'); btn.disabled = false;
   }
 }
 
@@ -203,7 +217,7 @@ async function doUserGoogleSignIn() {
   } catch (err) {
     console.warn('Google Sign-In — error:', err.code);
     if (err.code !== 'auth/popup-closed-by-user' && err.code !== 'auth/cancelled-popup-request') {
-      errEl.textContent = '⚠️ No se pudo continuar con Google';
+      errEl.textContent = (window.I18N ? I18N.t('ua_err_google') : '⚠️ No se pudo continuar con Google');
     }
   }
 }
@@ -220,14 +234,14 @@ async function confirmGoogleRole() {
   if (!_pendingGoogleUser) return;
   const rolEl = document.querySelector('input[name="user-auth-google-rol"]:checked');
   const errEl = document.getElementById('user-auth-google-role-error');
-  if (!rolEl) { errEl.textContent = '⚠️ Elegí un tipo de cuenta'; return; }
+  if (!rolEl) { errEl.textContent = (window.I18N ? I18N.t('ua_err_elegir_rol') : '⚠️ Elegí un tipo de cuenta'); return; }
 
   await _createUserProfile(_pendingGoogleUser.uid, {
     email: _pendingGoogleUser.email || '',
     nombre: _pendingGoogleUser.displayName || _pendingGoogleUser.email || '',
     rol: rolEl.value,
   });
-  toast('✅ ¡Cuenta lista!');
+  toast(window.I18N ? I18N.t('toast_cuenta_lista') : '✅ ¡Cuenta lista!');
   _pendingGoogleUser = null;
   document.getElementById('user-auth-google-role-step').classList.remove('on');
   hideUserAuth();

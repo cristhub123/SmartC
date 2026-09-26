@@ -70,7 +70,8 @@ async function _loadEmpleados() {
   const emptyEl = document.getElementById('empleados-empty');
   if (!listEl || !window.UserAuth || !UserAuth.isLoggedIn()) return;
   const ownerId = UserAuth.getCurrentUser().uid;
-  listEl.innerHTML = '<p class="owner-panel-loading">Cargando...</p>';
+  const _t = (k) => (window.I18N ? I18N.t(k) : k);
+  listEl.innerHTML = `<p class="owner-panel-loading">${_t('cargando')}</p>`;
   try {
     const snap = await db.collection('usuarios').where('ownerId', '==', ownerId).get();
     const empleados = [];
@@ -81,25 +82,28 @@ async function _loadEmpleados() {
       return;
     }
     emptyEl.style.display = 'none';
-    listEl.innerHTML = empleados.map(emp => `
-      <div class="owner-panel-item" style="cursor:default" data-uid="${_escAttr(emp.id)}">
+    listEl.innerHTML = empleados.map(emp => {
+      const activo = emp.activo !== false;
+      return `
+      <div class="owner-panel-item" style="cursor:default" data-uid="${_escAttr(emp.id)}" data-activo="${activo}">
         <div>
-          <div class="owner-panel-item-name">${_escHtml(emp.nombre || emp.email || '(sin nombre)')}</div>
-          <div class="owner-panel-item-cat">${_escHtml(emp.email || '')} · ${emp.activo === false ? 'desactivado' : 'activo'}</div>
+          <div class="owner-panel-item-name">${_escHtml(emp.nombre || emp.email || _t('emp_sin_nombre'))}</div>
+          <div class="owner-panel-item-cat">${_escHtml(emp.email || '')} · ${activo ? _t('emp_estado_activo') : _t('emp_estado_desactivado')}</div>
         </div>
-        <button type="button" class="geocoder-btn" data-action="toggle">${emp.activo === false ? 'Reactivar' : 'Desactivar'}</button>
+        <button type="button" class="geocoder-btn" data-action="toggle">${activo ? _t('emp_desactivar') : _t('emp_reactivar')}</button>
       </div>
-    `).join('');
+    `;
+    }).join('');
     listEl.querySelectorAll('[data-action="toggle"]').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const row = e.currentTarget.closest('[data-uid]');
-        const actual = row.querySelector('.owner-panel-item-cat').textContent.includes('· activo');
+        const actual = row.dataset.activo === 'true';
         _toggleEmpleadoActivo(row.dataset.uid, !actual);
       });
     });
   } catch (err) {
     console.warn('[Etapa 8] Error cargando empleados:', err);
-    listEl.innerHTML = '<p class="owner-panel-loading">⚠️ No se pudo cargar la lista.</p>';
+    listEl.innerHTML = `<p class="owner-panel-loading">${_t('emp_list_error')}</p>`;
   }
 }
 
@@ -137,6 +141,7 @@ document.getElementById('btn-cancelar-empleado')?.addEventListener('click', _cer
    ═══════════════════════════════════════════════════════════ */
 async function _crearEmpleado() {
   if (!window.UserAuth || !UserAuth.hasRole('dueno_negocio')) return;
+  const _t = (k) => (window.I18N ? I18N.t(k) : k);
   const nombre = document.getElementById('empleado-nombre')?.value.trim() || '';
   const email = document.getElementById('empleado-email')?.value.trim() || '';
   const pass = document.getElementById('empleado-pass')?.value || '';
@@ -144,11 +149,11 @@ async function _crearEmpleado() {
   const btn = document.getElementById('btn-crear-empleado');
   if (errEl) errEl.textContent = '';
 
-  if (!nombre || !email || !pass) { if (errEl) errEl.textContent = '⚠️ Completá todos los campos'; return; }
-  if (pass.length < 6) { if (errEl) errEl.textContent = '⚠️ La contraseña necesita al menos 6 caracteres'; return; }
+  if (!nombre || !email || !pass) { if (errEl) errEl.textContent = _t('ua_err_campos_todos'); return; }
+  if (pass.length < 6) { if (errEl) errEl.textContent = _t('ua_err_pass_corta'); return; }
 
   const ownerId = UserAuth.getCurrentUser().uid;
-  btn.textContent = 'Creando...'; btn.disabled = true;
+  btn.textContent = _t('emp_creando'); btn.disabled = true;
 
   const secondaryApp = _getEmpleadosSecondaryApp();
   const secondaryAuth = secondaryApp.auth();
@@ -168,26 +173,26 @@ async function _crearEmpleado() {
       creadoEn: firebase.firestore.FieldValue.serverTimestamp(),
     });
     await secondaryAuth.signOut();
-    toast(`✅ Cuenta de empleado creada para ${nombre}`);
+    toast(window.I18N ? I18N.tf('toast_empleado_creado', nombre) : `✅ Cuenta de empleado creada para ${nombre}`);
     _cerrarFormEmpleado();
     _loadEmpleados();
   } catch (err) {
     console.warn('[Etapa 8] Error creando empleado:', err.code || err);
     if (err.code === 'auth/email-already-in-use') {
-      if (errEl) errEl.textContent = '⚠️ Ese correo ya tiene una cuenta';
+      if (errEl) errEl.textContent = _t('ua_err_email_en_uso');
     } else if (err.code === 'auth/invalid-email') {
-      if (errEl) errEl.textContent = '⚠️ Correo inválido';
+      if (errEl) errEl.textContent = _t('ua_err_email_invalido');
     } else if (err.code === 'auth/weak-password') {
-      if (errEl) errEl.textContent = '⚠️ Contraseña muy débil (mínimo 6 caracteres)';
+      if (errEl) errEl.textContent = _t('ua_err_pass_debil');
     } else {
-      if (errEl) errEl.textContent = '⚠️ No se pudo crear la cuenta. Revisá tu conexión.';
+      if (errEl) errEl.textContent = _t('ua_err_register_generic');
     }
     // Por las dudas la sesión secundaria haya quedado logueada como
     // el intento fallido, se cierra igual (no afecta al dueño, que
     // sigue en la instancia PRINCIPAL de Firebase todo este tiempo).
     try { await secondaryAuth.signOut(); } catch (e2) { /* no-op */ }
   } finally {
-    btn.textContent = 'Crear cuenta de empleado'; btn.disabled = false;
+    btn.textContent = _t('emp_create_btn'); btn.disabled = false;
   }
 }
 document.getElementById('btn-crear-empleado')?.addEventListener('click', _crearEmpleado);
