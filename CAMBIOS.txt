@@ -1,27 +1,22 @@
-CAMBIOS — Etapas 1, 2, 3 y 4 de PLAN_CORRECCIONES_ADMIN.md (26/09/2026)
+FIX — 27/09/2026
 
-Etapa 1 — Confirmación de borrado (alto riesgo):
-- js/utils.js         → nueva función confirmarBorrado() (helper genérico, reutiliza el modal de Lugares)
-- js/admin.js          → askDelete() repone el título del modal (por las dudas, ahora lo reutilizan otras pestañas)
-- js/cities.js         → confirmación al borrar una ubicación
-- js/typography.js     → confirmación al borrar preset y al quitar fuente
+Bug reportado: en la pestaña Categorías, al tocar "Guardar cambios" el
+aviso rojo "Tenés cambios sin guardar..." quedaba pegado para siempre
+(en otras pestañas como Global o Editar lugar no pasaba).
 
-Etapa 2 — Color/ícono de categorías base:
-- js/settings-sync.js  → saveCategoriesSettings/loadCategoriesSettings guardan y restauran color e icon
+Causa: el fix de la Etapa 2 (PLAN_CORRECCIONES_ADMIN.md) agregó el campo
+`icon` al guardar cada categoría base en Firestore, pero las categorías
+base que nunca tuvieron su ícono editado tienen ese valor "undefined" en
+JavaScript — y Firestore no permite guardar un campo undefined, tira un
+error. Ese error hacía fallar el guardado completo (aunque el resto de
+los cambios, como el color, estuvieran bien) y por eso el aviso de
+"cambios sin guardar" nunca se apagaba.
 
-Etapa 3 — Cuentas (guardado plan/funciones premium):
-- js/usuarios-admin.js → _saveCuentaPlan usa .set(merge:true) en vez de .update()
+Archivo modificado:
+- js/settings-sync.js → saveCategoriesSettings() ahora guarda `null` en
+  vez de `undefined` cuando una categoría base todavía no tiene ícono
+  propio cargado.
 
-Etapa 4 — Persistencia real de Temas, Roadmap y Grupos:
-- js/settings-sync.js  → nuevas saveThemesSettings/loadThemesSettings, saveRoadmapSettings/loadRoadmapSettings, saveGroupsSettings/loadGroupsSettings (colecciones settings/themes, settings/roadmap, settings/groups)
-- js/app.js            → carga los 3 al abrir la app, en el mismo Promise.all que Categorías/Apariencia/Mapa
-- js/themes.js         → botón "Guardar cambios" propio + dirty-tracking para la lista de temas; "Guardar configuración día/noche" ahora persiste directo (saveGlobalSettings), ya no depende de la pestaña Global
-- js/roadmap.js        → botón "Guardar cambios" + dirty-tracking (el historial r1-r34 se migra solo, en el primer guardado)
-- js/groups.js         → botón "Guardar cambios" + dirty-tracking; al cargar, refresca los selects de grupo en Nuevo/Editar lugar
-- index.html           → agregado el botón/aviso "Guardar cambios" en las 3 pestañas (Temas, Roadmap, Grupos) + cache-busting (?v=) actualizado en todos los .js tocados en esta entrega y la anterior
-
-También actualizado:
-- PLAN_CORRECCIONES_ADMIN.md → Etapas 1 a 4 marcadas ✅ Completada con el detalle de qué se hizo
-
-Verificación hecha: node --check sin errores en los 10 archivos .js tocados; balance de <div> en index.html OK.
-Falta: probar en el navegador contra Firestore real (ver el detalle de cada etapa en el plan). Quedan pendientes las Etapas 5, 6 y 7.
+Cómo probar: entrar a Categorías, cambiar cualquier cosa (color, activar/
+desactivar, etc.), tocar "Guardar cambios" → el aviso rojo tiene que
+desaparecer y aparecer el toast verde "✅ Cambios de categorías guardados".
