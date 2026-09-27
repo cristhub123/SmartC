@@ -1,22 +1,16 @@
 FIX — 27/09/2026
 
-Bug reportado: en la pestaña Categorías, al tocar "Guardar cambios" el
-aviso rojo "Tenés cambios sin guardar..." quedaba pegado para siempre
-(en otras pestañas como Global o Editar lugar no pasaba).
+Problema: el texto de los botones de filtro (Tudo, Eventos, Gastronomia,
+etc.) es blanco con solo una sombra suave — se leía bien sobre zonas
+oscuras del mapa pero se perdía sobre calles/zonas claras.
 
-Causa: el fix de la Etapa 2 (PLAN_CORRECCIONES_ADMIN.md) agregó el campo
-`icon` al guardar cada categoría base en Firestore, pero las categorías
-base que nunca tuvieron su ícono editado tienen ese valor "undefined" en
-JavaScript — y Firestore no permite guardar un campo undefined, tira un
-error. Ese error hacía fallar el guardado completo (aunque el resto de
-los cambios, como el color, estuvieran bien) y por eso el aviso de
-"cambios sin guardar" nunca se apagaba.
+Solución: se le agregó al texto una placa de fondo oscuro
+semi-transparente (en vez de solo la sombra). Así queda legible sobre
+cualquier color de mapa de fondo (claro, oscuro, cualquier tile).
 
 Archivo modificado:
-- js/settings-sync.js → saveCategoriesSettings() ahora guarda `null` en
-  vez de `undefined` cuando una categoría base todavía no tiene ícono
-  propio cargado.
+- css/base.css → estilo .fbtn-label (línea ~504)
 
-Cómo probar: entrar a Categorías, cambiar cualquier cosa (color, activar/
-desactivar, etc.), tocar "Guardar cambios" → el aviso rojo tiene que
-desaparecer y aparecer el toast verde "✅ Cambios de categorías guardados".
+Cómo probar: abrir la app, mirar los botones de filtro de abajo sobre
+una zona clara del mapa (como en la captura) — el texto ahora debería
+verse con un fondito oscuro detrás, bien legible.
