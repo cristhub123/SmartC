@@ -500,15 +500,24 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   box-shadow: 0 7px 22px rgba(0,0,0,.35);
 }
 
-/* White label */
+/* [FIX 2026-09-27] Antes el label era texto blanco "al aire" sobre el
+   mapa, con solo un text-shadow suave — se leía bien sobre zonas
+   oscuras del mapa pero se perdía sobre calles/zonas claras (beige),
+   como reportó Cris. Se le agrega una placa de fondo oscuro
+   semi-transparente detrás del texto: así el contraste queda
+   garantizado siempre, sin importar el color del mapa debajo (día,
+   noche, o cualquier tile/tinte que se use en Estilo del mapa). */
 .fbtn-label {
   font-size: 10px;
   font-weight: 700;
   color: white;
   font-family: var(--font-b);
   white-space: nowrap;
-  text-shadow: 0 1px 5px rgba(0,0,0,.5);
   letter-spacing: .2px;
+  background: rgba(0,0,0,.62);
+  padding: 2px 7px;
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.25);
 }
 .fbtn .dot { display: none; }
 
