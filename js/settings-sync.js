@@ -251,3 +251,98 @@ async function loadCategoriesSettings() {
   }
 }
 
+/* ═══════════════════════════════════════════
+   TEMAS / ROADMAP / GRUPOS — persistencia real [NUEVO — Etapa 4,
+   PLAN_CORRECCIONES_ADMIN.md]
+   ---------------------------------------------
+   Antes vivían SOLO en memoria del navegador (arrays TEMAS/ROADMAP/
+   GROUPS — js/themes.js, js/roadmap.js, js/groups.js) y se perdían
+   al recargar. Mismo patrón que ya usa saveCategoriesSettings() de
+   arriba: 1 documento por sistema en la colección "settings", con
+   el array completo adentro. El guardado real recién pasa cuando se
+   aprieta "💾 Guardar cambios" en cada pestaña (no en cada alta/baja
+   individual) — ver _markTemasDirty/_markRoadmapDirty/_markGroupsDirty
+   en cada archivo respectivo.
+═══════════════════════════════════════════ */
+
+async function saveThemesSettings() {
+  try {
+    await db.collection('settings').doc('themes').set({ temas: TEMAS });
+    return true;
+  } catch (err) {
+    console.error('No se pudieron guardar los temas:', err);
+    toast('⚠️ No se guardaron los temas. ¿Iniciaste sesión?');
+    return false;
+  }
+}
+
+async function loadThemesSettings() {
+  try {
+    const doc = await db.collection('settings').doc('themes').get();
+    if (doc.exists && Array.isArray(doc.data().temas)) {
+      TEMAS.length = 0;
+      TEMAS.push(...doc.data().temas);
+    }
+    // si el doc no existe todavía (primera vez), TEMAS se queda vacío
+    // como siempre arrancó — no hay nada previo que migrar acá.
+  } catch (err) {
+    console.warn('No se pudieron cargar los temas guardados (se usa lista vacía):', err);
+  }
+}
+
+async function saveRoadmapSettings() {
+  try {
+    await db.collection('settings').doc('roadmap').set({ items: ROADMAP });
+    return true;
+  } catch (err) {
+    console.error('No se pudo guardar el roadmap:', err);
+    toast('⚠️ No se guardó el roadmap. ¿Iniciaste sesión?');
+    return false;
+  }
+}
+
+async function loadRoadmapSettings() {
+  try {
+    const doc = await db.collection('settings').doc('roadmap').get();
+    if (doc.exists && Array.isArray(doc.data().items)) {
+      ROADMAP.length = 0;
+      ROADMAP.push(...doc.data().items);
+    }
+    // [Etapa 4.2] si el doc todavía NO existe (primera vez que corre
+    // esto), se deja ROADMAP tal cual arranca en roadmap.js (la carga
+    // hardcodeada r1..r34) — no se pisa con nada. La primera vez que
+    // se toque "Guardar cambios" en esta pestaña, ESE historial
+    // completo viaja a Firestore de una sola vez, sin perder nada.
+  } catch (err) {
+    console.warn('No se pudo cargar el roadmap guardado (se usa la lista local):', err);
+  }
+}
+
+async function saveGroupsSettings() {
+  try {
+    await db.collection('settings').doc('groups').set({ items: GROUPS });
+    return true;
+  } catch (err) {
+    console.error('No se pudieron guardar los grupos:', err);
+    toast('⚠️ No se guardaron los grupos. ¿Iniciaste sesión?');
+    return false;
+  }
+}
+
+async function loadGroupsSettings() {
+  try {
+    const doc = await db.collection('settings').doc('groups').get();
+    if (doc.exists && Array.isArray(doc.data().items)) {
+      GROUPS.length = 0;
+      GROUPS.push(...doc.data().items);
+    }
+    // Los selects de grupo en Nuevo/Editar lugar (js/groups.js) hoy
+    // solo se llenan al crear un grupo en esta misma sesión — hace
+    // falta refrescarlos acá también, apenas se cargan los ya
+    // guardados, para que aparezcan sin tener que crear uno nuevo.
+    if (typeof refreshGroupSelects === 'function') refreshGroupSelects();
+  } catch (err) {
+    console.warn('No se pudieron cargar los grupos guardados (se usa lista vacía):', err);
+  }
+}
+

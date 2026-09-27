@@ -119,7 +119,7 @@ function renderRoadmap() {
 
 window.deleteRoadmapItem = function(id) {
   const idx = ROADMAP.findIndex(r => r.id === id);
-  if (idx !== -1) { ROADMAP.splice(idx, 1); renderRoadmap(); }
+  if (idx !== -1) { ROADMAP.splice(idx, 1); renderRoadmap(); _markRoadmapDirty(); }
 };
 
 document.getElementById('btn-add-rm').addEventListener('click', () => {
@@ -135,11 +135,60 @@ document.getElementById('btn-add-rm').addEventListener('click', () => {
   document.getElementById('rm-title').value = '';
   document.getElementById('rm-desc').value  = '';
   renderRoadmap();
-  toast('✅ Idea agregada al roadmap');
+  _markRoadmapDirty();
+  toast('✅ Idea agregada al roadmap — no olvides "Guardar cambios"');
 });
 
 // Render roadmap when tab opens
 SC.registerTabPlugin('roadmap', renderRoadmap);
+
+/* ═══════════════════════════════════════════════════════════
+   PERSISTENCIA REAL + GUARDADO MANUAL [NUEVO — Etapa 4.2,
+   PLAN_CORRECCIONES_ADMIN.md]
+   ---------------------------------------------------------------
+   Antes ROADMAP vivía solo en memoria (este archivo) y se perdía al
+   recargar. Ahora se carga desde Firestore al abrir la app
+   (loadRoadmapSettings, ver js/app.js init() y js/settings-sync.js)
+   y, mismo patrón que Categorías, todo alta/baja de acá queda SOLO
+   en memoria hasta que se aprieta "💾 Guardar cambios" — recién ahí
+   se persiste de verdad (saveRoadmapSettings).
+   ═══════════════════════════════════════════════════════════ */
+let _roadmapDirty = false;
+
+function _markRoadmapDirty() {
+  _roadmapDirty = true;
+  const btn = document.getElementById('btn-save-roadmap');
+  const warn = document.getElementById('roadmap-unsaved-warning');
+  if (btn) { btn.textContent = '💾 Guardar cambios ●'; btn.style.opacity = '1'; }
+  if (warn) warn.style.display = '';
+}
+
+function _clearRoadmapDirty() {
+  _roadmapDirty = false;
+  const btn = document.getElementById('btn-save-roadmap');
+  const warn = document.getElementById('roadmap-unsaved-warning');
+  if (btn) { btn.textContent = '💾 Guardar cambios'; }
+  if (warn) warn.style.display = 'none';
+}
+
+window.addEventListener('beforeunload', (e) => {
+  if (!_roadmapDirty) return;
+  e.preventDefault();
+  e.returnValue = '';
+});
+
+(function _wireRoadmapSaveButton() {
+  const btn = document.getElementById('btn-save-roadmap');
+  if (!btn) return;
+  btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    const ok = await saveRoadmapSettings();
+    btn.disabled = false;
+    if (ok) { _clearRoadmapDirty(); toast('✅ Roadmap guardado'); }
+    // si ok es false, saveRoadmapSettings() ya mostró su propio toast
+    // de error — no duplicar el aviso.
+  });
+})();
 
 
 

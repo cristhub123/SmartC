@@ -57,7 +57,8 @@ window.deleteGroup = function(id) {
     POIS.forEach(p => { if (p.groupId === id) delete p.groupId; });
     GROUPS.splice(idx, 1);
     renderGroupsAdmin();
-    toast('🗑 Grupo eliminado');
+    _markGroupsDirty();
+    toast('🗑 Grupo eliminado — no olvides "Guardar cambios"');
   }
 };
 
@@ -83,7 +84,8 @@ if (btnAddGroup) {
     renderGroupsAdmin();
     // Agregar el grupo a los selects de lugar (add/edit)
     refreshGroupSelects();
-    toast(`✅ Grupo "${name}" creado`);
+    _markGroupsDirty();
+    toast(`✅ Grupo "${name}" creado — no olvides "Guardar cambios"`);
   });
 }
 
@@ -124,6 +126,60 @@ SC.registerTabPlugin('groups', renderGroupsAdmin);
 // Agregar groups al mapa de tabs
 const _mapTGroups = {list:'tp-list',add:'tp-add',edit:'tp-edit',global:'tp-global','zonas-admin':'tp-zonas-admin',roadmap:'tp-roadmap',cats:'tp-cats',groups:'tp-groups'};
 SC.registerTabPlugin('groups', renderGroupsAdmin);
+
+/* ═══════════════════════════════════════════════════════════
+   PERSISTENCIA REAL + GUARDADO MANUAL [NUEVO — Etapa 4.3,
+   PLAN_CORRECCIONES_ADMIN.md]
+   ---------------------------------------------------------------
+   Antes GROUPS vivía solo en memoria (este archivo) y se perdía al
+   recargar. Ahora se carga desde Firestore al abrir la app
+   (loadGroupsSettings, ver js/app.js init() y js/settings-sync.js)
+   y, mismo patrón que Categorías, todo alta/baja de acá queda SOLO
+   en memoria hasta que se aprieta "💾 Guardar cambios" — recién ahí
+   se persiste de verdad (saveGroupsSettings).
+
+   El botón "🏠 Dirección" del modo de ubicación global (misma
+   pestaña) queda FUERA de esta etapa a propósito — ver nota en la
+   Etapa 4.3 del plan, es un tipo de bug distinto (no guarda un
+   resultado de una acción sobre pines ya existentes, no un dato de
+   configuración de esta lista).
+   ═══════════════════════════════════════════════════════════ */
+let _groupsDirty = false;
+
+function _markGroupsDirty() {
+  _groupsDirty = true;
+  const btn = document.getElementById('btn-save-groups');
+  const warn = document.getElementById('groups-unsaved-warning');
+  if (btn) { btn.textContent = '💾 Guardar cambios ●'; btn.style.opacity = '1'; }
+  if (warn) warn.style.display = '';
+}
+
+function _clearGroupsDirty() {
+  _groupsDirty = false;
+  const btn = document.getElementById('btn-save-groups');
+  const warn = document.getElementById('groups-unsaved-warning');
+  if (btn) { btn.textContent = '💾 Guardar cambios'; }
+  if (warn) warn.style.display = 'none';
+}
+
+window.addEventListener('beforeunload', (e) => {
+  if (!_groupsDirty) return;
+  e.preventDefault();
+  e.returnValue = '';
+});
+
+(function _wireGroupsSaveButton() {
+  const btn = document.getElementById('btn-save-groups');
+  if (!btn) return;
+  btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    const ok = await saveGroupsSettings();
+    btn.disabled = false;
+    if (ok) { _clearGroupsDirty(); toast('✅ Grupos guardados'); }
+    // si ok es false, saveGroupsSettings() ya mostró su propio toast
+    // de error — no duplicar el aviso.
+  });
+})();
 
 
 

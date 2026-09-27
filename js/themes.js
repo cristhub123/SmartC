@@ -90,7 +90,8 @@ document.getElementById('btn-add-tema').addEventListener('click', () => {
   TEMAS.push({ id, name, altEnabled:true, panelDefault:false, mapDefault:false, isNight:false });
   input.value = '';
   renderTemasAdmin();
-  toast(`✅ Tema "${name}" agregado`);
+  _markTemasDirty();
+  toast(`✅ Tema "${name}" agregado — no olvides "Guardar cambios"`);
 });
 
 /* === TOGGLE DE CUALQUIERA DE LOS 3 INTERRUPTORES POR TEMA === */
@@ -98,6 +99,7 @@ window.toggleTemaFlag = function(id, flag, value) {
   const t = TEMAS.find(x => x.id === id);
   if (!t) return;
   t[flag] = value;
+  _markTemasDirty();
   toast(`✅ ${t.name}: ${flag} ${value ? 'activado' : 'desactivado'}`);
 };
 
@@ -108,16 +110,78 @@ window.deleteTema = function(id) {
   TEMAS = TEMAS.filter(x => x.id !== id);
   if (globalSettings.nightTheme === id) globalSettings.nightTheme = null;
   renderTemasAdmin();
-  toast(`🗑️ Tema "${t.name}" eliminado`);
+  _markTemasDirty();
+  toast(`🗑️ Tema "${t.name}" eliminado — no olvides "Guardar cambios"`);
 };
 
+/* ═══════════════════════════════════════════════════════════
+   GUARDADO MANUAL DE LA LISTA DE TEMAS [NUEVO — Etapa 4.1,
+   PLAN_CORRECCIONES_ADMIN.md]
+   ---------------------------------------------------------------
+   Mismo patrón que ya usa Categorías (js/categories.js): todo lo de
+   arriba (alta/baja/edición de tema, los 3 interruptores) queda SOLO
+   en memoria hasta que se aprieta "💾 Guardar cambios" — recién ahí
+   se persiste en Firestore (saveThemesSettings, js/settings-sync.js).
+   Si se recarga sin guardar, se pierde lo no guardado (a propósito,
+   mismo criterio que Categorías).
+   ═══════════════════════════════════════════════════════════ */
+let _temasDirty = false;
+
+function _markTemasDirty() {
+  _temasDirty = true;
+  const btn = document.getElementById('btn-save-temas');
+  const warn = document.getElementById('temas-unsaved-warning');
+  if (btn) { btn.textContent = '💾 Guardar cambios ●'; btn.style.opacity = '1'; }
+  if (warn) warn.style.display = '';
+}
+
+function _clearTemasDirty() {
+  _temasDirty = false;
+  const btn = document.getElementById('btn-save-temas');
+  const warn = document.getElementById('temas-unsaved-warning');
+  if (btn) { btn.textContent = '💾 Guardar cambios'; }
+  if (warn) warn.style.display = 'none';
+}
+
+window.addEventListener('beforeunload', (e) => {
+  if (!_temasDirty) return;
+  e.preventDefault();
+  e.returnValue = '';
+});
+
+(function _wireTemasSaveButton() {
+  const btn = document.getElementById('btn-save-temas');
+  if (!btn) return;
+  btn.addEventListener('click', async () => {
+    btn.disabled = true;
+    const ok = await saveThemesSettings();
+    btn.disabled = false;
+    if (ok) { _clearTemasDirty(); toast('✅ Temas guardados'); }
+    // si ok es false, saveThemesSettings() ya mostró su propio toast
+    // de error — no duplicar el aviso.
+  });
+})();
+
 /* === GUARDAR CONFIGURACIÓN DÍA/NOCHE === */
-document.getElementById('btn-save-nightmode').addEventListener('click', () => {
+// [FIX Etapa 4.1 — PLAN_CORRECCIONES_ADMIN.md] antes este botón solo
+// actualizaba globalSettings en memoria — la hora/tema de noche recién
+// quedaban guardados de verdad si DESPUÉS se entraba a la pestaña
+// "Apariencia global" y se tocaba "Aplicar a todos los pins" (el único
+// lugar que llamaba a saveGlobalSettings()). Ahora este botón guarda
+// directo, sin depender de otra pestaña — nightHour/nightTheme viven
+// en el mismo objeto globalSettings que ya persiste esa función, así
+// que no hace falta ningún documento nuevo para esto.
+document.getElementById('btn-save-nightmode').addEventListener('click', async () => {
   const hourVal = document.getElementById('tema-night-hour').value;
   const themeVal = document.getElementById('tema-night-select').value;
   globalSettings.nightHour  = hourVal === '' ? null : parseInt(hourVal);
   globalSettings.nightTheme = themeVal || null;
-  toast('✅ Configuración día/noche guardada');
+  const btn = document.getElementById('btn-save-nightmode');
+  if (btn) { btn.disabled = true; btn.textContent = 'Guardando...'; }
+  const ok = await saveGlobalSettings();
+  if (btn) { btn.disabled = false; btn.textContent = '✓ Guardar configuración día/noche'; }
+  if (ok) toast('✅ Configuración día/noche guardada');
+  // si ok es false, saveGlobalSettings() ya mostró su propio toast de error.
 });
 
 /* === REGISTRO DE PESTAÑA ADMIN === */

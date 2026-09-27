@@ -50,6 +50,16 @@ async function init() {
     // para que pines y barra de filtros ya nazcan con el estado
     // guardado, por eso va adentro de este Promise.all y no después.
     typeof loadCategoriesSettings === 'function' ? loadCategoriesSettings() : Promise.resolve(),
+    // [NUEVO — Etapa 4, PLAN_CORRECCIONES_ADMIN.md] Temas y Grupos
+    // también hace falta tenerlos ANTES de dibujar pines: TEMAS decide
+    // qué imagen de fallback usa cada pin (js/utils.js) y GROUPS decide
+    // qué campos hereda un pin de su grupo (applyGroupFields, en
+    // js/pin-adjust.js) — mismo motivo que Categorías arriba. Roadmap
+    // es contenido admin-only (sin impacto en el mapa público), pero
+    // se carga en el mismo lote por simpleza — es 1 doc chico más.
+    typeof loadThemesSettings === 'function' ? loadThemesSettings() : Promise.resolve(),
+    typeof loadRoadmapSettings === 'function' ? loadRoadmapSettings() : Promise.resolve(),
+    typeof loadGroupsSettings === 'function' ? loadGroupsSettings() : Promise.resolve(),
   ]);
 
   // 1. Aplicar el estilo de mapa ya cargado (o el default si es la
