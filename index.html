@@ -1387,6 +1387,17 @@ campo-05:
       </div>
       <div id="temas-admin-list"></div>
 
+      <!-- [NUEVO — Etapa 4.1, PLAN_CORRECCIONES_ADMIN.md] guardado manual
+           de la lista de temas (alta/baja/edición, los 3 interruptores):
+           nada de lo de arriba se persiste en Firestore hasta tocar este
+           botón — ver _markTemasDirty()/_wireTemasSaveButton() en
+           js/themes.js. Mismo patrón que "Guardar cambios" de Categorías. -->
+      <div class="divider" style="margin-top:20px"><span>GUARDAR</span></div>
+      <div id="temas-unsaved-warning" style="display:none;margin-bottom:8px;font-size:12px;color:#ef4444">
+        ⚠️ Tenés cambios sin guardar en esta pestaña — no se van a aplicar hasta que toques "Guardar cambios". Si recargás la página sin guardar, se pierden.
+      </div>
+      <button class="btn-primary" id="btn-save-temas">💾 Guardar cambios</button>
+
       <div class="divider" style="margin-top:20px"><span>MODO DÍA / NOCHE AUTOMÁTICO</span></div>
       <p style="font-size:12px;color:var(--text3);margin:8px 0">
         A partir de la hora indicada (horario Argentina), los pines pasan
@@ -1618,6 +1629,16 @@ campo-05:
         </div>
         <button class="btn-primary" id="btn-add-rm">+ Agregar al Roadmap</button>
       </div>
+
+      <!-- [NUEVO — Etapa 4.2, PLAN_CORRECCIONES_ADMIN.md] guardado manual:
+           nada de lo de arriba (agregar/borrar idea) se persiste en
+           Firestore hasta tocar este botón — ver
+           _markRoadmapDirty()/_wireRoadmapSaveButton() en js/roadmap.js. -->
+      <div class="divider" style="margin-top:20px"><span>GUARDAR</span></div>
+      <div id="roadmap-unsaved-warning" style="display:none;margin-bottom:8px;font-size:12px;color:#ef4444">
+        ⚠️ Tenés cambios sin guardar en esta pestaña — no se van a aplicar hasta que toques "Guardar cambios". Si recargás la página sin guardar, se pierden.
+      </div>
+      <button class="btn-primary" id="btn-save-roadmap">💾 Guardar cambios</button>
     </div>
 
     <!-- GRUPOS -->
@@ -1654,6 +1675,18 @@ campo-05:
         </div>
       </div>
       <button class="btn-primary" id="btn-add-group">+ Crear Grupo</button>
+
+      <!-- [NUEVO — Etapa 4.3, PLAN_CORRECCIONES_ADMIN.md] guardado manual:
+           nada de lo de arriba (crear/borrar grupo) se persiste en
+           Firestore hasta tocar este botón — ver
+           _markGroupsDirty()/_wireGroupsSaveButton() en js/groups.js.
+           No cubre el modo de ubicación global de acá abajo, que es
+           otra feature aparte (ver nota de la Etapa 4.3 en el plan). -->
+      <div class="divider" style="margin-top:20px"><span>GUARDAR GRUPOS</span></div>
+      <div id="groups-unsaved-warning" style="display:none;margin-bottom:8px;font-size:12px;color:#ef4444">
+        ⚠️ Tenés cambios sin guardar en esta pestaña — no se van a aplicar hasta que toques "Guardar cambios". Si recargás la página sin guardar, se pierden.
+      </div>
+      <button class="btn-primary" id="btn-save-groups">💾 Guardar cambios</button>
 
       <div class="divider" style="margin-top:16px"><span>MODO DE UBICACIÓN GLOBAL</span></div>
       <div style="font-size:12px;color:var(--text3);margin-bottom:10px;line-height:1.5">Elegí cómo se ubican los pins en el mapa. Si las coordenadas fallan al cambiar de proveedor de mapa, podés cambiar a dirección.</div>
@@ -1979,7 +2012,7 @@ campo-05:
        en CAMBIOS.txt. Para reactivar este loader habría que revertir también
        js/pois-bootstrap.js más abajo. -->
   <!-- <script src="js/pois-loader.js?v=20260829" defer></script> -->
-  <script src="js/settings-sync.js?v=20260906" defer></script>
+  <script src="js/settings-sync.js?v=20260926" defer></script>
   <script src="js/config.js?v=20260907" defer></script>
   <script src="js/overlay-manager.js?v=20260829" defer></script>
   <script src="js/ui-guards.js?v=20260831" defer></script>
@@ -2003,7 +2036,7 @@ campo-05:
   <!-- <script src="js/pois-bootstrap.js?v=20260829" defer></script> -->
 
   <!-- 4. Admin panel (defines switchTab) -->
-  <script src="js/admin.js?v=20260906-2100" defer></script>
+  <script src="js/admin.js?v=20260926" defer></script>
   <!-- [2026-09-02] firebase-auth-compat.js movido acá (ver nota arriba, junto
        a firebase-app-compat.js/firebase-firestore-compat.js) — recién acá lo
        necesitan admin-auth.js y user-auth.js. -->
@@ -2014,21 +2047,21 @@ campo-05:
 
   <!-- 5. Utilities -->
   <script src="js/cloudinary-admin.js?v=20260829" defer></script>
-  <script src="js/utils.js?v=20260829" defer></script>
+  <script src="js/utils.js?v=20260926" defer></script>
   <script src="js/img-slots.js?v=20260829" defer></script>
   <script src="js/geocoder.js?v=20260831" defer></script>
 
   <!-- 6. Admin sub-panels (use registerTabPlugin) -->
   <script src="js/admin-global.js?v=20260917" defer></script>
-  <script src="js/themes.js?v=20260829" defer></script>
-  <script src="js/typography.js?v=20260829" defer></script>
+  <script src="js/themes.js?v=20260926" defer></script>
+  <script src="js/typography.js?v=20260926" defer></script>
   <script src="js/skins.js?v=20260831" defer></script>
-  <script src="js/cities.js?v=20260829" defer></script>
+  <script src="js/cities.js?v=20260926" defer></script>
   <script src="js/features.js?v=20260829" defer></script>
   <script src="js/content-import.js?v=20260906" defer></script>
-  <script src="js/roadmap.js?v=20260917" defer></script>
+  <script src="js/roadmap.js?v=20260926" defer></script>
   <script src="js/zones.js?v=20260831" defer></script>
-  <script src="js/groups.js?v=20260829" defer></script>
+  <script src="js/groups.js?v=20260926" defer></script>
   <script src="js/categories.js?v=20260907-1345" defer></script>
   <script src="js/shadow-eye.js?v=20260829" defer></script>
 
@@ -2039,7 +2072,7 @@ campo-05:
   <script src="js/eventos.js?v=20260829" defer></script>
   <script src="js/eventos-fecha-filtro.js?v=20260904" defer></script>
   <script src="js/user-panel.js?v=20260831" defer></script>
-  <script src="js/usuarios-admin.js?v=20260829" defer></script>
+  <script src="js/usuarios-admin.js?v=20260926" defer></script>
   <script src="js/empleados.js?v=20260829" defer></script>
   <script src="js/cluster.js?v=20260829" defer></script>
 
@@ -2053,7 +2086,7 @@ campo-05:
   <script src="js/data-io.js?v=20260906" defer></script>
 
   <!-- 9. Init orchestrator — ALWAYS LAST -->
-  <script src="js/app.js?v=20260906" defer></script>
+  <script src="js/app.js?v=20260926" defer></script>
 
 </body>
 </html>

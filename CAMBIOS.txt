@@ -1,15 +1,27 @@
-CAMBIOS — Etapas 1, 2 y 3 de PLAN_CORRECCIONES_ADMIN.md (26/09/2026)
+CAMBIOS — Etapas 1, 2, 3 y 4 de PLAN_CORRECCIONES_ADMIN.md (26/09/2026)
 
-Archivos modificados:
-- js/utils.js         → nueva función confirmarBorrado() (Etapa 1, helper genérico)
-- js/admin.js          → askDelete() repone el título del modal (Etapa 1, ajuste de seguridad)
-- js/cities.js         → confirmación al borrar una ubicación (Etapa 1)
-- js/typography.js     → confirmación al borrar preset y al quitar fuente (Etapa 1)
-- js/settings-sync.js  → guarda/restaura color e icon de categorías base (Etapa 2)
-- js/usuarios-admin.js → _saveCuentaPlan usa .set(merge:true) en vez de .update() (Etapa 3)
+Etapa 1 — Confirmación de borrado (alto riesgo):
+- js/utils.js         → nueva función confirmarBorrado() (helper genérico, reutiliza el modal de Lugares)
+- js/admin.js          → askDelete() repone el título del modal (por las dudas, ahora lo reutilizan otras pestañas)
+- js/cities.js         → confirmación al borrar una ubicación
+- js/typography.js     → confirmación al borrar preset y al quitar fuente
+
+Etapa 2 — Color/ícono de categorías base:
+- js/settings-sync.js  → saveCategoriesSettings/loadCategoriesSettings guardan y restauran color e icon
+
+Etapa 3 — Cuentas (guardado plan/funciones premium):
+- js/usuarios-admin.js → _saveCuentaPlan usa .set(merge:true) en vez de .update()
+
+Etapa 4 — Persistencia real de Temas, Roadmap y Grupos:
+- js/settings-sync.js  → nuevas saveThemesSettings/loadThemesSettings, saveRoadmapSettings/loadRoadmapSettings, saveGroupsSettings/loadGroupsSettings (colecciones settings/themes, settings/roadmap, settings/groups)
+- js/app.js            → carga los 3 al abrir la app, en el mismo Promise.all que Categorías/Apariencia/Mapa
+- js/themes.js         → botón "Guardar cambios" propio + dirty-tracking para la lista de temas; "Guardar configuración día/noche" ahora persiste directo (saveGlobalSettings), ya no depende de la pestaña Global
+- js/roadmap.js        → botón "Guardar cambios" + dirty-tracking (el historial r1-r34 se migra solo, en el primer guardado)
+- js/groups.js         → botón "Guardar cambios" + dirty-tracking; al cargar, refresca los selects de grupo en Nuevo/Editar lugar
+- index.html           → agregado el botón/aviso "Guardar cambios" en las 3 pestañas (Temas, Roadmap, Grupos) + cache-busting (?v=) actualizado en todos los .js tocados en esta entrega y la anterior
 
 También actualizado:
-- PLAN_CORRECCIONES_ADMIN.md → Etapas 1, 2 y 3 marcadas ✅ Completada con el detalle de qué se hizo
+- PLAN_CORRECCIONES_ADMIN.md → Etapas 1 a 4 marcadas ✅ Completada con el detalle de qué se hizo
 
-Verificación hecha: node --check sin errores en los 6 archivos .js.
-Falta: probar en el navegador contra Firestore real (ver el detalle de cada etapa en el plan).
+Verificación hecha: node --check sin errores en los 10 archivos .js tocados; balance de <div> en index.html OK.
+Falta: probar en el navegador contra Firestore real (ver el detalle de cada etapa en el plan). Quedan pendientes las Etapas 5, 6 y 7.
