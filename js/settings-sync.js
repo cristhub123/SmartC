@@ -200,8 +200,14 @@ async function saveCategoriesSettings() {
         // categories.js se perdía al recargar porque nunca viajaba a
         // Firestore. Ver loadCategoriesSettings() abajo, que ahora los
         // restaura.
-        color: CAT[id].color,
-        icon: CAT[id].icon
+        // [FIX 2026-09-27] las categorías base que nunca tuvieron su
+        // ícono editado tienen CAT[id].icon === undefined — Firestore
+        // rechaza escribir un campo undefined (tira excepción, que
+        // caía acá abajo al catch: se mostraba el error y el aviso de
+        // "cambios sin guardar" quedaba pegado para siempre, aunque
+        // se tocara "Guardar cambios"). Se guarda null en su lugar.
+        color: CAT[id].color || null,
+        icon: CAT[id].icon || null
       };
     });
     await db.collection('settings').doc('categories').set({
