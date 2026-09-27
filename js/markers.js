@@ -1,11 +1,14 @@
 /*
-AI PROJECT NOTE:
-Before modifying this file, consult /AI_RULES.md.
+AI PROJECT NOTE — LECTURA OBLIGATORIA PARA CUALQUIER IA:
+Antes de modificar este archivo, toda IA (Claude, ChatGPT u otra) DEBE
+leer primero /AI_RULES.md completo. Sin excepcion, sin importar cuan
+chico o simple parezca el cambio, y sin esperar a que el usuario lo
+pida o lo recuerde — esta nota es la instruccion, no un recordatorio
+opcional. Si /AI_RULES.md ya se leyo en esta misma sesion, alcanza con
+revisar /AI_SESSION.md en su lugar.
 
-If AI_RULES.md has already been reviewed during the current session,
-check /AI_SESSION.md instead of unnecessarily rereading the entire rules file.
-
-After modifying this file, update /AI_SESSION.md with the change and verification performed.
+Despues de modificar este archivo, actualizar /AI_SESSION.md con el
+cambio hecho y la verificacion realizada.
 */
 
 /* markers.js — makeMarker, removeMarker */

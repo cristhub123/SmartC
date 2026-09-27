@@ -1,11 +1,14 @@
 /*
-AI PROJECT NOTE:
-Before modifying this file, consult /AI_RULES.md.
+AI PROJECT NOTE — LECTURA OBLIGATORIA PARA CUALQUIER IA:
+Antes de modificar este archivo, toda IA (Claude, ChatGPT u otra) DEBE
+leer primero /AI_RULES.md completo. Sin excepcion, sin importar cuan
+chico o simple parezca el cambio, y sin esperar a que el usuario lo
+pida o lo recuerde — esta nota es la instruccion, no un recordatorio
+opcional. Si /AI_RULES.md ya se leyo en esta misma sesion, alcanza con
+revisar /AI_SESSION.md en su lugar.
 
-If AI_RULES.md has already been reviewed during the current session,
-check /AI_SESSION.md instead of unnecessarily rereading the entire rules file.
-
-After modifying this file, update /AI_SESSION.md with the change and verification performed.
+Despues de modificar este archivo, actualizar /AI_SESSION.md con el
+cambio hecho y la verificacion realizada.
 */
 
 
@@ -396,7 +399,23 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
      por eso ahora hace falta un alto fijo acá. El ancho scrolleable
      lo da un espaciador invisible que arma categories.js
      (_setFilterRowWidth), no estos hijos absolutos. */
-  height: 82px;
+  /* [FIX 2026-09-27] "overflow-y: visible" de acá abajo NO se estaba
+     respetando de verdad: por spec, cuando overflow-x no es "visible"
+     (acá es "auto" por el scroll horizontal), el navegador fuerza
+     overflow-y a computar como "auto" también — o sea, este
+     contenedor SIEMPRE recortaba verticalmente, aunque dijera
+     "visible". Eso cortaba la sombra del círculo (box-shadow, que
+     sangra ~11px hacia arriba) incluso en reposo, y de lleno la parte
+     de arriba del botón al agrandarse en hover/click (scale+translate
+     hacia arriba). No hay forma de tener scroll horizontal real y
+     overflow vertical 100% libre a la vez en CSS puro — la solución
+     es darle a este contenedor altura de sobra (82px → 110px, +28px)
+     para que quepa el peor caso (sombra + hover + estado .on) sin
+     tocar nada, y correr el "top" base de .fbtn la misma cantidad
+     (4px → 32px) para que el botón en reposo quede exactamente en el
+     mismo lugar de siempre — el espacio extra es todo invisible,
+     arriba del botón. */
+  height: 110px;
   padding: 6px 20px 4px;
   overflow-x: auto;
   overflow-y: visible;
@@ -410,8 +429,25 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
 
 /* [Filtro de fecha de eventos, 2026-09-03] pill con el selector de
    fecha, arriba de la fila de categorías — solo visible con el
-   filtro "Eventos" activo (ver js/eventos-fecha-filtro.js). Estilo
-   mínimo a propósito: el look final se define aparte. */
+   filtro "Eventos" activo (ver js/eventos-fecha-filtro.js).
+   [FIX 2026-09-27] dos problemas acá:
+   1) VISIBILIDAD: `display: flex` en un selector por #id le gana en
+      especificidad a la regla del navegador `[hidden] { display:none }`
+      (que es solo un selector de atributo) — entonces por más que
+      eventos-fecha-filtro.js pusiera `bar.hidden = true`, esta barra
+      se quedaba SIEMPRE visible, filtro "Eventos" activo o no. La
+      regla `#eventos-fecha-bar[hidden]` de más abajo tiene más
+      especificidad que esta (mismo #id + atributo) y ahora sí gana,
+      así que `hidden` vuelve a ocultarla de verdad.
+   2) ESTÉTICA: antes tenía radio 999px (pill completo), sombra más
+      oscura (rgba .25) y color de texto hardcodeado (#1a1a1a) — nada
+      de eso coincide con el resto de los controles que flotan sobre
+      el mapa (#search-bar, #btn-zonas: radio 14px, fondo
+      rgba(var(--surface-rgb),.96), sombra rgba(0,0,0,.13), texto
+      var(--text)). Se unificó a ese mismo lenguaje visual. El botón
+      de limpiar (.efb-clear) pasa a calcar el patrón estándar de
+      "botón cerrar" que ya usa el resto de la app (.btn-x, ej. el
+      cierre del panel de zona) en vez de otro círculo blanco propio. */
 #eventos-fecha-bar {
   display: flex;
   align-items: center;
@@ -420,28 +456,37 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   padding: 0 20px 8px;
   pointer-events: all;
 }
+#eventos-fecha-bar[hidden] { display: none; }
 .efb-input {
   border: none;
-  border-radius: 999px;
-  padding: 7px 12px;
+  border-radius: 14px;
+  padding: 0 14px;
+  height: 44px;
   font-family: var(--font-b);
-  font-size: 13px;
-  font-weight: 600;
-  color: #1a1a1a;
-  background: white;
-  box-shadow: 0 5px 16px rgba(0,0,0,.25);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  background: rgba(var(--surface-rgb), 0.96);
+  box-shadow: 0 4px 16px rgba(0,0,0,.13);
+  color-scheme: light;
 }
 .efb-clear {
-  border: none;
+  background: var(--surface2);
+  border: 1.5px solid var(--border);
   border-radius: 50%;
-  width: 30px;
-  height: 30px;
-  background: white;
-  box-shadow: 0 5px 16px rgba(0,0,0,.25);
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
   font-size: 13px;
-  color: #1a1a1a;
+  color: var(--text2);
+  flex-shrink: 0;
+  transition: all .2s;
+  -webkit-tap-highlight-color: transparent;
 }
+.efb-clear:hover { background: #fee2e2; color: #dc2626; border-color: #fca5a5; }
 
 /* Each category button — column: circle + label.
    [Etapa E, 2026-09-07] position:absolute + variable CSS
@@ -449,7 +494,9 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
    categories.js _setBtnX) en vez de transform inline directo. */
 .fbtn {
   position: absolute;
-  top: 4px;
+  /* 4px de siempre + 28px del buffer nuevo del .filter-row (ver nota
+     arriba) — el botón en reposo cae en el mismo lugar de siempre. */
+  top: 32px;
   left: 0;
   width: 70px;
   display: flex;
@@ -500,24 +547,30 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   box-shadow: 0 7px 22px rgba(0,0,0,.35);
 }
 
-/* [FIX 2026-09-27] Antes el label era texto blanco "al aire" sobre el
-   mapa, con solo un text-shadow suave — se leía bien sobre zonas
-   oscuras del mapa pero se perdía sobre calles/zonas claras (beige),
-   como reportó Cris. Se le agrega una placa de fondo oscuro
-   semi-transparente detrás del texto: así el contraste queda
-   garantizado siempre, sin importar el color del mapa debajo (día,
-   noche, o cualquier tile/tinte que se use en Estilo del mapa). */
+/* White label */
 .fbtn-label {
   font-size: 10px;
-  font-weight: 700;
+  /* [FIX 2026-09-27] pedido: versión bold real del texto. La fuente
+     (Nunito) solo traía cargados los pesos 300–700 (ver <link> de
+     Google Fonts en index.html), así que 700 era el tope disponible;
+     se sumó el peso 800 al <link> para que esto renderice más grueso
+     de verdad y no solo "semibold". */
+  font-weight: 800;
   color: white;
   font-family: var(--font-b);
   white-space: nowrap;
+  /* [FIX 2026-09-27] pedido: outline negro de 2px, no el blur suave
+     de antes (costaba leerlo sobre el mapa claro). El truco de 8
+     text-shadows a ±2px es el que da un contorno sólido y parejo en
+     todos los navegadores; -webkit-text-stroke suma nitidez extra en
+     los que lo soportan (no molesta donde no, porque es del mismo
+     color que el shadow). */
+  -webkit-text-stroke: 2px #000;
+  text-shadow:
+    -2px -2px 0 #000, 0 -2px 0 #000, 2px -2px 0 #000,
+    -2px  0   0 #000,               2px  0   0 #000,
+    -2px  2px 0 #000, 0  2px 0 #000, 2px  2px 0 #000;
   letter-spacing: .2px;
-  background: rgba(0,0,0,.62);
-  padding: 2px 7px;
-  border-radius: 8px;
-  box-shadow: 0 1px 4px rgba(0,0,0,.25);
 }
 .fbtn .dot { display: none; }
 

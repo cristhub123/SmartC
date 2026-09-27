@@ -1991,3 +1991,122 @@ en `es-AR`).
 
 **Pruebas realizadas:** `node --check` sin errores en los 9 `.js`
 tocados/nuevos. No probado contra navegador real.
+
+## 2026-09-27 — Recorte visual de los botones del filtro (.fbtn) + estética/visibilidad del selector de fecha de eventos
+
+Dos pedidos de Cris en el mismo chat, ambos solo CSS (sin tocar JS ni
+HTML salvo el `<link>` de Google Fonts):
+
+**1) Botones de filtro cortados + texto poco legible** (capturas de
+Cris mostrando los íconos de la barra inferior con la parte de arriba
+recortada). Causa raíz real: `.filter-row` tiene `overflow-x: auto`
+para el scroll horizontal — por spec de CSS, eso fuerza a `overflow-y`
+a computar como `auto` también aunque el CSS dijera
+`overflow-y: visible`, así que siempre recortaba verticalmente (la
+sombra del círculo en reposo, y de lleno el botón agrandado en
+hover/click). Fix: se le dio a `.filter-row` altura de sobra
+(`height: 82px → 110px`, +28px) y se corrió el `top` base de `.fbtn`
+la misma cantidad (`4px → 32px`) para que el botón en reposo quede en
+el mismo lugar de siempre — **estos dos valores quedan acoplados, si
+se vuelve a tocar uno hay que tocar el otro la misma cantidad**. Texto
+de `.fbtn-label`: pasó del `text-shadow` difuminado a un outline
+sólido de 2px (8 `text-shadow` a ±2px + `-webkit-text-stroke` de
+refuerzo) y `font-weight: 700 → 800` (se sumó el peso 800 de Nunito al
+`<link>` de Google Fonts en `index.html`, antes tope real era 700).
+
+**2) Selector de fecha de eventos (#eventos-fecha-bar) — Cris pidió
+arreglar 2 cosas: que solo se vea con el filtro "Eventos" activo, y
+que la estética se unifique con el resto de la app.** Visibilidad: la
+lógica de `js/eventos-fecha-filtro.js` (`bar.hidden = true/false` según
+`activeFilter === '__eventos__'`) ya estaba bien — el bug era 100% CSS:
+`#eventos-fecha-bar { display: flex }` (selector por #id) le ganaba en
+especificidad a la regla nativa `[hidden] { display: none }` (solo
+atributo), así que `hidden` nunca ocultaba nada de verdad. Fix: se
+agregó `#eventos-fecha-bar[hidden] { display: none; }` (mismo #id +
+atributo, gana por especificidad). Estética: `.efb-input`/`.efb-clear`
+tenían radio 999px, sombra `rgba(0,0,0,.25)` y color hardcodeado
+`#1a1a1a`, sin relación con el resto de controles flotantes sobre el
+mapa — se unificaron al mismo lenguaje que `#search-bar`/`#btn-zonas`
+(radio 14px, `rgba(var(--surface-rgb),.96)`, sombra
+`rgba(0,0,0,.13)`, `var(--text)`), y `.efb-clear` pasó a calcar
+exactamente el patrón `.btn-x` que ya usa el resto de la app para
+cerrar/limpiar (ver AI_RULES.md sección 7, una sola fuente de verdad
+— se reusó el patrón visual existente en vez de inventar uno nuevo).
+
+**Archivos modificados:** `css/base.css`, `index.html` (solo el
+`<link>` de Google Fonts, línea agregando el peso 800 de Nunito).
+
+**Pruebas realizadas:** ninguna contra navegador real — el diagnóstico
+de ambos bugs (overflow-y forzado a auto, especificidad de `[hidden]`)
+está documentado arriba pero sin verificar visualmente. Pendiente que
+Cris confirme con captura: (a) que los botones del filtro ya no se ven
+cortados en reposo ni en hover/click; (b) que el selector de fecha
+solo aparece con "Eventos" activo; (c) que el estilo nuevo del
+selector de fecha se ve consistente con el resto.
+
+**Nota de proceso:** esta sesión arrancó sin leer `AI_RULES.md`/
+`AI_SESSION.md` primero (Cris lo marcó al preguntar) — los cambios
+terminaron respetando la sección 7 en la práctica (se reusaron tokens
+y patrones existentes en vez de duplicar), pero el paso formal de
+lectura previa se saltó. Corregido acá con esta entrada.
+
+## 2026-09-27 (cont.) — Reforzar la nota "AI PROJECT NOTE" en todos los archivos de código
+
+Cris pidió que el proyecto en sí mismo obligue a cualquier IA a leer
+`AI_RULES.md` antes de tocar código — no depender de que la IA lo
+recuerde de una sesión a otra. La nota "AI PROJECT NOTE" ya existía en
+54 de los 55 archivos `.js`/`.css`/`.html` (faltaba en
+`js/lang-switcher.js`, ahora agregada). Se reforzó el texto en los 55
+(antes era más tibio: "consult /AI_RULES.md") a una versión explícita
+de "lectura obligatoria, sin excepción, sin esperar a que el usuario
+lo pida" — mismo lugar (primera línea del archivo), mismo mecanismo,
+solo más directivo.
+
+**Límite real, dicho explícitamente a Cris:** ningún comentario dentro
+de un archivo puede "forzar" técnicamente a una IA a leer nada antes
+de actuar — es texto, no código que se ejecute. La nota ya estaba
+presente en `css/base.css` e `index.html` cuando se hicieron los 2
+cambios anteriores de esta misma sesión y aun así no se leyó primero
+`AI_RULES.md` — el problema no era que faltara el texto, era el flujo
+de trabajo (ir directo a `grep`/edición en vez de abrir el archivo
+completo primero). Reforzar el texto reduce la chance de que se
+ignore, pero no la elimina.
+
+**Fuera de alcance a propósito:** no se tocaron `pois_cordoba.json`
+(JSON no admite comentarios, se rompería el parseo) ni los `PLAN_*.md`/
+`CAMBIOS_*.txt`/`README.md` sueltos de la raíz (son documentos, no
+código con riesgo de duplicar lógica) — se le avisó a Cris para que
+decida si quiere sumarlos.
+
+**Hallazgo colateral, sin tocar:** existe un `eventos-fecha-filtro.js`
+duplicado y desactualizado en la RAÍZ del proyecto (no en `js/`, no
+está en la lista de `<script>` de `index.html` — no se carga nunca).
+Referencia el tab admin viejo "Mapa" en vez de "Eventos" y le faltan
+los fixes de huso horario documentados en `js/eventos-fecha-filtro.js`
+(sección "Filtro de fecha de eventos" de `AI_RULES.md`). Riesgo real:
+una IA futura que haga `grep` sin fijarse la ruta completa podría
+editar la copia equivocada. Queda marcado acá — no se borró por las
+dudas de que sea un backup intencional de Cris.
+
+**Archivos modificados:** los 55 `.js`/`.css`/`.html` del proyecto
+(solo el bloque de comentario al inicio de cada uno).
+
+**Pruebas realizadas:** `node --check` sobre todos los `.js` tocados
+(sin errores de sintaxis). No se corrió el sitio en navegador — este
+cambio no toca lógica ni estilos visibles, solo comentarios.
+
+## 2026-09-27 (cont. 2) — Borrado de eventos-fecha-filtro.js duplicado en la raíz
+
+Confirmado con Cris: se borró `/eventos-fecha-filtro.js` (raíz del
+proyecto), la copia vieja y desactualizada que no se cargaba nunca
+desde `index.html` (ver entrada anterior de hoy para el detalle
+completo de qué le faltaba respecto a `js/eventos-fecha-filtro.js`,
+que es la única versión real y sigue intacta). Sin impacto funcional
+— el archivo borrado no estaba en la cadena de `<script>` de
+`index.html`.
+
+**Archivos modificados:** borrado `eventos-fecha-filtro.js` (raíz).
+
+**Pruebas realizadas:** confirmado que `js/eventos-fecha-filtro.js`
+sigue presente y sin tocar; `grep` sobre `index.html` confirma que
+nunca referenció la copia de la raíz por ruta completa.

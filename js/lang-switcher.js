@@ -1,3 +1,16 @@
+/*
+AI PROJECT NOTE — LECTURA OBLIGATORIA PARA CUALQUIER IA:
+Antes de modificar este archivo, toda IA (Claude, ChatGPT u otra) DEBE
+leer primero /AI_RULES.md completo. Sin excepcion, sin importar cuan
+chico o simple parezca el cambio, y sin esperar a que el usuario lo
+pida o lo recuerde — esta nota es la instruccion, no un recordatorio
+opcional. Si /AI_RULES.md ya se leyo en esta misma sesion, alcanza con
+revisar /AI_SESSION.md en su lugar.
+
+Despues de modificar este archivo, actualizar /AI_SESSION.md con el
+cambio hecho y la verificacion realizada.
+*/
+
 /**
  * [Etapa 7, 2026-08-16] Selector de idioma GLOBAL de la app pública.
  * Vive en el header (#lang-switcher, ver index.html/css/base.css) —
