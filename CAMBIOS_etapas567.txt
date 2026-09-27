@@ -1,0 +1,32 @@
+CAMBIOS — Etapas 5, 6 y 7 de PLAN_CORRECCIONES_ADMIN.md (27/09/2026)
+PLAN COMPLETO — las 7 etapas quedaron implementadas.
+
+Etapa 5 — Confirmación de borrado en Temas, Roadmap y Grupos:
+- js/themes.js   → deleteTema() pide confirmación antes de borrar
+- js/roadmap.js  → deleteRoadmapItem() pide confirmación antes de borrar
+- js/groups.js   → deleteGroup() pide confirmación antes de borrar
+  (los 3 siguen sujetos a "Guardar cambios" de su pestaña — Etapa 4)
+
+Etapa 6 — Unificar visualmente los borrados que ya preguntaban (antes
+usaban el confirm() nativo feo del navegador, ahora el mismo modal
+prolijo que ya usa Lugares):
+- js/categories.js → deleteCat() y deleteSubcat()
+- js/eventos.js    → _deleteEvento()
+
+Etapa 7 — Confirmación en casos de bajo riesgo (viven dentro de un
+formulario, recién impactan si después se guarda ESE formulario):
+- js/utils.js          → quitar imagen de un slot (setupImgUploader)
+- js/pin-adjust.js     → quitar campo dinámico de info de un lugar
+- js/zones.js          → quitar campo de info de una zona
+- js/usuarios-admin.js → quitar fila del catálogo premium
+
+index.html → cache-busting (?v=) actualizado en los 9 archivos .js
+tocados en esta entrega.
+
+También:
+- PLAN_CORRECCIONES_ADMIN.md renombrado a PLAN_CORRECCIONES_ADMIN_COMPLETADO.md,
+  con "— COMPLETADO E IMPLEMENTADO" en el título y las 7 etapas ✅.
+
+Verificación hecha: node --check sin errores en los 9 archivos .js;
+balance de <div> en index.html OK.
+Falta: probar cada caso en el navegador contra Firestore real.
