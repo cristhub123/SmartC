@@ -458,7 +458,14 @@ function setupImgUploader(inputId, prevId, lblId, clearId, wrapperId, defaultLbl
 
   clearBtn.addEventListener('click', e => {
     e.stopPropagation(); e.preventDefault();
-    clearImg(inputId, prevId, lblId, wrapperId, defaultLbl, onLoad);
+    // [FIX Etapa 7 — PLAN_CORRECCIONES_ADMIN.md] riesgo bajo: esto vive
+    // adentro del formulario de Nuevo/Editar lugar y recién impacta en
+    // Firestore si después se guarda ESE formulario — pero perder de
+    // nuevo la imagen que ya se había subido/pegado también molesta,
+    // así que igual se confirma antes de sacarla del slot.
+    confirmarBorrado('¿Quitar esta imagen del slot?', () => {
+      clearImg(inputId, prevId, lblId, wrapperId, defaultLbl, onLoad);
+    }, '¿Quitar imagen?');
   });
 }
 

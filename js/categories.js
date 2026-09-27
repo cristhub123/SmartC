@@ -300,17 +300,18 @@ window.toggleCat = function(id, btn) {
 window.deleteCat = function(id) {
   if (!CUSTOM_CATS[id]) return;
   const name = getCatLabel(CUSTOM_CATS[id]);
-  // [FIX solicitado por Cris — 2026-09-06] antes borraba directo, sin
-  // ninguna confirmación — un click de más borraba la categoría sin
-  // vuelta atrás. Un solo botón + confirm() (mismo patrón que ya usa
-  // el borrado de eventos, js/eventos.js) en vez de un candado de
-  // checkboxes: 1 click, 1 pregunta, se entiende al toque.
-  if (!confirm(`¿Eliminar la categoría "${name}"? Esta acción no se puede deshacer.`)) return;
-  delete CUSTOM_CATS[id];
-  renderCatsAdmin();
-  updateFilterBar();
-  _markCatsDirty();
-  toast(`🗑 "${name}" eliminada`);
+  // [FIX Etapa 6 — PLAN_CORRECCIONES_ADMIN.md] antes usaba el confirm()
+  // nativo del navegador (ya frenaba el borrado, pero se veía distinto
+  // al resto de la app) — ahora mismo modal prolijo que ya usa Lugares
+  // (confirmarBorrado, js/utils.js). El borrado en sí sigue igual,
+  // sujeto a "Guardar cambios" como cualquier otro cambio de la pestaña.
+  confirmarBorrado(`¿Eliminar la categoría "${name}"? Esta acción no se puede deshacer.`, () => {
+    delete CUSTOM_CATS[id];
+    renderCatsAdmin();
+    updateFilterBar();
+    _markCatsDirty();
+    toast(`🗑 "${name}" eliminada`);
+  }, '¿Eliminar categoría?');
 };
 
 /* [Etapa B, PLAN_CATEGORIAS_SUBCATEGORIAS.md] CRUD de subcategorías.
@@ -335,11 +336,13 @@ window.deleteSubcat = function(catId, subId) {
   const cat = _getCatRef(catId);
   if (!cat || !cat.subcategories || !cat.subcategories[subId]) return;
   const name = getCatLabel(cat.subcategories[subId]);
-  if (!confirm(`¿Eliminar la subcategoría "${name}"? Esta acción no se puede deshacer.`)) return;
-  delete cat.subcategories[subId];
-  renderCatsAdmin();
-  _markCatsDirty();
-  toast(`🗑 "${name}" eliminada`);
+  // [FIX Etapa 6 — PLAN_CORRECCIONES_ADMIN.md] mismo cambio que deleteCat de arriba.
+  confirmarBorrado(`¿Eliminar la subcategoría "${name}"? Esta acción no se puede deshacer.`, () => {
+    delete cat.subcategories[subId];
+    renderCatsAdmin();
+    _markCatsDirty();
+    toast(`🗑 "${name}" eliminada`);
+  }, '¿Eliminar subcategoría?');
 };
 
 window.addSubcat = function(catId) {

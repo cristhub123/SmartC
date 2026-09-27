@@ -69,8 +69,15 @@ function _paintPremiumFuncionesRows() {
       input.addEventListener('input', () => { _premiumFuncionesState[idx][input.dataset.k] = input.value; });
     });
     row.querySelector('[data-action="remove"]').addEventListener('click', () => {
-      _premiumFuncionesState.splice(idx, 1);
-      _paintPremiumFuncionesRows();
+      const f = _premiumFuncionesState[idx];
+      // [FIX Etapa 7 — PLAN_CORRECCIONES_ADMIN.md] riesgo bajo: vive
+      // dentro del catálogo y recién impacta en Firestore si después
+      // se guarda ESE catálogo (btn-save-premium-config) — igual se
+      // confirma antes de sacarla.
+      confirmarBorrado(`¿Quitar la fila "${f?.etiqueta || f?.clave || 'sin nombre'}" del catálogo?`, () => {
+        _premiumFuncionesState.splice(idx, 1);
+        _paintPremiumFuncionesRows();
+      }, '¿Quitar fila?');
     });
   });
 }

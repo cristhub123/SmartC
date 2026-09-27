@@ -476,9 +476,17 @@ function _renderZonaAttrsEditor(attrs) {
 
   wrap.querySelectorAll('[data-remove-attr]').forEach(btn => {
     btn.addEventListener('click', () => {
-      const current = _readZonaAttrsFromForm();
-      current.splice(parseInt(btn.dataset.removeAttr, 10), 1);
-      _renderZonaAttrsEditor(current);
+      const i = parseInt(btn.dataset.removeAttr, 10);
+      const liveTitle = document.getElementById(`ze-al-${i}`)?.value || '';
+      // [FIX Etapa 7 — PLAN_CORRECCIONES_ADMIN.md] riesgo bajo: vive
+      // dentro del formulario de Editar zona y recién impacta en
+      // Firestore si después se guarda ESE formulario — igual se
+      // confirma antes de sacarlo.
+      confirmarBorrado(`¿Quitar el campo "${liveTitle || 'sin título'}"?`, () => {
+        const current = _readZonaAttrsFromForm();
+        current.splice(i, 1);
+        _renderZonaAttrsEditor(current);
+      }, '¿Quitar campo?');
     });
   });
 

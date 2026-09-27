@@ -52,14 +52,21 @@ function renderGroupsAdmin() {
 }
 
 window.deleteGroup = function(id) {
-  const idx = GROUPS.findIndex(g => g.id === id);
-  if (idx !== -1) {
-    POIS.forEach(p => { if (p.groupId === id) delete p.groupId; });
-    GROUPS.splice(idx, 1);
-    renderGroupsAdmin();
-    _markGroupsDirty();
-    toast('🗑 Grupo eliminado — no olvides "Guardar cambios"');
-  }
+  const g = GROUPS.find(x => x.id === id);
+  if (!g) return;
+  // [FIX Etapa 5 — PLAN_CORRECCIONES_ADMIN.md] antes borraba al toque,
+  // sin ninguna confirmación, aunque los lugares del grupo quedan sin
+  // grupo asignado.
+  confirmarBorrado(`¿Eliminar el grupo "${g.name}"? Los lugares que tenía asignado quedan sin grupo. Esta acción no se puede deshacer.`, () => {
+    const idx = GROUPS.findIndex(x => x.id === id);
+    if (idx !== -1) {
+      POIS.forEach(p => { if (p.groupId === id) delete p.groupId; });
+      GROUPS.splice(idx, 1);
+      renderGroupsAdmin();
+      _markGroupsDirty();
+      toast('🗑 Grupo eliminado — no olvides "Guardar cambios"');
+    }
+  }, '¿Eliminar grupo?');
 };
 
 const btnAddGroup = document.getElementById('btn-add-group');

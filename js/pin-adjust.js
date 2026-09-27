@@ -816,9 +816,18 @@ function _renderPinFieldRows(wrapId) {
 
   wrap.querySelectorAll('[data-remove-pin-field]').forEach(btn => {
     btn.addEventListener('click', () => {
-      _syncVisiblePinFieldsIntoState(wrapId);
-      st.data[st.lang].splice(parseInt(btn.dataset.removePinField, 10), 1);
-      _renderPinFieldRows(wrapId);
+      const i = parseInt(btn.dataset.removePinField, 10);
+      const liveTitle = document.getElementById(`${titlePrefix}${i}`)?.value || '';
+      // [FIX Etapa 7 — PLAN_CORRECCIONES_ADMIN.md] riesgo bajo: vive
+      // dentro del formulario de Nuevo/Editar lugar y recién impacta en
+      // Firestore si después se guarda ESE formulario — igual se
+      // confirma antes de sacarlo, para no perder de nuevo el trabajo
+      // de reescribir el campo.
+      confirmarBorrado(`¿Quitar el campo "${liveTitle || 'sin título'}"?`, () => {
+        _syncVisiblePinFieldsIntoState(wrapId);
+        st.data[st.lang].splice(i, 1);
+        _renderPinFieldRows(wrapId);
+      }, '¿Quitar campo?');
     });
   });
 

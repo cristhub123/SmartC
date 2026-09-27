@@ -994,15 +994,21 @@ async function _toggleEventoActivo(eventoId) {
  
 async function _deleteEvento(eventoId) {
   const ev = _eventosCache.find(e => e.id === eventoId);
-  if (!confirm(`¿Eliminar el evento "${ev?.nombre || ''}"? Esta acción no se puede deshacer.`)) return;
-  try {
-    await db.collection('eventos').doc(eventoId).delete();
-    toast('🗑 Evento eliminado');
-    await _loadEventosAdminList();
-  } catch (err) {
-    console.warn('Error eliminando evento:', err);
-    toast('⚠️ No se pudo eliminar el evento. Probá de nuevo.');
-  }
+  // [FIX Etapa 6 — PLAN_CORRECCIONES_ADMIN.md] antes usaba el confirm()
+  // nativo del navegador (ya frenaba el borrado, pero se veía distinto
+  // al resto de la app) — ahora mismo modal prolijo que ya usa Lugares
+  // (confirmarBorrado, js/utils.js). El borrado en sí sigue igual
+  // (inmediato en Firestore al confirmar).
+  confirmarBorrado(`¿Eliminar el evento "${ev?.nombre || ''}"? Esta acción no se puede deshacer.`, async () => {
+    try {
+      await db.collection('eventos').doc(eventoId).delete();
+      toast('🗑 Evento eliminado');
+      await _loadEventosAdminList();
+    } catch (err) {
+      console.warn('Error eliminando evento:', err);
+      toast('⚠️ No se pudo eliminar el evento. Probá de nuevo.');
+    }
+  }, '¿Eliminar evento?');
 }
  
 /* Se registra como tab plugin (mismo patrón que features.js/roadmap.js

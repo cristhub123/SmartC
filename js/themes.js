@@ -107,11 +107,18 @@ window.toggleTemaFlag = function(id, flag, value) {
 window.deleteTema = function(id) {
   const t = TEMAS.find(x => x.id === id);
   if (!t) return;
-  TEMAS = TEMAS.filter(x => x.id !== id);
-  if (globalSettings.nightTheme === id) globalSettings.nightTheme = null;
-  renderTemasAdmin();
-  _markTemasDirty();
-  toast(`🗑️ Tema "${t.name}" eliminado — no olvides "Guardar cambios"`);
+  // [FIX Etapa 5 — PLAN_CORRECCIONES_ADMIN.md] antes borraba al toque,
+  // sin ninguna confirmación. Igual que Categorías: el borrado en sí
+  // queda sujeto a "Guardar cambios" (recién es definitivo cuando se
+  // guarda esta pestaña), pero ahora además se confirma antes de
+  // sacarlo de la lista en memoria.
+  confirmarBorrado(`¿Eliminar el tema "${t.name}"? Esta acción no se puede deshacer.`, () => {
+    TEMAS = TEMAS.filter(x => x.id !== id);
+    if (globalSettings.nightTheme === id) globalSettings.nightTheme = null;
+    renderTemasAdmin();
+    _markTemasDirty();
+    toast(`🗑️ Tema "${t.name}" eliminado — no olvides "Guardar cambios"`);
+  }, '¿Eliminar tema?');
 };
 
 /* ═══════════════════════════════════════════════════════════

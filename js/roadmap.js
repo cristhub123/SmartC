@@ -119,7 +119,14 @@ function renderRoadmap() {
 
 window.deleteRoadmapItem = function(id) {
   const idx = ROADMAP.findIndex(r => r.id === id);
-  if (idx !== -1) { ROADMAP.splice(idx, 1); renderRoadmap(); _markRoadmapDirty(); }
+  if (idx === -1) return;
+  const title = ROADMAP[idx].title;
+  // [FIX Etapa 5 — PLAN_CORRECCIONES_ADMIN.md] antes borraba al toque,
+  // sin ninguna confirmación.
+  confirmarBorrado(`¿Eliminar la idea "${title}" del Roadmap? Esta acción no se puede deshacer.`, () => {
+    const i = ROADMAP.findIndex(r => r.id === id);
+    if (i !== -1) { ROADMAP.splice(i, 1); renderRoadmap(); _markRoadmapDirty(); }
+  }, '¿Eliminar idea?');
 };
 
 document.getElementById('btn-add-rm').addEventListener('click', () => {
