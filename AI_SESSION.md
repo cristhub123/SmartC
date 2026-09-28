@@ -2188,7 +2188,7 @@ estándar, calidad óptima, solo formatos livianos — rechazar png por
 riesgo de cuota en su cuenta actual). Se documentó en la Etapa 11 la
 recomendación técnica: preset de Cloudinary NUEVO y separado
 (`smartcity_eventos_01`, ni el de pines ni el de banner sirven),
-incoming transformation `c_fill,g_auto,w_800,h_450,q_auto,f_auto`
+incoming transformation `c_fill,g_auto,w_1024,h_576,q_auto,f_auto`
 (recorte a 16:9 fijo, no `c_limit` como pines — acá se necesita
 proporción pareja entre tarjetas, no solo un tope de tamaño) +
 `allowed_formats: jpg,jpeg,webp` (rechaza png del lado del servidor)
@@ -2223,3 +2223,4 @@ archivo) para evitar choques entre usuarios; máx. 10 MB.
 reglas de `eventos`. **Pruebas:** `node --check` OK; NO probado en
 navegador ni contra Cloudinary/Firebase reales.
 
+**Ajuste posterior (misma sesión):** tamaño del preset subido a 1024×576 (la foto se ve grande al abrir el evento) y ancho mínimo de 1024 px validado en el cliente (`IMG_MIN_ANCHO`, `eventos-form-shared.js`). Textos i18n/HTML actualizados.

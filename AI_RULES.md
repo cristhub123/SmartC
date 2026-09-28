@@ -485,7 +485,7 @@ Camino B. Sube con `uploadToCloudinary(file, { subfolder: 'eventos' })`
 (nunca el nombre del archivo del celular). Solo JPG/WebP, máx. 10 MB
 (validado en el cliente; el preset también rechaza otros formatos).
 **Dependencia manual:** el preset debe existir en la consola de
-Cloudinary (unsigned, incoming `c_fill,g_auto,w_800,h_450,q_auto,f_auto`,
+Cloudinary (unsigned, incoming `c_fill,g_auto,w_1024,h_576,q_auto,f_auto`,
 allowed formats `jpg,jpeg,webp`) y las reglas de Firestore de `eventos`
 (`FIRESTORE_RULES_NOTES.md`) deben estar republicadas con `imagenUrl`.
 

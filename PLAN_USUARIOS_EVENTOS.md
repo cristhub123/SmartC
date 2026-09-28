@@ -844,7 +844,7 @@ compartido `js/eventos-form-shared.js` y aparece en los 2 formularios
 (tab admin "Eventos" y panel de usuario/dueño) — el dueño ya puede
 subir la suya sin ningún paso extra.
 
-**Reglas de la foto:** solo JPG o WebP (PNG se rechaza), máx. 10 MB,
+**Reglas de la foto:** solo JPG o WebP (PNG se rechaza), máx. 10 MB, ancho mínimo 1024 px (se guarda a 1024×576; una foto más chica se rechaza con aviso),
 vista previa antes de guardar, botón "Quitar". Se sube al GUARDAR (no al
 elegirla), así cancelar no deja archivos sueltos en Cloudinary; en el
 Camino B se sube antes de crear el pin, así un fallo de subida no deja
@@ -871,7 +871,7 @@ completó la lista y se sumó `imagenUrl`.
 
 **⚠️ Pasos manuales de Cris (no son código) — sin esto NO funciona:**
 1. Crear en Cloudinary el preset **`smartcity_eventos_01`**: unsigned;
-   incoming transformation `c_fill,g_auto,w_800,h_450,q_auto,f_auto`;
+   incoming transformation `c_fill,g_auto,w_1024,h_576,q_auto,f_auto`;
    allowed formats `jpg,jpeg,webp`.
 2. Volver a pegar el bloque `eventos` de `FIRESTORE_RULES_NOTES.md` en
    Firestore → Rules.
@@ -1178,7 +1178,7 @@ banner sirven** (proporciones distintas). Nombre sugerido:
 `smartcity_eventos_01`. Configuración a definir en la consola de
 Cloudinary (paso manual de Cris, no de código) — **recomendación de
 Claude, a confirmar antes de crear el preset:**
-- **Incoming transformation:** `c_fill,g_auto,w_800,h_450,q_auto,f_auto`
+- **Incoming transformation:** `c_fill,g_auto,w_1024,h_576,q_auto,f_auto`
   — recorte a proporción FIJA 16:9 (no `c_limit` como el de pines,
   que solo limita el máximo pero deja pasar cualquier proporción —
   acá se necesita que TODAS las tarjetas midan igual, con `c_fill` +
