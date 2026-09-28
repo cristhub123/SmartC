@@ -350,7 +350,9 @@ const PoiPanel = (function () {
     // seleccionada. Ver js/eventos-fecha-filtro.js.
     const fechaActiva = (typeof activeFilter !== 'undefined' && activeFilter === '__eventos__'
       && typeof fechaFiltroEventos !== 'undefined' && fechaFiltroEventos) ? fechaFiltroEventos : null;
-    const ocurreEnFechaActiva = ev => fechaActiva && typeof _eventoOcurreEnFecha === 'function' && _eventoOcurreEnFecha(ev, fechaActiva);
+    // [Etapa 14, 2026-09-28] fin del rango elegido, o null si es un día puntual.
+    const fechaHastaActiva = fechaActiva && typeof fechaFiltroEventosHasta !== 'undefined' ? fechaFiltroEventosHasta : null;
+    const ocurreEnFechaActiva = ev => fechaActiva && typeof _eventoOcurreEnFecha === 'function' && _eventoOcurreEnFecha(ev, fechaActiva, undefined, fechaHastaActiva);
     const propios = EVENTOS.filter(ev => ev.poi_id === poiId && (_eventoEsVigente(ev) || ocurreEnFechaActiva(ev)));
     const fechaOrden = ev => {
       const f = ev.fecha_fin || ev.fecha_inicio;
@@ -396,12 +398,14 @@ const PoiPanel = (function () {
     // debajo de los que sí coinciden (ver _eventosVigentesDelPoi).
     const fechaActiva = (typeof activeFilter !== 'undefined' && activeFilter === '__eventos__'
       && typeof fechaFiltroEventos !== 'undefined' && fechaFiltroEventos) ? fechaFiltroEventos : null;
+    // [Etapa 14, 2026-09-28] fin del rango elegido, o null si es un día puntual.
+    const fechaHastaActiva = fechaActiva && typeof fechaFiltroEventosHasta !== 'undefined' ? fechaFiltroEventosHasta : null;
     // [Etapa 12/13, 2026-09-28] Las tarjetas salen de EventoCard (js/evento-card.js,
     // una sola función de render) y se muestran en un carrusel horizontal con
     // scroll (ya no una lista apilada de texto).
     const catalogo = (_eventosConfigCache && Array.isArray(_eventosConfigCache.categoriasEvento)) ? _eventosConfigCache.categoriasEvento : [];
     const tarjetas = eventosDelPoi.map(ev => {
-      const noCoincideConFecha = fechaActiva && typeof _eventoOcurreEnFecha === 'function' && !_eventoOcurreEnFecha(ev, fechaActiva);
+      const noCoincideConFecha = fechaActiva && typeof _eventoOcurreEnFecha === 'function' && !_eventoOcurreEnFecha(ev, fechaActiva, undefined, fechaHastaActiva);
       const dimOpacity = noCoincideConFecha
         ? (window.getOpacidadReducidaFiltroFecha ? window.getOpacidadReducidaFiltroFecha() : 0.35)
         : null;

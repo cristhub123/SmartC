@@ -48,6 +48,18 @@ cambio hecho y la verificacion realizada.
    abre, initFiltroFechaAdminTab() nunca corría al abrir "Eventos", así
    que el toggle y el campo de opacidad quedaban sin ningún listener
    enganchado (por eso no guardaba nada). Corregido más abajo.
+
+   [Etapa 14, PLAN_USUARIOS_EVENTOS.md, 2026-09-28] El `<input
+   type="date">` nativo de la barra se reemplazó por un botón que abre
+   un popover con el calendario propio (js/calendario-eventos.js,
+   componente compartido, ver nota de cabecera de ese archivo) —
+   soporta día puntual o rango de 2 clicks. `fechaFiltroEventos`
+   (js/config.js) sigue siendo el día puntual o el INICIO del rango;
+   se sumó `fechaFiltroEventosHasta` (mismo archivo) para el FIN, o
+   `null` si la selección es un día puntual. `_eventoOcurreEnFecha`/
+   `pinTieneEventoEnFecha` se extendieron (no se reimplementó la
+   comparación en otro lado) para aceptar un 4to parámetro `hastaStr`
+   opcional — sin él se comportan exactamente igual que antes.
    ═══════════════════════════════════════════════════════════ */
 
 /* ── Settings editables desde Admin → Eventos ── */
@@ -96,28 +108,40 @@ function _diaCalendarioEnHuso(str, tz) {
 }
 window._diaCalendarioEnHuso = _diaCalendarioEnHuso;
 
-/** ¿El evento `ev` ocurre en la fecha `fechaStr` ('YYYY-MM-DD')?
- *  Requiere `ev.activo === true` (mismo toggle base que
- *  `_eventoEsVigente`) y que `fechaStr` caiga dentro de
- *  [fecha_inicio, fecha_fin] (inclusive; sin fecha_fin = evento de 1
- *  solo día), comparado como día calendario en el huso `tz`. */
-function _eventoOcurreEnFecha(ev, fechaStr, tz) {
+/** ¿El evento `ev` ocurre en la fecha `fechaStr` ('YYYY-MM-DD'), o
+ *  (si se pasa `hastaStr`) en algún día dentro del RANGO [fechaStr,
+ *  hastaStr] (ambos inclusive)? [Etapa 14, 2026-09-28] `hastaStr` es
+ *  opcional — sin él, se comporta exactamente igual que antes (día
+ *  puntual). Con él, en vez de comparar un solo día compara si el
+ *  rango del evento ([fecha_inicio, fecha_fin]) se superpone con el
+ *  rango elegido — misma función extendida, no una comparación nueva
+ *  en otro lado (ver nota de cabecera del archivo). Requiere
+ *  `ev.activo === true` (mismo toggle base que `_eventoEsVigente`);
+ *  todo comparado como día calendario en el huso `tz`. */
+function _eventoOcurreEnFecha(ev, fechaStr, tz, hastaStr) {
   if (!ev || ev.activo !== true) return false;
-  const target = _diaCalendarioEnHuso(fechaStr, tz);
-  const inicio = _diaCalendarioEnHuso(ev.fecha_inicio, tz);
-  if (!target || !inicio) return false;
-  const fin = _diaCalendarioEnHuso(ev.fecha_fin, tz) || inicio;
+  const desdeSel = _diaCalendarioEnHuso(fechaStr, tz);
+  const inicioEv = _diaCalendarioEnHuso(ev.fecha_inicio, tz);
+  if (!desdeSel || !inicioEv) return false;
+  const finEv = _diaCalendarioEnHuso(ev.fecha_fin, tz) || inicioEv;
+  const hastaCalc = hastaStr ? _diaCalendarioEnHuso(hastaStr, tz) : null;
+  const hastaSel = (hastaCalc && hastaCalc >= desdeSel) ? hastaCalc : desdeSel;
   // Comparación de strings 'YYYY-MM-DD': ordena igual que las fechas.
-  return target >= inicio && target <= fin;
+  // Superposición de 2 rangos [a1,a2] y [b1,b2]: a1<=b2 && a2>=b1.
+  // Con hastaSel === desdeSel (caso día puntual) es exactamente la
+  // comparación de antes: inicioEv <= target && finEv >= target.
+  return inicioEv <= hastaSel && finEv >= desdeSel;
 }
 window._eventoOcurreEnFecha = _eventoOcurreEnFecha; // usada también desde js/poi-panel.js
 
-/** ¿El pin `poiId` tiene ≥1 evento que ocurre en `fechaStr`?
- *  `tz` es opcional (ver PLAN_TIMEZONE_CIUDADES.md) — hoy no se pasa
- *  desde ningún lado, así que siempre cae en CIUDAD_TIMEZONE_DEFAULT. */
-function pinTieneEventoEnFecha(poiId, fechaStr, tz) {
+/** ¿El pin `poiId` tiene ≥1 evento que ocurre en `fechaStr` (día
+ *  puntual) o en el rango [fechaStr, hastaStr] (Etapa 14, `hastaStr`
+ *  opcional)? `tz` es opcional (ver PLAN_TIMEZONE_CIUDADES.md) — hoy
+ *  no se pasa desde ningún lado, así que siempre cae en
+ *  CIUDAD_TIMEZONE_DEFAULT. */
+function pinTieneEventoEnFecha(poiId, fechaStr, tz, hastaStr) {
   if (!_filtroFechaSettings.enabled || !fechaStr || typeof EVENTOS === 'undefined') return false;
-  return EVENTOS.some(ev => ev.poi_id === poiId && _eventoOcurreEnFecha(ev, fechaStr, tz));
+  return EVENTOS.some(ev => ev.poi_id === poiId && _eventoOcurreEnFecha(ev, fechaStr, tz, hastaStr));
 }
 window.pinTieneEventoEnFecha = pinTieneEventoEnFecha;
 
@@ -130,34 +154,115 @@ window.getOpacidadReducidaFiltroFecha = function() {
 };
 
 /* ─────────────────────────────────────────
-   UI — barra de fecha, aparece solo con el filtro "Eventos" activo
+   UI — barra de fecha, aparece solo con el filtro "Eventos" activo.
+   [Etapa 14, 2026-09-28] El `<input type="date">` nativo se reemplazó
+   por un botón (mismo lenguaje visual que los botones de categoría:
+   círculo + ícono) que abre un popover con el calendario propio
+   (js/calendario-eventos.js, componente compartido — no se programa
+   dos veces, ver nota de cabecera de ese archivo; la Etapa 15 lo va a
+   reusar igual). El popover se registra en OverlayManager como
+   cualquier otro menú flotante nuevo (ver AI_RULES.md sección 11).
    ───────────────────────────────────────── */
+let _calendarioFecha = null; // instancia CalendarioEventos.mount(), una sola vez
+
+function _fechaFiltroActiva() {
+  return typeof activeFilter !== 'undefined' && activeFilter === '__eventos__' && _filtroFechaSettings.enabled;
+}
+
+function _popoverAbierto() {
+  const pop = document.getElementById('eventos-fecha-popover');
+  return !!pop && !pop.hidden;
+}
+
+function _cerrarPopoverFecha() {
+  const pop = document.getElementById('eventos-fecha-popover');
+  const btn = document.getElementById('eventos-fecha-btn');
+  if (pop) pop.hidden = true;
+  if (btn) btn.setAttribute('aria-expanded', 'false');
+}
+
+function _abrirPopoverFecha() {
+  const pop = document.getElementById('eventos-fecha-popover');
+  const btn = document.getElementById('eventos-fecha-btn');
+  if (!pop || !btn) return;
+  if (_calendarioFecha) _calendarioFecha.setValue(fechaFiltroEventos, fechaFiltroEventosHasta);
+  pop.hidden = false;
+  btn.setAttribute('aria-expanded', 'true');
+}
+
+function _renderChipFecha() {
+  const chip = document.getElementById('eventos-fecha-chip');
+  const texto = document.getElementById('eventos-fecha-chip-text');
+  const btn = document.getElementById('eventos-fecha-btn');
+  if (!chip || !texto || !btn) return;
+  const hay = !!fechaFiltroEventos;
+  chip.hidden = !hay;
+  btn.classList.toggle('is-active', hay);
+  if (hay && window.CalendarioEventos) {
+    texto.textContent = CalendarioEventos.formatRango(fechaFiltroEventos, fechaFiltroEventosHasta);
+  }
+}
+
+/* Punto de entrada "en frío": muestra/oculta la barra entera según
+ * corresponda y deja el chip al día con la selección actual — se
+ * llama seguido (cada refresco de la fila de filtros), tiene que ser
+ * barata e idempotente, igual que updateFilterBar(). */
 function _renderFechaFiltroBar() {
   const bar = document.getElementById('eventos-fecha-bar');
   if (!bar) return;
-  const eventosOn = typeof activeFilter !== 'undefined' && activeFilter === '__eventos__' && _filtroFechaSettings.enabled;
+  const eventosOn = _fechaFiltroActiva();
   bar.hidden = !eventosOn;
-  if (!eventosOn) return;
-  const input = document.getElementById('eventos-fecha-input');
-  if (input && input.value !== (fechaFiltroEventos || '')) input.value = fechaFiltroEventos || '';
+  if (!eventosOn) { _cerrarPopoverFecha(); return; }
+  _renderChipFecha();
 }
 
 function _wireFechaFiltroBar() {
-  const input = document.getElementById('eventos-fecha-input');
+  const btn = document.getElementById('eventos-fecha-btn');
   const clearBtn = document.getElementById('eventos-fecha-clear');
-  if (!input || !clearBtn || input.dataset.wired) return;
-  input.dataset.wired = '1';
+  const pop = document.getElementById('eventos-fecha-popover');
+  if (!btn || !clearBtn || !pop || btn.dataset.wired) return;
+  btn.dataset.wired = '1';
 
-  function _onFechaChange(nuevaFecha) {
-    fechaFiltroEventos = nuevaFecha || null;
+  function _aplicar(desde, hasta) {
+    fechaFiltroEventos = desde || null;
+    fechaFiltroEventosHasta = (desde && hasta) ? hasta : null;
+    _renderChipFecha();
     if (typeof applyFilter === 'function') applyFilter();
-    // Si hay un pin abierto en ese momento, refleja la fecha nueva
-    // en su pestaña de eventos sin que haga falta cerrarlo/abrirlo.
+    // Si hay un pin abierto en ese momento, refleja la fecha nueva en
+    // su pestaña de eventos sin que haga falta cerrarlo/abrirlo.
     if (window.PoiPanel && typeof window.PoiPanel.refresh === 'function') window.PoiPanel.refresh();
   }
 
-  input.addEventListener('change', () => _onFechaChange(input.value));
-  clearBtn.addEventListener('click', () => { input.value = ''; _onFechaChange(null); });
+  // Registro en OverlayManager: mismo patrón que 'zonasDropdown'/
+  // 'zonaInfoPanel' — este popover no tiene la secuencia escalonada
+  // propia que sí tiene cluster.js, así que usa beforeOpen normal.
+  if (window.OverlayManager) {
+    OverlayManager.register('fechaCalendarioPopover', { isOpen: _popoverAbierto, close: _cerrarPopoverFecha });
+  }
+
+  if (window.CalendarioEventos && !_calendarioFecha) {
+    _calendarioFecha = CalendarioEventos.mount(pop, {
+      desde: fechaFiltroEventos,
+      hasta: fechaFiltroEventosHasta,
+      onConfirm({ desde, hasta }) { _aplicar(desde, hasta); _cerrarPopoverFecha(); },
+      onClear() { _aplicar(null, null); },
+    });
+  }
+
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (_popoverAbierto()) { _cerrarPopoverFecha(); return; }
+    if (window.OverlayManager) OverlayManager.beforeOpen('fechaCalendarioPopover', _abrirPopoverFecha);
+    else _abrirPopoverFecha();
+  });
+  clearBtn.addEventListener('click', (e) => { e.stopPropagation(); _aplicar(null, null); });
+  // Tocar fuera del popover (pero dentro de la barra) lo cierra sin
+  // tocar el filtro elegido — el propio botón ya maneja su click.
+  document.addEventListener('click', (e) => {
+    if (!_popoverAbierto()) return;
+    if (pop.contains(e.target) || btn.contains(e.target)) return;
+    _cerrarPopoverFecha();
+  });
 }
 
 // updateFilterBar() (js/categories.js) llama a este hook cada vez que
@@ -214,7 +319,7 @@ function initFiltroFechaAdminTab() {
 
   toggle.addEventListener('change', () => {
     _filtroFechaSettings.enabled = toggle.checked;
-    if (!toggle.checked) fechaFiltroEventos = null; // apaga cualquier fecha ya elegida
+    if (!toggle.checked) { fechaFiltroEventos = null; fechaFiltroEventosHasta = null; } // apaga cualquier fecha ya elegida
     if (typeof applyFilter === 'function') applyFilter();
     _renderFechaFiltroBar();
     saveFiltroFechaSettings();

@@ -114,6 +114,12 @@ let activeSubfilter = null;
    js/poi-panel.js (tab por defecto + orden de la lista de eventos
    del pin). */
 let fechaFiltroEventos = null;
+/* [Etapa 14, 2026-09-28] Fin del rango elegido con el calendario
+ * propio (js/calendario-eventos.js), o `null` si la selección es un
+ * día puntual (o no hay selección). `fechaFiltroEventos` sigue siendo
+ * el INICIO del rango (o el día puntual) — no se duplicó ese campo,
+ * solo se sumó este para el caso rango. Ver js/eventos-fecha-filtro.js. */
+let fechaFiltroEventosHasta = null;
 let expandedId   = null;
 let currentPoi   = null;
 let pickCtx      = null;        // 'add' | 'edit'
