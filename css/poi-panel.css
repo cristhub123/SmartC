@@ -237,22 +237,59 @@ cambio hecho y la verificacion realizada.
 }
 
 /* [2026-09-28] Fila única con todas las categorías/subcategorías del lugar. */
-.poi-panel__cats-row {
-  display: flex;
+/* [2026-09-28] Categorías reales del lugar bajo el título: texto simple
+   (mismo aspecto que el viejo texto de categoría), UNA sola línea, con
+   desplazamiento horizontal si no entran. Separadas por doble espacio. */
+.poi-panel__cats-wrap {
+  position: relative;
   margin: 0.25rem 0 0;
-  flex-wrap: wrap;
-  gap: 0.4rem;
 }
-.poi-panel__cats-row[hidden] { display: none; }
-.poi-panel__cat-chip {
-  background: var(--poi-panel-gray-200);
-  color: var(--poi-panel-slate-700);
-  font-size: 0.8rem;
-  font-weight: 700;
-  padding: 0.3rem 0.75rem;
-  border-radius: 999px;
+.poi-panel__cats-wrap[hidden] { display: none; }
+.poi-panel__cats-row {
   white-space: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x;
 }
+.poi-panel__cats-row::-webkit-scrollbar { display: none; }
+.poi-panel__cat-chip {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--poi-panel-accent);
+}
+/* Indicadores minimalistas ‹ › (solo visuales, no reciben toques) */
+.poi-panel__cats-wrap::before,
+.poi-panel__cats-wrap::after {
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 1.5rem;
+  display: flex;
+  align-items: center;
+  font-size: 0.9rem;
+  color: var(--poi-panel-accent);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.poi-panel__cats-wrap::before {
+  content: '‹';
+  left: 0;
+  justify-content: flex-start;
+  background: linear-gradient(to right, var(--poi-panel-white), rgba(255, 255, 255, 0));
+}
+.poi-panel__cats-wrap::after {
+  content: '›';
+  right: 0;
+  justify-content: flex-end;
+  background: linear-gradient(to left, var(--poi-panel-white), rgba(255, 255, 255, 0));
+}
+.poi-panel__cats-wrap.has-left::before,
+.poi-panel__cats-wrap.has-right::after { opacity: 1; }
 
 /* [Etapa 5] Sistema de 2 pestañas (Info / Eventos) — solo visible
    cuando el pin tiene ≥1 evento vigente (ver poi-panel.js,
