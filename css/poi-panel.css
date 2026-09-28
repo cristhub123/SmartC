@@ -260,24 +260,114 @@ cambio hecho y la verificacion realizada.
   color: var(--poi-panel-white);
 }
 
-.poi-panel__evento-card {
+/* [Etapa 12/13, 2026-09-28] Tarjeta de evento (js/evento-card.js) dentro de
+   un carrusel horizontal. Reemplaza a la vieja lista apilada de texto
+   (.poi-panel__evento-card*, ya sin uso). */
+.poi-panel__eventos-carousel {
+  display: flex;
+  gap: 0.75rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  padding: 0.25rem 0 0.75rem;
+}
+.poi-panel__eventos-carousel > .evento-card {
+  flex: 0 0 min(85%, 20rem);
+  scroll-snap-align: start;
+}
+.poi-panel__eventos-carousel--single > .evento-card {
+  flex-basis: 100%;
+  max-width: 26rem;
+}
+
+.evento-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: var(--poi-panel-white);
+  border: 1px solid var(--poi-panel-slate-200);
+  border-radius: 0.9rem;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+.evento-card__media {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: var(--poi-panel-gray-200);
+  overflow: hidden;
+}
+.evento-card__img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+/* Variante SIN foto: el nombre grande ocupa el lugar de la imagen.
+   Fuente/tamaño/color = 4to nivel de tipografía (js/typography.js,
+   `eventoSinFoto`); con valor de resguardo para presets viejos. */
+.evento-card__sinfoto {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.9rem 2.6rem;
+  text-align: center;
+  background: rgba(var(--poi-panel-accent-rgb), 0.12);
+}
+.evento-card__sinfoto-titulo {
+  font-family: var(--pines-eventoSinFoto-font, var(--font-d, inherit));
+  font-size: clamp(1rem, var(--pines-eventoSinFoto-size, 1.4rem), 2.5rem);
+  color: var(--pines-eventoSinFoto-color, var(--poi-panel-slate-900));
+  font-weight: 800;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+/* Sin foto el nombre ya está arriba, grande — no se repite en el cuerpo. */
+.evento-card--sinfoto .evento-card__nombre { display: none; }
+.evento-card__locate {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  z-index: 1;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.25);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.evento-card__body {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  padding: 0.85rem 0;
+  padding: 0.75rem 0.9rem 0.9rem;
 }
-.poi-panel__evento-card + .poi-panel__evento-card {
-  border-top: 1px solid var(--poi-panel-slate-200);
-}
-.poi-panel__evento-nombre {
+.evento-card__nombre {
   font-size: 0.95rem;
   color: var(--poi-panel-slate-900);
+  overflow-wrap: anywhere;
 }
-.poi-panel__evento-fechas {
+.evento-card__fechas {
   font-size: 0.75rem;
   color: var(--poi-panel-slate-400);
 }
-.poi-panel__evento-cat {
+.evento-card__cat {
   align-self: flex-start;
   font-size: 0.65rem;
   font-weight: 700;
@@ -288,11 +378,12 @@ cambio hecho y la verificacion realizada.
   padding: 0.15rem 0.5rem;
   border-radius: 999px;
 }
-.poi-panel__evento-desc {
+.evento-card__desc {
   font-size: 0.8rem;
   color: var(--poi-panel-slate-700);
   line-height: 1.5;
   margin: 0.15rem 0 0;
+  overflow-wrap: anywhere;
 }
 
 .poi-panel__body {
