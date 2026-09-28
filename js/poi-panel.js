@@ -236,6 +236,10 @@ const PoiPanel = (function () {
             <p class="poi-panel__gancho" data-role="gancho"></p>
             <p class="poi-panel__body" data-role="description"></p>
           </div>
+          <!-- [2026-09-28] Todas las categorías/subcategorías del lugar,
+               una al lado de la otra en una sola fila (reemplaza al
+               viejo bloque "Categoría" + valor debajo). -->
+          <div class="poi-panel__cats-row" data-role="cats-row" hidden></div>
           <div data-role="meta-section" hidden>
             <p class="poi-panel__section-title" data-role="meta-section-title"></p>
             <div class="poi-panel__meta-row" data-role="meta-row"></div>
@@ -264,6 +268,8 @@ const PoiPanel = (function () {
       category: panel.querySelector('[data-role="category"]'),
       title: panel.querySelector('[data-role="title"]'),
       subtitle: panel.querySelector('[data-role="subtitle"]'),
+      subtitleRow: panel.querySelector('[data-role="subtitle-row"]'),
+      catsRow: panel.querySelector('[data-role="cats-row"]'),
       scroll: panel.querySelector('[data-role="scroll"]'),
       tabsRow: panel.querySelector('[data-role="tabs-row"]'),
       tabInfoBtn: panel.querySelector('[data-role="tab-info-btn"]'),
@@ -443,34 +449,54 @@ const PoiPanel = (function () {
     // ------------------------------------------------------------
     const finalName = (rawContent && rawContent.name) || poi.name || poi.titulo || '';
     const finalGancho = (rawContent && rawContent.gancho) || '';
-    const finalDescription = (rawContent && rawContent.description)
-      || poi.desc || poi.descripcion || poi.description
-      || poi.hist || poi.historia
-      || '';
-    const finalFields = _resolveFields(poi, rawContent);
+    // [2026-09-28] "Sin datos históricos." es un texto de relleno que
+    // el sistema guarda en poi.hist cuando no hay historia cargada — no
+    // es información para el visitante, así que se trata como vacío.
+    const finalDescription = [
+      rawContent && rawContent.description,
+      poi.desc, poi.descripcion, poi.description,
+      poi.hist, poi.historia,
+    ].map(_stripPlaceholderText).find(Boolean) || '';
+    const allFields = _resolveFields(poi, rawContent);
+    // Los campos titulados "Categoría" se reemplazan por la fila de
+    // categorías (ver _renderCategoriesRow) — no se muestran duplicados.
+    const finalFields = allFields.filter((f) => !_isCategoryFieldTitle(f.title));
+    const categoryFieldFallback = allFields
+      .filter((f) => _isCategoryFieldTitle(f.title))
+      .map((f) => f.text)
+      .join(',');
 
     // --- Imagen principal (versión "full", 1024px, skin activo del POI) ---
     _renderHeroImage(poi);
 
     // --- Encabezado ---
     els.category.textContent = poi.category || '';
-    els.subtitle.textContent = _formatSubtitle(poi);
+    // [2026-09-28] Sin coordenadas lat/lng en el panel (no aportan nada
+    // al visitante): el subtítulo queda solo con location_code, si hay.
+    const subtitleText = _formatSubtitle(poi);
+    els.subtitle.textContent = subtitleText;
+    els.subtitleRow.hidden = !subtitleText;
 
     if (_isEditMode) {
       els.title.innerHTML = `<input type="text" class="poi-panel__input poi-panel__title-input" data-role="title-input" value="${_escapeAttr(finalName)}">`;
       els.gancho.innerHTML = `<input type="text" class="poi-panel__input" data-role="gancho-input" value="${_escapeAttr(finalGancho)}" placeholder="Gancho / bajada">`;
       els.description.innerHTML = `<textarea class="poi-panel__textarea" data-role="description-input" placeholder="Descripción">${_escapeHtml(finalDescription)}</textarea>`;
+      els.description.hidden = false;
     } else {
       els.title.textContent = finalName;
       els.gancho.textContent = finalGancho;
       els.gancho.hidden = !finalGancho;
       els.description.textContent = finalDescription;
+      els.description.hidden = !finalDescription;
     }
     // Color propio del nombre, por pin (opcional, tab Editar) — si no
     // se cargó ninguno, se limpia el inline style y el CSS vuelve a
     // usar var(--pines-title-color, var(--poi-panel-slate-900)) como
     // siempre (color general de la pestaña "Interfaz").
     els.title.style.color = poi.titleColor || '';
+
+    // --- Categorías del lugar, en una sola fila ---
+    _renderCategoriesRow(poi, categoryFieldFallback);
 
     // --- Campos internos (título + texto, cantidad libre, sin nombres fijos) ---
     _renderMeta(finalFields);
@@ -622,11 +648,69 @@ const PoiPanel = (function () {
   }
 
   function _formatSubtitle(poi) {
-    const parts = [];
-    const coords = _getPoiCoords(poi);
-    if (coords) parts.push(`${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`);
-    if (poi.location_code) parts.push(poi.location_code);
-    return parts.join(' · ');
+    // [2026-09-28] Ya no se muestran las coordenadas (_getPoiCoords
+    // queda definida por si otra parte la necesita).
+    return poi.location_code ? String(poi.location_code) : '';
+  }
+
+  /** Texto de relleno que el sistema escribe cuando no hay contenido
+   *  real (ver pin-adjust.js / content-import.js). Devuelve '' si el
+   *  texto es ese relleno, o el texto tal cual si no. */
+  function _stripPlaceholderText(text) {
+    const t = String(text || '').trim();
+    return /^sin datos hist[oó]ricos\.?$/i.test(t) ? '' : t;
+  }
+
+  /** ¿Este campo interno es el viejo bloque "Categoría"? */
+  function _isCategoryFieldTitle(title) {
+    const t = String(title || '').trim().toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    return t === 'categoria' || t === 'categorias' || t === 'category' || t === 'categories';
+  }
+
+  /** Nombres (en el idioma activo) de TODAS las categorías y
+   *  subcategorías del lugar, sin repetir. */
+  function _getPoiCategoryLabels(poi) {
+    const labels = [];
+    const seen = new Set();
+    const push = (l) => {
+      const clean = String(l || '').trim();
+      if (!clean) return;
+      const nice = clean.charAt(0).toUpperCase() + clean.slice(1).toLowerCase();
+      const key = nice.toLowerCase();
+      if (seen.has(key)) return;
+      seen.add(key);
+      labels.push(nice);
+    };
+    const all = (typeof getAllCats === 'function') ? getAllCats() : {};
+    const ids = Array.isArray(poi.categories) && poi.categories.length
+      ? poi.categories
+      : (poi.category ? [poi.category] : []);
+    ids.forEach((id) => {
+      const cfg = all[id];
+      if (cfg && typeof getCatLabel === 'function') push(getCatLabel(cfg, _currentLang));
+      else if (id && !cfg && !/^[a-z0-9_]+$/.test(String(id))) push(id); // categoría legada en texto libre (ej. "Tiendas")
+    });
+    (Array.isArray(poi.subcategories) ? poi.subcategories : []).forEach((subId) => {
+      const owner = (typeof _findSubcatOwner === 'function') ? _findSubcatOwner(subId) : null;
+      if (owner && typeof getCatLabel === 'function') push(getCatLabel(owner.sub, _currentLang));
+    });
+    return labels;
+  }
+
+  /** Pinta la fila única de categorías. Si el pin no tiene categorías
+   *  cargadas pero sí tenía un campo "Categoría" (texto), se usa ese
+   *  texto (separado por comas) para no perder la información. */
+  function _renderCategoriesRow(poi, fallbackText) {
+    const els = _els;
+    let labels = _getPoiCategoryLabels(poi);
+    if (!labels.length && fallbackText) {
+      labels = String(fallbackText).split(/[,;/|]+/).map((x) => x.trim()).filter(Boolean);
+    }
+    els.catsRow.innerHTML = labels
+      .map((l) => `<span class="poi-panel__cat-chip">${_escapeHtml(l)}</span>`)
+      .join('');
+    els.catsRow.hidden = labels.length === 0;
   }
 
   /**
@@ -786,6 +870,15 @@ const PoiPanel = (function () {
 
     els.handleZone.addEventListener('pointerdown', _onPointerDown);
 
+    // [2026-09-28] El panel se puede arrastrar desde CUALQUIER parte de
+    // su superficie (táctil) — ver _onPanelTouch* más abajo. El handle
+    // conserva su propio arrastre por Pointer Events (funciona también
+    // con mouse).
+    els.panel.addEventListener('touchstart', _onPanelTouchStart, { passive: true });
+    els.panel.addEventListener('touchmove', _onPanelTouchMove, { passive: false });
+    els.panel.addEventListener('touchend', _onPanelTouchEnd, { passive: true });
+    els.panel.addEventListener('touchcancel', _onPanelTouchEnd, { passive: true });
+
     // Ocultación estricta del banner: solo se revela si la imagen
     // efectivamente carga. Si falla (404, CORS, lo que sea), o si
     // nunca se le asignó `src` (ver _renderHeroImage), el contenedor
@@ -914,70 +1007,54 @@ const PoiPanel = (function () {
     });
   }
 
-  function _currentTranslateY() {
-    const els = _els;
-    const height = els.panel.getBoundingClientRect().height;
-    if (_panelState === SNAP.FULL) return 0;
-    if (_panelState === SNAP.PEEK) return height - _portraitOpenPx();
+  // Posición vertical (translateY, px) de cada estado — mismas cuentas
+  // que las reglas [data-state] de css/poi-panel.css.
+  function _translateForState(state, height) {
+    if (state === SNAP.FULL) return 0;
+    if (state === SNAP.PEEK) {
+      const gap = Math.max(0, window.innerHeight - height);
+      return Math.max(0, height - gap - _portraitOpenPx());
+    }
     return height; // closed
   }
 
-  /**
-   * El arrastre del panel SOLO puede arrancar tocando el drag handle
-   * (`.poi-panel__handle-zone`, el equivalente de "header"/handle del
-   * spec). El cuerpo scrolleable (`.poi-panel__scroll`) no tiene este
-   * listener — ahí el pointerdown/move nativo del navegador hace
-   * scroll de texto normal, sin interferir con el panel.
-   */
-  function _onPointerDown(e) {
-    if (_isSideMode()) return; // en modo lateral (landscape) el panel es sidebar fijo, no se arrastra
+  /** Posición real actual del panel (sirve incluso a mitad de una
+   *  transición de estado). */
+  function _measureTranslateY(height) {
+    const rect = _els.panel.getBoundingClientRect();
+    const t = rect.top - (window.innerHeight - height);
+    return Math.min(Math.max(t, 0), height);
+  }
 
+  // ---- Núcleo del arrastre (lo comparten el handle y el resto del panel) ----
+
+  function _beginDrag(y, pointerId) {
     const els = _els;
     const height = els.panel.getBoundingClientRect().height;
-
     _dragState = {
-      startY: e.clientY,
-      startTranslate: _currentTranslateY(),
+      startY: y,
+      startTranslate: _measureTranslateY(height),
       startState: _panelState,
       panelHeight: height,
-      pointerId: e.pointerId,
+      pointerId,
     };
-
-    els.handleZone.setPointerCapture(e.pointerId);
     els.panel.classList.add('is-dragging');
-
-    els.handleZone.addEventListener('pointermove', _onPointerMove);
-    els.handleZone.addEventListener('pointerup', _onPointerUp);
-    els.handleZone.addEventListener('pointercancel', _onPointerUp);
   }
 
-  function _onPointerMove(e) {
+  function _moveDrag(y) {
     if (!_dragState) return;
-    const els = _els;
-
-    const delta = e.clientY - _dragState.startY;
-    const maxTranslate = _dragState.panelHeight; // límite inferior (cerrado)
-    const nextTranslate = Math.min(
-      Math.max(_dragState.startTranslate + delta, 0),
-      maxTranslate
-    );
-
-    els.panel.style.transform = `translate(-50%, ${nextTranslate}px)`;
+    const delta = y - _dragState.startY;
+    const next = Math.min(Math.max(_dragState.startTranslate + delta, 0), _dragState.panelHeight);
+    _els.panel.style.transform = `translate(-50%, ${next}px)`;
   }
 
-  function _onPointerUp(e) {
+  function _finishDrag(y) {
     if (!_dragState) return;
-    const els = _els;
-
-    const delta = e.clientY - _dragState.startY; // + = arrastró hacia abajo, - = hacia arriba
-    const { startState } = _dragState;
-
-    els.handleZone.releasePointerCapture(_dragState.pointerId);
-    els.panel.classList.remove('is-dragging');
-    els.handleZone.removeEventListener('pointermove', _onPointerMove);
-    els.handleZone.removeEventListener('pointerup', _onPointerUp);
-    els.handleZone.removeEventListener('pointercancel', _onPointerUp);
+    const { startY, startTranslate, startState, panelHeight } = _dragState;
+    _els.panel.classList.remove('is-dragging');
     _dragState = null;
+
+    const delta = y - startY; // + = hacia abajo, - = hacia arriba
 
     // Con un arrastre por debajo del umbral, el panel vuelve a su
     // estado de partida (gesto no intencional / mano temblando).
@@ -985,28 +1062,122 @@ const PoiPanel = (function () {
       _snapTo(startState);
       return;
     }
-
     const draggedDown = delta > 0;
 
     if (startState === SNAP.FULL) {
-      // Desde "full": un toque hacia abajo alcanza para bajar a "peek".
-      _snapTo(draggedDown ? SNAP.PEEK : SNAP.FULL);
+      if (!draggedDown) { _snapTo(SNAP.FULL); return; }
+      // Desde "full": hacia abajo baja a "peek"; si se lo arrastró
+      // más allá de la mitad del tramo entre "peek" y el borde de
+      // abajo, se cierra directo (el panel "se va" por completo).
+      const finalT = Math.min(Math.max(startTranslate + delta, 0), panelHeight);
+      const peekT = _translateForState(SNAP.PEEK, panelHeight);
+      if (finalT > peekT + (panelHeight - peekT) / 2) close();
+      else _snapTo(SNAP.PEEK);
       return;
     }
 
     if (startState === SNAP.PEEK) {
-      // Desde "peek": hacia arriba sube a "full", hacia abajo cierra.
-      if (draggedDown) {
-        close();
-      } else {
-        _snapTo(SNAP.FULL);
-      }
+      // Desde "peek": hacia arriba sube a "full", hacia abajo lo baja
+      // del todo. El pin queda maximizado; un click sobre él lo cierra
+      // (ver pinClick en js/cluster.js).
+      if (draggedDown) close();
+      else _snapTo(SNAP.FULL);
       return;
     }
 
-    // Estado "closed" no debería recibir drag (el panel no es visible),
-    // pero por las dudas no rompemos si pasara.
-    _snapTo(startState);
+    _snapTo(startState); // "closed" no debería recibir drag
+  }
+
+  // ---- Arrastre desde el handle (Pointer Events — mouse y táctil) ----
+
+  function _onPointerDown(e) {
+    if (_isSideMode()) return; // en modo lateral (landscape) el panel es sidebar fijo, no se arrastra
+    _beginDrag(e.clientY, e.pointerId);
+    const els = _els;
+    els.handleZone.setPointerCapture(e.pointerId);
+    els.handleZone.addEventListener('pointermove', _onPointerMove);
+    els.handleZone.addEventListener('pointerup', _onPointerUp);
+    els.handleZone.addEventListener('pointercancel', _onPointerUp);
+  }
+
+  function _onPointerMove(e) {
+    _moveDrag(e.clientY);
+  }
+
+  function _onPointerUp(e) {
+    if (!_dragState) return;
+    const els = _els;
+    try { els.handleZone.releasePointerCapture(_dragState.pointerId); } catch (_) {}
+    els.handleZone.removeEventListener('pointermove', _onPointerMove);
+    els.handleZone.removeEventListener('pointerup', _onPointerUp);
+    els.handleZone.removeEventListener('pointercancel', _onPointerUp);
+    _finishDrag(e.clientY);
+  }
+
+  // ---- Arrastre táctil desde cualquier parte del panel ----
+  //
+  // Reglas para no pelear con el scroll del contenido:
+  //  - Gesto horizontal (ej. carrusel de eventos): se ignora.
+  //  - Dentro del área de scroll con el panel en "full": arrastrar
+  //    hacia arriba, o hacia abajo con el texto ya scrolleado, hace
+  //    scroll normal; arrastrar hacia abajo con el texto al tope
+  //    (scrollTop = 0) mueve el panel.
+  //  - En "peek" (mitad) o fuera del área de scroll (título, pestañas,
+  //    etc.): siempre mueve el panel.
+  //  - Inputs/textareas no arrastran (se usan para escribir/seleccionar).
+  let _touch = null; // { x, y, lastY, inScroll, scrollTop, mode: 'pending'|'drag'|'ignore' }
+
+  function _onPanelTouchStart(e) {
+    _touch = null;
+    if (_isSideMode() || _dragState) return;
+    if (e.touches.length !== 1) return;
+    const target = e.target;
+    if (target && target.closest && target.closest('[data-role="handle-zone"], input, textarea, select')) return;
+    const t = e.touches[0];
+    _touch = {
+      x: t.clientX, y: t.clientY, lastY: t.clientY,
+      inScroll: _els.scroll.contains(target),
+      scrollTop: _els.scroll.scrollTop,
+      mode: 'pending',
+    };
+  }
+
+  function _onPanelTouchMove(e) {
+    if (!_touch || _touch.mode === 'ignore') return;
+    if (e.touches.length !== 1) {
+      if (_touch.mode === 'drag') _onPanelTouchEnd();
+      _touch = null;
+      return;
+    }
+    const t = e.touches[0];
+    _touch.lastY = t.clientY;
+
+    if (_touch.mode === 'pending') {
+      const dx = t.clientX - _touch.x;
+      const dy = t.clientY - _touch.y;
+      if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+      if (Math.abs(dx) > Math.abs(dy)) { _touch.mode = 'ignore'; return; }
+
+      let moveIt = true;
+      if (_touch.inScroll && _panelState === SNAP.FULL) {
+        moveIt = dy > 0 && _touch.scrollTop <= 0;
+      }
+      if (!moveIt || !e.cancelable) { _touch.mode = 'ignore'; return; }
+
+      _touch.mode = 'drag';
+      _beginDrag(_touch.y);
+    }
+
+    if (_touch.mode === 'drag') {
+      e.preventDefault();
+      _moveDrag(t.clientY);
+    }
+  }
+
+  function _onPanelTouchEnd() {
+    const touch = _touch;
+    _touch = null;
+    if (touch && touch.mode === 'drag') _finishDrag(touch.lastY);
   }
 
   function _snapTo(state) {

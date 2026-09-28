@@ -48,7 +48,11 @@ function pinClick(poi) {
   if (window.PoiPanel && typeof window.PoiPanel.open === 'function') {
     // Si el panel ya estaba abierto para el mismo POI, lo cierra (y
     // colapsa el pin agrandado); si no, lo abre.
-    if (window.PoiPanel.getCurrentPoiId() === poiId) {
+    // [2026-09-28] Lo mismo si el pin está maximizado aunque el panel
+    // ya no se vea (el usuario lo arrastró hacia abajo del todo): el
+    // click sobre el pin maximizado lo cierra directo, no reabre el panel.
+    const _pinYaMaximizado = (typeof expandedId !== 'undefined' && expandedId === poiId);
+    if (window.PoiPanel.getCurrentPoiId() === poiId || _pinYaMaximizado) {
       window.PoiPanel.close();
       if (typeof collapsePin === 'function') collapsePin(poiId);
       if (typeof expandedId !== 'undefined') expandedId = null;

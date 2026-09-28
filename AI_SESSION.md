@@ -2251,3 +2251,14 @@ Decisiones: sin foto el nombre no se repite en el cuerpo; foto rota o URL no htt
 
 **Pruebas:** `node --check` OK; jsdom sobre tarjeta y tipografía OK; NO probado en navegador ni contra Firebase.
 
+## 2026-09-28 (cont.) — Panel de lugar: arrastre desde toda la superficie, categorías en una fila, fuera coords y "Sin datos históricos."
+
+Leído `AI_RULES.md` antes de tocar código. Archivos: `js/poi-panel.js`, `js/cluster.js`, `css/poi-panel.css`.
+
+**Arrastre:** el núcleo (`_beginDrag/_moveDrag/_finishDrag`) se comparte entre el handle (Pointer Events, sigue igual, también con mouse) y un nuevo arrastre táctil sobre todo el panel (`_onPanelTouch*`). Reglas: gesto horizontal se ignora (carrusel de eventos); en "full" dentro del área de scroll, hacia arriba o con texto ya scrolleado = scroll normal, hacia abajo con `scrollTop=0` = mueve el panel; en "peek" o fuera del scroll siempre mueve el panel; inputs/textarea no arrastran. Desde "full", un arrastre largo hacia abajo cierra directo (pasa la mitad del tramo peek→borde); uno corto baja a "peek". Se mide la posición real del panel al empezar (antes se asumía por estado y desfasaba `--poi-panel-full-top-gap` px).
+
+**Pin maximizado:** `pinClick` (`js/cluster.js`) ahora cierra (colapsa pin + cierra panel) si el pin ya está maximizado (`expandedId === poiId`), aunque el panel esté oculto por haberlo arrastrado hacia abajo. Antes lo reabría.
+
+**Contenido:** "Sin datos históricos." (relleno de `poi.hist`) se trata como vacío en el panel; los writers no se tocaron (`admin.js` compara contra ese texto). Subtítulo sin lat/lng (solo `location_code` si hay; fila oculta si vacío). Bloque "Categoría" (campo interno) reemplazado por una fila de chips con todas las categorías + subcategorías (`poi.categories`/`poi.subcategories`, idioma activo, sin repetir); si el pin no tiene categorías pero sí un campo "Categoría" en texto, se usa ese texto separado por comas.
+
+**Pruebas:** `node --check` OK; regex probadas en node. NO probado en navegador/táctil real.
