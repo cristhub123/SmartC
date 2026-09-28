@@ -513,7 +513,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   outline: none;
   transform: translate(var(--current-x, 0px), 0px);
 }
-/* [2026-09-27] HOVER DESACTIVADO por pedido: los botones redondos de
+/* [2026-09-28] HOVER DESACTIVADO por pedido: los botones redondos de
    categorías ya no se elevan/agrandan al pasar el mouse. Para reactivarlo,
    descomentar este bloque. El resto de efectos (:active, .on, animaciones
    de entrada/salida) siguen funcionando igual.
