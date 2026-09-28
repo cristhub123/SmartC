@@ -447,35 +447,70 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
       var(--text)). Se unificó a ese mismo lenguaje visual. El botón
       de limpiar (.efb-clear) pasa a calcar el patrón estándar de
       "botón cerrar" que ya usa el resto de la app (.btn-x, ej. el
-      cierre del panel de zona) en vez de otro círculo blanco propio. */
+      cierre del panel de zona) en vez de otro círculo blanco propio.
+   [Etapa 14, 2026-09-28] El `<input type="date">` (.efb-input, ya
+   sin uso, se saca de acá) se reemplaza por un botón círculo+ícono
+   (.efb-btn, mismo lenguaje visual que .fbtn-circle) que abre un
+   popover (.efb-popover) con el calendario propio
+   (js/calendario-eventos.js). El chip (.efb-chip) solo aparece con
+   una fecha/rango ya elegido, mismo .efb-clear de siempre adentro. */
 #eventos-fecha-bar {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
   padding: 0 20px 8px;
   pointer-events: all;
 }
 #eventos-fecha-bar[hidden] { display: none; }
-.efb-input {
-  border: none;
-  border-radius: 14px;
-  padding: 0 14px;
+.efb-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.efb-btn {
+  width: 44px;
   height: 44px;
-  font-family: var(--font-b);
-  font-size: 14px;
-  font-weight: 500;
+  border: none;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
   color: var(--text);
   background: rgba(var(--surface-rgb), 0.96);
   box-shadow: 0 4px 16px rgba(0,0,0,.13);
-  color-scheme: light;
+  flex-shrink: 0;
+  transition: box-shadow .2s, color .2s, background .2s;
+  -webkit-tap-highlight-color: transparent;
+}
+.efb-btn[aria-expanded="true"],
+.efb-btn.is-active {
+  color: #fff;
+  background: var(--accent);
+  box-shadow: 0 6px 18px rgba(var(--accent-rgb), .4);
+}
+.efb-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 8px 0 14px;
+  border-radius: 20px;
+  background: rgba(var(--surface-rgb), 0.96);
+  box-shadow: 0 4px 16px rgba(0,0,0,.13);
+  font-family: var(--font-b);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
 }
 .efb-clear {
   background: var(--surface2);
   border: 1.5px solid var(--border);
   border-radius: 50%;
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -487,6 +522,139 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   -webkit-tap-highlight-color: transparent;
 }
 .efb-clear:hover { background: #fee2e2; color: #dc2626; border-color: #fca5a5; }
+
+/* Popover del calendario: anclado arriba del botón (position:
+   relative en .efb-wrap), no fixed — así sigue al botón sin recalcular
+   nada a mano si el layout de alrededor cambia. */
+.efb-popover {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 700;
+  width: min(320px, calc(100vw - 32px));
+  background: rgba(var(--surface-rgb), 0.98);
+  border: 1px solid rgba(0,0,0,0.06);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-panel), 0 0 0 1px rgba(var(--accent-rgb), .05);
+  padding: 14px;
+}
+.efb-popover[hidden] { display: none; }
+
+/* [Etapa 14] Calendario propio — js/calendario-eventos.js.
+   Componente compartido: estos estilos no son exclusivos del popover
+   del filtro de mapa, la Etapa 15 los reusa igual dentro de otro
+   contenedor. */
+.cal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.cal-title {
+  font-family: var(--font-b);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  text-transform: capitalize;
+}
+.cal-nav {
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 50%;
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+}
+.cal-nav:hover { background: var(--border); }
+.cal-week {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  margin-bottom: 2px;
+}
+.cal-wd {
+  text-align: center;
+  font-family: var(--font-b);
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text2);
+  text-transform: uppercase;
+}
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  grid-auto-rows: 36px;
+}
+.cal-day {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: var(--font-b);
+  font-size: 13px;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  -webkit-tap-highlight-color: transparent;
+}
+.cal-day--blank { cursor: default; }
+.cal-num {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background .15s, color .15s;
+}
+.cal-day.is-today .cal-num { box-shadow: inset 0 0 0 1.5px var(--accent); }
+.cal-day.in-range { background: rgba(var(--accent-rgb), .14); }
+.cal-day.is-start.is-end { border-radius: 15px; }
+.cal-day.is-start { border-radius: 15px 0 0 15px; background: rgba(var(--accent-rgb), .14); }
+.cal-day.is-end { border-radius: 0 15px 15px 0; background: rgba(var(--accent-rgb), .14); }
+.cal-day.is-selected .cal-num { background: var(--accent); color: #fff; }
+.cal-hint {
+  min-height: 34px;
+  padding: 8px 2px 4px;
+  font-family: var(--font-b);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+.cal-hint-main { font-size: 13px; color: var(--text); text-transform: capitalize; }
+.cal-hint-sub { font-size: 11px; color: var(--text2); }
+.cal-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 6px;
+}
+.cal-btn {
+  flex: 1;
+  height: 38px;
+  border-radius: 12px;
+  border: none;
+  font-family: var(--font-b);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity .15s;
+}
+.cal-btn:disabled { opacity: .4; cursor: default; }
+.cal-btn--ghost { background: var(--surface2); color: var(--text); }
+.cal-btn--ghost:hover:not(:disabled) { background: var(--border); }
+.cal-btn--primary { background: var(--accent); color: #fff; }
+.cal-btn--primary:hover:not(:disabled) { opacity: .9; }
 
 /* Each category button — column: circle + label.
    [Etapa E, 2026-09-07] position:absolute + variable CSS
