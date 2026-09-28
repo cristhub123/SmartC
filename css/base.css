@@ -2131,6 +2131,22 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   color: var(--text3); cursor: pointer; transition: all .15s;
 }
 .evt-tag-chip.on { border-color: var(--accent); color: var(--accent); background: rgba(var(--accent-rgb), .06); }
+/* [Etapa 11] foto opcional del evento (form admin `evt-` y de usuario `up-evt-`). */
+.evt-img-wrap { display: flex; flex-direction: column; gap: 8px; }
+.evt-img-preview {
+  width: 100%; max-width: 320px; aspect-ratio: 16 / 9; object-fit: cover;
+  border-radius: var(--r-sm); border: 1px solid var(--border2); background: #f3f4f6;
+}
+.evt-img-preview[hidden], .evt-img-btn[hidden] { display: none; }
+.evt-img-actions { display: flex; gap: 8px; align-items: center; }
+.evt-img-btn {
+  padding: 7px 12px; border-radius: 999px; border: 1px solid var(--border2); background: white;
+  font-family: var(--font-b); font-size: 12px; font-weight: 700; color: var(--text3);
+  cursor: pointer; transition: all .15s;
+}
+.evt-img-btn:hover { border-color: var(--accent); color: var(--accent); }
+.evt-img-hint { margin-top: 4px; font-family: var(--font-b); font-size: 11px; color: var(--text3); }
+.evt-img-error { margin-top: 4px; font-family: var(--font-b); font-size: 12px; color: #b91c1c; }
 .evt-admin-row {
   display: flex; justify-content: space-between; align-items: center; gap: 10px;
   padding: 10px 12px; border-radius: var(--r-sm);
