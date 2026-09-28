@@ -529,15 +529,49 @@ poniendo `_eventoOcurreEnFecha()` (`js/eventos-fecha-filtro.js`), no
 este componente. **Reusar tal cual desde la Etapa 15** (buscador del
 panel "Todos los eventos") — no reimplementar un segundo calendario.
 
-Reemplaza el `<input type="date">` nativo de `#eventos-fecha-bar`
-(`index.html`): ahora un botón círculo+ícono (`.efb-btn`, mismo
-lenguaje visual que `.fbtn-circle`) abre un popover (`.efb-popover`,
-`css/base.css`) anclado arriba del botón con el calendario adentro.
-El popover se registra en `OverlayManager` como `'fechaCalendarioPopover'`
+**[ajuste 2026-09-28, mismo día]** El botón que abre el calendario NO
+tiene una barra propia: es el botón que aparece SOBRE "Eventos" al
+tocarlo, con la MISMA coreografía animada de ir a la esquina que
+cualquier categoría con subcategorías reales (sección 14.4 no aplica
+acá — esa es la coreografía de categorías normales de
+PLAN_CATEGORIAS_SUBCATEGORIAS.md; Eventos ahora la reusa, no la
+duplica). `_catHasActiveSubcats`/`_animateOpenSubcatRow`/
+`_animateCloseSubcatRow`/`updateFilterBar` (`js/categories.js`) tratan
+`'__eventos__'` como "hay algo para abrir en la esquina" cuando
+`window.isFechaFiltroHabilitado()` (nuevo, `js/eventos-fecha-filtro.js`,
+lee el toggle de Admin → Eventos) da `true` — en vez de subcategorías
+reales, sube UN solo botón hecho a mano, `_buildCalendarSubBtn()`
+(mismo look que un `.fbtn-sub`: círculo + ícono `LUCIDE.calendar`
+nuevo (`js/config.js`) + etiqueta "Fecha", id fijo `eventos-fecha-btn`).
+`_getCatRef(catId)` reemplaza a `getAllCats()[catId]` en los 2 puntos
+que necesitaban resolver la categoría especial — `getAllCats()` NO
+incluye `SPECIAL_CATS` a propósito (ver su comentario), por eso
+`getAllCats()['__eventos__']` daba `undefined` y la rama de Eventos no
+podía usar el mismo camino sin este cambio.
+
+El popover (`#eventos-fecha-popover`, `.efb-popover` en
+`css/base.css`) es hermano de `.filter-row` dentro de `#filter-bar`
+(`position:fixed`, sirve de referencia para el `position:absolute` del
+popover) — no depende de dónde esté el botón en un momento dado.
+`#filter-bar` tiene `pointer-events:none` a propósito (deja pasar los
+toques al mapa); el popover necesita `pointer-events:auto` explícito.
+Se registra en `OverlayManager` como `'fechaCalendarioPopover'`
 (sección 11) — se cierra solo si se abre cualquier otro panel/menú
-flotante. Un chip (`.efb-chip`) aparece al lado del botón solo con
-fecha/rango ya confirmado, con el mismo botón `.efb-clear` de antes
-para sacar el filtro de encima.
+flotante, y `_animateCloseSubcatRow` lo cierra siempre al cerrar
+CUALQUIER esquina (barato, no hace nada si no había nada abierto) para
+que nunca quede huérfano sin el botón que lo controla. NO hay chip
+aparte con la fecha elegida: el propio calendario, adentro del
+popover, ya muestra la selección actual, y "Limpiar" vive ahí mismo.
+
+`js/eventos-fecha-filtro.js` expone `window._wireCalendarioFechaBtn()`
+(la llama categories.js justo después de insertar el botón nuevo en el
+DOM — se recrea desde cero cada vez que se abre la esquina, así que
+hay que re-enganchar el nodo nuevo cada vez; `dataset.wired` en el
+nodo evita engancharlo 2 veces a ÉL MISMO, no evita re-enganchar un
+nodo distinto) y `window._cerrarPopoverFecha()`. El listener de
+"click afuera cierra" está enganchado UNA sola vez a `document` (a
+nivel de módulo, no adentro de la función de wireo — si no, se
+acumularía un listener nuevo por cada apertura de la esquina).
 
 **Extensión a rango (no reimplementada en otro lado):** `js/config.js`
 suma `fechaFiltroEventosHasta` (`null` = selección puntual o
@@ -561,6 +595,25 @@ clicks) hace lo mismo para cualquier día dentro del rango; (c) el
 popover se cierra solo al abrir un pin o el dropdown de zonas, y
 viceversa; (d) el chip con la fecha/rango se ve bien y el botón ✕ lo
 saca; (e) los 3 idiomas (ES/EN/PT) del calendario y del chip.
+
+**[FIX de bug real, mismo día]** "el calendario se cerraba solo al
+elegir un día, sin seleccionar nada" — la causa NO era que no
+seleccionaba: `render()` (`js/calendario-eventos.js`) reemplaza el
+`innerHTML` del popover ANTES de que el click terminara de burbujear
+hasta `document`, donde vive el listener de "click afuera cierra el
+popover". Ese listener preguntaba `pop.contains(e.target)` con
+`e.target` ya DESCONECTADO del DOM (el botón del día, que `render()`
+acababa de reemplazar) — **un nodo desconectado siempre da `false` en
+`.contains()`, aunque el click original haya sido bien adentro del
+popover** — así que se trataba como "click afuera" y cerraba el
+popover una fracción de segundo después de haber seleccionado bien
+(dando la falsa impresión de que no seleccionó nada). Cualquier
+patrón "click adentro del contenedor X reconstruye su propio HTML" +
+"listener global en `document` que chequea `X.contains(e.target)`" en
+CUALQUIER archivo de este proyecto tiene el mismo riesgo — la solución
+acá fue `e.stopPropagation()` al principio de `_onClick` (adentro de
+`mount()`): un click que el propio componente ya procesó no tiene
+ningún motivo para seguir burbujeando hacia arriba.
 
 ## 15. Ver también
 

@@ -1004,6 +1004,70 @@ sentidos; (c) el chip y el botón ✕ se ven bien y limpian el filtro;
 (d) los 3 idiomas del calendario/chip; (e) un evento sin `fecha_fin`
 sigue tratándose como 1 solo día dentro de un rango elegido.
 
+#### Ajuste, mismo día (2026-09-28) — botón reubicado a la esquina de Eventos + fix de un bug real de selección
+
+Cris probó lo de arriba y pidió 2 cambios:
+
+**1) Reubicación del botón.** Ya no hay una barra propia siempre
+visible arriba de la fila de categorías — el botón que abre el
+calendario ahora ES el botón que aparece sobre "Eventos" al tocarlo y
+terminar la animación de ir a la esquina, igual que cualquier
+categoría con subcategorías reales. Se logró generalizando el
+mecanismo YA EXISTENTE (`_catHasActiveSubcats`/`_animateOpenSubcatRow`/
+`_animateCloseSubcatRow`/`updateFilterBar`, `js/categories.js`) para
+tratar `'__eventos__'` como "categoría con algo para abrir en la
+esquina" cuando `window.isFechaFiltroHabilitado()` (nuevo, expuesto
+por `js/eventos-fecha-filtro.js`) da `true` — en vez de subcategorías
+reales, sube un solo botón hecho a mano (`_buildCalendarSubBtn()`,
+mismo look que un `.fbtn-sub` común: círculo + ícono nuevo
+`LUCIDE.calendar` + etiqueta "Fecha", id fijo `eventos-fecha-btn`).
+`_getCatRef(catId)` reemplaza a `getAllCats()[catId]` en los 2 puntos
+que necesitaban resolver la categoría especial (`getAllCats()` no
+incluye `SPECIAL_CATS`).
+
+El popover pasó a ser hermano de `.filter-row` dentro de `#filter-bar`
+(antes vivía en un wrapper propio del botón, que ya no existe), anclado
+con `position:absolute; bottom:100%` a `#filter-bar` mismo. Se sacaron
+del todo `#eventos-fecha-bar`/`.efb-wrap`/`.efb-btn`/`.efb-chip`/
+`.efb-clear` (`index.html`, `css/base.css`) — el chip con la fecha
+elegida ya no hace falta, el propio calendario adentro del popover
+muestra la selección actual y "Limpiar" vive ahí mismo. `js/eventos-
+fecha-filtro.js` pasó de `_wireFechaFiltroBar()`/`_renderFechaFiltroBar()`
+(vía `window._onFilterBarUpdated`, sacado) a `window._wireCalendarioFechaBtn()`
+(la llama categories.js justo después de insertar el botón nuevo en el
+DOM — se recrea desde cero cada vez que se abre la esquina) y
+`window._cerrarPopoverFecha()` (la llama `_animateCloseSubcatRow` al
+cerrar CUALQUIER esquina, para que el popover no quede huérfano).
+
+**2) Bug real, arreglado:** "el calendario se cerraba solo al elegir
+un día, sin seleccionar nada" — la causa no era que no seleccionaba:
+`render()` (`js/calendario-eventos.js`) reemplaza el HTML del popover
+ANTES de que el click terminara de burbujear hasta `document`, donde
+vive el listener de "click afuera cierra el popover". Ese listener
+preguntaba `pop.contains(e.target)` con `e.target` ya DESCONECTADO del
+DOM (el botón del día que `render()` acababa de reemplazar) — un nodo
+desconectado da `false` en `.contains()` aunque el click haya sido
+bien adentro, así que se trataba como "click afuera" y cerraba el
+popover una fracción de segundo después de haber seleccionado bien.
+Fix: `e.stopPropagation()` al principio de `_onClick` — un click que
+el calendario ya procesó no tiene motivo para seguir burbujeando.
+
+**Archivos tocados:** `js/calendario-eventos.js` (fix del bug),
+`js/eventos-fecha-filtro.js` (sección UI reescrita), `js/categories.js`
+(`_buildCalendarSubBtn` nueva + generalización de las 3 funciones de
+arriba), `js/config.js` (`LUCIDE.calendar`), `js/i18n.js`
+(`fbtn_fecha_label` es/en/pt), `index.html`, `css/base.css`.
+
+**Pruebas realizadas:** `node --check` OK en los 6 `.js`; llaves de
+`css/base.css` balanceadas; `<script>`/`<div>` de `index.html`
+balanceados. **NO probado en navegador real.** Pendiente que Cris
+confirme: (a) tocar "Eventos" anima igual que las demás categorías y
+el botón calendario aparece; (b) elegir 1 día o un rango de 2 clicks
+ya no cierra el popover solo, y "Buscar" se habilita apenas hay algo
+elegido; (c) cerrar la esquina de Eventos (tocándola de nuevo, o
+tocando otra categoría) cierra también el popover si estaba abierto;
+(d) los 3 idiomas del botón/calendario.
+
 ---
 
 ### Hotfix (2026-08-27) — botón de perfil sin respuesta para un usuario común
