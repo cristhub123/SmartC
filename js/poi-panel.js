@@ -1119,7 +1119,7 @@ const PoiPanel = (function () {
   //  - En "peek" (mitad) o fuera del área de scroll (título, pestañas,
   //    etc.): siempre mueve el panel.
   //  - Inputs/textareas no arrastran (se usan para escribir/seleccionar).
-  let _touch = null; // { x, y, lastY, inScroll, scrollTop, mode: 'pending'|'drag'|'ignore' }
+  let _touch = null; // { x, y, lastY, inScroll, scrollTop, mode: 'pending'|'drag'|'scrolling'|'ignore' }
 
   function _onPanelTouchStart(e) {
     _touch = null;
@@ -1144,7 +1144,25 @@ const PoiPanel = (function () {
       return;
     }
     const t = e.touches[0];
+    const prevY = _touch.lastY;
     _touch.lastY = t.clientY;
+
+    // [2026-09-28] Continuidad del gesto: si el dedo empezó sobre el texto
+    // ya scrolleado (el navegador lo está scrolleando), apenas el texto
+    // llega al tope (scrollTop = 0) y el dedo sigue bajando, el MISMO
+    // gesto pasa a mover el panel — sin tener que levantar el dedo y
+    // repetir el movimiento (antes esa zona parecía "muerta").
+    if (_touch.mode === 'scrolling') {
+      if (_els.scroll.scrollTop <= 0 && t.clientY > prevY) {
+        _touch.mode = 'drag';
+        _beginDrag(t.clientY);
+      } else if (t.clientY < prevY) {
+        _touch.mode = 'ignore'; // cambió de sentido: es scroll normal
+        return;
+      } else {
+        return;
+      }
+    }
 
     if (_touch.mode === 'pending') {
       const dx = t.clientX - _touch.x;
@@ -1155,6 +1173,9 @@ const PoiPanel = (function () {
       let moveIt = true;
       if (_touch.inScroll && _panelState === SNAP.FULL) {
         moveIt = dy > 0 && _touch.scrollTop <= 0;
+        // Hacia abajo con texto scrolleado: scroll nativo, pero atento
+        // a tomar el control cuando llegue al tope (ver arriba).
+        if (!moveIt && dy > 0) { _touch.mode = 'scrolling'; return; }
       }
       if (!moveIt || !e.cancelable) { _touch.mode = 'ignore'; return; }
 
