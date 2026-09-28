@@ -73,10 +73,24 @@ de comando" con filtros que pidió Cris queda para más adelante.
    "CONFIGURACIÓN PÚBLICA" (`settings/eventos-config`,
    `tituloPanelEventos`, default `"Eventos"`), sin decidir el texto
    final de antemano — Cris lo cambia cuando quiera sin tocar código.
-3. **Imágenes por categoría de evento.** Cris las va a subir más
-   adelante. Asumido por ahora: una imagen por categoría, cargada
-   por el admin (no por cada organizador) — confirmar si en cambio
-   cada organizador debe poder subir la suya propia por evento.
+3. ~~**Imágenes por categoría de evento.**~~ **REEMPLAZADO 27/09 (ver
+   punto 5 y Etapas 11-15 más abajo):** dejó de ser "una imagen por
+   categoría" — pasa a ser una imagen opcional POR EVENTO puntual
+   (subida por quien carga el evento), con una alternativa visual
+   cuando no hay foto (título grande, ver Etapa 12).
+5. ~~**Cómo se aloja la imagen de un evento.**~~ **RESUELTO 27/09 —
+   Cloudinary, confirmado por Cris.** Se había escrito acá que "hoy
+   la creación de eventos es admin-only" como argumento — **eso era
+   incorrecto y se corrige acá mismo:** el toggle
+   `creacionEventosHabilitada` (`js/eventos.js`) viene **habilitado
+   por defecto**, así que un dueño/usuario YA PUEDE crear su propio
+   evento desde su panel hoy — no es un escenario futuro. El upload
+   de fotos de EVENTO por dueños queda entonces activo desde el
+   momento en que se implemente la Etapa 11 (mismo formulario
+   compartido para admin y dueño), sin ningún paso extra de
+   "habilitación" — ver el detalle completo de parámetros (preset
+   `smartcity_eventos_01`, recorte 16:9, formatos aceptados) en la
+   Etapa 11 más abajo.
 4. ~~**Toggles maestros globales de eventos**~~ **PARCIALMENTE
    RESUELTO 26/08 (Etapa 6):** 1) habilitar/deshabilitar que
    usuarios no-admin creen eventos → resuelto,
@@ -148,18 +162,37 @@ posible.
 
 ## ESTADO ACTUAL
 
-**Última etapa completada:** Etapa 8 — Subusuario empleado. Con esto
-se completó TODO el plan original (Etapas 1 a 8) — ver "REGISTRO POR
-ETAPA" para el detalle de cada una, especialmente las Etapas 6/7/8
-(2026-08-26/27) que todavía no fueron probadas contra Firebase real
-por Cris.
+**Última etapa completada — OJO, esta sección estaba desactualizada
+y se corrige acá (27/09):** el texto de abajo decía "Etapa 8" como
+última, pero el código ya tiene comentarios de Etapa 9 (catálogo de
+categorías/tags, `js/eventos.js`) y Etapa 10 (unificación del
+formulario compartido, `js/eventos-form-shared.js` —
+`PLAN_UNIFICACION_FORMULARIO_EVENTOS.md`, Partes 1 y 2 hechas, Parte
+3 "listas + repaso de regresión" todavía sin hacer según
+`CAMBIOS_UNIFICACION_EVENTOS.txt`) que nunca se volcaron a este
+archivo maestro. No se investigó más a fondo esa Parte 3 pendiente
+ahora — queda mencionada acá para que no se pierda, es un plan
+aparte del de abajo. Para NO chocar numeración, todo lo nuevo de acá
+arranca en **Etapa 11**.
 
-**Próxima etapa a hacer:** ninguna asignada todavía — quedan 2
-cosas fuera de alcance de este plan, mencionadas pero nunca
-detalladas: (1) integración real de cobro (Mercado Pago) sobre los
-campos que dejó preparados la Etapa 7, y (2) lo de panaderías que
-Cris mencionó de pasada en algún momento sin desarrollar. Ninguna
-tiene fecha ni plan escrito — arrancan cuando Cris las pida.
+**ÚLTIMA ETAPA COMPLETADA: Etapa 11 (27/09) — Próxima etapa a hacer: Etapa 12** (tarjeta de evento unificada + 4to nivel de tipografía; lee `imagenUrl`, que ya existe en los eventos nuevos). Sigue sin arrancar las Etapas 12 a 15. Historial de esta sección: se
+agrega (27/09) para documentar, SIN IMPLEMENTAR TODAVÍA, todo lo
+charlado con Cris sobre rediseñar la sección de eventos (tarjetas
+estilo Eventbrite, panel nuevo para ver todos los eventos de la app,
+calendario propio para elegir fecha o rango) — ver Etapas 11 a 15 en
+"REGISTRO POR ETAPA" más abajo para el detalle completo de cada una.
+Nada de esto se tocó todavía, es plan puro para retomar en este chat
+o en uno nuevo.
+
+**Decisión que falta ANTES de arrancar Etapa 15:** dónde va el botón
+que abre el panel nuevo de "todos los eventos" — Cris todavía no lo
+definió (dijo "ya veré en dónde ubicarlo"). No bloquea las Etapas 11
+a 14.
+
+**Sin relación con lo de arriba, seguía pendiente de antes (Etapas 1
+a 8):** ninguna fecha asignada para (1) integración real de cobro
+(Mercado Pago) sobre los campos que dejó preparados la Etapa 7, ni
+(2) lo de panaderías que Cris mencionó de pasada sin desarrollar.
 
 **Contexto nuevo de la Etapa 5 que hay que seguir usando (no crear de
 nuevo):**
@@ -331,6 +364,22 @@ crear de nuevo):**
 - [x] Etapa 8 — Subusuario empleado del dueño (alta directa sin
       invitación, acceso a los mismos pines que su dueño) —
       renumerada desde la Etapa 6 original
+- [x] Etapa 11 — ✅ COMPLETADA 2026-09-27 — Imagen opcional por evento
+      (Cloudinary), campo agregado en `js/eventos-form-shared.js` (admin
+      + panel de usuario, un solo lugar)
+- [ ] Etapa 12 — Tarjeta de evento unificada (con foto, o sin foto
+      con título grande) + ícono de "centrar en el mapa" + 4to nivel
+      nuevo en `js/typography.js` para el título sin foto
+- [ ] Etapa 13 — Pestaña "Eventos" del panel de un pin: de lista
+      apilada a carrusel horizontal de esas tarjetas
+- [ ] Etapa 14 — Selector de fecha propio (calendario con click único
+      o rango de 2 clicks) reemplazando el `<input type=date>` nativo
+      + extensión del filtro de fecha para soportar rango
+- [ ] Etapa 15 — Panel nuevo "Todos los eventos" (mismo `PoiPanel`,
+      abre en `'full'` en vez de `'peek'`) con buscador (texto + el
+      calendario de la Etapa 14) y grilla de tarjetas de TODOS los
+      eventos de la app — botón de acceso con ubicación aún sin
+      definir por Cris
 
 ---
 
@@ -787,6 +836,57 @@ guardado de usuario común, o van a fallar por permisos.
 
 ---
 
+### Etapa 11 — Imagen opcional por evento ✅ COMPLETADA (2026-09-27)
+
+**Qué se hizo:** cada evento tiene ahora un campo opcional `imagenUrl`.
+El campo "Foto del evento" se agregó UNA sola vez en el módulo
+compartido `js/eventos-form-shared.js` y aparece en los 2 formularios
+(tab admin "Eventos" y panel de usuario/dueño) — el dueño ya puede
+subir la suya sin ningún paso extra.
+
+**Reglas de la foto:** solo JPG o WebP (PNG se rechaza), máx. 10 MB,
+vista previa antes de guardar, botón "Quitar". Se sube al GUARDAR (no al
+elegirla), así cancelar no deja archivos sueltos en Cloudinary; en el
+Camino B se sube antes de crear el pin, así un fallo de subida no deja
+un pin huérfano. Si la subida sale bien pero el guardado falla, el
+reintento reusa la misma foto (no sube dos veces). Al editar, solo se
+escribe `imagenUrl` si tocaron la foto.
+
+**Cloudinary:** preset nuevo `smartcity_eventos_01` (constante
+`CLOUDINARY_UPLOAD_PRESET_EVENTOS` en `js/utils.js`, se elige con
+`subfolder: 'eventos'`), carpeta `.../{ciudad activa}/eventos/`,
+`public_id` = `{slug-del-nombre}_{tiempo}`.
+
+**Archivos modificados:** `js/utils.js`, `js/eventos-form-shared.js`,
+`js/eventos.js` (`saveEvento`), `js/user-panel.js` (`saveUpEvento`),
+`js/i18n.js` (es/en/pt), `index.html` (bloque en los 2 forms + cache
+busting), `css/base.css`, `FIRESTORE_RULES_NOTES.md`, `AI_RULES.md`
+(sección 14.3), `AI_SESSION.md`, este archivo.
+
+**Hallazgo corregido de paso (regla de Firestore):** el `allow update`
+de `eventos` para usuarios tenía la lista de campos permitidos
+desactualizada (le faltaban horario, entradaGratis, valorEntrada,
+direccion, tags y contacto*, agregados en etapas anteriores). Se
+completó la lista y se sumó `imagenUrl`.
+
+**⚠️ Pasos manuales de Cris (no son código) — sin esto NO funciona:**
+1. Crear en Cloudinary el preset **`smartcity_eventos_01`**: unsigned;
+   incoming transformation `c_fill,g_auto,w_800,h_450,q_auto,f_auto`;
+   allowed formats `jpg,jpeg,webp`.
+2. Volver a pegar el bloque `eventos` de `FIRESTORE_RULES_NOTES.md` en
+   Firestore → Rules.
+
+**Pruebas realizadas:** `node --check` sin errores en los 5 `.js`
+tocados; ids del HTML cruzados con los que usa el JS. **NO probado
+contra Cloudinary ni Firebase reales ni en navegador.** Pendiente que
+Cris pruebe: (a) crear un evento con foto JPG desde el admin y ver que
+queda `imagenUrl` en Firestore; (b) intentar un PNG y ver el aviso;
+(c) crear/editar un evento con foto desde una cuenta común; (d) editar
+y quitar la foto; (e) crear un evento sin foto y confirmar que sigue
+funcionando igual que antes.
+
+---
+
 ### Hotfix (2026-08-27) — botón de perfil sin respuesta para un usuario común
 
 **Contexto:** después de entregar la Etapa 6, Cris reportó que un
@@ -1052,6 +1152,201 @@ con Cris cuál de las dos versiones arrancar antes de esta etapa.
 
 ---
 
+### Etapa 11 — Imagen opcional por evento (Cloudinary) — ✅ COMPLETADA 27/09 (ver "REGISTRO POR ETAPA")
+**Origen:** conversación con Cris del 27/09 sobre rediseñar la
+sección de eventos (screenshots de Eventbrite como referencia).
+
+**Qué se hace:** cada evento (colección `eventos`) suma un campo
+`imagenUrl` (opcional — puede quedar vacío). El campo de carga se
+agrega en `js/eventos-form-shared.js` (el módulo que ya comparten el
+form del admin y el del dueño/usuario — Etapa 10) para que salga en
+los dos lados de una sola vez.
+
+**Confirmado con Cris (27/09) — esto YA incluye a los dueños, no es
+trabajo a futuro:** el toggle `creacionEventosHabilitada`
+(`js/eventos.js`), que ya existe y viene **habilitado por defecto**,
+ya deja que un dueño/usuario cree su propio evento desde su panel
+(`js/user-panel.js`) usando este mismo formulario compartido. Al
+agregar el campo de foto en `eventos-form-shared.js` (no en un
+formulario aparte), automáticamente el dueño también puede subir la
+suya — cero trabajo adicional para "delegarlo". La nota anterior de
+este plan que hablaba de esto como "pregunta a futuro" quedó
+corregida: ya es así hoy.
+
+**Cloudinary — preset NUEVO y separado, ni el de pines ni el de
+banner sirven** (proporciones distintas). Nombre sugerido:
+`smartcity_eventos_01`. Configuración a definir en la consola de
+Cloudinary (paso manual de Cris, no de código) — **recomendación de
+Claude, a confirmar antes de crear el preset:**
+- **Incoming transformation:** `c_fill,g_auto,w_800,h_450,q_auto,f_auto`
+  — recorte a proporción FIJA 16:9 (no `c_limit` como el de pines,
+  que solo limita el máximo pero deja pasar cualquier proporción —
+  acá se necesita que TODAS las tarjetas midan igual, con `c_fill` +
+  `g_auto` Cloudinary elige solo el foco de la imagen al recortar).
+  `q_auto,f_auto` = Cloudinary elige automáticamente la mejor
+  calidad/formato de salida (WebP cuando el navegador lo soporta),
+  optimizando peso solo, sin que quien sube tenga que convertir nada
+  a mano.
+- **`allowed_formats`:** `jpg,jpeg,webp` — Cloudinary rechaza
+  cualquier otro formato (png incluido) directo en el servidor, no
+  depende de que el navegador respete nada.
+- Del lado del código: el input de archivo suma `accept="image/jpeg,
+  image/webp"` + chequeo de `file.type` ANTES de intentar subir
+  (mismo criterio ya usado por `validateUploadFilename` en
+  `js/utils.js` — avisar rápido sin gastar un intento de subida), y
+  la carpeta sale de `CloudinaryAdmin.buildFolder()` con subcarpeta
+  propia (ej. `eventos`), mismo mecanismo que ya existe, no uno
+  paralelo.
+
+**Nota de tranquilidad, no hace falta nada nuevo para esto:** aunque
+un dueño ya puede crear su evento (y ahora su foto) sin pasar por
+vos, todo evento nuevo nace `activo:false` sin importar quién lo
+crea (ya resuelto en la Etapa 6) — seguís teniendo el mismo control
+de revisar antes de que se vea público que ya tenías para el resto
+del evento, la foto no rompe ese candado.
+
+**Depende de:** Etapa 10 (`eventos-form-shared.js`) ya hecha, y de
+que Cris cree el preset nuevo en la consola de Cloudinary con estos
+valores (o los que confirme en su lugar) antes de que el código
+pueda usarlo.
+
+**Decisión que resuelve:** punto 5 de "DECISIONES PENDIENTES" arriba
+(Cloudinary recomendado, confirmado).
+
+**Estimación:** 2-3hs (sin contar el paso manual de Cris en la
+consola de Cloudinary, que no lleva código).
+
+---
+
+### Etapa 12 — Tarjeta de evento unificada + 4to nivel de tipografía — SIN ARRANCAR
+
+**Qué se hace:** un componente de tarjeta ÚNICO (una sola función de
+render, reusada por la Etapa 13 y la Etapa 15 — no duplicada) con 2
+variantes:
+- **Con foto** (`ev.imagenUrl` de la Etapa 11 presente): imagen
+  arriba, estilo tarjeta tipo Eventbrite.
+- **Sin foto:** en el mismo espacio donde iría la imagen, el nombre
+  del evento en letra grande. Tamaño/color/fuente de ese texto salen
+  de un 4to nivel nuevo en `js/typography.js` (hoy tiene 3: Nombre
+  principal / Título de sección / Texto de contenido — todos
+  editables desde el admin, mismo mecanismo de variables CSS +
+  presets en Firestore). Se agrega `{ key: 'eventoSinFoto', ... }` a
+  `TYPO_LEVELS`, reusando el sistema entero tal cual — nada paralelo.
+  Aplica igual a TODOS los eventos sin foto a la vez (no es
+  configurable evento por evento).
+
+En una esquina de la tarjeta (ambas variantes), un ícono chico que al
+tocarlo centra el mapa en ese pin — reusa `panToPoiCenter(poi)`
+(`js/app.js`, ya existe) tal cual. **Asumido con Cris:** el ícono
+SOLO mueve el mapa — no abre el panel de ese lugar, no dispara
+`expandPin`/`collapsePin`, y no cierra ni cambia de tamaño el panel
+que esté abierto en ese momento (el del pin, o el de la Etapa 15).
+Confirmar si en cambio se espera algún efecto visual extra (ej. que
+el pin rebote/se destaque un instante).
+
+**Depende de:** Etapa 11 (el campo `imagenUrl` tiene que existir para
+poder elegir variante).
+
+**Estimación:** 2-3hs (tarjeta) + 1-1.5hs (4to nivel de tipografía) =
+**3-4.5hs**.
+
+---
+
+### Etapa 13 — Carrusel de tarjetas en la pestaña "Eventos" del pin — SIN ARRANCAR
+
+**Qué se hace:** `_renderEventosTab()` (`js/poi-panel.js`) deja de
+pintar la lista apilada de texto plano (`.poi-panel__evento-card`,
+una debajo de la otra con `border-top`) y pasa a un carrusel
+horizontal con scroll de las tarjetas de la Etapa 12.
+
+**Depende de:** Etapa 12.
+
+**Estimación:** 1hs.
+
+---
+
+### Etapa 14 — Calendario propio (día único o rango) — SIN ARRANCAR
+
+**Qué se hace:** reemplaza el `<input type="date">` nativo que hoy
+vive en `#eventos-fecha-bar` (`js/eventos-fecha-filtro.js` +
+`css/base.css`) por un botón chico, mismo estilo visual que los
+botones de categoría (círculo + ícono), con ícono de calendario,
+apareciendo arriba del botón "Eventos" de la fila de categorías (el
+mismo lugar donde hoy está la barra de fecha unificada visualmente el
+27/09). Al tocarlo se abre un calendario propio (no el picker nativo
+del celular/navegador):
+- 1er click sobre un día → fecha puntual.
+- 2do click sobre OTRO día (sin haber confirmado el primero) → el
+  1er click pasa a ser INICIO de rango, el 2do el FIN. Un solo
+  calendario, nunca dos inputs separados.
+- Se confirma con un botón "Buscar"/"OK" dentro del propio
+  calendario.
+
+Al confirmar, se resaltan en el mapa los pines con eventos en esa
+fecha puntual (ya existe) o dentro de ese rango (**nuevo** — hoy
+`_eventoOcurreEnFecha()`/`js/eventos-fecha-filtro.js` solo sabe
+comparar contra UN día vía `Intl.DateTimeFormat`, huso horario real
+de la ciudad del evento — ver AI_SESSION.md 2026-09-27; hay que
+extender esa misma función para que acepte un rango, no reimplementar
+la comparación de fecha en otro lado).
+
+**Importante — este calendario se construye UNA sola vez y se reusa**
+en 2 lugares: acá (filtro de fecha sobre el mapa) y en el buscador de
+la Etapa 15 (panel "Todos los eventos"). No conviene programarlo dos
+veces.
+
+**Depende de:** nada nuevo (toca código ya existente), pero conviene
+hacerla antes de la Etapa 15 para no programar el buscador de fecha
+dos veces.
+
+**Estimación:** 4-6hs (la pieza más grande de todo este bloque).
+
+---
+
+### Etapa 15 — Panel "Todos los eventos" — SIN ARRANCAR
+
+**Qué se hace:** un panel nuevo que muestra TODOS los eventos de la
+app (de cualquier pin), no solo los de un lugar puntual. Reusa el
+componente `PoiPanel` que ya existe tal cual — mismo drag/snap
+`peek`/`full`, mismo `open(id, initialState)` que ya soporta un
+parámetro de estado inicial — la única diferencia real es que este
+arranca directo en `'full'` en vez de `'peek'` (que es a lo que hoy
+se llega recién con doble click/doble tap). De ahí en más se comporta
+exactamente igual (drag, doble click/tap para bajar a `'peek'`,
+etc.) — es el MISMO panel, no uno nuevo desde cero.
+
+Adentro: una barra de búsqueda/filtro arriba (texto libre + el
+calendario de la Etapa 14, opcional — pensado para poder sumarle tags
+o palabras clave más adelante sin rehacer nada) y debajo una grilla
+con las tarjetas de la Etapa 12, de cualquier pin. **Asumido con
+Cris, a confirmar:** tocar una tarjeta ahí cierra este panel y abre
+el panel de ESE lugar puntual, en su pestaña "Eventos".
+
+**Pendiente sin resolver — bloquea el arranque de esta etapa
+puntual (no las anteriores):** desde dónde se abre. Cris todavía no
+lo definió ("ya veré en dónde ubicarlo") — descartado que sea el
+mismo botón "Eventos" de categorías con otro gesto (mantenerlo
+apretado, etc.) porque no tendría sentido con lo que ese botón ya
+hace hoy (filtrar el mapa). Ideas sobre la mesa sin decidir: un botón
+nuevo en la fila de categorías, o un ícono de filtro al final de la
+barra de búsqueda superior. Confirmar antes de arrancar esta etapa
+puntual.
+
+**Depende de:** Etapa 12 (tarjetas) y, para el buscador completo,
+Etapa 14 (calendario) — se puede arrancar el panel en sí sin esperar
+la Etapa 14 y sumarle el filtro de fecha después.
+
+**Estimación:** 3-4hs.
+
+---
+
 ## TOTAL ESTIMADO (Etapas 1 a 8)
 **94-137hs**, sin contar la integración real de cobro ni lo de
 panaderías (ambos fuera de alcance de este plan por ahora).
+
+## TOTAL ESTIMADO (Etapas 11 a 15) — agregado 27/09
+**13-18.5hs**, repartidas en entregas separadas por etapa (no una
+sola tanda). No incluye la Parte 3 pendiente de
+`PLAN_UNIFICACION_FORMULARIO_EVENTOS.md` (Etapa 10, "listas + repaso
+de regresión") — es un plan aparte, mencionado en "ESTADO ACTUAL" de
+arriba solo para que no se pierda.

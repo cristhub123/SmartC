@@ -470,6 +470,25 @@ pestaña de eventos es editable (`settings/eventos-config`,
 `tituloPanelEventos`) desde la tab admin "Eventos" → "CONFIGURACIÓN
 PÚBLICA".
 
+## 14.3 Foto opcional del evento (Etapa 11, PLAN_USUARIOS_EVENTOS.md)
+
+**[2026-09-27]** `eventos/{id}.imagenUrl` (string, `''` si no tiene).
+Se carga en el módulo COMPARTIDO `js/eventos-form-shared.js`
+(`EventosFormCommon.wireImagenInput` / `precargarImagen` / `resetImagen` /
+`resolverImagen`), por eso sale igual en el form admin (`evt-`) y en el
+del usuario (`up-evt-`) — no crear otro uploader aparte. La foto se
+sube recién al GUARDAR (no al elegirla), antes de crear el pin del
+Camino B. Sube con `uploadToCloudinary(file, { subfolder: 'eventos' })`
+(`js/utils.js`) → preset `smartcity_eventos_01`
+(`CLOUDINARY_UPLOAD_PRESET_EVENTOS`), carpeta
+`.../{ciudad activa}/eventos/`, `public_id` = `{slug-del-nombre}_{tiempo}`
+(nunca el nombre del archivo del celular). Solo JPG/WebP, máx. 10 MB
+(validado en el cliente; el preset también rechaza otros formatos).
+**Dependencia manual:** el preset debe existir en la consola de
+Cloudinary (unsigned, incoming `c_fill,g_auto,w_800,h_450,q_auto,f_auto`,
+allowed formats `jpg,jpeg,webp`) y las reglas de Firestore de `eventos`
+(`FIRESTORE_RULES_NOTES.md`) deben estar republicadas con `imagenUrl`.
+
 ## 15. Ver también
 
 `AI_SESSION.md` — memoria de trabajo temporal de la sesión actual (qué se

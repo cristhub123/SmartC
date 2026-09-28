@@ -2110,3 +2110,116 @@ que es la única versión real y sigue intacta). Sin impacto funcional
 **Pruebas realizadas:** confirmado que `js/eventos-fecha-filtro.js`
 sigue presente y sin tocar; `grep` sobre `index.html` confirma que
 nunca referenció la copia de la raíz por ruta completa.
+
+## 2026-09-27 (cont. 3) — Plan de rediseño de la sección de eventos (Etapas 11-15), sin implementar
+
+Cris trajo capturas de Eventbrite como referencia para rediseñar
+cómo se ven los eventos en la app (hoy: lista de texto plano en la
+pestaña "Eventos" del panel de cada pin — "parece una hoja de
+excel"). Se conversó bastante en varias idas y vueltas hasta cerrar
+un plan concreto, PERO SE PIDIÓ EXPLÍCITAMENTE NO EJECUTAR NADA
+TODAVÍA — solo dejarlo documentado para retomar en este chat o en
+uno nuevo.
+
+Se agregó todo el detalle a `PLAN_USUARIOS_EVENTOS.md` (que ya era el
+plan maestro del sistema de eventos) en vez de crear un archivo plan
+nuevo aparte, como Etapas 11 a 15 — ver ese archivo para el detalle
+técnico completo de cada una. Resumen de qué cubre cada etapa:
+- Etapa 11: imagen opcional por evento (Cloudinary)
+- Etapa 12: tarjeta de evento unificada (con/sin foto + ícono de
+  centrar en el mapa) + 4to nivel de tipografía para el título grande
+  cuando no hay foto
+- Etapa 13: la pestaña "Eventos" de un pin pasa a carrusel de esas
+  tarjetas
+- Etapa 14: calendario propio (día único o rango de 2 clicks)
+  reemplazando el `<input type=date>` nativo, + extender el filtro de
+  fecha para soportar rango
+- Etapa 15: panel nuevo "Todos los eventos" — reusa el mismo
+  `PoiPanel` de siempre, solo que arranca en `'full'` en vez de
+  `'peek'` (ya soportado por `open(id, initialState)`)
+
+**Hallazgo colateral al revisar el archivo para agregar esto:** la
+sección "ESTADO ACTUAL" de `PLAN_USUARIOS_EVENTOS.md` estaba
+desactualizada — decía "Etapa 8" como última hecha, pero el código
+ya tenía comentarios de Etapa 9 y Etapa 10 (unificación de
+`eventos-form-shared.js`, con su propio plan
+`PLAN_UNIFICACION_FORMULARIO_EVENTOS.md` que no está en este ZIP,
+Partes 1 y 2 hechas según `CAMBIOS_UNIFICACION_EVENTOS.txt`, Parte 3
+"listas + repaso de regresión" pendiente) que nunca se volcaron acá.
+Corregido y numerado a partir de Etapa 11 para no chocar. No se
+investigó más a fondo la Parte 3 pendiente — queda mencionada, sin
+tocar.
+
+**Decisión pendiente de confirmación de Cris (no bloquea empezar):**
+cómo alojar la imagen de un evento — Claude recomendó Cloudinary
+(mismo patrón que el resto de la app, hoy admin-only igual que toda
+subida de imagen del proyecto) en vez de un campo de link externo —
+ver punto 5 de "DECISIONES PENDIENTES" en el plan.
+
+**Decisión pendiente real que sí bloquea la Etapa 15 puntual:** desde
+dónde se abre el botón del panel "Todos los eventos" — Cris todavía
+no lo definió.
+
+**Archivos modificados:** `PLAN_USUARIOS_EVENTOS.md` (documentación
+pura, agregado de plan). Ningún archivo de código tocado esta vez —
+pedido explícito de Cris de solo planificar.
+
+**Pruebas realizadas:** ninguna — no hay código para probar.
+
+## 2026-09-27 (cont. 4) — Corrección: dueños ya pueden crear eventos hoy + parámetros de Cloudinary para la foto
+
+Cris preguntó si solo él podría subir la foto del evento. Al revisar
+`js/eventos.js` se encontró que la entrada anterior de este mismo
+día (y una línea de `PLAN_USUARIOS_EVENTOS.md`, punto 5 de
+"DECISIONES PENDIENTES") decía incorrectamente que la creación de
+eventos "sigue siendo admin-only" — **es falso**: el toggle
+`creacionEventosHabilitada` viene habilitado por defecto
+(`if (cfg.creacionEventosHabilitada === undefined)
+cfg.creacionEventosHabilitada = true;`), así que un dueño/usuario ya
+puede crear su propio evento hoy desde `js/user-panel.js`, usando el
+mismo formulario compartido (`js/eventos-form-shared.js`) que el
+admin. Corregido en el plan (punto 5 de "DECISIONES PENDIENTES" y
+Etapa 11) — la Etapa 11, tal como ya estaba planeada (campo de foto
+en el módulo COMPARTIDO), ya delega la subida al dueño sin trabajo
+extra.
+
+Cris también pidió parámetros concretos para la imagen (tamaño
+estándar, calidad óptima, solo formatos livianos — rechazar png por
+riesgo de cuota en su cuenta actual). Se documentó en la Etapa 11 la
+recomendación técnica: preset de Cloudinary NUEVO y separado
+(`smartcity_eventos_01`, ni el de pines ni el de banner sirven),
+incoming transformation `c_fill,g_auto,w_800,h_450,q_auto,f_auto`
+(recorte a 16:9 fijo, no `c_limit` como pines — acá se necesita
+proporción pareja entre tarjetas, no solo un tope de tamaño) +
+`allowed_formats: jpg,jpeg,webp` (rechaza png del lado del servidor)
++ validación cliente (`accept`/`file.type`) antes de intentar subir,
+mismo criterio que ya usa `validateUploadFilename` en `js/utils.js`.
+Crear ese preset en la consola de Cloudinary es un paso manual de
+Cris, no de código — queda anotado con los valores exactos para
+cuando llegue esa etapa.
+
+**Archivos modificados:** `PLAN_USUARIOS_EVENTOS.md` (documentación
+pura). Ningún código tocado — sigue siendo solo planificación,
+pedido explícito de Cris.
+
+**Pruebas realizadas:** ninguna — no hay código para probar.
+
+## 2026-09-27 (cont. 5) — Etapa 11 COMPLETADA: foto opcional por evento
+
+Leídos `AI_RULES.md` y `PLAN_USUARIOS_EVENTOS.md` antes de tocar código.
+Implementado el campo `imagenUrl` en el módulo compartido
+`js/eventos-form-shared.js` (`wireImagenInput`, `precargarImagen`,
+`resetImagen`, `resolverImagen`), conectado a `saveEvento()` (admin) y
+`saveUpEvento()` (usuario). Preset nuevo `smartcity_eventos_01` en
+`js/utils.js` (`subfolder: 'eventos'`). Bloque HTML en los 2 forms,
+CSS `.evt-img-*`, textos i18n es/en/pt, reglas de Firestore corregidas
+(lista de campos desactualizada + `imagenUrl`), `AI_RULES.md` 14.3.
+
+Decisiones: la foto se sube al guardar (no al elegir); en Camino B se
+sube antes de crear el pin; `public_id` propio (no el nombre del
+archivo) para evitar choques entre usuarios; máx. 10 MB.
+
+**Pendiente de Cris:** crear el preset en Cloudinary y republicar las
+reglas de `eventos`. **Pruebas:** `node --check` OK; NO probado en
+navegador ni contra Cloudinary/Firebase reales.
+

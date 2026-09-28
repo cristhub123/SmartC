@@ -184,6 +184,12 @@ service cloud.firestore {
     //     campos de contenido del evento — nunca `poi_id`, `city`,
     //     `activo`, `creadorUid`/`usuarioAsignadoUid` ni subir el
     //     contador (eso es admin-only, ya cubierto por `allow write`).
+    //   - [Etapa 11, 27/09] la lista de campos permitidos se corrigió:
+    //     estaba desactualizada (le faltaban horario, entradaGratis,
+    //     valorEntrada, direccion, tags, contacto*) y se sumó `imagenUrl`
+    //     (foto opcional del evento). SIN volver a pegar este bloque en la
+    //     consola, un usuario que edite su evento y toque esos campos
+    //     (o la foto) recibe error de permisos.
     match /eventos/{eventoId} {
       allow read: if true;
       allow write: if request.auth != null
@@ -199,7 +205,10 @@ service cloud.firestore {
                    && request.resource.data.cambiosRestantes == resource.data.cambiosRestantes - 1
                    && request.resource.data.diff(resource.data).affectedKeys()
                         .hasOnly(['nombre', 'nombreSlug', 'descripcion', 'categoria',
-                                  'fecha_inicio', 'fecha_fin', 'cambiosRestantes']);
+                                  'fecha_inicio', 'fecha_fin', 'horario',
+                                  'entradaGratis', 'valorEntrada', 'direccion', 'tags',
+                                  'contactoEmail', 'contactoRedSocial', 'contactoTelefono',
+                                  'contactoWeb', 'imagenUrl', 'cambiosRestantes']);
     }
   }
 }

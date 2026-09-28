@@ -44,7 +44,7 @@ cambio hecho y la verificacion realizada.
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Nunito:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
   <!-- App CSS -->
-  <link rel="stylesheet" href="css/base.css?v=20260907">
+  <link rel="stylesheet" href="css/base.css?v=20260927b">
   <!-- CSS del Panel POI -->
   <link rel="stylesheet" href="css/poi-panel.css?v=20260829">
 
@@ -353,6 +353,19 @@ cambio hecho y la verificacion realizada.
         <div class="fg">
           <label class="fl" data-i18n="up_evt_desc_label">Descripción</label>
           <textarea class="fta" id="up-evt-descripcion" data-i18n-placeholder="up_evt_desc_ph" placeholder="¿De qué se trata el evento?"></textarea>
+        </div>
+        <div class="fg">
+          <label class="fl" data-i18n="up_evt_foto_label">Foto del evento (opcional)</label>
+          <div class="evt-img-wrap">
+            <img class="evt-img-preview" id="up-evt-imagen-preview" alt="" hidden>
+            <div class="evt-img-actions">
+              <label class="evt-img-btn" for="up-evt-imagen-input" data-i18n="up_evt_foto_btn">📷 Elegir foto</label>
+              <button type="button" class="evt-img-btn evt-img-btn-quitar" id="up-evt-imagen-quitar" hidden data-i18n="quitar">Quitar</button>
+            </div>
+            <input type="file" id="up-evt-imagen-input" accept="image/jpeg,image/webp" hidden>
+          </div>
+          <div class="evt-img-hint" data-i18n="up_evt_foto_hint">JPG o WebP · se recorta a 16:9 · máx. 10 MB</div>
+          <div class="evt-img-error" id="up-evt-imagen-error"></div>
         </div>
         <div class="fg">
           <label class="fl" data-i18n="up_evt_categoria_label">Categoría del evento (tags) *</label>
@@ -877,6 +890,19 @@ campo-05:
       <div class="fg">
         <label class="fl">Descripción</label>
         <textarea class="fta" id="evt-descripcion" placeholder="¿De qué se trata el evento?"></textarea>
+      </div>
+      <div class="fg">
+        <label class="fl">Foto del evento (opcional)</label>
+        <div class="evt-img-wrap">
+          <img class="evt-img-preview" id="evt-imagen-preview" alt="" hidden>
+          <div class="evt-img-actions">
+            <label class="evt-img-btn" for="evt-imagen-input">📷 Elegir foto</label>
+            <button type="button" class="evt-img-btn evt-img-btn-quitar" id="evt-imagen-quitar" hidden>Quitar</button>
+          </div>
+          <input type="file" id="evt-imagen-input" accept="image/jpeg,image/webp" hidden>
+        </div>
+        <div class="evt-img-hint">JPG o WebP · se recorta a 16:9 · máx. 10 MB</div>
+        <div class="evt-img-error" id="evt-imagen-error"></div>
       </div>
       <div class="fg">
         <label class="fl">Categoría del evento (tags) *</label>
@@ -2004,7 +2030,7 @@ campo-05:
   <!-- Módulo de Estado Centralizado (Central Store) -->
   <script src="js/app-state.js?v=20260829" defer></script>
   <script src="js/lang-switcher.js?v=20260829" defer></script>
-  <script src="js/i18n.js?v=20260926" defer></script>
+  <script src="js/i18n.js?v=20260927b" defer></script>
   <!-- [DESCONECTADO 2026-08-13 — smartcityV3.0_fix-mapa-pines. NO BORRAR ESTA NOTA
        en una limpieza futura: explica por qué este script sigue en el repo pero
        sin cargarse.] js/pois-loader.js hidrataba AppState/window.POIS con los 4
@@ -2050,7 +2076,7 @@ campo-05:
 
   <!-- 5. Utilities -->
   <script src="js/cloudinary-admin.js?v=20260829" defer></script>
-  <script src="js/utils.js?v=20260927" defer></script>
+  <script src="js/utils.js?v=20260927b" defer></script>
   <script src="js/img-slots.js?v=20260829" defer></script>
   <script src="js/geocoder.js?v=20260831" defer></script>
 
@@ -2071,10 +2097,10 @@ campo-05:
   <!-- 7. Features -->
   <script src="js/pin-adjust.js?v=20260927" defer></script>
   <script src="js/pin-geocode.js?v=20260829" defer></script>
-  <script src="js/eventos-form-shared.js?v=20260831" defer></script>
-  <script src="js/eventos.js?v=20260927" defer></script>
+  <script src="js/eventos-form-shared.js?v=20260927b" defer></script>
+  <script src="js/eventos.js?v=20260927b" defer></script>
   <script src="js/eventos-fecha-filtro.js?v=20260904" defer></script>
-  <script src="js/user-panel.js?v=20260831" defer></script>
+  <script src="js/user-panel.js?v=20260927b" defer></script>
   <script src="js/usuarios-admin.js?v=20260927" defer></script>
   <script src="js/empleados.js?v=20260829" defer></script>
   <script src="js/cluster.js?v=20260829" defer></script>
