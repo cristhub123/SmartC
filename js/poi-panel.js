@@ -210,7 +210,6 @@ const PoiPanel = (function () {
         </button>
       </div>
       <div class="poi-panel__header" data-role="header">
-        <p class="poi-panel__category" data-role="category"></p>
         <h2 class="poi-panel__title" data-role="title"></h2>
       </div>
       <div class="poi-panel__hero" data-role="hero" hidden>
@@ -265,7 +264,6 @@ const PoiPanel = (function () {
       eyeCount: panel.querySelector('[data-role="eye-count"]'),
       hero: panel.querySelector('[data-role="hero"]'),
       heroImage: panel.querySelector('[data-role="hero-image"]'),
-      category: panel.querySelector('[data-role="category"]'),
       title: panel.querySelector('[data-role="title"]'),
       subtitle: panel.querySelector('[data-role="subtitle"]'),
       subtitleRow: panel.querySelector('[data-role="subtitle-row"]'),
@@ -466,12 +464,11 @@ const PoiPanel = (function () {
     _renderHeroImage(poi);
 
     // --- Encabezado ---
-    els.category.textContent = poi.category || '';
-    // [2026-09-28] Sin coordenadas lat/lng en el panel (no aportan nada
-    // al visitante): el subtítulo queda solo con location_code, si hay.
-    const subtitleText = _formatSubtitle(poi);
-    els.subtitle.textContent = subtitleText;
-    els.subtitleRow.hidden = !subtitleText;
+    // [2026-09-28] El panel ya no muestra textos sueltos sin conexión con el
+    // sistema de filtros (categoría suelta sobre el título, coordenadas,
+    // location_code): solo el nombre, y las categorías reales en su fila.
+    els.subtitle.textContent = '';
+    els.subtitleRow.hidden = true;
 
     if (_isEditMode) {
       els.title.innerHTML = `<input type="text" class="poi-panel__input poi-panel__title-input" data-role="title-input" value="${_escapeAttr(finalName)}">`;
@@ -643,12 +640,6 @@ const PoiPanel = (function () {
     els.eyeBtn.title = hasMultiple ? (window.I18N ? I18N.t('pp_eye_other_image_title') : 'Ver otra imagen de este lugar') : '';
   }
 
-  function _formatSubtitle(poi) {
-    // [2026-09-28] Ya no se muestran las coordenadas (_getPoiCoords
-    // queda definida por si otra parte la necesita).
-    return poi.location_code ? String(poi.location_code) : '';
-  }
-
   /** Texto de relleno que el sistema escribe cuando no hay contenido
    *  real (ver pin-adjust.js / content-import.js). Devuelve '' si el
    *  texto es ese relleno, o el texto tal cual si no. */
@@ -685,8 +676,9 @@ const PoiPanel = (function () {
       : (poi.category ? [poi.category] : []);
     ids.forEach((id) => {
       const cfg = all[id];
+      // Solo categorías que existen en el sistema de filtros; un texto
+      // libre legado (ej. "Tiendas") sin categoría real detrás no se muestra.
       if (cfg && typeof getCatLabel === 'function') push(getCatLabel(cfg, _currentLang));
-      else if (id && !cfg && !/^[a-z0-9_]+$/.test(String(id))) push(id); // categoría legada en texto libre (ej. "Tiendas")
     });
     (Array.isArray(poi.subcategories) ? poi.subcategories : []).forEach((subId) => {
       const owner = (typeof _findSubcatOwner === 'function') ? _findSubcatOwner(subId) : null;
@@ -1031,12 +1023,17 @@ const PoiPanel = (function () {
       startState: _panelState,
       panelHeight: height,
       pointerId,
+      lastY: y, lastT: performance.now(), vel: 0, // px/ms, + = hacia abajo
     };
     els.panel.classList.add('is-dragging');
   }
 
   function _moveDrag(y) {
     if (!_dragState) return;
+    const now = performance.now();
+    const dt = now - _dragState.lastT;
+    if (dt > 0) _dragState.vel = 0.6 * ((y - _dragState.lastY) / dt) + 0.4 * _dragState.vel;
+    _dragState.lastY = y; _dragState.lastT = now;
     const delta = y - _dragState.startY;
     const next = Math.min(Math.max(_dragState.startTranslate + delta, 0), _dragState.panelHeight);
     _els.panel.style.transform = `translate(-50%, ${next}px)`;
@@ -1044,15 +1041,19 @@ const PoiPanel = (function () {
 
   function _finishDrag(y) {
     if (!_dragState) return;
-    const { startY, startTranslate, startState, panelHeight } = _dragState;
+    const { startY, startTranslate, startState, panelHeight, vel } = _dragState;
     _els.panel.classList.remove('is-dragging');
     _dragState = null;
 
     const delta = y - startY; // + = hacia abajo, - = hacia arriba
 
+    // Un "flick" (deslizamiento corto pero rápido) cuenta como intencional
+    // aunque no llegue al umbral de distancia.
+    const isFlick = Math.abs(vel) > 0.4 && Math.abs(delta) >= 10 && (vel > 0) === (delta > 0);
+
     // Con un arrastre por debajo del umbral, el panel vuelve a su
     // estado de partida (gesto no intencional / mano temblando).
-    if (Math.abs(delta) < DRAG_THRESHOLD_PX) {
+    if (Math.abs(delta) < DRAG_THRESHOLD_PX && !isFlick) {
       _snapTo(startState);
       return;
     }
