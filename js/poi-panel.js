@@ -211,6 +211,12 @@ const PoiPanel = (function () {
       </div>
       <div class="poi-panel__header" data-role="header">
         <h2 class="poi-panel__title" data-role="title"></h2>
+        <!-- [2026-09-28] Categorías/subcategorías reales del lugar: texto simple
+             (no botones), una sola línea justo bajo el título; si no entran,
+             se desplazan de izquierda a derecha. -->
+        <div class="poi-panel__cats-wrap" data-role="cats-wrap" hidden>
+          <div class="poi-panel__cats-row" data-role="cats-row"></div>
+        </div>
       </div>
       <div class="poi-panel__hero" data-role="hero" hidden>
         <img class="poi-panel__hero-image" data-role="hero-image" alt="">
@@ -231,10 +237,6 @@ const PoiPanel = (function () {
       </div>
       <div class="poi-panel__scroll" data-role="scroll">
         <div data-role="info-tab-content">
-          <!-- [2026-09-28] Todas las categorías/subcategorías del lugar,
-               una al lado de la otra en una sola fila (va justo debajo de
-               las pestañas Info/Eventos). -->
-          <div class="poi-panel__cats-row" data-role="cats-row" hidden></div>
           <div data-role="body-section">
             <p class="poi-panel__gancho" data-role="gancho"></p>
             <p class="poi-panel__body" data-role="description"></p>
@@ -268,6 +270,7 @@ const PoiPanel = (function () {
       subtitle: panel.querySelector('[data-role="subtitle"]'),
       subtitleRow: panel.querySelector('[data-role="subtitle-row"]'),
       catsRow: panel.querySelector('[data-role="cats-row"]'),
+      catsWrap: panel.querySelector('[data-role="cats-wrap"]'),
       scroll: panel.querySelector('[data-role="scroll"]'),
       tabsRow: panel.querySelector('[data-role="tabs-row"]'),
       tabInfoBtn: panel.querySelector('[data-role="tab-info-btn"]'),
@@ -284,6 +287,8 @@ const PoiPanel = (function () {
       actionBtn: panel.querySelector('[data-role="action-btn"]'),
     };
 
+    _els.catsRow.addEventListener('scroll', _updateCatsHints, { passive: true });
+    if (window.ResizeObserver) new ResizeObserver(_updateCatsHints).observe(_els.catsRow);
     _els.tabInfoBtn.addEventListener('click', () => _setActiveTab('info'));
     _els.tabEventosBtn.addEventListener('click', () => _setActiveTab('eventos'));
 
@@ -693,10 +698,23 @@ const PoiPanel = (function () {
   function _renderCategoriesRow(poi) {
     const els = _els;
     const labels = _getPoiCategoryLabels(poi);
+    // Texto simple separado por doble espacio (no botones), una sola línea.
     els.catsRow.innerHTML = labels
       .map((l) => `<span class="poi-panel__cat-chip">${_escapeHtml(l)}</span>`)
-      .join('');
-    els.catsRow.hidden = labels.length === 0;
+      .join('&nbsp;&nbsp;');
+    els.catsWrap.hidden = labels.length === 0;
+    els.catsRow.scrollLeft = 0;
+    requestAnimationFrame(_updateCatsHints);
+  }
+
+  /** Indicadores ‹ › (clase has-left / has-right en el contenedor) cuando
+   *  la fila de categorías tiene más texto oculto hacia ese lado. */
+  function _updateCatsHints() {
+    const els = _els;
+    if (!els || !els.catsRow) return;
+    const r = els.catsRow;
+    els.catsWrap.classList.toggle('has-left', r.scrollLeft > 4);
+    els.catsWrap.classList.toggle('has-right', r.scrollLeft < r.scrollWidth - r.clientWidth - 4);
   }
 
   /**
