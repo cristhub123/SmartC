@@ -175,7 +175,7 @@ ahora — queda mencionada acá para que no se pierda, es un plan
 aparte del de abajo. Para NO chocar numeración, todo lo nuevo de acá
 arranca en **Etapa 11**.
 
-**ÚLTIMAS ETAPAS COMPLETADAS: Etapas 11 (27/09), 12 y 13 (28/09) — Próxima etapa a hacer: Etapa 14** (calendario propio, día único o rango). La Etapa 15 sigue sin arrancar y depende de la 14 para el buscador por fecha (y de que Cris defina desde dónde se abre el panel). Historial de esta sección: se
+**ÚLTIMAS ETAPAS COMPLETADAS: Etapas 11 (27/09), 12, 13 y 14 (28/09) — Próxima etapa a hacer: Etapa 15** (panel "Todos los eventos"), todavía bloqueada por la decisión pendiente de Cris (dónde va el botón que la abre — ver más abajo). El calendario propio de la Etapa 14 (`js/calendario-eventos.js`) queda listo para que la Etapa 15 lo reuse tal cual en su buscador. Historial de esta sección: se
 agrega (27/09) para documentar, SIN IMPLEMENTAR TODAVÍA, todo lo
 charlado con Cris sobre rediseñar la sección de eventos (tarjetas
 estilo Eventbrite, panel nuevo para ver todos los eventos de la app,
@@ -372,9 +372,10 @@ crear de nuevo):**
       nuevo en `js/typography.js` para el título sin foto
 - [x] Etapa 13 — ✅ COMPLETADA 2026-09-28 — Pestaña "Eventos" del panel de un pin: de lista
       apilada a carrusel horizontal de esas tarjetas
-- [ ] Etapa 14 — Selector de fecha propio (calendario con click único
-      o rango de 2 clicks) reemplazando el `<input type=date>` nativo
-      + extensión del filtro de fecha para soportar rango
+- [x] Etapa 14 — ✅ COMPLETADA 2026-09-28 — Selector de fecha propio
+      (calendario con click único o rango de 2 clicks) reemplazando el
+      `<input type=date>` nativo + extensión del filtro de fecha para
+      soportar rango
 - [ ] Etapa 15 — Panel nuevo "Todos los eventos" (mismo `PoiPanel`,
       abre en `'full'` en vez de `'peek'`) con buscador (texto + el
       calendario de la Etapa 14) y grilla de tarjetas de TODOS los
@@ -952,6 +953,59 @@ subida en la Etapa 11.
 
 ---
 
+### Etapa 14 — Calendario propio (día único o rango) ✅ COMPLETADA (2026-09-28)
+
+**Qué se hizo:** componente nuevo `js/calendario-eventos.js`
+(`window.CalendarioEventos`, `mount()`/`setValue()`/`getValue()`/
+`refresh()`/`destroy()`) — calendario mensual con selección de día
+único o rango de 2 clicks (el 2do click en otro día, sin confirmar,
+convierte el 1º en INICIO y el 2º en FIN; se ordenan solos). Sin
+dependencia de mapa/filtro/panel, para que la Etapa 15 lo reuse tal
+cual en su buscador (ver nota de cabecera del archivo). Fechas
+siempre `'YYYY-MM-DD'`, aritmética en UTC puro para que el huso del
+dispositivo nunca corra un día; el huso de la ciudad del evento lo
+sigue poniendo `_eventoOcurreEnFecha()`, no este componente.
+
+El `<input type="date">` nativo de `#eventos-fecha-bar` (`index.html`)
+se reemplazó por un botón círculo+ícono (mismo lenguaje visual que los
+botones de categoría) que abre un popover con el calendario adentro,
+registrado en `OverlayManager` (se cierra solo si se abre otro
+panel/menú flotante, y viceversa — patrón obligatorio de la sección 11
+de `AI_RULES.md`). Un chip con la fecha/rango elegido aparece al lado
+del botón una vez confirmado (botón "Buscar" dentro del calendario),
+con el mismo botón ✕ de siempre para sacar el filtro.
+
+**Extensión del filtro para soportar rango** (no se reimplementó la
+comparación de fecha en otro lado, tal como pedía este mismo plan más
+abajo): `_eventoOcurreEnFecha`/`pinTieneEventoEnFecha`
+(`js/eventos-fecha-filtro.js`) suman un 4to parámetro opcional
+`hastaStr` — sin él, exactamente el mismo comportamiento de antes.
+`js/config.js` suma el global `fechaFiltroEventosHasta` (`null` =
+selección puntual). `js/pin-visibility.js` (atenuado de pines en el
+mapa) y `js/poi-panel.js` (2 lugares: qué eventos entran en la
+pestaña del pin y su orden/atenuado) ya pasan ese 4to parámetro.
+
+**Archivos modificados/nuevos:** `js/calendario-eventos.js` (NUEVO),
+`js/eventos-fecha-filtro.js`, `js/config.js`, `js/pin-visibility.js`,
+`js/poi-panel.js`, `js/i18n.js` (`cal_*` es/en/pt), `css/base.css`
+(botón/chip/popover + calendario, se sacó `.efb-input` sin uso),
+`index.html` (script nuevo, cache busting), `AI_RULES.md` (sección
+14.5), `AI_SESSION.md`, este archivo.
+
+**Pruebas realizadas:** `node --check` sin errores en los 5 `.js`
+tocados/nuevos; llaves de `css/base.css` balanceadas; verificación
+algebraica de que `_eventoOcurreEnFecha`/`pinTieneEventoEnFecha` sin
+`hastaStr` da exactamente el mismo resultado que antes de esta etapa.
+**NO probado en navegador real ni contra Firebase.** Pendiente que
+Cris pruebe: (a) elegir un día puntual y un rango resaltan los pines
+correctos en el mapa (y atenúan el resto); (b) el popover respeta la
+exclusividad con el panel de un pin y el dropdown de zonas, en ambos
+sentidos; (c) el chip y el botón ✕ se ven bien y limpian el filtro;
+(d) los 3 idiomas del calendario/chip; (e) un evento sin `fecha_fin`
+sigue tratándose como 1 solo día dentro de un rango elegido.
+
+---
+
 ### Hotfix (2026-08-27) — botón de perfil sin respuesta para un usuario común
 
 **Contexto:** después de entregar la Etapa 6, Cris reportó que un
@@ -1330,7 +1384,7 @@ horizontal con scroll de las tarjetas de la Etapa 12.
 
 ---
 
-### Etapa 14 — Calendario propio (día único o rango) — SIN ARRANCAR
+### Etapa 14 — Calendario propio (día único o rango) — ✅ COMPLETADA 28/09 (ver "REGISTRO POR ETAPA")
 
 **Qué se hace:** reemplaza el `<input type="date">` nativo que hoy
 vive en `#eventos-fecha-bar` (`js/eventos-fecha-filtro.js` +

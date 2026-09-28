@@ -2289,3 +2289,25 @@ La fila de categorías/subcategorías reales del pin (`poi.categories`/`poi.subc
 
 **Ajuste (mismo día):** el separador entre categorías pasó de doble espacio a " - " (espacio, guion, espacio; con `&nbsp;` para que nunca corte línea). Solo `js/poi-panel.js` y `index.html` (`poi-panel.js?v=20260928f`). `node --check` OK.
 
+
+## 2026-09-28 (cont.) — Etapa 14: calendario propio (día único o rango) del filtro de fecha
+
+Leídos `AI_RULES.md` y `PLAN_USUARIOS_EVENTOS.md` antes de tocar código; confirmado que la próxima etapa a hacer era la 14 (Etapa 15 sigue bloqueada por decisión de Cris sobre dónde va el botón).
+
+**Componente nuevo `js/calendario-eventos.js` (`window.CalendarioEventos`):** calendario mensual con selección de día único o rango (1er click = día, 2do click en otro día sin confirmar = rango, ordenado solo), aritmética de fechas en UTC puro (sin huso) para no correr de día, textos vía `I18N`/`Intl` con el idioma activo. `mount(contenedor, opts)` → `{setValue, getValue, refresh, destroy}`. Sin dependencias de mapa/filtro/panel — pensado para que la Etapa 15 lo reuse tal cual (nota en su propia cabecera).
+
+**Filtro de fecha del mapa (`js/eventos-fecha-filtro.js`):** el `<input type="date">` nativo se reemplazó por un botón círculo+ícono (`.efb-btn`) que abre un popover (`.efb-popover`) con el calendario montado adentro, registrado en `OverlayManager` como `'fechaCalendarioPopover'` (se cierra solo al abrir otro panel/menú, y viceversa). Un chip (`.efb-chip`) con el rango/fecha elegido (`CalendarioEventos.formatRango`) aparece al lado del botón, con el mismo `.efb-clear` de siempre. Se confirma con "Buscar" dentro del calendario (no hay filtro en vivo mientras se elige).
+
+**Soporte de rango, extendiendo funciones existentes (no una comparación nueva en otro lado):** `js/config.js` suma `fechaFiltroEventosHasta` (global, `null` = puntual) junto al `fechaFiltroEventos` ya existente (sigue siendo el día puntual o el inicio). `_eventoOcurreEnFecha`/`pinTieneEventoEnFecha` (`js/eventos-fecha-filtro.js`) suman un 4to parámetro opcional `hastaStr` — sin él, mismo comportamiento exacto de antes (verificado por reducción algebraica: con `hastaSel === desdeSel` la superposición de rangos colapsa a la comparación de un solo día que ya existía). `js/pin-visibility.js` y `js/poi-panel.js` (2 lugares: pestaña de eventos del pin, orden/atenuado de tarjetas) pasan ahora `fechaFiltroEventosHasta` en esa 4ta posición.
+
+**index.html:** script nuevo `js/calendario-eventos.js?v=20260928` justo antes de `eventos-fecha-filtro.js` (que lo monta); cache-busting bumpeado en `config.js`, `pin-visibility.js`, `poi-panel.js`, `i18n.js`, `eventos-fecha-filtro.js` y `css/base.css` (todos tocados) — regla de la sesión anterior: sin esto Vercel sigue sirviendo la versión vieja (`vercel.json` cachea `/js/*`/`/css/*` como `immutable`).
+
+**i18n:** `cal_hint_vacio`, `cal_hint_dia`, `cal_hint_rango`, `cal_limpiar`, `cal_buscar`, `cal_prev`, `cal_next` en ES/EN/PT (`js/i18n.js`).
+
+**CSS (`css/base.css`):** se sacó `.efb-input` (ya sin uso, el input nativo desapareció); nuevo `.efb-wrap`/`.efb-btn`/`.efb-chip`/`.efb-popover` + bloque `.cal-*` completo del calendario, reusando variables ya existentes (`--accent`, `--accent-rgb`, `--surface-rgb`, `--surface2`, `--border`, `--text`, `--text2`, `--r-lg`, `--shadow-panel`) — nada de color hardcodeado nuevo, funciona en tema día/noche sin CSS aparte.
+
+**Pruebas realizadas:** `node --check` OK en `calendario-eventos.js`, `eventos-fecha-filtro.js`, `config.js`, `pin-visibility.js`, `poi-panel.js`, `i18n.js`; llaves de `css/base.css` balanceadas (525/525). **NO probado en navegador real ni contra Firebase.** Pendiente que Cris confirme: (a) elegir día puntual/rango resalta los pines correctos en el mapa; (b) el popover abre/cierra bien y respeta la exclusividad con otros paneles (pin, zonas); (c) el chip y el botón ✕ se ven bien y limpian el filtro; (d) los 3 idiomas; (e) que un evento sin `fecha_fin` sigue tratándose como 1 solo día dentro de un rango (cubierto por la reducción algebraica de arriba, pero sin probar en vivo).
+
+**Actualizado `PLAN_USUARIOS_EVENTOS.md`:** Etapa 14 marcada completada en el checklist y en "REGISTRO POR ETAPA"; "ESTADO ACTUAL" apunta a la Etapa 15 como próxima (sigue bloqueada por la decisión pendiente de Cris).
+
+**Actualizado `AI_RULES.md`:** nueva subsección 14.5 con el detalle de arriba.

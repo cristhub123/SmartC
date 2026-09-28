@@ -512,6 +512,56 @@ Tipografía: `TYPO_LEVELS` (`js/typography.js`) ahora tiene 4 niveles; el
 viejo cae al valor de resguardo del CSS — así se agregan niveles sin
 migrar presets.
 
+## 14.5 Calendario propio de fecha/rango (Etapa 14, PLAN_USUARIOS_EVENTOS.md)
+
+**[2026-09-28]** `js/calendario-eventos.js` (`window.CalendarioEventos`)
+es un componente NUEVO, sin dependencia de mapas/filtros/paneles —
+solo dibuja un calendario dentro de un contenedor y avisa por
+callbacks (`onChange`/`onConfirm`/`onClear`). `CalendarioEventos.mount(contenedor,
+{ desde, hasta, tz, onChange, onConfirm, onClear })` se llama UNA vez
+por contenedor; devuelve `{ setValue, getValue, refresh, destroy }`.
+Selección: 1er click = día puntual; 2do click en otro día (sin haber
+confirmado) = pasa a ser rango (se ordena solo, desde <= hasta); un
+3er click arranca de cero. Las fechas siempre son strings
+`'YYYY-MM-DD'`, comparadas/aritmética en UTC puro (sin huso) para que
+nunca corran un día — el huso de la ciudad del evento lo sigue
+poniendo `_eventoOcurreEnFecha()` (`js/eventos-fecha-filtro.js`), no
+este componente. **Reusar tal cual desde la Etapa 15** (buscador del
+panel "Todos los eventos") — no reimplementar un segundo calendario.
+
+Reemplaza el `<input type="date">` nativo de `#eventos-fecha-bar`
+(`index.html`): ahora un botón círculo+ícono (`.efb-btn`, mismo
+lenguaje visual que `.fbtn-circle`) abre un popover (`.efb-popover`,
+`css/base.css`) anclado arriba del botón con el calendario adentro.
+El popover se registra en `OverlayManager` como `'fechaCalendarioPopover'`
+(sección 11) — se cierra solo si se abre cualquier otro panel/menú
+flotante. Un chip (`.efb-chip`) aparece al lado del botón solo con
+fecha/rango ya confirmado, con el mismo botón `.efb-clear` de antes
+para sacar el filtro de encima.
+
+**Extensión a rango (no reimplementada en otro lado):** `js/config.js`
+suma `fechaFiltroEventosHasta` (`null` = selección puntual o
+inexistente) junto al ya existente `fechaFiltroEventos` (que sigue
+siendo el día puntual o el INICIO del rango). `_eventoOcurreEnFecha(ev,
+fechaStr, tz, hastaStr)` y `pinTieneEventoEnFecha(poiId, fechaStr, tz,
+hastaStr)` (`js/eventos-fecha-filtro.js`) suman un 4to parámetro
+opcional `hastaStr` — sin él se comportan exactamente igual que antes
+(compatibilidad hacia atrás real, no una función nueva). Con él,
+comparan superposición de rangos en vez de un solo día. `js/pin-visibility.js`
+y `js/poi-panel.js` (2 lugares) ahora pasan `fechaFiltroEventosHasta`
+en esa 4ta posición.
+
+**Pruebas realizadas:** `node --check` sin errores en los 4 `.js`
+tocados/nuevos (`calendario-eventos.js`, `eventos-fecha-filtro.js`,
+`config.js`, `pin-visibility.js`, `poi-panel.js`); llaves de
+`css/base.css` balanceadas. **NO probado en navegador real ni contra
+Firebase** — pendiente que Cris confirme: (a) elegir un día puntual
+resalta los pines correctos y atenúa el resto; (b) elegir un rango (2
+clicks) hace lo mismo para cualquier día dentro del rango; (c) el
+popover se cierra solo al abrir un pin o el dropdown de zonas, y
+viceversa; (d) el chip con la fecha/rango se ve bien y el botón ✕ lo
+saca; (e) los 3 idiomas (ES/EN/PT) del calendario y del chip.
+
 ## 15. Ver también
 
 `AI_SESSION.md` — memoria de trabajo temporal de la sesión actual (qué se

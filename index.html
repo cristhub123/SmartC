@@ -44,7 +44,7 @@ cambio hecho y la verificacion realizada.
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Nunito:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
   <!-- App CSS -->
-  <link rel="stylesheet" href="css/base.css?v=20260927d">
+  <link rel="stylesheet" href="css/base.css?v=20260928">
   <!-- CSS del Panel POI -->
   <link rel="stylesheet" href="css/poi-panel.css?v=20260928e">
 
@@ -96,10 +96,21 @@ cambio hecho y la verificacion realizada.
 <div id="filter-bar">
   <!-- [Filtro de fecha de eventos, 2026-09-03] solo visible con el
        filtro "Eventos" activo — ver js/eventos-fecha-filtro.js.
-       Estilo mínimo a propósito, el look final se define aparte. -->
+       [Etapa 14, 2026-09-28] botón (círculo + ícono, mismo lenguaje
+       visual que los botones de categoría) que abre un popover con el
+       calendario propio (js/calendario-eventos.js); el chip de al
+       lado solo aparece con una fecha/rango ya elegido. -->
   <div id="eventos-fecha-bar" hidden>
-    <input type="date" id="eventos-fecha-input" class="efb-input" data-i18n-aria="eventos_fecha_aria" aria-label="Elegir fecha para ver eventos de ese día">
-    <button type="button" id="eventos-fecha-clear" class="efb-clear" data-i18n-title="eventos_fecha_clear_title" title="Quitar filtro de fecha">✕</button>
+    <div class="efb-wrap">
+      <button type="button" id="eventos-fecha-btn" class="efb-btn" aria-haspopup="true" aria-expanded="false" data-i18n-aria="eventos_fecha_aria" aria-label="Elegir fecha para ver eventos de ese día">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      </button>
+      <div id="eventos-fecha-chip" class="efb-chip" hidden>
+        <span id="eventos-fecha-chip-text"></span>
+        <button type="button" id="eventos-fecha-clear" class="efb-clear" data-i18n-title="eventos_fecha_clear_title" title="Quitar filtro de fecha">✕</button>
+      </div>
+      <div id="eventos-fecha-popover" class="efb-popover" hidden></div>
+    </div>
   </div>
   <div class="filter-row" id="filter-row-inner">
     <!-- populated by updateFilterBar() on load -->
@@ -2050,7 +2061,7 @@ campo-05:
   <!-- Módulo de Estado Centralizado (Central Store) -->
   <script src="js/app-state.js?v=20260829" defer></script>
   <script src="js/lang-switcher.js?v=20260829" defer></script>
-  <script src="js/i18n.js?v=20260928" defer></script>
+  <script src="js/i18n.js?v=20260928b" defer></script>
   <!-- [DESCONECTADO 2026-08-13 — smartcityV3.0_fix-mapa-pines. NO BORRAR ESTA NOTA
        en una limpieza futura: explica por qué este script sigue en el repo pero
        sin cargarse.] js/pois-loader.js hidrataba AppState/window.POIS con los 4
@@ -2062,7 +2073,7 @@ campo-05:
        js/pois-bootstrap.js más abajo. -->
   <!-- <script src="js/pois-loader.js?v=20260829" defer></script> -->
   <script src="js/settings-sync.js?v=20260927" defer></script>
-  <script src="js/config.js?v=20260907" defer></script>
+  <script src="js/config.js?v=20260928" defer></script>
   <script src="js/overlay-manager.js?v=20260829" defer></script>
   <script src="js/ui-guards.js?v=20260831" defer></script>
   <script src="js/scroll-hints.js?v=20260829" defer></script>
@@ -2071,12 +2082,12 @@ campo-05:
   <script src="js/map.js?v=20260829" defer></script>
 
   <!-- 3. Core marker logic -->
-  <script src="js/pin-visibility.js?v=20260903" defer></script>
+  <script src="js/pin-visibility.js?v=20260928" defer></script>
   <script src="js/markers.js?v=20260831" defer></script>
   <script src="js/pins-viewport-loader.js?v=20260829" defer></script>
   <script src="js/cluster-grouping.js?v=20260829" defer></script>
   <script src="js/evento-card.js?v=20260928" defer></script>
-  <script src="js/poi-panel.js?v=20260928f" defer></script>
+  <script src="js/poi-panel.js?v=20260928g" defer></script>
   <!-- [DESCONECTADO 2026-08-13 — smartcityV3.0_fix-mapa-pines. NO BORRAR ESTA NOTA
        en una limpieza futura.] js/pois-bootstrap.js reemplazaba makeMarker global
        por una versión "guardia" que solo dibujaba un pin si existía en AppState
@@ -2120,7 +2131,11 @@ campo-05:
   <script src="js/pin-geocode.js?v=20260829" defer></script>
   <script src="js/eventos-form-shared.js?v=20260927d" defer></script>
   <script src="js/eventos.js?v=20260927d" defer></script>
-  <script src="js/eventos-fecha-filtro.js?v=20260904" defer></script>
+  <!-- [Etapa 14, 2026-09-28] componente de calendario compartido —
+       carga antes de eventos-fecha-filtro.js (lo monta) y va a servir
+       también para el buscador de la Etapa 15. -->
+  <script src="js/calendario-eventos.js?v=20260928" defer></script>
+  <script src="js/eventos-fecha-filtro.js?v=20260928" defer></script>
   <script src="js/user-panel.js?v=20260927d" defer></script>
   <script src="js/usuarios-admin.js?v=20260927" defer></script>
   <script src="js/empleados.js?v=20260829" defer></script>
