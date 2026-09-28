@@ -31,12 +31,14 @@ cambio hecho y la verificacion realizada.
 ═══════════════════════════════════════════ */
 
 const BAR_DEFS = [
-  { key: 'red',   color: '#ef4444', title: 'Tiene imágenes cargadas',      states: 2 },
-  { key: 'blue',  color: '#3b82f6', title: 'Tiene algún campo de info',    states: 2 },
-  { key: 'black', color: '#111111', title: 'Variante "night" (cargada / activa)', states: 3 },
-  { key: 'green', color: '#22c55e', title: 'Tiene coordenadas',            states: 2 },
-  { key: 'gold',  color: '#eab308', title: 'Revisado por el admin',        states: 3 },
-  { key: 'purple', color: '#8b5cf6', title: 'Visible al público (mismo tilde que "visible al público" de cada fila)', states: 2 },
+  { key: 'red',   color: '#ef4444', label: 'Imágenes',  title: 'Tiene imágenes cargadas',      states: 2 },
+  { key: 'blue',  color: '#3b82f6', label: 'Info',      title: 'Tiene algún campo de info',    states: 2 },
+  { key: 'black', color: '#111111', label: 'Night',     title: 'Variante "night" (cargada / activa)', states: 3,
+    hints: { full: 'night activa', half: 'night cargada pero inactiva', empty: 'sin night' } },
+  { key: 'green', color: '#22c55e', label: 'Ubicación', title: 'Tiene coordenadas',            states: 2 },
+  { key: 'gold',  color: '#eab308', label: 'Revisado',  title: 'Revisado por el admin',        states: 3,
+    hints: { full: 'revisado', half: 'revisado, pero se modificó después', empty: 'sin revisar' } },
+  { key: 'purple', color: '#8b5cf6', label: 'Público',  title: 'Visible al público (mismo tilde que "visible al público" de cada fila)', states: 2 },
 ];
 
 /**
@@ -111,7 +113,18 @@ function _renderBarsHTML(states, clickable) {
 function _renderBarsFilterRow() {
   const row = document.getElementById('bars-filter-row');
   if (!row) return;
-  row.innerHTML = _renderBarsHTML(null, true);
+  // [2026-09-28] Chips compactos con nombre (antes: barritas sueltas sin
+  // rótulo). Cada chip muestra qué filtra y su estado: ✓ = sí, ½ = a
+  // medias (solo Night/Revisado), ✗ = no. Sin marca = sin filtro.
+  const mark = { full: '✓', half: '½', empty: '✗' };
+  row.innerHTML = BAR_DEFS.map(def => {
+    const st = _barsFilter[def.key];
+    const on = !!st;
+    const hint = (def.hints && st && def.hints[st]) || (st === 'full' ? 'sí' : st === 'empty' ? 'no' : '');
+    const tip = def.title + (on ? ` — filtrando: ${hint}` : ' — sin filtro') + ' (tocá para cambiar)';
+    const bar = `<span style="width:5px;height:12px;border-radius:2px;flex:none;background:${on && st !== 'empty' ? def.color : '#9ca3af'};opacity:${st === 'half' ? '.55' : '1'}"></span>`;
+    return `<button type="button" data-bar-filter="${def.key}" title="${tip}" style="display:inline-flex;align-items:center;gap:4px;padding:3px 7px;font-size:11px;line-height:1.2;border-radius:999px;cursor:pointer;white-space:nowrap;font-family:inherit;border:1.5px solid ${on ? def.color : 'var(--border2, #d1d5db)'};background:${on ? def.color + '22' : 'transparent'};color:${on ? 'var(--text, #111)' : 'var(--text3, #6b7280)'};font-weight:${on ? '700' : '500'}">${bar}${def.label}${on ? ' ' + mark[st] : ''}</button>`;
+  }).join('');
   row.querySelectorAll('[data-bar-filter]').forEach(el => {
     el.addEventListener('click', () => {
       const key = el.dataset.barFilter;

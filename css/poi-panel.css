@@ -239,7 +239,7 @@ cambio hecho y la verificacion realizada.
 /* [2026-09-28] Fila única con todas las categorías/subcategorías del lugar. */
 .poi-panel__cats-row {
   display: flex;
-  margin: 0.75rem 0 1rem;
+  margin: 0.25rem 0 0;
   flex-wrap: wrap;
   gap: 0.4rem;
 }

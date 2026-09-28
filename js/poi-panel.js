@@ -232,14 +232,14 @@ const PoiPanel = (function () {
       </div>
       <div class="poi-panel__scroll" data-role="scroll">
         <div data-role="info-tab-content">
+          <!-- [2026-09-28] Todas las categorías/subcategorías del lugar,
+               una al lado de la otra en una sola fila (va justo debajo de
+               las pestañas Info/Eventos). -->
+          <div class="poi-panel__cats-row" data-role="cats-row" hidden></div>
           <div data-role="body-section">
             <p class="poi-panel__gancho" data-role="gancho"></p>
             <p class="poi-panel__body" data-role="description"></p>
           </div>
-          <!-- [2026-09-28] Todas las categorías/subcategorías del lugar,
-               una al lado de la otra en una sola fila (reemplaza al
-               viejo bloque "Categoría" + valor debajo). -->
-          <div class="poi-panel__cats-row" data-role="cats-row" hidden></div>
           <div data-role="meta-section" hidden>
             <p class="poi-panel__section-title" data-role="meta-section-title"></p>
             <div class="poi-panel__meta-row" data-role="meta-row"></div>
@@ -461,10 +461,6 @@ const PoiPanel = (function () {
     // Los campos titulados "Categoría" se reemplazan por la fila de
     // categorías (ver _renderCategoriesRow) — no se muestran duplicados.
     const finalFields = allFields.filter((f) => !_isCategoryFieldTitle(f.title));
-    const categoryFieldFallback = allFields
-      .filter((f) => _isCategoryFieldTitle(f.title))
-      .map((f) => f.text)
-      .join(',');
 
     // --- Imagen principal (versión "full", 1024px, skin activo del POI) ---
     _renderHeroImage(poi);
@@ -496,7 +492,7 @@ const PoiPanel = (function () {
     els.title.style.color = poi.titleColor || '';
 
     // --- Categorías del lugar, en una sola fila ---
-    _renderCategoriesRow(poi, categoryFieldFallback);
+    _renderCategoriesRow(poi);
 
     // --- Campos internos (título + texto, cantidad libre, sin nombres fijos) ---
     _renderMeta(finalFields);
@@ -664,7 +660,8 @@ const PoiPanel = (function () {
   /** ¿Este campo interno es el viejo bloque "Categoría"? */
   function _isCategoryFieldTitle(title) {
     const t = String(title || '').trim().toLowerCase()
-      .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[\s:.\-]+$/g, '');
     return t === 'categoria' || t === 'categorias' || t === 'category' || t === 'categories';
   }
 
@@ -698,15 +695,12 @@ const PoiPanel = (function () {
     return labels;
   }
 
-  /** Pinta la fila única de categorías. Si el pin no tiene categorías
-   *  cargadas pero sí tenía un campo "Categoría" (texto), se usa ese
-   *  texto (separado por comas) para no perder la información. */
-  function _renderCategoriesRow(poi, fallbackText) {
+  /** Pinta la fila única de categorías. Solo usa las categorías/
+   *  subcategorías reales del lugar (poi.categories / poi.subcategories);
+   *  si no tiene ninguna, la fila no se muestra. */
+  function _renderCategoriesRow(poi) {
     const els = _els;
-    let labels = _getPoiCategoryLabels(poi);
-    if (!labels.length && fallbackText) {
-      labels = String(fallbackText).split(/[,;/|]+/).map((x) => x.trim()).filter(Boolean);
-    }
+    const labels = _getPoiCategoryLabels(poi);
     els.catsRow.innerHTML = labels
       .map((l) => `<span class="poi-panel__cat-chip">${_escapeHtml(l)}</span>`)
       .join('');

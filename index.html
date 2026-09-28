@@ -46,7 +46,7 @@ cambio hecho y la verificacion realizada.
   <!-- App CSS -->
   <link rel="stylesheet" href="css/base.css?v=20260927d">
   <!-- CSS del Panel POI -->
-  <link rel="stylesheet" href="css/poi-panel.css?v=20260928">
+  <link rel="stylesheet" href="css/poi-panel.css?v=20260928b">
 
   <!-- Critical inline: prevents white flash -->
   <style>
@@ -699,10 +699,12 @@ campo-05:
 
       <input class="fi" id="list-text-filter" type="text" placeholder="🔍 Filtrar por nombre..." style="width:100%;margin-bottom:10px">
 
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
-        <span style="font-size:11px;color:var(--text3)">Filtrar por estado (tocá para cambiar):</span>
-        <div id="bars-filter-row" style="display:flex;gap:5px"></div>
-        <button class="ibtn" id="btn-bars-filter-clear" style="font-size:11px;padding:4px 8px" title="Limpiar filtro de estado">✕ Limpiar</button>
+      <div style="margin-bottom:10px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px">
+          <span style="font-size:11px;color:var(--text3)">Filtrar por estado · tocá para cambiar (✓ sí · ½ a medias · ✗ no)</span>
+          <button class="ibtn" id="btn-bars-filter-clear" style="font-size:11px;padding:2px 8px;flex:none" title="Limpiar filtro de estado">✕</button>
+        </div>
+        <div id="bars-filter-row" style="display:flex;flex-wrap:wrap;gap:4px"></div>
       </div>
 
       <div id="admin-list"></div>
@@ -2074,7 +2076,7 @@ campo-05:
   <script src="js/pins-viewport-loader.js?v=20260829" defer></script>
   <script src="js/cluster-grouping.js?v=20260829" defer></script>
   <script src="js/evento-card.js?v=20260928" defer></script>
-  <script src="js/poi-panel.js?v=20260928" defer></script>
+  <script src="js/poi-panel.js?v=20260928b" defer></script>
   <!-- [DESCONECTADO 2026-08-13 — smartcityV3.0_fix-mapa-pines. NO BORRAR ESTA NOTA
        en una limpieza futura.] js/pois-bootstrap.js reemplazaba makeMarker global
        por una versión "guardia" que solo dibujaba un pin si existía en AppState
@@ -2084,7 +2086,7 @@ campo-05:
   <!-- <script src="js/pois-bootstrap.js?v=20260829" defer></script> -->
 
   <!-- 4. Admin panel (defines switchTab) -->
-  <script src="js/admin.js?v=20260926" defer></script>
+  <script src="js/admin.js?v=20260928b" defer></script>
   <!-- [2026-09-02] firebase-auth-compat.js movido acá (ver nota arriba, junto
        a firebase-app-compat.js/firebase-firestore-compat.js) — recién acá lo
        necesitan admin-auth.js y user-auth.js. -->
@@ -2122,7 +2124,7 @@ campo-05:
   <script src="js/user-panel.js?v=20260927d" defer></script>
   <script src="js/usuarios-admin.js?v=20260927" defer></script>
   <script src="js/empleados.js?v=20260829" defer></script>
-  <script src="js/cluster.js?v=20260829" defer></script>
+  <script src="js/cluster.js?v=20260928b" defer></script>
 
   <!-- 7b. Map settings -->
   <script src="js/map-settings.js?v=20260829" defer></script>
