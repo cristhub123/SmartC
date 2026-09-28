@@ -213,9 +213,24 @@ async function saveCategoriesSettings() {
         icon: CAT[id].icon || null
       };
     });
+    // [2026-09-28] categorías especiales (hoy: Eventos) — mismo shape que
+    // builtinData; color/icon nunca undefined (Firestore lo rechaza).
+    const specialData = {};
+    if (typeof SPECIAL_CATS !== 'undefined') {
+      Object.keys(SPECIAL_CATS).forEach(id => {
+        specialData[id] = {
+          label: SPECIAL_CATS[id].label,
+          subcategories: SPECIAL_CATS[id].subcategories || {},
+          active: SPECIAL_CATS[id].active !== false,
+          color: SPECIAL_CATS[id].color || null,
+          icon: SPECIAL_CATS[id].icon || null
+        };
+      });
+    }
     await db.collection('settings').doc('categories').set({
       customCats: CUSTOM_CATS,
       builtinData,
+      specialData,
       languageFieldsCount: (typeof languageFieldsCount === 'number' ? languageFieldsCount : 3)
     });
     return true;
@@ -250,6 +265,16 @@ async function loadCategoriesSettings() {
       // Esquema viejo (antes de este cambio) — solo traía el flag active.
       Object.entries(data.builtinActive).forEach(([id, active]) => {
         if (CAT[id]) CAT[id].active = active;
+      });
+    }
+    if (data.specialData && typeof data.specialData === 'object' && typeof SPECIAL_CATS !== 'undefined') {
+      Object.entries(data.specialData).forEach(([id, saved]) => {
+        if (!SPECIAL_CATS[id] || !saved) return;
+        if (saved.label) SPECIAL_CATS[id].label = saved.label;
+        if (saved.subcategories) SPECIAL_CATS[id].subcategories = saved.subcategories;
+        if (typeof saved.active === 'boolean') SPECIAL_CATS[id].active = saved.active;
+        if (saved.color) SPECIAL_CATS[id].color = saved.color;
+        if (saved.icon) SPECIAL_CATS[id].icon = saved.icon;
       });
     }
     if (typeof data.languageFieldsCount === 'number' && data.languageFieldsCount >= 3) {

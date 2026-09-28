@@ -48,7 +48,36 @@ const LANG_NAMES = { es: 'ES', en: 'EN', pt: 'PT' };
    corresponda. Única forma de resolver "dónde vive de verdad este
    id" (sección 7 del plan, AI_RULES sección 7). */
 function _getCatRef(id) {
-  return CAT[id] || CUSTOM_CATS[id] || null;
+  return CAT[id] || CUSTOM_CATS[id] || SPECIAL_CATS[id] || null;
+}
+
+/* [2026-09-28] Categorías ESPECIALES del sistema: aparecen en la tab
+   Categorías del admin y en la fila de botones del mapa igual que las
+   demás (nombre ES/EN/PT, ícono, color, subcategorías, activar/
+   desactivar), pero NO se pueden eliminar y NO forman parte de CAT ni de
+   getAllCats() a propósito: no son una categoría "real" que se le asigne
+   a un pin (poi.categories), así que no deben aparecer en los
+   selectores de categoría de los formularios de lugar, en la búsqueda,
+   ni en la importación masiva. Hoy hay una sola: Eventos (id fijo
+   '__eventos__', el mismo que ya usa el filtro del mapa). */
+const SPECIAL_CATS = {
+  __eventos__: {
+    label: { es: 'EVENTOS', en: 'EVENTS', pt: 'EVENTOS' },
+    icon: '🎉',
+    color: '#1c1c1e',
+    active: true,
+    subcategories: {},
+    special: true
+  }
+};
+
+/* Lo que muestra la tab Categorías del admin: las especiales primero
+   (Eventos queda al principio, igual que en el mapa) + todas las demás. */
+function getAdminCats() {
+  const result = {};
+  Object.entries(SPECIAL_CATS).forEach(([k, v]) => { result[k] = { ...v, builtin: true, special: true, active: v.active !== false }; });
+  Object.entries(getAllCats()).forEach(([k, v]) => { result[k] = v; });
+  return result;
 }
 
 /* Mismo criterio de generación de id que ya usaba el alta de
@@ -106,13 +135,17 @@ function _langEditorHTML(catId, subId, label) {
 function renderCatsAdmin() {
   const list = document.getElementById('cats-admin-list');
   if (!list) return;
-  const all = getAllCats();
+  const all = getAdminCats();
   list.innerHTML = Object.entries(all).map(([id, cat]) => {
     const isOn = cat.active !== false;
-    const count = POIS.filter(p => {
-      const cs = Array.isArray(p.categories) ? p.categories : [p.category];
-      return cs.includes(id);
-    }).length;
+    // Eventos no es una categoría asignable a un pin: su contador son los
+    // eventos vigentes ahora mismo (mismo criterio que usa el filtro del mapa).
+    const count = cat.special
+      ? ((typeof EVENTOS !== 'undefined' && typeof _eventoEsVigente === 'function') ? EVENTOS.filter(ev => _eventoEsVigente(ev)).length : 0)
+      : POIS.filter(p => {
+          const cs = Array.isArray(p.categories) ? p.categories : [p.category];
+          return cs.includes(id);
+        }).length;
     const subs = cat.subcategories && typeof cat.subcategories === 'object' ? cat.subcategories : {};
     const subEntries = Object.entries(subs);
     const subsOpen = _catsUIState.openSub.has(id);
@@ -143,7 +176,7 @@ function renderCatsAdmin() {
       <input type="text" class="fi" style="flex:1;min-width:120px;font-size:14px;font-weight:600;padding:5px 10px;color:${cat.color}"
         value="${_escAttr(getCatLabel(cat,'es'))}" data-name-input data-cat="${id}">
       <small style="color:var(--text3);font-size:13px;flex-shrink:0">(${count})</small>
-      ${cat.builtin?'<span style="font-size:11px;color:var(--text3);font-family:var(--font-m);flex-shrink:0">BASE</span>':`<button class="za-edit-btn" onclick="deleteCat('${id}')" title="Eliminar">🗑</button>`}
+      ${cat.builtin?`<span style="font-size:11px;color:var(--text3);font-family:var(--font-m);flex-shrink:0" ${cat.special?'title="Categoría fija del sistema: se puede ocultar, no eliminar"':''}>${cat.special?'FIJA':'BASE'}</span>`:`<button class="za-edit-btn" onclick="deleteCat('${id}')" title="Eliminar">🗑</button>`}
       <button class="za-toggle ${isOn?'on':''}" onclick="toggleCat('${id}',this)" title="${isOn?'Desactivar':'Activar'}"></button>
       <div style="flex-basis:100%">${_langEditorHTML(id, null, cat.label)}</div>
       <details class="cats-icon-details" data-icon-key="${id}" ${iconEditOpen?'open':''} style="flex-basis:100%;margin-top:2px">
@@ -270,12 +303,16 @@ function _wireCatsDetailsToggles(list) {
 })();
 
 window.toggleCat = function(id, btn) {
-  const all = getAllCats();
+  const all = getAdminCats();
   const cat = all[id];
   if (!cat) return;
   const newState = !(cat.active !== false);
   if (CAT[id]) CAT[id].active = newState;
   if (CUSTOM_CATS[id]) CUSTOM_CATS[id].active = newState;
+  if (SPECIAL_CATS[id]) SPECIAL_CATS[id].active = newState;
+  // Si el filtro que estaba elegido en el mapa acaba de ocultarse, volver
+  // a "Todo" — si no, el mapa quedaría filtrado por un botón que ya no existe.
+  if (!newState && activeFilter === id) { activeFilter = 'all'; activeSubfilter = null; }
   btn.classList.toggle('on', newState);
   // [FIX 2026-09-03] Antes acá se ocultaba/mostraba el pin ENTERO
   // apenas SU categoría se apagaba/prendía, sin mirar si el pin tenía
@@ -541,9 +578,16 @@ function _setBtnX(btn, x) { btn.style.setProperty('--current-x', `${x}px`); }
 function _getMainFilterItems() {
   const _t = (k) => (window.I18N ? I18N.t(k) : k);
   const items = [
-    { id: 'all', label: _t('filter_all'), iconHTML: LUCIDE.all, color: '#1c1c1e' },
-    { id: '__eventos__', label: _t('filter_events'), iconHTML: '🎉', color: '#1c1c1e' }
+    { id: 'all', label: _t('filter_all'), iconHTML: LUCIDE.all, color: '#1c1c1e' }
   ];
+  // [2026-09-28] Eventos ahora es una categoría más de la tab del admin
+  // (SPECIAL_CATS): nombre/ícono/color editables y se puede ocultar. Queda
+  // siempre justo después de "Todo", como estaba antes.
+  Object.entries(SPECIAL_CATS).filter(([, v]) => v.active !== false).forEach(([id, cat]) => {
+    const labelStr = getCatLabel(cat);
+    const label = labelStr.charAt(0).toUpperCase() + labelStr.slice(1).toLowerCase();
+    items.push({ id, label, iconHTML: cat.icon || '🎉', color: cat.color });
+  });
   Object.entries(getAllCats()).filter(([, v]) => v.active !== false).forEach(([id, cat]) => {
     const labelStr = getCatLabel(cat);
     const label = labelStr.charAt(0).toUpperCase() + labelStr.slice(1).toLowerCase();

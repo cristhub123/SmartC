@@ -2224,3 +2224,17 @@ reglas de `eventos`. **Pruebas:** `node --check` OK; NO probado en
 navegador ni contra Cloudinary/Firebase reales.
 
 **Ajuste posterior (misma sesión):** tamaño del preset subido a 1024×576 (la foto se ve grande al abrir el evento) y ancho mínimo de 1024 px validado en el cliente (`IMG_MIN_ANCHO`, `eventos-form-shared.js`). Textos i18n/HTML actualizados.
+
+## 2026-09-28 — Eventos pasa a ser una categoría más de la tab Categorías (admin)
+
+`AI_RULES.md` y `AI_SESSION.md` consultados antes de tocar código.
+
+Nuevo registro `SPECIAL_CATS` en `js/categories.js` (hoy solo `__eventos__`, el mismo id que ya usaba el filtro del mapa) + `getAdminCats()` (especiales primero + `getAllCats()`). `renderCatsAdmin`/`toggleCat` usan `getAdminCats()`; `_getCatRef` también resuelve las especiales, así que nombre ES/EN/PT, ícono/color y subcategorías reusan los mismos listeners. En la fila no hay tacho: muestra la etiqueta `FIJA` (`deleteCat` ya solo borraba `CUSTOM_CATS`). Ocultarla la saca de la fila del mapa (`_getMainFilterItems`) y, si era el filtro activo, vuelve a `'all'`.
+
+A propósito NO está en `CAT` ni en `getAllCats()`: no es una categoría asignable a un pin, así que no aparece en los selectores de los formularios de lugar, búsqueda ni importación masiva. Contador `(N)` = eventos vigentes ahora.
+
+Persistencia: `saveCategoriesSettings`/`loadCategoriesSettings` (`js/settings-sync.js`) suman el campo `specialData` en `settings/categories` (docs viejos sin ese campo → defaults, nada se rompe). Sin cambios en reglas de Firestore (mismo doc, mismo permiso).
+
+**Limitación conocida:** las subcategorías de Eventos se pueden crear/editar en el admin, pero todavía no filtran nada en el mapa (el filtro Eventos ignora subcategorías, ver `updateFilterBar`/`_pinMatchesActiveFilter`).
+
+**Pruebas:** `node` (chequeo de sintaxis) OK en `categories.js` y `settings-sync.js`. NO probado en navegador ni contra Firebase real.
