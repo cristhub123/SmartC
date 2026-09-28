@@ -698,10 +698,10 @@ const PoiPanel = (function () {
   function _renderCategoriesRow(poi) {
     const els = _els;
     const labels = _getPoiCategoryLabels(poi);
-    // Texto simple separado por doble espacio (no botones), una sola línea.
+    // Texto simple separado por " - " (no botones), una sola línea.
     els.catsRow.innerHTML = labels
       .map((l) => `<span class="poi-panel__cat-chip">${_escapeHtml(l)}</span>`)
-      .join('&nbsp;&nbsp;');
+      .join('&nbsp;-&nbsp;');
     els.catsWrap.hidden = labels.length === 0;
     els.catsRow.scrollLeft = 0;
     requestAnimationFrame(_updateCatsHints);
