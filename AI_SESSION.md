@@ -2279,3 +2279,11 @@ Leído `AI_RULES.md` antes de tocar código. Archivos: `js/poi-panel.js`, `index
 
 **Pruebas:** `node --check` OK; Chromium móvil con toques simulados sobre harness del panel. NO probado en celular real ni con la app completa.
 
+## 2026-09-28 (cont.) — Categorías reales como texto simple bajo el título, en una línea con slider
+
+Leído `AI_RULES.md` antes de tocar código. Archivos: `js/poi-panel.js`, `css/poi-panel.css`, `index.html` (`?v=20260928e` en ambos).
+
+La fila de categorías/subcategorías reales del pin (`poi.categories`/`poi.subcategories`) pasó de chips (dentro de la pestaña Info) a texto simple dentro del header, justo bajo el título (`data-role="cats-wrap"` > `cats-row`), visible en Info y en Eventos. Mismo aspecto que el viejo texto de categoría (0.75rem, negrita, mayúsculas, letter-spacing .08em, color acento), separadas por doble espacio (`&nbsp;&nbsp;`), `white-space: nowrap` (nunca más de 1 línea) y `overflow-x: auto` (slider horizontal con el dedo, sin barra visible). Indicadores ‹ › (`has-left`/`has-right`, solo visuales) según haya más texto oculto. El gesto horizontal sobre la fila no mueve el panel; el vertical sí.
+
+**Pruebas:** `node --check` OK; Chromium móvil con toques simulados (una línea, slide horizontal, arrastre vertical sobre la fila). NO probado en celular real.
+
