@@ -2287,3 +2287,5 @@ La fila de categorías/subcategorías reales del pin (`poi.categories`/`poi.subc
 
 **Pruebas:** `node --check` OK; Chromium móvil con toques simulados (una línea, slide horizontal, arrastre vertical sobre la fila). NO probado en celular real.
 
+**Ajuste (mismo día):** el separador entre categorías pasó de doble espacio a " - " (espacio, guion, espacio; con `&nbsp;` para que nunca corte línea). Solo `js/poi-panel.js` y `index.html` (`poi-panel.js?v=20260928f`). `node --check` OK.
+
