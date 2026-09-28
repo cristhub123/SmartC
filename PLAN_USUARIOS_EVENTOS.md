@@ -175,7 +175,7 @@ ahora — queda mencionada acá para que no se pierda, es un plan
 aparte del de abajo. Para NO chocar numeración, todo lo nuevo de acá
 arranca en **Etapa 11**.
 
-**ÚLTIMA ETAPA COMPLETADA: Etapa 11 (27/09) — Próxima etapa a hacer: Etapa 12** (tarjeta de evento unificada + 4to nivel de tipografía; lee `imagenUrl`, que ya existe en los eventos nuevos). Sigue sin arrancar las Etapas 12 a 15. Historial de esta sección: se
+**ÚLTIMAS ETAPAS COMPLETADAS: Etapas 11 (27/09), 12 y 13 (28/09) — Próxima etapa a hacer: Etapa 14** (calendario propio, día único o rango). La Etapa 15 sigue sin arrancar y depende de la 14 para el buscador por fecha (y de que Cris defina desde dónde se abre el panel). Historial de esta sección: se
 agrega (27/09) para documentar, SIN IMPLEMENTAR TODAVÍA, todo lo
 charlado con Cris sobre rediseñar la sección de eventos (tarjetas
 estilo Eventbrite, panel nuevo para ver todos los eventos de la app,
@@ -367,10 +367,10 @@ crear de nuevo):**
 - [x] Etapa 11 — ✅ COMPLETADA 2026-09-27 — Imagen opcional por evento
       (Cloudinary), campo agregado en `js/eventos-form-shared.js` (admin
       + panel de usuario, un solo lugar)
-- [ ] Etapa 12 — Tarjeta de evento unificada (con foto, o sin foto
+- [x] Etapa 12 — ✅ COMPLETADA 2026-09-28 — Tarjeta de evento unificada (con foto, o sin foto
       con título grande) + ícono de "centrar en el mapa" + 4to nivel
       nuevo en `js/typography.js` para el título sin foto
-- [ ] Etapa 13 — Pestaña "Eventos" del panel de un pin: de lista
+- [x] Etapa 13 — ✅ COMPLETADA 2026-09-28 — Pestaña "Eventos" del panel de un pin: de lista
       apilada a carrusel horizontal de esas tarjetas
 - [ ] Etapa 14 — Selector de fecha propio (calendario con click único
       o rango de 2 clicks) reemplazando el `<input type=date>` nativo
@@ -887,6 +887,71 @@ funcionando igual que antes.
 
 ---
 
+### Etapa 12 — Tarjeta de evento unificada + 4to nivel de tipografía ✅ COMPLETADA (2026-09-28)
+
+**Qué se hizo:** una sola función de render de tarjeta de evento
+(`EventoCard.render`, archivo nuevo `js/evento-card.js`) con 2 variantes:
+- **Con foto** (`imagenUrl` de la Etapa 11): imagen 16:9 arriba, datos abajo.
+- **Sin foto:** en el mismo espacio 16:9, el nombre del evento en letra
+  grande (el nombre no se repite abajo). También cae a esta variante si la
+  foto no carga (link roto) o si la URL no es `https`.
+
+**Ícono 📍** en la esquina de la imagen (ambas variantes): al tocarlo centra
+el mapa en el pin del evento con `panToPoiCenter(poi)`. **Solo mueve el
+mapa** — no abre el panel de ese lugar, no toca `expandPin`/`collapsePin`,
+no cierra ni cambia de tamaño el panel abierto. (Sin efecto visual extra,
+como quedó asumido en el plan; si Cris quiere que el pin rebote, se suma
+aparte.)
+
+**4to nivel de tipografía** `eventoSinFoto` ("Título de evento sin foto"):
+agregado a `TYPO_LEVELS` en `js/typography.js` y como bloque "NIVEL 4" en la
+tab admin Tipografía (fuente/tamaño 16-40 px/color). Reusa el sistema entero
+(variables CSS `--pines-eventoSinFoto-*` + presets en Firestore), nada
+paralelo. Aplica igual a todos los eventos sin foto. **Presets viejos siguen
+igual:** si no traen el nivel, el CSS usa su valor de resguardo (22 px,
+`#0f172a`), y al abrirlos en el editor el 4to nivel aparece con esos mismos
+valores.
+
+### Etapa 13 — Carrusel de tarjetas en la pestaña "Eventos" del pin ✅ COMPLETADA (2026-09-28)
+
+**Qué se hizo:** `_renderEventosTab()` (`js/poi-panel.js`) ya no pinta la
+lista apilada de texto: pinta las tarjetas de la Etapa 12 en un carrusel
+horizontal con scroll (`scroll-snap`, la siguiente tarjeta asoma para que
+se note que hay más; con 1 solo evento la tarjeta ocupa el ancho). Se
+mantiene el atenuado por filtro de fecha (opacidad configurable) y el
+orden de siempre. El drag del panel sigue solo en la manija, así que el
+scroll horizontal no choca con arrastrar el panel.
+
+**Archivos modificados/nuevos (Etapas 12 y 13):** `js/evento-card.js`
+(NUEVO), `js/poi-panel.js`, `css/poi-panel.css` (tarjeta + carrusel; se
+sacó el CSS viejo `.poi-panel__evento-*`), `js/typography.js`,
+`index.html` (script nuevo antes de `poi-panel.js`, bloque "NIVEL 4",
+cache busting), `js/i18n.js` (`evt_card_centrar` es/en/pt),
+`AI_RULES.md` (sección 14.4), `AI_SESSION.md`, este archivo.
+
+**Límites conocidos (anotados para la Etapa 15):** (1) el ícono 📍 busca el
+pin en `AppState`/`POIS`; con la carga de pines por viewport, un pin lejano
+puede no estar cargado todavía y en ese caso no hace nada (queda un aviso en
+consola) — el panel "Todos los eventos" va a necesitar cargar el pin antes
+de centrar. (2) En compu el carrusel se recorre con la barra de scroll fina,
+Shift+rueda o trackpad; no se agregaron flechas.
+
+**Pruebas realizadas:** `node --check` sin errores en los 4 `.js` tocados/
+nuevos; llaves de `css/poi-panel.css` balanceadas; prueba simulada (jsdom) de
+la tarjeta: variante con/sin foto, nombre escapado (no ejecuta HTML), URL no
+https → sin foto, foto rota → cae a sin foto, ícono 📍 llama a
+`panToPoiCenter` con el pin correcto; y de la tipografía: preset viejo sin
+nivel 4 no genera variables nuevas, y con nivel 4 genera las 3 variables.
+**NO probado en navegador real ni contra Firebase.** Pendiente que Cris
+pruebe: (a) abrir un pin con eventos y ver el carrusel (con foto, sin
+foto, y con varios); (b) tocar el 📍 y confirmar que el mapa se mueve sin
+abrir/cerrar nada; (c) en Admin → Tipografía, abrir un preset, cambiar el
+NIVEL 4, guardar y ver el título de un evento sin foto; (d) que un preset
+que ya tenías se ve exactamente igual que antes; (e) un evento con foto
+subida en la Etapa 11.
+
+---
+
 ### Hotfix (2026-08-27) — botón de perfil sin respuesta para un usuario común
 
 **Contexto:** después de entregar la Etapa 6, Cris reportó que un
@@ -1218,7 +1283,7 @@ consola de Cloudinary, que no lleva código).
 
 ---
 
-### Etapa 12 — Tarjeta de evento unificada + 4to nivel de tipografía — SIN ARRANCAR
+### Etapa 12 — Tarjeta de evento unificada + 4to nivel de tipografía — ✅ COMPLETADA 28/09 (ver "REGISTRO POR ETAPA")
 
 **Qué se hace:** un componente de tarjeta ÚNICO (una sola función de
 render, reusada por la Etapa 13 y la Etapa 15 — no duplicada) con 2
@@ -1252,7 +1317,7 @@ poder elegir variante).
 
 ---
 
-### Etapa 13 — Carrusel de tarjetas en la pestaña "Eventos" del pin — SIN ARRANCAR
+### Etapa 13 — Carrusel de tarjetas en la pestaña "Eventos" del pin — ✅ COMPLETADA 28/09 (ver "REGISTRO POR ETAPA")
 
 **Qué se hace:** `_renderEventosTab()` (`js/poi-panel.js`) deja de
 pintar la lista apilada de texto plano (`.poi-panel__evento-card`,

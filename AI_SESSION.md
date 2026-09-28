@@ -2238,3 +2238,16 @@ Persistencia: `saveCategoriesSettings`/`loadCategoriesSettings` (`js/settings-sy
 **Limitación conocida:** las subcategorías de Eventos se pueden crear/editar en el admin, pero todavía no filtran nada en el mapa (el filtro Eventos ignora subcategorías, ver `updateFilterBar`/`_pinMatchesActiveFilter`).
 
 **Pruebas:** `node` (chequeo de sintaxis) OK en `categories.js` y `settings-sync.js`. NO probado en navegador ni contra Firebase real.
+
+## 2026-09-28 (cont.) — Etapas 12 y 13 COMPLETADAS: tarjeta de evento + carrusel + 4to nivel de tipografía
+
+Leídos `AI_RULES.md` y `PLAN_USUARIOS_EVENTOS.md` antes de tocar código; corroborado que las etapas pendientes eran 12 y 13 (la 11 ya estaba hecha en el zip recibido).
+
+**Etapa 12:** módulo nuevo `js/evento-card.js` (`EventoCard.render`/`bind`) — variante con foto / sin foto (título grande), ícono 📍 que solo llama a `panToPoiCenter`. `js/typography.js`: 4to nivel `eventoSinFoto` con `defaults`, `_fillLevelsInForm`/`_readLevelsFromForm` respetan los defaults por nivel (los 3 niveles viejos no cambian). `index.html`: bloque "NIVEL 4" en la tab Tipografía, script `evento-card.js` antes de `poi-panel.js`, cache busting. `js/i18n.js`: `evt_card_centrar`.
+
+**Etapa 13:** `_renderEventosTab` (`js/poi-panel.js`) pinta las tarjetas en un carrusel horizontal (`scroll-snap`); `_ensureDom` llama a `EventoCard.bind`. `css/poi-panel.css`: estilos de tarjeta/carrusel, se eliminó el CSS viejo `.poi-panel__evento-*`.
+
+Decisiones: sin foto el nombre no se repite en el cuerpo; foto rota o URL no https cae a sin foto; sin flechas en el carrusel (scroll táctil/barra fina); scroll horizontal no choca con el drag del panel (solo la manija arrastra).
+
+**Pruebas:** `node --check` OK; jsdom sobre tarjeta y tipografía OK; NO probado en navegador ni contra Firebase.
+

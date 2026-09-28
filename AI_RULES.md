@@ -33,6 +33,7 @@ map.js                → crea `map` (instancia Leaflet)
 markers.js            → makeMarker, pinClick (legacy, ver nota abajo), expandPin/collapsePin (base)
 pins-viewport-loader.js → [NUEVO 2026-08-29] carga de pines por viewport/zoom (mapa público) — carga justo después de markers.js (necesita `makeMarker`/`map`/`db`), antes de cluster-grouping.js (cuyo recálculo se dispara solo desde el hook que ya quedó en makeMarker/removeMarker)
 cluster-grouping.js   → [NUEVO 2026-08-29] clustering visual (agrupa pines en burbujas con número, techo editable de pines visibles a la vez) — carga acá porque necesita `markers`/`map` ya creados; su UI admin se registra vía SC.registerTabPlugin('mapa', ...), no depende de admin.js estar cargado todavía
+evento-card.js         → módulo EventoCard (tarjeta de evento unificada, Etapa 12 de PLAN_USUARIOS_EVENTOS.md) — carga ANTES de poi-panel.js, que lo usa en su pestaña Eventos
 poi-panel.js           → módulo PoiPanel (panel público de cada lugar)
 admin.js               → panel admin: tabs, listado, filtros, toasts
 admin-auth.js
@@ -488,6 +489,28 @@ Camino B. Sube con `uploadToCloudinary(file, { subfolder: 'eventos' })`
 Cloudinary (unsigned, incoming `c_fill,g_auto,w_1024,h_576,q_auto,f_auto`,
 allowed formats `jpg,jpeg,webp`) y las reglas de Firestore de `eventos`
 (`FIRESTORE_RULES_NOTES.md`) deben estar republicadas con `imagenUrl`.
+
+## 14.4 Tarjeta de evento + carrusel + 4to nivel de tipografía (Etapas 12 y 13, PLAN_USUARIOS_EVENTOS.md)
+
+**[2026-09-28]** `js/evento-card.js` (`window.EventoCard`) es la ÚNICA
+función de render de una tarjeta de evento: `EventoCard.render(ev, {
+catalogo, dimOpacity })` → HTML, y `EventoCard.bind(contenedor)` (una
+vez por contenedor) engancha el ícono 📍 y el fallback de foto rota.
+La usa la pestaña "Eventos" del panel de un pin (`_renderEventosTab`,
+`js/poi-panel.js`, en un carrusel `.poi-panel__eventos-carousel`) y la
+va a usar el panel "Todos los eventos" (Etapa 15) — **no duplicar este
+markup**. Variante con foto (`imagenUrl`, solo https) o sin foto (título
+grande). El ícono 📍 SOLO llama a `panToPoiCenter(poi)` (`js/app.js`):
+no abre el panel del lugar ni toca `expandPin`/`collapsePin`. Busca el
+pin en `AppState.getPoi` y luego `POIS` — con la carga por viewport un
+pin lejano puede no estar en memoria (no hace nada, avisa en consola).
+
+Tipografía: `TYPO_LEVELS` (`js/typography.js`) ahora tiene 4 niveles; el
+4to, `eventoSinFoto`, define `defaults` (22 px, `#0f172a`) y alimenta
+`--pines-eventoSinFoto-font/size/color`, leídas en `css/poi-panel.css`
+(`.evento-card__sinfoto-titulo`). Un nivel nuevo sin datos en un preset
+viejo cae al valor de resguardo del CSS — así se agregan niveles sin
+migrar presets.
 
 ## 15. Ver también
 

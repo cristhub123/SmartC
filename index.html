@@ -46,7 +46,7 @@ cambio hecho y la verificacion realizada.
   <!-- App CSS -->
   <link rel="stylesheet" href="css/base.css?v=20260927d">
   <!-- CSS del Panel POI -->
-  <link rel="stylesheet" href="css/poi-panel.css?v=20260829">
+  <link rel="stylesheet" href="css/poi-panel.css?v=20260928">
 
   <!-- Critical inline: prevents white flash -->
   <style>
@@ -1548,6 +1548,24 @@ campo-05:
         <input class="fi" id="typo-body-hex" type="text" placeholder="#334155" maxlength="7" style="width:100px">
       </div>
 
+      <div class="divider"><span>NIVEL 4 — TÍTULO DE EVENTO SIN FOTO</span></div>
+      <p style="font-size:11px;color:var(--text3);margin-bottom:8px">Nombre grande que reemplaza a la foto en la tarjeta de un evento que no tiene foto.</p>
+      <div class="fg">
+        <label class="fl">Tipografía</label>
+        <select class="fi" id="typo-eventoSinFoto-font"></select>
+      </div>
+      <div class="fg">
+        <label class="fl">Tamaño <span id="typo-eventoSinFoto-size-val" style="color:var(--text3)">22px</span></label>
+        <input class="fi" id="typo-eventoSinFoto-size" type="range" min="16" max="40" value="22">
+      </div>
+      <div class="fg" style="display:flex;gap:8px;align-items:flex-end">
+        <div>
+          <label class="fl">Color</label>
+          <input id="typo-eventoSinFoto-color" type="color" value="#0f172a" style="width:44px;height:36px;padding:2px;border:1px solid var(--border);border-radius:8px">
+        </div>
+        <input class="fi" id="typo-eventoSinFoto-hex" type="text" placeholder="#0f172a" maxlength="7" style="width:100px">
+      </div>
+
       <button class="btn-primary" id="btn-typo-save" style="margin-top:16px">💾 Guardar cambios</button>
       <button class="btn-outline" id="btn-typo-delete" style="margin-top:8px">🗑 Borrar este preset</button>
     </div>
@@ -2030,7 +2048,7 @@ campo-05:
   <!-- Módulo de Estado Centralizado (Central Store) -->
   <script src="js/app-state.js?v=20260829" defer></script>
   <script src="js/lang-switcher.js?v=20260829" defer></script>
-  <script src="js/i18n.js?v=20260927d" defer></script>
+  <script src="js/i18n.js?v=20260928" defer></script>
   <!-- [DESCONECTADO 2026-08-13 — smartcityV3.0_fix-mapa-pines. NO BORRAR ESTA NOTA
        en una limpieza futura: explica por qué este script sigue en el repo pero
        sin cargarse.] js/pois-loader.js hidrataba AppState/window.POIS con los 4
@@ -2055,7 +2073,8 @@ campo-05:
   <script src="js/markers.js?v=20260831" defer></script>
   <script src="js/pins-viewport-loader.js?v=20260829" defer></script>
   <script src="js/cluster-grouping.js?v=20260829" defer></script>
-  <script src="js/poi-panel.js?v=20260829" defer></script>
+  <script src="js/evento-card.js?v=20260928" defer></script>
+  <script src="js/poi-panel.js?v=20260928" defer></script>
   <!-- [DESCONECTADO 2026-08-13 — smartcityV3.0_fix-mapa-pines. NO BORRAR ESTA NOTA
        en una limpieza futura.] js/pois-bootstrap.js reemplazaba makeMarker global
        por una versión "guardia" que solo dibujaba un pin si existía en AppState
@@ -2083,7 +2102,7 @@ campo-05:
   <!-- 6. Admin sub-panels (use registerTabPlugin) -->
   <script src="js/admin-global.js?v=20260917" defer></script>
   <script src="js/themes.js?v=20260927" defer></script>
-  <script src="js/typography.js?v=20260926" defer></script>
+  <script src="js/typography.js?v=20260928" defer></script>
   <script src="js/skins.js?v=20260831" defer></script>
   <script src="js/cities.js?v=20260926" defer></script>
   <script src="js/features.js?v=20260829" defer></script>
