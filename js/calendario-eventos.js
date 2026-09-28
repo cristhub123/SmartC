@@ -216,6 +216,24 @@ window.CalendarioEventos = (function () {
     }
 
     function _onClick(e) {
+      // [FIX 2026-09-28] Bug reportado: al elegir un día, el popover
+      // se cerraba solo sin seleccionar nada. Causa real: este click
+      // BURBUJEA hacia `document`, donde el filtro de fecha tiene un
+      // listener de "click afuera cierra el popover"
+      // (js/eventos-fecha-filtro.js). El problema es el ORDEN: acá
+      // mismo, `_clickDia()` llama a `render()`, que reemplaza
+      // `container.innerHTML` ANTES de que el evento termine de
+      // burbujear — el botón sobre el que se clickeó ya no existe en
+      // el DOM cuando el listener de `document` recién llega a
+      // preguntar `pop.contains(e.target)`, y un nodo YA DESCONECTADO
+      // del DOM devuelve `false` ahí aunque el click haya sido bien
+      // adentro. Por eso "se cerraba sin seleccionar": no es que no
+      // seleccionaba, es que el popover se cerraba una fracción de
+      // segundo después de haber seleccionado bien, dando la
+      // impresión de que no pasó nada. `stopPropagation()` corta el
+      // burbujeo acá mismo — un click que este handler ya procesó no
+      // tiene ningún motivo para seguir subiendo.
+      e.stopPropagation();
       const diaBtn = e.target.closest('[data-day]');
       if (diaBtn && container.contains(diaBtn)) { _clickDia(diaBtn.dataset.day); return; }
       const actBtn = e.target.closest('[data-act]');

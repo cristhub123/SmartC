@@ -69,6 +69,7 @@ window.I18N = (function () {
       cal_buscar: 'Buscar',
       cal_prev: 'Mes anterior',
       cal_next: 'Mes siguiente',
+      fbtn_fecha_label: 'Fecha',
 
       pp_eye_title: 'Cambiar modo visual',
       pp_close_title: 'Cerrar',
@@ -237,6 +238,7 @@ window.I18N = (function () {
       cal_buscar: 'Search',
       cal_prev: 'Previous month',
       cal_next: 'Next month',
+      fbtn_fecha_label: 'Date',
 
       pp_eye_title: 'Change visual mode',
       pp_close_title: 'Close',
@@ -400,6 +402,7 @@ window.I18N = (function () {
       cal_buscar: 'Buscar',
       cal_prev: 'Mês anterior',
       cal_next: 'Próximo mês',
+      fbtn_fecha_label: 'Data',
 
       pp_eye_title: 'Mudar modo visual',
       pp_close_title: 'Fechar',

@@ -626,6 +626,42 @@ function _buildSubBtn(bar, cat, subId, sub, parentIcon, x, isOn) {
   return btn;
 }
 
+/* [ajuste 2026-09-28] Botón calendario que aparece sobre "Eventos"
+   al abrir su esquina — visualmente calcado de `_buildSubBtn` (mismo
+   círculo+etiqueta, misma coreografía de entrada/salida vía
+   `.fbtn-sub`), pero NO es una subcategoría real: no toca
+   `activeSubfilter` ni filtra nada acá. Solo arma el botón; quien lo
+   engancha (abre/cierra el popover del calendario propio) es
+   `window._wireCalendarioFechaBtn` (js/eventos-fecha-filtro.js) — se
+   llama aparte, después de insertar este botón en el DOM, porque ese
+   archivo es el dueño de esa lógica (una sola fuente de verdad, no se
+   duplica acá el manejo del popover). Id fijo `eventos-fecha-btn`: ese
+   mismo archivo lo busca por id cada vez. */
+function _buildCalendarSubBtn(x) {
+  const cat = SPECIAL_CATS.__eventos__;
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.id = 'eventos-fecha-btn';
+  btn.className = 'fbtn fbtn-sub';
+  btn.setAttribute('aria-haspopup', 'true');
+  btn.setAttribute('aria-expanded', 'false');
+  btn.setAttribute('data-i18n-aria', 'eventos_fecha_aria');
+  btn.setAttribute('aria-label', 'Elegir fecha para ver eventos de ese día');
+  _setBtnX(btn, x);
+  const label = window.I18N ? I18N.t('fbtn_fecha_label') : 'Fecha';
+  btn.innerHTML = `<div class="fbtn-circle" style="background:${cat.color}">${LUCIDE.calendar}</div><span class="fbtn-label">${label}</span>`;
+  // [FIX] `I18N.apply(root)` busca con `root.querySelectorAll(...)` —
+  // eso mira los DESCENDIENTES de `root`, nunca `root` mismo. Como acá
+  // el atributo está en el propio botón (no en un hijo), hay que
+  // completar el aria-label a mano una vez; el atributo
+  // `data-i18n-aria` queda puesto igual para que un cambio de idioma
+  // posterior (que sí corre sobre `document` completo, con el botón
+  // ya insertado adentro) lo actualice solo.
+  if (window.I18N) btn.setAttribute('aria-label', I18N.t('eventos_fecha_aria'));
+  return btn;
+}
+
+
 /* Espaciador invisible (altura 1px, en el flujo normal — a
    diferencia de los `.fbtn`, que son position:absolute y por eso NO
    le dan ancho de scroll al contenedor por sí solos) para que
@@ -668,9 +704,25 @@ function updateFilterBar() {
   }
 
   const items = _getMainFilterItems();
-  const showSubs = activeFilter !== 'all' && activeFilter !== '__eventos__' && _catHasActiveSubcats(activeFilter);
-  const openCat = showSubs ? getAllCats()[activeFilter] : null;
-  const subs = openCat ? Object.entries(openCat.subcategories || {}).filter(([, s]) => s.active !== false) : [];
+  const isEventosFilter = activeFilter === '__eventos__';
+  // [ajuste 2026-09-28] Eventos ahora también abre la esquina — no con
+  // subcategorías reales (`cat.subcategories`, hoy no filtran nada en
+  // el mapa, ver nota vieja en `_pinMatchesActiveFilter`), sino con EL
+  // botón calendario (`_buildCalendarSubBtn`) — y solo si el filtro de
+  // fecha está habilitado desde Admin → Eventos (si no, tocar "Eventos"
+  // filtra normal, sin abrir nada, igual que una categoría sin
+  // subcategorías activas).
+  const showSubs = activeFilter !== 'all'
+    && (isEventosFilter ? (typeof window.isFechaFiltroHabilitado === 'function' && window.isFechaFiltroHabilitado()) : _catHasActiveSubcats(activeFilter));
+  const openCat = showSubs ? _getCatRef(activeFilter) : null; // _getCatRef (no getAllCats): resuelve también SPECIAL_CATS.__eventos__
+  const subs = (openCat && !isEventosFilter) ? Object.entries(openCat.subcategories || {}).filter(([, s]) => s.active !== false) : [];
+
+  // Si la esquina que va a quedar armada NO es la de Eventos, pero el
+  // popover del calendario había quedado abierto de una vuelta
+  // anterior (ej. el admin desactivó el filtro de fecha mientras
+  // estaba abierto en otra pestaña), lo cierra — evita un popover
+  // huérfano sin el botón que lo abrió.
+  if (!(openCat && isEventosFilter) && typeof window._cerrarPopoverFecha === 'function') window._cerrarPopoverFecha();
 
   bar.innerHTML = '';
 
@@ -683,14 +735,20 @@ function updateFilterBar() {
   });
 
   if (openCat) {
-    const parentIcon = getCatIcon(openCat, activeFilter);
-    subs.forEach(([subId, sub], i) => {
-      bar.appendChild(_buildSubBtn(bar, openCat, subId, sub, parentIcon, (i + 1) * FILTER_SLOT_W, activeSubfilter === subId));
-    });
+    if (isEventosFilter) {
+      bar.appendChild(_buildCalendarSubBtn(FILTER_SLOT_W));
+    } else {
+      const parentIcon = getCatIcon(openCat, activeFilter);
+      subs.forEach(([subId, sub], i) => {
+        bar.appendChild(_buildSubBtn(bar, openCat, subId, sub, parentIcon, (i + 1) * FILTER_SLOT_W, activeSubfilter === subId));
+      });
+    }
   }
 
-  _setFilterRowWidth(bar, openCat ? 1 + subs.length : items.length);
+  _setFilterRowWidth(bar, openCat ? 1 + (isEventosFilter ? 1 : subs.length) : items.length);
   const drag = _attachFilterBarDragScroll(bar);
+  // El botón calendario recién se agregó al DOM recién arriba — engancharlo ahora.
+  if (openCat && isEventosFilter && typeof window._wireCalendarioFechaBtn === 'function') window._wireCalendarioFechaBtn();
 
   bar.querySelectorAll('.fbtn[data-f]').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -711,7 +769,9 @@ function updateFilterBar() {
       // ya está abierta la vista de subcategorías de ESTA misma
       // categoría (quedó primera, con .on), tocarla de nuevo cierra.
       if (isOpenNow) { _animateCloseSubcatRow(bar, id); return; }
-      if (id !== 'all' && id !== '__eventos__' && _catHasActiveSubcats(id)) { _animateOpenSubcatRow(bar, id, btn); return; }
+      // [ajuste 2026-09-28] Eventos entra por la misma rama que
+      // cualquier categoría con subcategorías — ver nota de arriba.
+      if (id !== 'all' && (id === '__eventos__' ? (typeof window.isFechaFiltroHabilitado === 'function' && window.isFechaFiltroHabilitado()) : _catHasActiveSubcats(id))) { _animateOpenSubcatRow(bar, id, btn); return; }
       activeFilter = id;
       activeSubfilter = null;
       updateFilterBar();
@@ -737,7 +797,7 @@ function updateFilterBar() {
       toque, no espera a que termine la animación (así lo pidió Cris
       en la Etapa D). */
 function _animateOpenSubcatRow(bar, catId, selectedBtn) {
-  const cat = getAllCats()[catId];
+  const cat = _getCatRef(catId); // _getCatRef (no getAllCats): resuelve también SPECIAL_CATS.__eventos__
   if (!cat) return;
   bar.classList.add('is-animating');
 
@@ -754,26 +814,52 @@ function _animateOpenSubcatRow(bar, catId, selectedBtn) {
   }, 80);
 
   setTimeout(() => {
-    const parentIcon = getCatIcon(cat, catId);
-    const subs = Object.entries(cat.subcategories || {}).filter(([, s]) => s.active !== false);
-    _setFilterRowWidth(bar, 1 + subs.length);
-    subs.forEach(([subId, sub], i) => {
-      const x = (i + 1) * FILTER_SLOT_W;
-      const subBtn = _buildSubBtn(bar, cat, subId, sub, parentIcon, x, false);
-      subBtn.classList.add('fbtn-enter-up');
-      bar.appendChild(subBtn);
-      const isLast = i === subs.length - 1;
+    const isEventosFilter = catId === '__eventos__';
+    if (isEventosFilter) {
+      // [ajuste 2026-09-28] En vez de subcategorías reales, sube UN
+      // solo botón: el calendario del filtro de fecha (ver nota de
+      // `_buildCalendarSubBtn`). Mismo mecanismo de entrada que un
+      // `.fbtn-sub` normal (fade+cascada), solo que acá no hay nada
+      // que "cascadear" al ser un único botón.
+      _setFilterRowWidth(bar, 2);
+      const calBtn = _buildCalendarSubBtn(FILTER_SLOT_W);
+      calBtn.classList.add('fbtn-enter-up');
+      bar.appendChild(calBtn);
       requestAnimationFrame(() => {
         setTimeout(() => {
-          subBtn.classList.add('fbtn-entered');
-          // [FIX 2026-09-07] recién acá termina el último paso real
-          // de la coreografía — desbloquea updateFilterBar() y los
-          // clicks nuevos.
-          if (isLast) bar.classList.remove('is-animating');
-        }, (i + 1) * 60);
+          calBtn.classList.add('fbtn-entered');
+          // [FIX 2026-09-07, mismo criterio para Eventos] recién acá
+          // termina el último paso real de la coreografía — desbloquea
+          // updateFilterBar() y los clicks nuevos.
+          bar.classList.remove('is-animating');
+          // El botón recién quedó insertado en el DOM — engancharlo
+          // ahora (js/eventos-fecha-filtro.js es quien sabe abrir el
+          // popover del calendario, acá no se duplica esa lógica).
+          if (typeof window._wireCalendarioFechaBtn === 'function') window._wireCalendarioFechaBtn();
+        }, 60);
       });
-    });
-    if (!subs.length) bar.classList.remove('is-animating');
+    } else {
+      const parentIcon = getCatIcon(cat, catId);
+      const subs = Object.entries(cat.subcategories || {}).filter(([, s]) => s.active !== false);
+      _setFilterRowWidth(bar, 1 + subs.length);
+      subs.forEach(([subId, sub], i) => {
+        const x = (i + 1) * FILTER_SLOT_W;
+        const subBtn = _buildSubBtn(bar, cat, subId, sub, parentIcon, x, false);
+        subBtn.classList.add('fbtn-enter-up');
+        bar.appendChild(subBtn);
+        const isLast = i === subs.length - 1;
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            subBtn.classList.add('fbtn-entered');
+            // [FIX 2026-09-07] recién acá termina el último paso real
+            // de la coreografía — desbloquea updateFilterBar() y los
+            // clicks nuevos.
+            if (isLast) bar.classList.remove('is-animating');
+          }, (i + 1) * 60);
+        });
+      });
+      if (!subs.length) bar.classList.remove('is-animating');
+    }
   }, 500);
 
   activeFilter = catId;
@@ -788,6 +874,14 @@ function _animateOpenSubcatRow(bar, catId, selectedBtn) {
    ocultos con .fbtn-exit-down) vuelven a su `--current-x` de origen
    (dataset.idx, guardado al construir la fila) y reaparecen. */
 function _animateCloseSubcatRow(bar, catId) {
+  // [ajuste 2026-09-28] Si lo que se está cerrando es la esquina de
+  // Eventos, el botón calendario (.fbtn-sub de acá abajo) puede tener
+  // su popover abierto — cerrarlo ANTES de sacar el botón del DOM
+  // (si no, el popover queda flotando sin el botón que lo controla).
+  // Llamado sin condición: es barato y no hace nada si no hay nada
+  // abierto, así cubre también cualquier vía indirecta de cierre.
+  if (typeof window._cerrarPopoverFecha === 'function') window._cerrarPopoverFecha();
+
   bar.classList.add('is-animating');
   const subBtns = Array.from(bar.querySelectorAll('.fbtn-sub'));
   const mainBtns = Array.from(bar.querySelectorAll('.fbtn[data-f]'));

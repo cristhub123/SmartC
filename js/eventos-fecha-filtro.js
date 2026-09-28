@@ -154,20 +154,41 @@ window.getOpacidadReducidaFiltroFecha = function() {
 };
 
 /* ─────────────────────────────────────────
-   UI — barra de fecha, aparece solo con el filtro "Eventos" activo.
-   [Etapa 14, 2026-09-28] El `<input type="date">` nativo se reemplazó
-   por un botón (mismo lenguaje visual que los botones de categoría:
-   círculo + ícono) que abre un popover con el calendario propio
-   (js/calendario-eventos.js, componente compartido — no se programa
-   dos veces, ver nota de cabecera de ese archivo; la Etapa 15 lo va a
-   reusar igual). El popover se registra en OverlayManager como
-   cualquier otro menú flotante nuevo (ver AI_RULES.md sección 11).
+   UI — [ajuste 2026-09-28, mismo día de la Etapa 14] el botón que
+   abre el calendario YA NO vive en una barra propia siempre visible:
+   ahora es el botón que aparece EN LA ESQUINA del botón "Eventos"
+   cuando el usuario lo toca, con la misma coreografía animada que
+   cualquier categoría con subcategorías reales (fila principal cae en
+   cascada, "Eventos" viaja a la posición 0, el botón calendario sube
+   con fade) — ver `_buildCalendarSubBtn`/`_animateOpenSubcatRow` en
+   js/categories.js, no se duplica esa coreografía acá. Esta sección
+   solo:
+     1) engancha el click de ese botón (id fijo `eventos-fecha-btn`,
+        pero categories.js CREA UN NODO NUEVO cada vez que se abre la
+        esquina — `btn.dataset.wired` evita enganchar 2 veces el
+        MISMO nodo, no evita re-enganchar un nodo nuevo);
+     2) monta el calendario propio UNA sola vez dentro del popover
+        (`#eventos-fecha-popover`, ese sí es fijo — vive siempre en el
+        DOM, como hermano de `.filter-row` dentro de `#filter-bar`,
+        ver index.html);
+     3) expone en `window` lo que categories.js necesita para
+        coordinarse: `isFechaFiltroHabilitado()` (¿corresponde mostrar
+        el botón calendario al abrir la esquina de Eventos?) y
+        `_cerrarPopoverFecha()` (cerrar el popover cuando la esquina
+        de Eventos se cierra — `_animateCloseSubcatRow` la llama
+        siempre antes de sacar el botón del DOM).
+   El popover se registra en OverlayManager como cualquier otro menú
+   flotante nuevo (ver AI_RULES.md sección 11).
    ───────────────────────────────────────── */
 let _calendarioFecha = null; // instancia CalendarioEventos.mount(), una sola vez
 
-function _fechaFiltroActiva() {
-  return typeof activeFilter !== 'undefined' && activeFilter === '__eventos__' && _filtroFechaSettings.enabled;
-}
+/** ¿El filtro de fecha está habilitado (toggle de Admin → Eventos)?
+ *  Lee de acá — no se guarda una copia en categories.js — para que el
+ *  botón calendario solo aparezca al abrir la esquina de "Eventos"
+ *  cuando de verdad hay algo que elegir. */
+window.isFechaFiltroHabilitado = function() {
+  return !!(_filtroFechaSettings && _filtroFechaSettings.enabled);
+};
 
 function _popoverAbierto() {
   const pop = document.getElementById('eventos-fecha-popover');
@@ -180,6 +201,7 @@ function _cerrarPopoverFecha() {
   if (pop) pop.hidden = true;
   if (btn) btn.setAttribute('aria-expanded', 'false');
 }
+window._cerrarPopoverFecha = _cerrarPopoverFecha; // llamada desde js/categories.js al cerrar la esquina de Eventos
 
 function _abrirPopoverFecha() {
   const pop = document.getElementById('eventos-fecha-popover');
@@ -190,52 +212,32 @@ function _abrirPopoverFecha() {
   btn.setAttribute('aria-expanded', 'true');
 }
 
-function _renderChipFecha() {
-  const chip = document.getElementById('eventos-fecha-chip');
-  const texto = document.getElementById('eventos-fecha-chip-text');
-  const btn = document.getElementById('eventos-fecha-btn');
-  if (!chip || !texto || !btn) return;
-  const hay = !!fechaFiltroEventos;
-  chip.hidden = !hay;
-  btn.classList.toggle('is-active', hay);
-  if (hay && window.CalendarioEventos) {
-    texto.textContent = CalendarioEventos.formatRango(fechaFiltroEventos, fechaFiltroEventosHasta);
-  }
+function _aplicarFechaFiltro(desde, hasta) {
+  fechaFiltroEventos = desde || null;
+  fechaFiltroEventosHasta = (desde && hasta) ? hasta : null;
+  if (typeof applyFilter === 'function') applyFilter();
+  // Si hay un pin abierto en ese momento, refleja la fecha nueva en su
+  // pestaña de eventos sin que haga falta cerrarlo/abrirlo.
+  if (window.PoiPanel && typeof window.PoiPanel.refresh === 'function') window.PoiPanel.refresh();
 }
 
-/* Punto de entrada "en frío": muestra/oculta la barra entera según
- * corresponda y deja el chip al día con la selección actual — se
- * llama seguido (cada refresco de la fila de filtros), tiene que ser
- * barata e idempotente, igual que updateFilterBar(). */
-function _renderFechaFiltroBar() {
-  const bar = document.getElementById('eventos-fecha-bar');
-  if (!bar) return;
-  const eventosOn = _fechaFiltroActiva();
-  bar.hidden = !eventosOn;
-  if (!eventosOn) { _cerrarPopoverFecha(); return; }
-  _renderChipFecha();
-}
-
-function _wireFechaFiltroBar() {
+/** Se llama cada vez que `#eventos-fecha-btn` puede haber cambiado de
+ *  nodo (categories.js lo recrea desde cero cada vez que se abre la
+ *  esquina de Eventos — `_animateOpenSubcatRow`/`updateFilterBar`) —
+ *  idempotente y barata: no hace nada si el botón no está en el DOM
+ *  todavía, o si este MISMO nodo ya quedó enganchado. */
+window._wireCalendarioFechaBtn = function() {
   const btn = document.getElementById('eventos-fecha-btn');
-  const clearBtn = document.getElementById('eventos-fecha-clear');
   const pop = document.getElementById('eventos-fecha-popover');
-  if (!btn || !clearBtn || !pop || btn.dataset.wired) return;
+  if (!btn || !pop || btn.dataset.wired) return;
   btn.dataset.wired = '1';
-
-  function _aplicar(desde, hasta) {
-    fechaFiltroEventos = desde || null;
-    fechaFiltroEventosHasta = (desde && hasta) ? hasta : null;
-    _renderChipFecha();
-    if (typeof applyFilter === 'function') applyFilter();
-    // Si hay un pin abierto en ese momento, refleja la fecha nueva en
-    // su pestaña de eventos sin que haga falta cerrarlo/abrirlo.
-    if (window.PoiPanel && typeof window.PoiPanel.refresh === 'function') window.PoiPanel.refresh();
-  }
 
   // Registro en OverlayManager: mismo patrón que 'zonasDropdown'/
   // 'zonaInfoPanel' — este popover no tiene la secuencia escalonada
   // propia que sí tiene cluster.js, así que usa beforeOpen normal.
+  // Se re-registra con cada nodo nuevo (mismo id, controller nuevo)
+  // sin problema: OverlayManager.register() solo guarda la referencia
+  // más reciente.
   if (window.OverlayManager) {
     OverlayManager.register('fechaCalendarioPopover', { isOpen: _popoverAbierto, close: _cerrarPopoverFecha });
   }
@@ -244,8 +246,8 @@ function _wireFechaFiltroBar() {
     _calendarioFecha = CalendarioEventos.mount(pop, {
       desde: fechaFiltroEventos,
       hasta: fechaFiltroEventosHasta,
-      onConfirm({ desde, hasta }) { _aplicar(desde, hasta); _cerrarPopoverFecha(); },
-      onClear() { _aplicar(null, null); },
+      onConfirm({ desde, hasta }) { _aplicarFechaFiltro(desde, hasta); _cerrarPopoverFecha(); },
+      onClear() { _aplicarFechaFiltro(null, null); },
     });
   }
 
@@ -255,24 +257,22 @@ function _wireFechaFiltroBar() {
     if (window.OverlayManager) OverlayManager.beforeOpen('fechaCalendarioPopover', _abrirPopoverFecha);
     else _abrirPopoverFecha();
   });
-  clearBtn.addEventListener('click', (e) => { e.stopPropagation(); _aplicar(null, null); });
-  // Tocar fuera del popover (pero dentro de la barra) lo cierra sin
-  // tocar el filtro elegido — el propio botón ya maneja su click.
-  document.addEventListener('click', (e) => {
-    if (!_popoverAbierto()) return;
-    if (pop.contains(e.target) || btn.contains(e.target)) return;
-    _cerrarPopoverFecha();
-  });
-}
-
-// updateFilterBar() (js/categories.js) llama a este hook cada vez que
-// se re-pinta la barra de filtros (carga inicial + cada click de
-// filtro) — un solo punto de entrada, sin duplicar acá el criterio
-// de "cuándo mostrar la barra de fecha".
-window._onFilterBarUpdated = function() {
-  _wireFechaFiltroBar();
-  _renderFechaFiltroBar();
 };
+
+// Tocar fuera del popover (y fuera del botón que lo abre) lo cierra
+// sin tocar el filtro elegido. Se engancha UNA sola vez acá (no
+// adentro de _wireCalendarioFechaBtn, que corre cada vez que
+// categories.js recrea el botón — si no, se acumularía un listener
+// nuevo en `document` por cada apertura de la esquina de Eventos).
+// `getElementById` resuelve el nodo VIVO en cada click, así que sigue
+// funcionando aunque el botón se haya recreado después de engancharse.
+document.addEventListener('click', (e) => {
+  if (!_popoverAbierto()) return;
+  const pop = document.getElementById('eventos-fecha-popover');
+  const btn = document.getElementById('eventos-fecha-btn');
+  if ((pop && pop.contains(e.target)) || (btn && btn.contains(e.target))) return;
+  _cerrarPopoverFecha();
+});
 
 /* ─────────────────────────────────────────
    PERSISTENCIA (Firestore settings/filtroFechaEventos) — mismo
@@ -319,9 +319,8 @@ function initFiltroFechaAdminTab() {
 
   toggle.addEventListener('change', () => {
     _filtroFechaSettings.enabled = toggle.checked;
-    if (!toggle.checked) { fechaFiltroEventos = null; fechaFiltroEventosHasta = null; } // apaga cualquier fecha ya elegida
+    if (!toggle.checked) { fechaFiltroEventos = null; fechaFiltroEventosHasta = null; _cerrarPopoverFecha(); } // apaga cualquier fecha ya elegida
     if (typeof applyFilter === 'function') applyFilter();
-    _renderFechaFiltroBar();
     saveFiltroFechaSettings();
     toast(toggle.checked ? '🔵 Filtro de fecha activado' : '⭕ Filtro de fecha desactivado');
   });
