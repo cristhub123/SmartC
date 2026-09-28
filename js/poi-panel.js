@@ -293,6 +293,10 @@ const PoiPanel = (function () {
     // en cada _render(), no hace falta tocarlos acá.
     _applyStaticChromeI18n();
 
+    // [Etapa 12] click del ícono 📍 de las tarjetas de evento + fallback de foto
+    // rota — delegado sobre la lista, sobrevive a los re-pintados.
+    if (window.EventoCard) EventoCard.bind(_els.eventosList);
+
     _bindStaticEvents();
     _applyPanelSizeVars();
     return _els;
@@ -383,40 +387,18 @@ const PoiPanel = (function () {
     // debajo de los que sí coinciden (ver _eventosVigentesDelPoi).
     const fechaActiva = (typeof activeFilter !== 'undefined' && activeFilter === '__eventos__'
       && typeof fechaFiltroEventos !== 'undefined' && fechaFiltroEventos) ? fechaFiltroEventos : null;
-    els.eventosList.innerHTML = eventosDelPoi.map(ev => {
-      const fechas = [ev.fecha_inicio, ev.fecha_fin].filter(Boolean)
-        .map(iso => { const d = new Date(iso); return isNaN(d.getTime()) ? '' : d.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' }); })
-        .filter(Boolean).join(' → ');
+    // [Etapa 12/13, 2026-09-28] Las tarjetas salen de EventoCard (js/evento-card.js,
+    // una sola función de render) y se muestran en un carrusel horizontal con
+    // scroll (ya no una lista apilada de texto).
+    const catalogo = (_eventosConfigCache && Array.isArray(_eventosConfigCache.categoriasEvento)) ? _eventosConfigCache.categoriasEvento : [];
+    const tarjetas = eventosDelPoi.map(ev => {
       const noCoincideConFecha = fechaActiva && typeof _eventoOcurreEnFecha === 'function' && !_eventoOcurreEnFecha(ev, fechaActiva);
-      const dimStyle = noCoincideConFecha
-        ? ` style="opacity:${window.getOpacidadReducidaFiltroFecha ? window.getOpacidadReducidaFiltroFecha() : 0.35}"`
-        : '';
-      // [Etapa 9 — simplificada] tags → labels legibles, usando el
-      // catálogo que llega vía setEventosConfig() (mismo que carga
-      // js/eventos.js → loadEventosConfig()).
-      const catalogo = (_eventosConfigCache && Array.isArray(_eventosConfigCache.categoriasEvento)) ? _eventosConfigCache.categoriasEvento : [];
-      const tagsLabels = (ev.tags || [])
-        .map(id => (catalogo.find(c => c.id === id) || {}).label || id)
-        .filter(Boolean);
-      const _t = (k) => (window.I18N ? I18N.t(k) : k);
-      const entradaTxt = ev.entradaGratis === false ? `💵 ${ev.valorEntrada || _t('evt_entrada_paga')}` : `🆓 ${_t('evt_entrada_gratuita')}`;
-      const contactos = [
-        ev.contactoTelefono ? `📞 ${ev.contactoTelefono}` : '',
-        ev.contactoEmail ? `✉️ ${ev.contactoEmail}` : '',
-        ev.contactoRedSocial ? `📱 ${ev.contactoRedSocial}` : '',
-        ev.contactoWeb ? `🌐 ${ev.contactoWeb}` : '',
-      ].filter(Boolean);
-      return `<div class="poi-panel__evento-card"${dimStyle}>
-        <strong class="poi-panel__evento-nombre">${_escapeHtml(ev.nombre || _t('evt_sin_nombre'))}</strong>
-        ${fechas ? `<span class="poi-panel__evento-fechas">🗓 ${_escapeHtml(fechas)}</span>` : ''}
-        ${ev.horario ? `<span class="poi-panel__evento-fechas">🕒 ${_escapeHtml(ev.horario)}</span>` : ''}
-        <span class="poi-panel__evento-fechas">${entradaTxt}</span>
-        ${tagsLabels.length ? `<span class="poi-panel__evento-cat">${tagsLabels.map(_escapeHtml).join(' · ')}</span>` : ''}
-        ${ev.descripcion ? `<p class="poi-panel__evento-desc">${_escapeHtml(ev.descripcion)}</p>` : ''}
-        ${ev.direccion ? `<p class="poi-panel__evento-desc">📍 ${_escapeHtml(ev.direccion)}</p>` : ''}
-        ${contactos.length ? `<p class="poi-panel__evento-desc">${contactos.map(_escapeHtml).join(' · ')}</p>` : ''}
-      </div>`;
+      const dimOpacity = noCoincideConFecha
+        ? (window.getOpacidadReducidaFiltroFecha ? window.getOpacidadReducidaFiltroFecha() : 0.35)
+        : null;
+      return window.EventoCard ? EventoCard.render(ev, { catalogo, dimOpacity }) : '';
     }).join('');
+    els.eventosList.innerHTML = `<div class="poi-panel__eventos-carousel${eventosDelPoi.length === 1 ? ' poi-panel__eventos-carousel--single' : ''}">${tarjetas}</div>`;
     // Mantiene la pestaña activa que ya tuviera (no fuerza a "eventos"
     // cada vez que se re-pinta, ver decisión de Cris: solo aparece la
     // pestaña, no se auto-abre encima de la info general).

@@ -12,8 +12,9 @@ cambio hecho y la verificacion realizada.
 */
 
 /* ═══════════════════════════════════════════════════════════
-   TIPOGRAFÍA Y ESTILOS — 3 niveles (Nombre principal / Título de
-   sección interna / Texto de contenido), con presets que declaran a
+   TIPOGRAFÍA Y ESTILOS — 4 niveles (Nombre principal / Título de
+   sección interna / Texto de contenido / [Etapa 12] Título de evento
+   sin foto), con presets que declaran a
    qué "scope" aplican (pines, zonas, o ambos — como un sistema de
    tags simple), y hasta 8 fuentes extra de Google Fonts que el
    propio admin puede sumar sin pedírselo a nadie.
@@ -41,6 +42,11 @@ const TYPO_LEVELS = [
   { key: 'title',   cssVarPrefix: 'title',   fallbackFontVar: '--font-d', label: 'Nombre principal' },
   { key: 'section', cssVarPrefix: 'section', fallbackFontVar: '--font-b', label: 'Título de sección interna' },
   { key: 'body',    cssVarPrefix: 'body',    fallbackFontVar: '--font-b', label: 'Texto de contenido' },
+  // [Etapa 12 — PLAN_USUARIOS_EVENTOS.md, 2026-09-28] 4to nivel: título grande de la
+  // tarjeta de evento SIN foto (js/evento-card.js). `defaults` = lo que ya se ve por
+  // CSS cuando el preset no lo trae (presets viejos siguen igual).
+  { key: 'eventoSinFoto', cssVarPrefix: 'eventoSinFoto', fallbackFontVar: '--font-d', label: 'Título de evento sin foto',
+    defaults: { font: '', size: 22, color: '#0f172a' } },
 ];
 
 let _typoFonts = [];        // fuentes EXTRA cargadas (no incluye las 3 base)
@@ -168,8 +174,8 @@ function _readLevelsFromForm() {
   TYPO_LEVELS.forEach(lvl => {
     levels[lvl.key] = {
       font:  document.getElementById(`typo-${lvl.key}-font`)?.value || '',
-      size:  parseInt(document.getElementById(`typo-${lvl.key}-size`)?.value) || 14,
-      color: document.getElementById(`typo-${lvl.key}-color`)?.value || '#000000',
+      size:  parseInt(document.getElementById(`typo-${lvl.key}-size`)?.value) || ((lvl.defaults && lvl.defaults.size) || 14),
+      color: document.getElementById(`typo-${lvl.key}-color`)?.value || ((lvl.defaults && lvl.defaults.color) || '#000000'),
     };
   });
   return levels;
@@ -177,7 +183,7 @@ function _readLevelsFromForm() {
 
 function _fillLevelsInForm(levels) {
   TYPO_LEVELS.forEach(lvl => {
-    const data = (levels && levels[lvl.key]) || { font: '', size: 14, color: '#000000' };
+    const data = (levels && levels[lvl.key]) || lvl.defaults || { font: '', size: 14, color: '#000000' };
     const fontEl = document.getElementById(`typo-${lvl.key}-font`);
     const sizeEl = document.getElementById(`typo-${lvl.key}-size`);
     const sizeValEl = document.getElementById(`typo-${lvl.key}-size-val`);
