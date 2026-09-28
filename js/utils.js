@@ -193,7 +193,7 @@ const CLOUDINARY_UPLOAD_PRESET_BANNER = 'smartcity_banner_01';
    sirven: las tarjetas de evento tienen que medir todas igual, así
    que el preset tiene que recortar a 16:9 fijo. Configuración a
    crear a mano en la consola de Cloudinary (unsigned):
-     Incoming transformation: c_fill,g_auto,w_800,h_450,q_auto,f_auto
+     Incoming transformation: c_fill,g_auto,w_1024,h_576,q_auto,f_auto
      Allowed formats:         jpg,jpeg,webp
    Se elige con `subfolder: 'eventos'` en uploadToCloudinary(). */
 const CLOUDINARY_UPLOAD_PRESET_EVENTOS = 'smartcity_eventos_01';

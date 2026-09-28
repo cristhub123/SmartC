@@ -275,6 +275,7 @@ window.EventosFormCommon = (function () {
      ═══════════════════════════════════════════════════════════ */
   const IMG_TIPOS_OK = ['image/jpeg', 'image/webp'];
   const IMG_MAX_BYTES = 10 * 1024 * 1024; // tope del plan gratuito de Cloudinary por archivo
+  const IMG_MIN_ANCHO = 1024; // px — el preset guarda 1024x576; menos que esto se agranda y se ve borroso
   const _imgState = {};
   function _st(p) { return _imgState[p] || (_imgState[p] = { file: null, objUrl: '', existingUrl: '', removed: false, uploadedUrl: '' }); }
 
@@ -319,11 +320,28 @@ window.EventosFormCommon = (function () {
         _imgError(idPrefix, '⚠️ La foto pesa más de 10 MB — elegí una más liviana.');
         return;
       }
-      _clearPickedFile(idPrefix);
-      const s = _st(idPrefix);
-      s.file = file; s.removed = false;
-      s.objUrl = URL.createObjectURL(file);
-      _renderImagen(idPrefix);
+      // Ancho mínimo: se mide la foto real antes de aceptarla.
+      const probeUrl = URL.createObjectURL(file);
+      const probe = new Image();
+      probe.onload = () => {
+        if (probe.naturalWidth < IMG_MIN_ANCHO) {
+          URL.revokeObjectURL(probeUrl);
+          input.value = '';
+          _imgError(idPrefix, `⚠️ La foto es muy chica (${probe.naturalWidth} px de ancho) — se vería borrosa. Usá una de al menos ${IMG_MIN_ANCHO} px.`);
+          return;
+        }
+        _clearPickedFile(idPrefix);
+        const s = _st(idPrefix);
+        s.file = file; s.removed = false;
+        s.objUrl = probeUrl;
+        _renderImagen(idPrefix);
+      };
+      probe.onerror = () => {
+        URL.revokeObjectURL(probeUrl);
+        input.value = '';
+        _imgError(idPrefix, '⚠️ No se pudo leer la foto — probá con otra.');
+      };
+      probe.src = probeUrl;
     });
     document.getElementById(idPrefix + 'imagen-quitar')?.addEventListener('click', () => {
       _clearPickedFile(idPrefix);
