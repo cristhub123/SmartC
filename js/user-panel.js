@@ -425,6 +425,17 @@ async function saveUpEvento() {
     return;
   }
 
+  // [Etapa 11] foto opcional del evento (mismo módulo compartido que el admin).
+  let imgRes = { changed: false, url: '' };
+  try {
+    imgRes = await EventosFormCommon.resolverImagen('up-evt-', nombre);
+  } catch (err) {
+    console.warn('[Etapa 11] Error subiendo foto del evento:', err);
+    if (errEl) errEl.textContent = '⚠️ No se pudo subir la foto. Probá de nuevo o guardá el evento sin foto.';
+    btn.textContent = originalBtnText; btn.disabled = false;
+    return;
+  }
+
   const dup = EventosShared.checkNombreDuplicado(nombre, city, _upEvtEditingId);
   if (dup) {
     if (errEl) errEl.textContent = `⚠️ Ya existe un evento con ese nombre en esta ciudad: "${dup.nombre}"`;
@@ -439,6 +450,7 @@ async function saveUpEvento() {
         nombre, nombreSlug, descripcion, fecha_inicio, fecha_fin, horario,
         entradaGratis, valorEntrada, direccion, tags,
         contactoEmail, contactoRedSocial, contactoTelefono, contactoWeb,
+        ...(imgRes.changed ? { imagenUrl: imgRes.url } : {}), // [Etapa 11]
         cambiosRestantes: firebase.firestore.FieldValue.increment(-1),
       });
       toast(`✅ Evento "${nombre}" actualizado`);
@@ -453,6 +465,7 @@ async function saveUpEvento() {
         usuarioAsignadoUid: uid, // [Etapa 6] autoservicio: se autoasigna, sin elegirlo a mano
         activo: false, // [Etapa 6] nace desactivado — lo activa el admin
         estado: 'pendiente',
+        imagenUrl: imgRes.url || '', // [Etapa 11]
         cambiosRestantes: (typeof cfg.cambiosDefault === 'number') ? cfg.cambiosDefault : 3,
         creadoEn: firebase.firestore.FieldValue.serverTimestamp(),
       });

@@ -727,6 +727,18 @@ async function saveEvento() {
  
   const originalBtnText = editando ? '💾 Guardar cambios' : '✓ Crear evento';
   btn.textContent = 'Guardando...'; btn.disabled = true;
+
+  // [Etapa 11] foto opcional: se sube ANTES de crear el pin del Camino B,
+  // así si la subida falla no queda un pin huérfano.
+  let imgRes = { changed: false, url: '' };
+  try {
+    imgRes = await EventosFormCommon.resolverImagen('evt-', nombre);
+  } catch (err) {
+    console.warn('[Etapa 11] Error subiendo foto del evento:', err);
+    if (errEl) errEl.textContent = '⚠️ No se pudo subir la foto. Probá de nuevo o guardá el evento sin foto.';
+    btn.textContent = originalBtnText; btn.disabled = false;
+    return;
+  }
  
   let poi_id = null;
   if (_evtCamino === 'a') {
@@ -788,6 +800,9 @@ async function saveEvento() {
     activo,
     destacado, destacado_hasta,
   };
+  // [Etapa 11] imagenUrl: al editar solo se escribe si tocaron la foto
+  // (merge:true no pisa la que ya había); al crear siempre queda el campo.
+  if (imgRes.changed || !editando) evento.imagenUrl = imgRes.url || '';
  
   try {
     if (editando) {

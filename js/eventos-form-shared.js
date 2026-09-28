@@ -12,6 +12,12 @@ cambio hecho y la verificacion realizada.
 */
 
 /**
+ * [Etapa 11 — PLAN_USUARIOS_EVENTOS.md, 2026-09-27] Foto opcional del
+ * evento (`imagenUrl`, Cloudinary preset `smartcity_eventos_01`):
+ * bloque "Foto del evento" agregado ACÁ (una sola implementación para
+ * el form admin `evt-` y el de usuario `up-evt-`) — ver
+ * `wireImagenInput`, `resolverImagen` y su uso en precargar/reset.
+ *
  * [Etapa 10 — PLAN_UNIFICACION_FORMULARIO_EVENTOS.md, Partes 1, 2 y 3
  * — PLAN COMPLETO]
  * MÓDULO COMPARTIDO — bloques de UI, lectura/precarga de campos, y
@@ -211,6 +217,7 @@ window.EventosFormCommon = (function () {
     if (valorBlock) valorBlock.style.display = (ev.entradaGratis === false) ? '' : 'none';
     setVal('valor-entrada', ev.valorEntrada || '');
     setVal('direccion', ev.direccion || '');
+    precargarImagen(idPrefix, ev.imagenUrl || ''); // [Etapa 11]
     setVal('contacto-email', ev.contactoEmail || '');
     setVal('contacto-social', ev.contactoRedSocial || '');
     setVal('contacto-telefono', ev.contactoTelefono || '');
@@ -234,6 +241,7 @@ window.EventosFormCommon = (function () {
     const valorBlock = document.getElementById(idPrefix + 'valor-entrada-block');
     if (valorBlock) valorBlock.style.display = 'none';
     if (window.EventosShared) EventosShared.renderTagsSelector(idPrefix + 'tags-wrap', []);
+    resetImagen(idPrefix); // [Etapa 11]
     const errEl = document.getElementById(idPrefix + 'form-error');
     if (errEl) errEl.textContent = '';
     const previewEl = document.getElementById(idPrefix + 'nombre-preview');
@@ -258,7 +266,123 @@ window.EventosFormCommon = (function () {
     return { pin, pinLabel, fechas, entradaTxt };
   }
 
+  /* ═══════════════════════════════════════════════════════════
+     [Etapa 11] FOTO OPCIONAL DEL EVENTO
+     Estado por formulario (clave = idPrefix): { file, objUrl,
+     existingUrl, removed, uploadedUrl }. La foto NO se sube al elegirla
+     — recién al guardar (`resolverImagen`), así cancelar el formulario
+     no deja archivos huérfanos en Cloudinary.
+     ═══════════════════════════════════════════════════════════ */
+  const IMG_TIPOS_OK = ['image/jpeg', 'image/webp'];
+  const IMG_MAX_BYTES = 10 * 1024 * 1024; // tope del plan gratuito de Cloudinary por archivo
+  const _imgState = {};
+  function _st(p) { return _imgState[p] || (_imgState[p] = { file: null, objUrl: '', existingUrl: '', removed: false, uploadedUrl: '' }); }
+
+  function _renderImagen(p) {
+    const s = _st(p);
+    const prev = document.getElementById(p + 'imagen-preview');
+    const quitar = document.getElementById(p + 'imagen-quitar');
+    const url = s.objUrl || (s.removed ? '' : s.existingUrl);
+    if (prev) { if (url) { prev.src = url; prev.hidden = false; } else { prev.removeAttribute('src'); prev.hidden = true; } }
+    if (quitar) quitar.hidden = !url;
+  }
+  function _imgError(p, msg) {
+    const el = document.getElementById(p + 'imagen-error');
+    if (el) el.textContent = msg || '';
+  }
+  function _clearPickedFile(p) {
+    const s = _st(p);
+    if (s.objUrl) { try { URL.revokeObjectURL(s.objUrl); } catch (e) {} }
+    s.file = null; s.objUrl = ''; s.uploadedUrl = '';
+    const input = document.getElementById(p + 'imagen-input');
+    if (input) input.value = '';
+  }
+
+  /** Engancha el input de archivo y el botón \"Quitar\" de un formulario. */
+  function wireImagenInput(idPrefix) {
+    const input = document.getElementById(idPrefix + 'imagen-input');
+    if (!input) return;
+    input.addEventListener('change', () => {
+      const file = input.files && input.files[0];
+      if (!file) return;
+      _imgError(idPrefix, '');
+      // Validación rápida en el cliente ANTES de intentar subir (el
+      // preset de Cloudinary también rechaza otros formatos, pero así
+      // se avisa al instante y sin gastar un intento de subida).
+      if (!IMG_TIPOS_OK.includes(file.type)) {
+        input.value = '';
+        _imgError(idPrefix, '⚠️ Formato no permitido — usá una foto JPG o WebP (PNG no se acepta).');
+        return;
+      }
+      if (file.size > IMG_MAX_BYTES) {
+        input.value = '';
+        _imgError(idPrefix, '⚠️ La foto pesa más de 10 MB — elegí una más liviana.');
+        return;
+      }
+      _clearPickedFile(idPrefix);
+      const s = _st(idPrefix);
+      s.file = file; s.removed = false;
+      s.objUrl = URL.createObjectURL(file);
+      _renderImagen(idPrefix);
+    });
+    document.getElementById(idPrefix + 'imagen-quitar')?.addEventListener('click', () => {
+      _clearPickedFile(idPrefix);
+      const s = _st(idPrefix);
+      s.removed = true; // si había una foto ya guardada, se borra el campo al guardar
+      _imgError(idPrefix, '');
+      _renderImagen(idPrefix);
+    });
+  }
+
+  /** Modo edición: muestra la foto ya guardada (si tiene). */
+  function precargarImagen(idPrefix, url) {
+    _clearPickedFile(idPrefix);
+    const s = _st(idPrefix);
+    s.existingUrl = url || ''; s.removed = false;
+    _imgError(idPrefix, '');
+    _renderImagen(idPrefix);
+  }
+
+  /** Vuelta a cero (cancelar / después de guardar). */
+  function resetImagen(idPrefix) { precargarImagen(idPrefix, ''); }
+
+  /**
+   * Se llama al guardar. Devuelve `{ changed, url }`:
+   *  - `changed:false` → no tocaron la foto, no hay que escribir `imagenUrl`.
+   *  - `changed:true`  → hay que escribir `imagenUrl = url` ('' si la quitaron).
+   * Si eligieron un archivo nuevo, lo sube ACÁ (carpeta
+   * `.../{ciudad activa}/eventos/`, preset `smartcity_eventos_01`).
+   * Si la subida sale bien pero el guardado posterior falla, el reintento
+   * reusa la misma URL (no sube dos veces). Lanza error si la subida falla.
+   */
+  async function resolverImagen(idPrefix, nombre) {
+    const s = _st(idPrefix);
+    if (s.file) {
+      if (!s.uploadedUrl) {
+        if (typeof uploadToCloudinary !== 'function') throw new Error('uploadToCloudinary no disponible');
+        const al = window.ACTIVE_LOCATION || {};
+        const location = {};
+        if (al.countryCode)  location.country = al.countryCode;
+        if (al.provinceCode) location.state   = al.provinceCode;
+        if (al.cityCode)     location.city    = al.cityCode;
+        const base = (window.EventosShared && EventosShared.slugifyNombre ? EventosShared.slugifyNombre(nombre) : '') || 'evento';
+        s.uploadedUrl = await uploadToCloudinary(s.file, {
+          subfolder: 'eventos',
+          location,
+          publicId: `${base}_${Date.now().toString(36)}`, // nunca el nombre del celular: evita choques entre usuarios
+        });
+      }
+      return { changed: true, url: s.uploadedUrl };
+    }
+    if (s.removed && s.existingUrl) return { changed: true, url: '' };
+    return { changed: false, url: s.existingUrl };
+  }
+
   return {
+    wireImagenInput,
+    precargarImagen,
+    resetImagen,
+    resolverImagen,
     applyCaminoUI,
     renderBuscarPinResults,
     wireBuscarPinClickOutside,
@@ -272,3 +396,7 @@ window.EventosFormCommon = (function () {
     formatEventoResumen,
   };
 })();
+
+// [Etapa 11] engancha los inputs de foto de los 2 formularios (admin y usuario).
+EventosFormCommon.wireImagenInput('evt-');
+EventosFormCommon.wireImagenInput('up-evt-');

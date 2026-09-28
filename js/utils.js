@@ -187,6 +187,17 @@ const CLOUDINARY_UPLOAD_PRESET = 'smartcity_pines_01';
    es unsigned y sin ninguna transformación. */
 const CLOUDINARY_UPLOAD_PRESET_BANNER = 'smartcity_banner_01';
 
+/* [Etapa 11 — PLAN_USUARIOS_EVENTOS.md, 2026-09-27] Tercer preset,
+   exclusivo de la FOTO DE UN EVENTO. Ni el de pines (c_limit, deja
+   pasar cualquier proporción) ni el de banner (sin transformación)
+   sirven: las tarjetas de evento tienen que medir todas igual, así
+   que el preset tiene que recortar a 16:9 fijo. Configuración a
+   crear a mano en la consola de Cloudinary (unsigned):
+     Incoming transformation: c_fill,g_auto,w_800,h_450,q_auto,f_auto
+     Allowed formats:         jpg,jpeg,webp
+   Se elige con `subfolder: 'eventos'` en uploadToCloudinary(). */
+const CLOUDINARY_UPLOAD_PRESET_EVENTOS = 'smartcity_eventos_01';
+
 /* [LIMPIEZA 2026-08-12] `DEFAULT_IMG_FOLDER` ('ar/cordoba') y la
    fórmula que la usaba (`cloudinaryImageUrl` en markers.js) quedaron
    eliminadas — ya no existe ningún camino del código que arme una
@@ -223,8 +234,10 @@ async function uploadToCloudinary(file, opts = {}) {
   // [2026-08-21] El preset determina si esta subida lleva la incoming
   // transformation de resize (solo el preset de PIN debe tenerla —
   // ver nota junto a CLOUDINARY_UPLOAD_PRESET_BANNER más arriba).
-  const isBanner = (opts.subfolder || 'images') === 'banner';
-  const uploadPreset = isBanner ? CLOUDINARY_UPLOAD_PRESET_BANNER : CLOUDINARY_UPLOAD_PRESET;
+  // [Etapa 11] 'eventos' → preset propio (recorte 16:9, solo jpg/webp).
+  const _sub = opts.subfolder || 'images';
+  const uploadPreset = _sub === 'banner' ? CLOUDINARY_UPLOAD_PRESET_BANNER
+    : (_sub === 'eventos' ? CLOUDINARY_UPLOAD_PRESET_EVENTOS : CLOUDINARY_UPLOAD_PRESET);
 
   const formData = new FormData();
   formData.append('file', file);
