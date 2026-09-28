@@ -513,9 +513,14 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   outline: none;
   transform: translate(var(--current-x, 0px), 0px);
 }
+/* [2026-09-27] HOVER DESACTIVADO por pedido: los botones redondos de
+   categorías ya no se elevan/agrandan al pasar el mouse. Para reactivarlo,
+   descomentar este bloque. El resto de efectos (:active, .on, animaciones
+   de entrada/salida) siguen funcionando igual.
 .filter-row:not(.is-animating) .fbtn:hover {
   transform: translate(var(--current-x, 0px), -3px) scale(1.05);
 }
+*/
 .filter-row:not(.is-animating) .fbtn:active {
   transform: translate(var(--current-x, 0px), 0px) scale(.92);
 }
