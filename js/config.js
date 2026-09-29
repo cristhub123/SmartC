@@ -36,6 +36,9 @@ const LUCIDE = {
      el botón calendario que aparece sobre "Eventos" al abrir su
      esquina — ver js/categories.js `_buildCalendarSubBtn`. */
   calendar:`<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`,
+  /* [Etapa 15, PLAN_USUARIOS_EVENTOS.md, 2026-09-29] usado por el botón "Todos"
+     de la esquina de Eventos — ver js/categories.js `_buildTodosSubBtn`. */
+  listado: `<svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>`,
   default: `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>`,
 };
 

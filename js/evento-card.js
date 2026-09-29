@@ -15,8 +15,8 @@ cambio hecho y la verificacion realizada.
  * [Etapa 12 — PLAN_USUARIOS_EVENTOS.md, 2026-09-28]
  * TARJETA DE EVENTO UNIFICADA — UNA sola función de render
  * (`EventoCard.render`) que reusan la pestaña "Eventos" de un pin
- * (Etapa 13, carrusel) y, más adelante, el panel "Todos los eventos"
- * (Etapa 15). No duplicar este markup en otro archivo.
+ * (Etapa 13, carrusel) y el panel "Todos los eventos"
+ * (Etapa 15, js/eventos-todos.js). No duplicar este markup en otro archivo.
  *
  * 2 variantes:
  *  - CON FOTO (`ev.imagenUrl`, Etapa 11): imagen 16:9 arriba.
@@ -140,6 +140,10 @@ window.EventoCard = (function () {
       const poi = _findPoi(btn.dataset.eventoLocate);
       if (poi && typeof window.panToPoiCenter === 'function') {
         window.panToPoiCenter(poi);
+        // [Etapa 15] En el panel "Todos los eventos" (pantalla vertical, panel en
+        // 'full') el panel tapa el mapa: PoiPanel lo baja a 'peek' para que se vea
+        // el pin centrado. En el panel de un lugar no hace nada.
+        if (window.PoiPanel && typeof window.PoiPanel.afterLocate === 'function') window.PoiPanel.afterLocate();
       } else {
         console.warn('[EventoCard] no se pudo centrar el mapa — pin no cargado todavía:', btn.dataset.eventoLocate);
       }

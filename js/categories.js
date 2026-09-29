@@ -662,6 +662,54 @@ function _buildCalendarSubBtn(x) {
 }
 
 
+/* [Etapa 15, PLAN_USUARIOS_EVENTOS.md, 2026-09-29] Botón "Todos" de la
+   esquina de Eventos: abre el panel "Todos los eventos" (mismo PoiPanel,
+   directo en 'full' — `PoiPanel.openTodosEventos()`, js/poi-panel.js).
+   Vive al lado del botón calendario, con la misma coreografía y el mismo
+   look (.fbtn-sub). Tocarlo con el panel ya abierto lo cierra. Id fijo
+   `eventos-todos-btn`. Lo apaga/enciende el switch "Panel Todos los
+   eventos" de Admin → Funciones (FEATURES.todosEventos, js/features.js). */
+function _buildTodosSubBtn(x) {
+  const cat = SPECIAL_CATS.__eventos__;
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.id = 'eventos-todos-btn';
+  btn.className = 'fbtn fbtn-sub';
+  btn.setAttribute('data-i18n-aria', 'eventos_todos_aria');
+  btn.setAttribute('aria-label', window.I18N ? I18N.t('eventos_todos_aria') : 'Ver todos los eventos');
+  _setBtnX(btn, x);
+  const label = window.I18N ? I18N.t('fbtn_todos_label') : 'Todos';
+  btn.innerHTML = `<div class="fbtn-circle" style="background:${cat.color}">${LUCIDE.listado}</div><span class="fbtn-label">${label}</span>`;
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    const bar = document.querySelector('.filter-row');
+    if (bar && bar.classList.contains('is-animating')) return;
+    if (window.PoiPanel && typeof window.PoiPanel.openTodosEventos === 'function') window.PoiPanel.openTodosEventos();
+  });
+  return btn;
+}
+
+/* [Etapa 15] Qué botones lleva la esquina de Eventos: "Fecha" (si el filtro
+   de fecha está habilitado en Admin → Eventos) y/o "Todos" (si el switch de
+   Admin → Funciones está encendido). Con 0 botones, tocar "Eventos" filtra
+   normal sin abrir la esquina (igual que una categoría sin subcategorías).
+   Una sola fuente de verdad para updateFilterBar / el click / la animación. */
+function _eventosCornerBtns() {
+  const fecha = typeof window.isFechaFiltroHabilitado === 'function' && window.isFechaFiltroHabilitado();
+  const todos = (typeof FEATURES === 'undefined') ? true : !!(FEATURES.todosEventos && FEATURES.todosEventos.on);
+  return { fecha, todos, n: (fecha ? 1 : 0) + (todos ? 1 : 0) };
+}
+
+/* Arma los botones de la esquina de Eventos, en orden (Fecha, Todos), cada
+   uno en su casillero. Devuelve el array de nodos. */
+function _buildEventosCornerBtns() {
+  const c = _eventosCornerBtns();
+  const btns = [];
+  if (c.fecha) btns.push(_buildCalendarSubBtn((btns.length + 1) * FILTER_SLOT_W));
+  if (c.todos) btns.push(_buildTodosSubBtn((btns.length + 1) * FILTER_SLOT_W));
+  return btns;
+}
+
 /* Espaciador invisible (altura 1px, en el flujo normal — a
    diferencia de los `.fbtn`, que son position:absolute y por eso NO
    le dan ancho de scroll al contenedor por sí solos) para que
@@ -713,7 +761,7 @@ function updateFilterBar() {
   // filtra normal, sin abrir nada, igual que una categoría sin
   // subcategorías activas).
   const showSubs = activeFilter !== 'all'
-    && (isEventosFilter ? (typeof window.isFechaFiltroHabilitado === 'function' && window.isFechaFiltroHabilitado()) : _catHasActiveSubcats(activeFilter));
+    && (isEventosFilter ? _eventosCornerBtns().n > 0 : _catHasActiveSubcats(activeFilter));
   const openCat = showSubs ? _getCatRef(activeFilter) : null; // _getCatRef (no getAllCats): resuelve también SPECIAL_CATS.__eventos__
   const subs = (openCat && !isEventosFilter) ? Object.entries(openCat.subcategories || {}).filter(([, s]) => s.active !== false) : [];
 
@@ -736,7 +784,7 @@ function updateFilterBar() {
 
   if (openCat) {
     if (isEventosFilter) {
-      bar.appendChild(_buildCalendarSubBtn(FILTER_SLOT_W));
+      _buildEventosCornerBtns().forEach(b => bar.appendChild(b));
     } else {
       const parentIcon = getCatIcon(openCat, activeFilter);
       subs.forEach(([subId, sub], i) => {
@@ -745,7 +793,7 @@ function updateFilterBar() {
     }
   }
 
-  _setFilterRowWidth(bar, openCat ? 1 + (isEventosFilter ? 1 : subs.length) : items.length);
+  _setFilterRowWidth(bar, openCat ? 1 + (isEventosFilter ? _eventosCornerBtns().n : subs.length) : items.length);
   const drag = _attachFilterBarDragScroll(bar);
   // El botón calendario recién se agregó al DOM recién arriba — engancharlo ahora.
   if (openCat && isEventosFilter && typeof window._wireCalendarioFechaBtn === 'function') window._wireCalendarioFechaBtn();
@@ -771,7 +819,7 @@ function updateFilterBar() {
       if (isOpenNow) { _animateCloseSubcatRow(bar, id); return; }
       // [ajuste 2026-09-28] Eventos entra por la misma rama que
       // cualquier categoría con subcategorías — ver nota de arriba.
-      if (id !== 'all' && (id === '__eventos__' ? (typeof window.isFechaFiltroHabilitado === 'function' && window.isFechaFiltroHabilitado()) : _catHasActiveSubcats(id))) { _animateOpenSubcatRow(bar, id, btn); return; }
+      if (id !== 'all' && (id === '__eventos__' ? _eventosCornerBtns().n > 0 : _catHasActiveSubcats(id))) { _animateOpenSubcatRow(bar, id, btn); return; }
       activeFilter = id;
       activeSubfilter = null;
       updateFilterBar();
@@ -816,28 +864,35 @@ function _animateOpenSubcatRow(bar, catId, selectedBtn) {
   setTimeout(() => {
     const isEventosFilter = catId === '__eventos__';
     if (isEventosFilter) {
-      // [ajuste 2026-09-28] En vez de subcategorías reales, sube UN
-      // solo botón: el calendario del filtro de fecha (ver nota de
-      // `_buildCalendarSubBtn`). Mismo mecanismo de entrada que un
-      // `.fbtn-sub` normal (fade+cascada), solo que acá no hay nada
-      // que "cascadear" al ser un único botón.
-      _setFilterRowWidth(bar, 2);
-      const calBtn = _buildCalendarSubBtn(FILTER_SLOT_W);
-      calBtn.classList.add('fbtn-enter-up');
-      bar.appendChild(calBtn);
-      requestAnimationFrame(() => {
-        setTimeout(() => {
-          calBtn.classList.add('fbtn-entered');
-          // [FIX 2026-09-07, mismo criterio para Eventos] recién acá
-          // termina el último paso real de la coreografía — desbloquea
-          // updateFilterBar() y los clicks nuevos.
-          bar.classList.remove('is-animating');
-          // El botón recién quedó insertado en el DOM — engancharlo
-          // ahora (js/eventos-fecha-filtro.js es quien sabe abrir el
-          // popover del calendario, acá no se duplica esa lógica).
-          if (typeof window._wireCalendarioFechaBtn === 'function') window._wireCalendarioFechaBtn();
-        }, 60);
+      // [ajuste 2026-09-28] En vez de subcategorías reales, suben los
+      // botones propios de Eventos: "Fecha" (calendario del filtro de
+      // fecha, ver `_buildCalendarSubBtn`) y, desde la Etapa 15, "Todos"
+      // (panel "Todos los eventos", ver `_buildTodosSubBtn`). Mismo
+      // mecanismo de entrada que un `.fbtn-sub` normal (fade+cascada).
+      const cornerBtns = _buildEventosCornerBtns();
+      _setFilterRowWidth(bar, 1 + cornerBtns.length);
+      cornerBtns.forEach((cb, i) => {
+        cb.classList.add('fbtn-enter-up');
+        bar.appendChild(cb);
+        const isLast = i === cornerBtns.length - 1;
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            cb.classList.add('fbtn-entered');
+            if (isLast) {
+              // [FIX 2026-09-07, mismo criterio para Eventos] recién acá
+              // termina el último paso real de la coreografía — desbloquea
+              // updateFilterBar() y los clicks nuevos.
+              bar.classList.remove('is-animating');
+              // El botón calendario recién quedó insertado en el DOM —
+              // engancharlo ahora (js/eventos-fecha-filtro.js es quien sabe
+              // abrir el popover, acá no se duplica esa lógica). No hace
+              // nada si esta vez no hay botón calendario.
+              if (typeof window._wireCalendarioFechaBtn === 'function') window._wireCalendarioFechaBtn();
+            }
+          }, (i + 1) * 60);
+        });
       });
+      if (!cornerBtns.length) bar.classList.remove('is-animating');
     } else {
       const parentIcon = getCatIcon(cat, catId);
       const subs = Object.entries(cat.subcategories || {}).filter(([, s]) => s.active !== false);

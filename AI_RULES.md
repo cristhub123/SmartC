@@ -57,6 +57,7 @@ shadow-eye.js
 pin-adjust.js          → OVERRIDE de startEdit/expandPin/collapsePin/saveNew (ver sección 6)
 pin-geocode.js
 eventos.js              → módulo Eventos (tab admin "🎉 Eventos", Etapa 3 de PLAN_USUARIOS_EVENTOS.md) — depende de geocoder.js (setupGeocoder) y de pin-adjust.js (_autoSlugBase, _resolveOwnerEmailToUid), por eso carga después de ambos. **[2026-08-29]** _autoDesactivarPinTemporal() solo escribe en Firestore con sesión de admin real (_adminUser) — antes lo intentaba para cualquier visitante público, mismo patrón que regeneratePublicCache() en firestore-sync.js
+eventos-todos.js        → módulo EventosTodos (contenido del panel "Todos los eventos", Etapa 15) — carga después de eventos-fecha-filtro.js/calendario-eventos.js; el panel en sí es PoiPanel
 cluster.js              → pinClick real (ver nota abajo), puentes openPoiPanel/closePoiPanel
 map-settings.js
 autofill.js
@@ -106,6 +107,7 @@ se dibujaran. **No reactivar sin entender esa nota primero.**
 | `categories.js` | Categorías custom (`CUSTOM_CATS`) |
 | `shadow-eye.js` | Efectos visuales (sombra de pin, glow del "ojito") |
 | `pin-adjust.js` | El archivo más grande: **override** de `startEdit`/`expandPin`/`collapsePin`/`saveNew` de admin.js/markers.js, `saveEdit`, `saveNew`, generación/edición de ID, carga masiva de pines por texto (`importFullPinsFromText`), vinculación de imágenes por texto (`importImageLinksFromText`) |
+| `eventos-todos.js` | Módulo `EventosTodos` — contenido del panel "Todos los eventos" (Etapa 15): búsqueda por texto + calendario inline + grilla de `EventoCard` de todos los pines. El panel es `PoiPanel` en "modo todos". Ver sección 14.6 |
 | `cluster.js` | Click real de un pin (`pinClick`, ver sección 6), abre/cierra `PoiPanel` |
 | `cluster-grouping.js` | **[NUEVO 2026-08-29]** Clustering visual: agrupa pines en burbujas con número para que nunca haya más de X pines/burbujas visibles en pantalla a la vez (techo editable, tab admin Mapa → "Agrupación de pines"). No toca `makeMarker`/`removeMarker` — solo oculta/muestra DOM ya existente. Ver nota completa al inicio del archivo. |
 | `map-settings.js` | Tiles del mapa, opacidad, tinte día/noche |
@@ -614,6 +616,46 @@ CUALQUIER archivo de este proyecto tiene el mismo riesgo — la solución
 acá fue `e.stopPropagation()` al principio de `_onClick` (adentro de
 `mount()`): un click que el propio componente ya procesó no tiene
 ningún motivo para seguir burbujeando hacia arriba.
+
+## 14.6 Panel "Todos los eventos" (Etapa 15, PLAN_USUARIOS_EVENTOS.md)
+
+**[2026-09-29]** NO es un panel nuevo: es `PoiPanel` en "modo todos".
+`PoiPanel.openTodosEventos()` (`js/poi-panel.js`) abre directo en
+`'full'`, con `_currentPoiId = null` (`PoiPanel.getCurrentPoiId()` da
+`null`, así que `pinClick` lo trata como "no hay lugar abierto") y la
+clase `.poi-panel--todos` (`css/poi-panel.css`), que oculta ojito,
+categorías, banner, pestañas, subtítulo y footer. Se sale del modo solo
+en `open(poiId)` (`_salirModoTodos()`), y ahí hay que **restaurar
+explícitamente** qué contenido se ve (`_setActiveTab(_activeTab)` tras
+`_render()`), porque en modo todos `info-tab-content` y
+`eventos-tab-content` quedan ocultos y `_render()` no los vuelve a
+mostrar si el lugar no tiene eventos. Sigue registrado en
+`OverlayManager` con el id `'poiPanel'` (mismo panel, no hay overlay
+nuevo). `PoiPanel.requestTab('eventos')` pide la pestaña inicial del
+PRÓXIMO `open()` (se descarta sola a los 3 s); no se limpia en
+`close()` a propósito, porque `pinClick` cierra el panel de "Todos" justo
+antes de abrir el del lugar.
+
+Contenido en `js/eventos-todos.js` (`window.EventosTodos`). Reusa, sin
+duplicar: `EVENTOS` (caché), `_eventoEsVigente`, `_eventoOcurreEnFecha`,
+`CalendarioEventos.mount` (montado inline, otra instancia sobre otro
+contenedor — la del popover del mapa no se toca) y `EventoCard.render`/
+`bind`. Su filtro (texto + fecha) es propio: NUNCA escribe en
+`fechaFiltroEventos`/`fechaFiltroEventosHasta` (filtro global del mapa).
+
+El botón de acceso vive en la esquina de Eventos (`js/categories.js`:
+`_buildTodosSubBtn`, id `eventos-todos-btn`), junto al de "Fecha".
+`_eventosCornerBtns()` es la única fuente de verdad de qué botones lleva
+esa esquina (Fecha si `isFechaFiltroHabilitado()`, Todos si
+`FEATURES.todosEventos.on`); `updateFilterBar`, el click de "Eventos" y
+`_animateOpenSubcatRow` la consultan — no volver a preguntar por
+`isFechaFiltroHabilitado()` directo en esos 3 lugares. El switch
+"Panel Todos los eventos" está en Admin → Funciones (`js/features.js`).
+
+`EventoCard` llama a `PoiPanel.afterLocate()` después del 📍: solo en
+modo todos + vertical + `'full'` baja a `'peek'` (para que el pin
+centrado no quede detrás del panel). En el panel de un lugar no hace
+nada — se mantiene la regla de la Etapa 12 (el 📍 no cambia el tamaño).
 
 ## 15. Ver también
 

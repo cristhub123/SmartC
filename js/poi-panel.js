@@ -115,6 +115,13 @@ const PoiPanel = (function () {
      lo guarda de nuevo en su propia sesión. */
   let _eventosConfigCache = null;
   let _panelState = 'closed'; // 'closed' | 'peek' | 'full'
+  /* [Etapa 15, 2026-09-29] Modo "Todos los eventos": el MISMO panel, sin un
+     lugar puntual (`_currentPoiId` queda en null), mostrando el buscador +
+     grilla de js/eventos-todos.js. Se apaga solo en cuanto se abre un lugar
+     (`open()`). `_pendingTab` deja pedir la pestaña inicial del PRÓXIMO
+     lugar que se abra (tocar una tarjeta de "Todos" → pestaña Eventos). */
+  let _todosMode = false;
+  let _pendingTab = null;
   let _unsubscribers = [];
 
   // [2026-08-15] _heroSkinIndex se eliminó: el ojito YA NO cambia la
@@ -249,6 +256,8 @@ const PoiPanel = (function () {
         <div data-role="eventos-tab-content" hidden>
           <div data-role="eventos-list"></div>
         </div>
+        <!-- [Etapa 15] Contenido del modo "Todos los eventos" (js/eventos-todos.js) -->
+        <div data-role="todos-content" hidden></div>
       </div>
       <div class="poi-panel__footer">
         <button type="button" class="poi-panel__action-btn" data-role="action-btn">
@@ -278,6 +287,7 @@ const PoiPanel = (function () {
       infoTabContent: panel.querySelector('[data-role="info-tab-content"]'),
       eventosTabContent: panel.querySelector('[data-role="eventos-tab-content"]'),
       eventosList: panel.querySelector('[data-role="eventos-list"]'),
+      todosContent: panel.querySelector('[data-role="todos-content"]'),
       bodySection: panel.querySelector('[data-role="body-section"]'),
       gancho: panel.querySelector('[data-role="gancho"]'),
       description: panel.querySelector('[data-role="description"]'),
@@ -1252,7 +1262,8 @@ const PoiPanel = (function () {
       AppState.on(AppState.EVENTS.LANGUAGE_CHANGED, ({ lang }) => {
         _currentLang = lang;
         _applyStaticChromeI18n();
-        if (_currentPoiId) _render();
+        if (_todosMode) _renderTodos();
+        else if (_currentPoiId) _render();
       })
     );
 
@@ -1280,6 +1291,9 @@ const PoiPanel = (function () {
 
       _currentPoiId = poiId;
       _isEditMode = false;
+      // [Etapa 15] salir del modo "Todos los eventos" (si estaba) — el panel
+      // vuelve a ser el de un lugar.
+      _salirModoTodos();
       // [Etapa 5] cada pin nuevo arranca en la pestaña Info — EXCEPTO
       // [Filtro de fecha de eventos, corregido 2026-09-04] con el
       // filtro "Eventos" activo, arranca directo en "Eventos" —
@@ -1290,7 +1304,11 @@ const PoiPanel = (function () {
       // algún evento visible al público" — si no tiene ninguno,
       // _renderEventosTab lo vuelve a "info" solo, ver esa función.
       _activeTab = (typeof activeFilter !== 'undefined' && activeFilter === '__eventos__') ? 'eventos' : 'info';
+      // [Etapa 15] pestaña pedida por quien abre (tarjeta de "Todos los eventos");
+      // si el lugar no tiene eventos visibles, _renderEventosTab la vuelve a "info".
+      if (_pendingTab) { _activeTab = _pendingTab; _pendingTab = null; }
       _render();
+      _setActiveTab(_activeTab); // deja visible el contenido correcto (venía de "Todos", donde ambos estaban ocultos)
       _snapTo(initialState === SNAP.FULL ? SNAP.FULL : SNAP.PEEK);
 
       // El centrado del mapa sobre el pin YA NO se hace acá: queda a
@@ -1313,6 +1331,78 @@ const PoiPanel = (function () {
     } else {
       _openNow();
     }
+  }
+
+  // --------------------------------------------------------------------
+  // [Etapa 15, 2026-09-29] MODO "TODOS LOS EVENTOS"
+  // --------------------------------------------------------------------
+
+  /** Vuelve el panel al modo normal (de un lugar). Idempotente. */
+  function _salirModoTodos() {
+    _todosMode = false;
+    if (!_els) return;
+    _els.panel.classList.remove('poi-panel--todos');
+    _els.todosContent.hidden = true;
+  }
+
+  /** Pinta el modo "Todos": título fijo, sin banner/categorías/pestañas/
+   *  ojito/botón de editar (lo oculta el CSS de `.poi-panel--todos`), y el
+   *  contenido lo arma js/eventos-todos.js. */
+  function _renderTodos() {
+    const els = _ensureDom();
+    els.panel.classList.add('poi-panel--todos');
+    els.title.textContent = window.I18N ? I18N.t('todos_eventos_titulo') : 'Todos los eventos';
+    els.title.style.color = '';
+    els.infoTabContent.hidden = true;
+    els.eventosTabContent.hidden = true;
+    els.todosContent.hidden = false;
+    els.actionBtn.hidden = true;
+    if (window.EventosTodos) EventosTodos.render(els.todosContent);
+  }
+
+  /** Abre el panel "Todos los eventos" — el mismo panel, directo en 'full'.
+   *  Con el panel ya abierto en este modo, vuelve a tocarse el botón →
+   *  se cierra. Con un lugar abierto, lo reemplaza (y minimiza su pin). */
+  function openTodosEventos() {
+    if (_todosMode && _panelState !== SNAP.CLOSED) { close(); return; }
+    function _openNow() {
+      _ensureDom();
+      _bindAppStateEvents();
+      _applyPanelSizeVars();
+      // El pin maximizado de un lugar abierto no tiene sentido sin su panel.
+      if (typeof expandedId !== 'undefined' && expandedId !== null) {
+        if (typeof collapsePin === 'function') collapsePin(expandedId);
+        expandedId = null;
+      }
+      _currentPoiId = null;
+      _isEditMode = false;
+      _todosMode = true;
+      _renderTodos();
+      _els.scroll.scrollTop = 0;
+      _snapTo(SNAP.FULL);
+    }
+    if (window.OverlayManager) window.OverlayManager.beforeOpen('poiPanel', _openNow);
+    else _openNow();
+  }
+
+  /** Pide la pestaña inicial del PRÓXIMO lugar que se abra con open().
+   *  Se descarta sola a los 3 s por si ese open() nunca llega. */
+  function requestTab(tab) {
+    _pendingTab = (tab === 'eventos' || tab === 'info') ? tab : null;
+    if (_pendingTab) setTimeout(() => { _pendingTab = null; }, 3000);
+  }
+
+  /** ¿El panel está abierto en modo "Todos los eventos"? */
+  function isTodosOpen() {
+    return _todosMode && _panelState !== SNAP.CLOSED;
+  }
+
+  /** Lo llama EventoCard después de centrar el mapa con el 📍. En modo
+   *  "Todos", pantalla vertical y panel en 'full', el panel tapa casi todo
+   *  el mapa y centrar el pin no se vería — por eso ahí (y solo ahí) baja
+   *  a 'peek'. En el panel de un lugar no hace nada (no cambia de tamaño). */
+  function afterLocate() {
+    if (_todosMode && _panelState === SNAP.FULL && !_isSideMode()) _snapTo(SNAP.PEEK);
   }
 
   /** Cierra el panel y limpia el estado de edición. */
@@ -1369,6 +1459,7 @@ const PoiPanel = (function () {
    *  refleje la fecha nueva al toque. No toca `_activeTab`: si el
    *  panel ya estaba en "eventos" sigue ahí, no vuelve a "info". */
   function refresh() {
+    if (_todosMode) { if (_panelState !== SNAP.CLOSED) _renderTodos(); return; }
     if (_currentPoiId) _render();
   }
 
@@ -1380,6 +1471,11 @@ const PoiPanel = (function () {
     getOpenAreaPx,
     setEventosConfig,
     refresh,
+    // [Etapa 15]
+    openTodosEventos,
+    requestTab,
+    isTodosOpen,
+    afterLocate,
   };
 })();
 

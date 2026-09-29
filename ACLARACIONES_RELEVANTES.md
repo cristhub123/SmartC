@@ -1,4 +1,43 @@
-# ACLARACIONES_RELEVANTES — entrega 2026-09-26 (traducción global de la interfaz pública)
+# ACLARACIONES_RELEVANTES — entrega 2026-09-29 (Etapa 15: panel "Todos los eventos")
+
+## Para los próximos pasos
+- **Dónde va el botón — lo decidí yo, confirmá o cambialo:** botón "Todos"
+  en la esquina de Eventos, al lado de "Fecha". Si preferís otro lugar,
+  el panel se abre siempre con `PoiPanel.openTodosEventos()`: alcanza con
+  llamar eso desde el botón nuevo (y sacar `_buildTodosSubBtn` de
+  `js/categories.js`).
+- **Switch nuevo en Admin → Funciones 🔧:** "Panel Todos los eventos"
+  (encendido por defecto). Apagado, la esquina de Eventos solo lleva
+  "Fecha"; si además el filtro de fecha está apagado, tocar "Eventos"
+  filtra normal sin abrir nada.
+- **Desvío del plan:** dentro de "Todos", en pantalla vertical, el 📍 de
+  una tarjeta centra el mapa y baja el panel a "peek" (si no, el pin
+  quedaba detrás del panel). En el panel de un lugar el 📍 sigue igual.
+- **Búsqueda con fecha pasada:** el panel "Todos" lista los eventos que
+  ocurren ese día/rango aunque ya hayan vencido (igual que el filtro del
+  mapa), pero la pestaña "Eventos" de un lugar solo muestra vigentes:
+  al tocar una tarjeta vencida, el lugar abre en "Info".
+- Con el panel en "full" en celular vertical, la barra de filtros queda
+  tapada (pasa con cualquier lugar abierto): para cerrar "Todos" se
+  arrastra hacia abajo o se toca el mapa.
+
+## Sin probar en real (pendiente que confirmes)
+Probado en Chromium con los archivos reales y datos de prueba, pero NO en
+celular real, ni con Firebase, ni con Leaflet real: (a) el botón "Todos"
+se ve bien en la esquina y abre el panel; (b) búsqueda y calendario con
+eventos reales; (c) tocar una tarjeta lleva al lugar correcto y abre en
+"Eventos"; (d) el 📍 en el celular; (e) el switch de Funciones; (f) ES/EN/PT.
+
+## Cache-busting
+`?v=20260929` en `poi-panel.js`, `evento-card.js`, `categories.js`,
+`config.js`, `features.js`, `i18n.js`, `poi-panel.css` y el script nuevo
+`eventos-todos.js`.
+
+---
+
+# (entrega anterior, 2026-09-26)
+
+## ACLARACIONES_RELEVANTES — entrega 2026-09-26 (traducción global de la interfaz pública)
 
 ## Qué se hizo
 Motor de traducción nuevo (`js/i18n.js`, diccionario ES/EN/PT) aplicado a

@@ -29,6 +29,8 @@ cambio hecho y la verificacion realizada.
    y una descripción corta — el panel se arma solo. */
 let FEATURES = {
   comerCerca: { label: '🍴 Botón "Comer cerca"', desc: 'Destaca lugares gastronómicos cercanos al abrir un pin no gastronómico', on: true },
+  // [Etapa 15, PLAN_USUARIOS_EVENTOS.md] Botón "Todos" en la esquina de Eventos (js/categories.js) → panel "Todos los eventos".
+  todosEventos: { label: '🗂 Panel "Todos los eventos"', desc: 'Botón "Todos" al tocar Eventos: abre un panel con el buscador y todos los eventos de la app', on: true },
 };
 
 /* === CARGAR desde Firestore al iniciar (si existe guardado) === */

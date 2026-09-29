@@ -175,7 +175,7 @@ ahora — queda mencionada acá para que no se pierda, es un plan
 aparte del de abajo. Para NO chocar numeración, todo lo nuevo de acá
 arranca en **Etapa 11**.
 
-**ÚLTIMAS ETAPAS COMPLETADAS: Etapas 11 (27/09), 12, 13 y 14 (28/09) — Próxima etapa a hacer: Etapa 15** (panel "Todos los eventos"), todavía bloqueada por la decisión pendiente de Cris (dónde va el botón que la abre — ver más abajo). El calendario propio de la Etapa 14 (`js/calendario-eventos.js`) queda listo para que la Etapa 15 lo reuse tal cual en su buscador. Historial de esta sección: se
+**ÚLTIMAS ETAPAS COMPLETADAS: Etapas 11 (27/09), 12, 13 y 14 (28/09) y 15 (29/09) — el bloque de Etapas 11 a 15 queda COMPLETO.** La Etapa 15 (panel "Todos los eventos", `js/eventos-todos.js` + modo nuevo de `PoiPanel`) reusa tal cual el calendario de la Etapa 14 y la tarjeta de la Etapa 12. **Sin probar en celular real ni contra Firebase** — ver "REGISTRO POR ETAPA → Etapa 15" para qué confirmar. Historial de esta sección: se
 agrega (27/09) para documentar, SIN IMPLEMENTAR TODAVÍA, todo lo
 charlado con Cris sobre rediseñar la sección de eventos (tarjetas
 estilo Eventbrite, panel nuevo para ver todos los eventos de la app,
@@ -184,10 +184,11 @@ calendario propio para elegir fecha o rango) — ver Etapas 11 a 15 en
 Nada de esto se tocó todavía, es plan puro para retomar en este chat
 o en uno nuevo.
 
-**Decisión que falta ANTES de arrancar Etapa 15:** dónde va el botón
-que abre el panel nuevo de "todos los eventos" — Cris todavía no lo
-definió (dijo "ya veré en dónde ubicarlo"). No bloquea las Etapas 11
-a 14.
+**Decisión que faltaba para la Etapa 15 (dónde va el botón) — RESUELTA
+29/09 por criterio de implementación, a confirmar con Cris:** botón
+"Todos" en la esquina de Eventos, al lado del botón "Fecha" (ver
+Etapa 15). Cambiarlo de lugar es barato: el panel se abre siempre con
+UNA sola llamada, `PoiPanel.openTodosEventos()`.
 
 **Sin relación con lo de arriba, seguía pendiente de antes (Etapas 1
 a 8):** ninguna fecha asignada para (1) integración real de cobro
@@ -376,11 +377,11 @@ crear de nuevo):**
       (calendario con click único o rango de 2 clicks) reemplazando el
       `<input type=date>` nativo + extensión del filtro de fecha para
       soportar rango
-- [ ] Etapa 15 — Panel nuevo "Todos los eventos" (mismo `PoiPanel`,
+- [x] Etapa 15 — ✅ COMPLETADA 2026-09-29 — Panel nuevo "Todos los eventos" (mismo `PoiPanel`,
       abre en `'full'` en vez de `'peek'`) con buscador (texto + el
       calendario de la Etapa 14) y grilla de tarjetas de TODOS los
-      eventos de la app — botón de acceso con ubicación aún sin
-      definir por Cris
+      eventos de la app — botón "Todos" en la esquina de Eventos (al
+      lado de "Fecha"), con su propio switch en Admin → Funciones
 
 ---
 
@@ -1196,6 +1197,95 @@ nuevas en la consola antes de probar nada de esto.
 
 ---
 
+### Etapa 15 — Panel "Todos los eventos" ✅ COMPLETADA (2026-09-29)
+
+**Qué se hizo:** el MISMO `PoiPanel` (`js/poi-panel.js`) ganó un "modo
+todos": `PoiPanel.openTodosEventos()` abre directo en `'full'`, sin un
+lugar puntual (`_currentPoiId` queda en `null`), con título fijo "Todos
+los eventos" y sin ojito/categorías/banner/pestañas/botón Editar (los
+oculta la clase `.poi-panel--todos`, `css/poi-panel.css`). Se comporta
+igual que siempre en drag, snap `full`/`peek`, doble click/tap,
+registro en `OverlayManager` (mismo id `'poiPanel'`). El contenido lo
+arma el archivo NUEVO `js/eventos-todos.js` (`window.EventosTodos`):
+- barra de búsqueda: texto libre (sin tildes ni mayúsculas; busca en
+  nombre, descripción, dirección, horario, nombre del lugar y tags del
+  evento) + botón de fecha que despliega INLINE el `CalendarioEventos`
+  de la Etapa 14 (misma instancia de componente, no otro calendario) +
+  ✕ para quitar la fecha. El botón muestra el día/rango elegido;
+- grilla de `EventoCard.render` (Etapa 12, misma función), ordenada por
+  cercanía de fecha (igual que la pestaña de un pin).
+Criterios reusados, no duplicados: `_eventoEsVigente` (sin fecha
+elegida) y `_eventoOcurreEnFecha(ev, desde, tz, hasta)` (con fecha o
+rango — incluye eventos ya vencidos si el día elegido cae dentro, igual
+que el filtro del mapa). Se excluyen eventos de pines con `active ===
+false`. El filtro del panel es PROPIO: no toca `fechaFiltroEventos`/
+`fechaFiltroEventosHasta` (el del mapa). El texto y la fecha elegidos se
+conservan mientras dure la sesión (al volver de un lugar, la búsqueda
+sigue como se dejó).
+
+**Tocar una tarjeta:** cierra "Todos" y abre el panel de ESE lugar en
+su pestaña "Eventos" (`EventosTodos.abrirLugarDeEvento` → `pinClick`,
+mismo recorrido que tocar el pin: centrar mapa → maximizar pin → abrir
+panel; la pestaña se pide con `PoiPanel.requestTab('eventos')`). Si el
+pin todavía no está dibujado (carga por viewport) se crea al vuelo con
+`loadSearchIndex()`, igual que el buscador del header. Si el evento
+ya no es vigente y se lo encontró con una fecha pasada, el panel del
+lugar puede no listarlo en su pestaña (esa pestaña solo muestra
+vigentes) — en ese caso abre en "Info".
+
+**Dónde está el botón (DECISIÓN TOMADA ACÁ, faltaba definirla):** botón
+"Todos" (círculo + ícono de lista, `LUCIDE.listado`) en la esquina de
+Eventos, al lado de "Fecha", con la MISMA coreografía y look. Es la
+primera de las 2 ideas que había sobre la mesa (botón nuevo en la fila
+de categorías). `_eventosCornerBtns()`/`_buildEventosCornerBtns()`/
+`_buildTodosSubBtn()` en `js/categories.js` decidieron qué botones
+lleva la esquina: "Fecha" (si el filtro de fecha está habilitado) y/o
+"Todos" (si el switch nuevo `FEATURES.todosEventos`, Admin → Funciones
+🔧, está encendido); con 0 botones, tocar "Eventos" filtra normal sin
+abrir la esquina. Tocar "Todos" con el panel ya abierto en ese modo lo
+cierra.
+
+**Cambio respecto de lo asumido en el plan original:** el ícono 📍 de
+una tarjeta sigue SOLO centrando el mapa, con una excepción: dentro de
+"Todos", en pantalla vertical y con el panel en `'full'` (que tapa
+~92% del mapa), después de centrar baja el panel a `'peek'` — si no,
+el pin quedaba centrado detrás del panel y el ícono parecía no hacer
+nada. Se hace con `PoiPanel.afterLocate()` (lo llama `EventoCard`);
+en el panel de un lugar no hace nada (no cambia de tamaño, como
+estaba) y en pantalla horizontal (sidebar) tampoco.
+
+**Archivos:** nuevo `js/eventos-todos.js`; modificados `js/poi-panel.js`
+(modo todos + `openTodosEventos`/`requestTab`/`isTodosOpen`/
+`afterLocate`), `js/evento-card.js` (gancho `afterLocate`),
+`js/categories.js` (botón "Todos" + esquina generalizada),
+`js/features.js` (switch), `js/config.js` (`LUCIDE.listado`),
+`js/i18n.js` (7 claves ES/EN/PT: `fbtn_todos_label`,
+`eventos_todos_aria`, `todos_eventos_titulo`, `todos_buscar_ph`,
+`todos_vacio`, `todos_vacio_filtro`, `todos_lugar_no_disponible`),
+`css/poi-panel.css`, `index.html` (script nuevo + cache-busting de todo
+lo tocado).
+
+**Pruebas realizadas:** `node --check` OK en los 7 `.js`; llaves de
+`css/poi-panel.css` balanceadas. Probado en Chromium (Playwright,
+viewport vertical 390×844 y horizontal 1200×700) con los archivos
+reales (`poi-panel.js`, `evento-card.js`, `calendario-eventos.js`,
+`eventos-fecha-filtro.js`, `eventos-todos.js`, `cluster.js`,
+`categories.js`, `features.js`, `i18n.js`, `app-state.js`, CSS reales)
+sobre datos de prueba y con el mapa/Leaflet simulados: abre en full;
+lista y orden; búsqueda sin tildes; estado vacío; rango del calendario
+filtra sin tocar el filtro del mapa; 📍; tarjeta → lugar en pestaña
+Eventos; pin lejano creado al vuelo; reemplazo de un lugar abierto y
+minimización del pin; toggle; búsqueda conservada; cambio de idioma
+con el panel abierto; esquina de Eventos con Fecha+Todos, solo uno de
+los dos, ninguno; sin errores de JS. **NO probado en celular real, ni
+con Firebase real, ni con Leaflet real.** Pendiente que Cris confirme:
+(a) el botón "Todos" en la esquina se ve bien y abre el panel; (b) la
+búsqueda/calendario con eventos reales; (c) tocar una tarjeta lleva al
+lugar correcto y abre en "Eventos"; (d) el 📍 en el celular; (e) el
+switch de Admin → Funciones apaga/enciende el botón; (f) los 3 idiomas.
+
+---
+
 ## DETALLE DE CADA ETAPA
 
 ### Etapa 1 — Roles base: registro/login
@@ -1486,7 +1576,7 @@ dos veces.
 
 ---
 
-### Etapa 15 — Panel "Todos los eventos" — SIN ARRANCAR
+### Etapa 15 — Panel "Todos los eventos" — ✅ COMPLETADA 29/09 (ver "REGISTRO POR ETAPA")
 
 **Qué se hace:** un panel nuevo que muestra TODOS los eventos de la
 app (de cualquier pin), no solo los de un lugar puntual. Reusa el
