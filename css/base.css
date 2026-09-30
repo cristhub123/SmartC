@@ -314,24 +314,37 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   flex-shrink: 0;
 }
 #lang-switcher button {
-  border: none;
+  border: 2px solid transparent;
   background: transparent;
-  color: var(--text3);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.03em;
-  padding: 6px 8px;
+  padding: 3px;
   border-radius: 10px;
   cursor: pointer;
-  transition: all .2s;
+  line-height: 0;
+  transition: background .2s, border-color .2s;
   -webkit-tap-highlight-color: transparent;
 }
-#lang-switcher button:hover { background: rgba(var(--accent-rgb), .12); color: var(--text); }
-#lang-switcher button.active { background: var(--accent); color: white; }
+/* [2026-09-30] Banderas cuadradas en vez de siglas (ES/EN/PT). Inactiva =
+   escala de grises + opacidad baja; activa = color completo con aro del
+   color de acento. Para ajustar cuánto "se apagan" las inactivas, tocar
+   SOLO grayscale/brightness/opacity de la primera regla. */
+#lang-switcher button img {
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  display: block;
+  pointer-events: none;
+  filter: grayscale(1) brightness(.85);
+  opacity: .6;
+  transition: filter .2s, opacity .2s;
+}
+#lang-switcher button:hover img { filter: grayscale(.4); opacity: .9; }
+#lang-switcher button.active { border-color: var(--accent); background: rgba(var(--accent-rgb), .12); }
+#lang-switcher button.active img { filter: none; opacity: 1; }
 @media (max-width: 420px) {
-  /* En pantallas angostas el buscador ya ocupa casi todo — el
-     selector de idioma se recorta a solo la sigla, sin padding extra. */
-  #lang-switcher button { padding: 6px 6px; font-size: 11px; }
+  /* En pantallas angostas el buscador ya ocupa casi todo — las
+     banderas se achican un poco. */
+  #lang-switcher button { padding: 2px; }
+  #lang-switcher button img { width: 22px; height: 22px; }
 }
 
 /* hide old logo */
