@@ -86,6 +86,7 @@ function validateTemaKeyword(raw) {
   if (!value) return { ok: false, value, error: 'El sufijo no puede estar vacío.' };
   if (value.includes('_')) return { ok: false, value, error: 'El sufijo no puede llevar "_" (es el separador del nombre del archivo). Usá guion medio "-".' };
   if (!/^[a-z0-9-]+$/.test(value)) return { ok: false, value, error: 'El sufijo solo admite letras a-z sin tildes, números y guion medio "-".' };
+  if (value === 'main') return { ok: false, value, error: '"main" es la imagen principal del lugar; un tema no puede usar ese sufijo (la ocultaría).' };
   return { ok: true, value, error: '' };
 }
 
@@ -147,14 +148,34 @@ function _eyePosOptions(t) {
   return opts.join('');
 }
 
+/* Estado del motor: avisa si quedó algún archivo viejo (utils.js / markers.js). */
+function _themeEngineStatus() {
+  const okU = typeof THEME_ENGINE_VERSION !== 'undefined' && THEME_ENGINE_VERSION >= 3 && typeof getThemeOverrideForPoi === 'function';
+  const okM = typeof THEME_MARKERS_VERSION !== 'undefined' && THEME_MARKERS_VERSION >= 3;
+  if (okU && okM) return { ok: true, text: '✔ Motor de temas al día (utils.js y markers.js actualizados)' };
+  const faltan = [!okU ? 'js/utils.js' : null, !okM ? 'js/markers.js' : null].filter(Boolean).join(' y ');
+  return { ok: false, text: `✘ Motor de temas DESACTUALIZADO: falta subir ${faltan} (y recargar con Ctrl+F5). Mientras tanto los temas no van a funcionar bien.` };
+}
+
 function renderTemasAdmin() {
   const list = document.getElementById('temas-admin-list');
   if (!list) return;
 
+  const st = _themeEngineStatus();
+  const stEl = document.getElementById('temas-engine-status');
+  if (stEl) {
+    stEl.textContent = st.text;
+    stEl.style.color = st.ok ? 'var(--text3)' : '#c0392b';
+    stEl.style.fontWeight = st.ok ? '400' : '700';
+  }
+
   if (!TEMAS.length) {
     list.innerHTML = `<p style="font-size:12px;color:var(--text3)">Todavía no hay temas creados. Agregá el primero arriba.</p>`;
   } else {
-    list.innerHTML = TEMAS.map(t => `
+    list.innerHTML = TEMAS.map(t => {
+      const dis = t.active ? '' : 'disabled';                 // R1: interruptor maestro
+      const dim = t.active ? '' : 'opacity:.45;';
+      return `
       <div class="za-row" data-id="${_escTema(t.id)}" style="flex-direction:column;align-items:stretch;gap:8px;padding:12px 0">
         <div style="display:flex;align-items:center;gap:8px">
           <span class="za-name" style="flex:1;font-weight:600">${_escTema(t.name)}</span>
@@ -172,32 +193,34 @@ function renderTemasAdmin() {
                  onchange="setTemaKeyword('${_escTema(t.id)}', this)">
           <code style="color:var(--text3)">_indice</code>
         </div>
-        <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px;align-items:center">
+        ${t.active ? '' : `<div style="font-size:11px;color:var(--text3)">Tema apagado: no afecta nada y su imagen no se ve. Activalo para habilitar las opciones de abajo.</div>`}
+        <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px;align-items:center;${dim}">
           <label style="display:flex;align-items:center;gap:5px">
-            <input type="checkbox" ${t.showOnMap ? 'checked' : ''} onchange="toggleTemaFlag('${_escTema(t.id)}','showOnMap',this.checked)">
+            <input type="checkbox" ${dis} ${t.showOnMap ? 'checked' : ''} onchange="toggleTemaFlag('${_escTema(t.id)}','showOnMap',this.checked)">
             Miniatura en el mapa
           </label>
           <label style="display:flex;align-items:center;gap:5px">
-            <input type="checkbox" ${t.showInEye ? 'checked' : ''} onchange="toggleTemaFlag('${_escTema(t.id)}','showInEye',this.checked)">
+            <input type="checkbox" ${dis} ${t.showInEye ? 'checked' : ''} onchange="toggleTemaFlag('${_escTema(t.id)}','showInEye',this.checked)">
             Aparece en el ojito
           </label>
           <label style="display:flex;align-items:center;gap:5px;${t.showInEye ? '' : 'opacity:.45'}">
             Posición:
-            <select class="fi" ${t.showInEye ? '' : 'disabled'} style="width:auto;padding:2px 6px"
+            <select class="fi" ${(t.active && t.showInEye) ? '' : 'disabled'} style="width:auto;padding:2px 6px"
                     onchange="setTemaEyePosition('${_escTema(t.id)}', this.value)">${_eyePosOptions(t)}</select>
           </label>
         </div>
-        <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px">
+        <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px;${dim}">
           <label style="display:flex;align-items:center;gap:5px">
-            <input type="checkbox" ${t.mapPriorityDay ? 'checked' : ''} onchange="toggleTemaFlag('${_escTema(t.id)}','mapPriorityDay',this.checked)">
+            <input type="checkbox" ${dis} ${t.mapPriorityDay ? 'checked' : ''} onchange="toggleTemaFlag('${_escTema(t.id)}','mapPriorityDay',this.checked)">
             Prevalece en mapa de día
           </label>
           <label style="display:flex;align-items:center;gap:5px">
-            <input type="checkbox" ${t.mapPriorityNight ? 'checked' : ''} onchange="toggleTemaFlag('${_escTema(t.id)}','mapPriorityNight',this.checked)">
+            <input type="checkbox" ${dis} ${t.mapPriorityNight ? 'checked' : ''} onchange="toggleTemaFlag('${_escTema(t.id)}','mapPriorityNight',this.checked)">
             Prevalece en mapa de noche
           </label>
         </div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
   }
 
   // Refrescar el selector de "tema de noche" — ahora resuelve por KEYWORD
@@ -244,6 +267,13 @@ window.toggleTemaFlag = function(id, flag, value) {
   if (!t || !(flag in _TEMA_FLAG_LABELS)) return;
   value = !!value;
 
+  // R1 — interruptor maestro: con el tema apagado, el resto de los tildes no se toca.
+  if (flag !== 'active' && !t.active) {
+    toast(`⚠️ Primero activá el tema "${t.name}" para poder cambiar sus opciones.`);
+    renderTemasAdmin();
+    return;
+  }
+
   if (value && (flag === 'active' || flag === 'showOnMap')) {
     const willBeActive = flag === 'active' ? true : t.active;
     const willHaveThumb = flag === 'showOnMap' ? true : t.showOnMap;
@@ -251,8 +281,8 @@ window.toggleTemaFlag = function(id, flag, value) {
       const other = _temaMapThumbConflict(t);
       if (other) {
         toast(`⚠️ No se puede: el tema "${other.name}" ya está activo con "Miniatura en el mapa". ` +
-              `Solo 1 tema activo puede tener miniatura en el mapa. Destildá la miniatura en "${other.name}" ` +
-              `(o en "${t.name}") y probá de nuevo.`);
+              `Solo 1 tema activo puede tener miniatura en el mapa. Apagá "${other.name}" o destildá ` +
+              `su miniatura y probá de nuevo.`);
         renderTemasAdmin(); // devuelve el checkbox a su estado real
         return;
       }
@@ -270,6 +300,7 @@ window.toggleTemaFlag = function(id, flag, value) {
 window.setTemaEyePosition = function(id, raw) {
   const t = TEMAS.find(x => x.id === id);
   if (!t) return;
+  if (!t.active) { toast(`⚠️ Primero activá el tema "${t.name}" para poder cambiar sus opciones.`); renderTemasAdmin(); return; }
   t.eyePosition = raw === 'last' ? 'last' : Math.max(1, parseInt(raw, 10) || 1);
   renderTemasAdmin();
   _markTemasDirty();

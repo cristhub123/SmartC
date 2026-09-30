@@ -73,19 +73,36 @@ function isNightModeActive() {
    buildImageFallbackChain (miniatura del mapa). No duplicar esta regla.
    ═══════════════════════════════════════════ */
 function getThemeOverrideForPoi(poi) {
-  const empty = { mapSkin: null, mapTheme: null, eye: [] };
+  const empty = { mapSkin: null, mapTheme: null, eye: [], governed: new Set() };
   if (typeof TEMAS === 'undefined' || !Array.isArray(TEMAS) || !TEMAS.length) return empty;
   const skins = (poi && poi.skins) || {};
+
+  /* [Corrección del plan — PLAN_TAB_TEMAS_CORRECCION.md, reglas R1/R2/R6/R7]
+     `governed` = claves de ESTE pin cuyo sufijo coincide EXACTO con el
+     keyword de algún tema de la tab. Esas imágenes NO se ven como imágenes
+     normales del lugar: solo se ven si su tema está ACTIVO y según lo que
+     tenga tildado (ojito / miniatura). Tema apagado ⇒ la imagen desaparece
+     del ojito, del panel y de la miniatura (R2), sin tocar `poi` (R4).
+     Excepciones: 'main' nunca se oculta (R7) y el sufijo del tema de noche
+     automático sigue gobernado por la lógica día/noche (R6). */
+  const nightKey = (typeof globalSettings !== 'undefined' && globalSettings) ? globalSettings.nightTheme : null;
+  const governed = new Set();
+  TEMAS.forEach((t) => {
+    if (!t || typeof t.keyword !== 'string' || !t.keyword) return;
+    if (t.keyword === 'main' || t.keyword === nightKey) return;
+    if (Object.prototype.hasOwnProperty.call(skins, t.keyword)) governed.add(t.keyword);
+  });
 
   const hits = [];
   TEMAS.forEach((t) => {
     if (!t || !t.active || typeof t.keyword !== 'string' || !t.keyword) return;
+    if (t.keyword === 'main') return;
     if (!Object.prototype.hasOwnProperty.call(skins, t.keyword)) return;
     const skin = skins[t.keyword];
     if (!skin || !skin.url) return;
     hits.push({ theme: t, name: t.keyword, url: skin.url });
   });
-  if (!hits.length) return empty;
+  if (!hits.length) return { mapSkin: null, mapTheme: null, eye: [], governed };
 
   // Regla de UNA sola miniatura (la UI ya la impide; si el dato viniera
   // violándola, gana el primer tema de la lista — determinista).
@@ -98,8 +115,13 @@ function getThemeOverrideForPoi(poi) {
     mapSkin: mapHit ? mapHit.name : null,
     mapTheme: mapHit ? mapHit.theme : null,
     eye: eyeHits.map((h) => ({ name: h.name, url: h.url, position: h.theme.eyePosition })),
+    governed,
   };
 }
+
+/* Versión del motor de temas: la tab Temas la lee para avisar si quedó algún
+   archivo viejo (ver _themeEngineStatus en themes.js). Subir si cambia la API. */
+const THEME_ENGINE_VERSION = 3;
 
 /* === CADENA DE RESPALDO — ahora con temas globales al frente ===
    [LIMPIEZA 2026-08-12] Antes esto ARMABA urls por fórmula
@@ -193,7 +215,11 @@ function buildImageFallbackChain(poi, { forMap = false, forPanel = false } = {})
     if (first) pushUrl(first.url);
   }
 
-  _orderedSkinNames(skins).forEach(pushSkin);
+  // Respaldo: el resto de las imágenes del lugar. Las gobernadas por un tema
+  // (activo o apagado) NO entran acá: solo se ven por el camino del override
+  // de arriba, nunca "colándose" al final de la cadena (R2).
+  const _gov = getThemeOverrideForPoi(poi).governed;
+  _orderedSkinNames(skins).filter((n) => !_gov.has(n)).forEach(pushSkin);
 
   return chain;
 }
@@ -446,12 +472,16 @@ function _uploadCtx(formPrefix, skin, subfolder) {
    con la imagen que en verdad se está mostrando al maximizar el pin. */
 function getActiveSkinList(poi) {
   const skins = (poi && poi.skins) || {};
+  const ov = getThemeOverrideForPoi(poi);
+  // Las imágenes gobernadas por un tema salen de la lista normal (R2): solo
+  // vuelven a entrar abajo si su tema está activo y tiene "Aparece en el ojito".
   let list = _orderedSkinNames(skins)
+    .filter((name) => !ov.governed.has(name))
     .filter((name) => name === 'main' || skins[name].active !== false)
     .filter((name) => !!skins[name].url)
     .map((name) => ({ name, url: skins[name].url }));
 
-  if (list.length === 0 && poi && poi.imgB64) return [{ name: 'main', url: poi.imgB64 }];
+  if (list.length === 0 && poi && poi.imgB64) list = [{ name: 'main', url: poi.imgB64 }];
 
   /* [Paso 2 — PLAN_TAB_TEMAS_OVERRIDE.md] Override de temas activos: cada
      imagen de tema se saca de donde estuviera (incluso si estaba marcada
@@ -460,7 +490,6 @@ function getActiveSkinList(poi) {
      en cascada — ninguna desaparece. Devuelve una lista NUEVA: nunca
      modifica `poi`. Ojito y panel leen de acá, así que un solo cambio
      cubre los dos. */
-  const ov = getThemeOverrideForPoi(poi);
   ov.eye.forEach((e) => {
     list = list.filter((x) => x.name !== e.name);
     const entry = { name: e.name, url: e.url };

@@ -48,6 +48,9 @@ function slugify(str) {
    ojito, ver utils.js) y se antepone imgB64 solo si de verdad no está
    ya reflejado ahí (caso de pines viejos con imgB64 legado pero sin
    skins.main). */
+/* Versión para el aviso de la tab Temas (archivo al día). */
+const THEME_MARKERS_VERSION = 3;
+
 function resolvePinImageCandidates(poi) {
   const chain = buildImageFallbackChain(poi, { forMap: true });
   // [Paso 2 — PLAN_TAB_TEMAS_OVERRIDE.md] Si un tema activo pone su imagen
