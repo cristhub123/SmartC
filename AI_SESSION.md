@@ -2343,3 +2343,23 @@ Leídos `AI_RULES.md`, `PLAN_USUARIOS_EVENTOS.md` y las notas de cabecera de cad
 **Archivos:** nuevo `js/eventos-todos.js`; modificados `js/poi-panel.js`, `js/evento-card.js`, `js/categories.js`, `js/features.js`, `js/config.js`, `js/i18n.js`, `css/poi-panel.css`, `index.html` (script nuevo + cache-busting `?v=20260929` en los tocados), `AI_RULES.md` (sección 14.6 + tabla + orden de carga), `PLAN_USUARIOS_EVENTOS.md` (Etapa 15 completada), `ACLARACIONES_RELEVANTES.md`.
 
 **Pruebas:** `node --check` OK en los 7 `.js`; llaves de `css/poi-panel.css` balanceadas (92/92). Chromium con Playwright (vertical 390×844 y horizontal 1200×700), archivos reales sobre datos de prueba y mapa simulado: 30 comprobaciones del panel + 10 de la esquina, todas OK, sin errores de JS. Hallazgo de prueba: con el panel en `'full'` en vertical la barra de filtros queda tapada (igual que con cualquier lugar abierto), así que el "segundo toque cierra" solo es alcanzable en peek/horizontal. NO probado en celular real, con Firebase real ni con Leaflet real.
+
+## Sesión: 2026-09-30 — Tarjeta de evento estilo Polaroid + vista ampliada (mockup de Gemini)
+
+Cris pasó un HTML de Gemini (6 estilos de tarjeta; se eligió el 1, "Polaroid / Instax") y pidió anexarlo a SmartCity SIN archivos nuevos: reusar lo existente.
+
+**Decisión de arquitectura:** el diseño NO se agregó como componente aparte — `EventoCard.render` (`js/evento-card.js`) ya es la única tarjeta de evento (AI_RULES 14.4), así que el Polaroid la reemplaza ahí y la usan sola la pestaña Eventos de un lugar y el panel "Todos". Del mockup solo se tomó el diseño; su código (Tailwind por CDN, `themes`, `getDateBadge` con `status` puesto a mano) no se copió.
+
+**Qué se hizo**
+- Tarjeta: marco blanco, foto 16:9, nombre en Caveat, descripción (2 líneas) y una fila con 2 recuadros negros mono (rango de días + `ev.horario` tal cual lo escribió el usuario) y la entrada en texto gris. Sin íconos ni las palabras "Fecha"/"Hora". Ya no muestra tags/dirección/contactos (pasaron a la vista ampliada).
+- Color de los recuadros: verde fluo si `_eventoOcurreEnFecha(ev, desde, undefined, hasta)` da true, rojo si no. `desde`/`hasta` = `opts.fechaDesde`/`fechaHasta` que pasa quien llama (poi-panel: `fechaFiltroEventos*` solo si el filtro Eventos está activo; eventos-todos: su propio `_estado`); sin fecha = HOY en el huso de la ciudad (`_diaCalendarioEnHuso(new Date().toISOString())`, no la hora UTC ni un `new Date()` recortado).
+- Vista ampliada: `EventoCard.openDetail/closeDetail`. Se desliza desde la derecha DENTRO de `.poi-panel` (que ya es `position:fixed; overflow:hidden`). Botón "Volver", "Ver en el mapa" (mismo centrado que el 📍, vía `_centrarEnMapa`, extraída de `bind`) y, solo en "Todos", "Ver el lugar" (`onVerLugar` → `abrirLugarDeEvento`). Reemplaza al "Reservar Ticket" del mockup (no hay reservas en el proyecto).
+- `PoiPanel`: nuevas `getSnap()`/`snapTo('full'|'peek')` (nunca abren/cierran). `close()`, `open()` y `openTodosEventos()` llaman `EventoCard.closeDetail(true)`. Al abrir la vista ampliada con el panel en 'peek' sube a 'full'; "Volver" lo devuelve.
+- Mes abreviado de 3 letras según el idioma activo (`Intl`), bonus: el recuadro ya no queda fijo en `es-AR`. 8 claves i18n nuevas ES/EN/PT (`evt_rango_a`, `evt_det_*`).
+
+**Cambio de comportamiento a confirmar:** en "Todos los eventos", tocar una tarjeta antes llevaba directo al lugar; ahora abre la vista ampliada y el viaje al lugar quedó en el botón "Ver el lugar". Si preferís el comportamiento anterior, es sacar `onVerLugar` y volver a poner el click en `eventos-todos.js`.
+
+**Archivos:** `js/evento-card.js`, `js/poi-panel.js` (CRLF respetado), `js/eventos-todos.js`, `js/i18n.js`, `css/poi-panel.css`, `index.html` (fuentes Caveat + Space Mono en el `<link>` existente, cache-busting `?v=20260930`), `AI_RULES.md` (14.7), `ACLARACIONES_RELEVANTES.md`. Archivos nuevos: ninguno.
+
+**Pruebas:** `node --check` OK en los 4 JS tocados; llaves de `poi-panel.css` balanceadas. Probado en Chromium con una página de prueba que carga el CSS/JS reales y las funciones reales `_diaCalendarioEnHuso`/`_eventoOcurreEnFecha`: verde/rojo con hoy, con un día puntual y con un rango; card → vista ampliada → Volver; "Ver en el mapa"; el 📍 no abre la vista; EN. **NO probado** con Firebase, Leaflet real ni celular real, ni con el panel real en modo lateral (pantalla horizontal).
+

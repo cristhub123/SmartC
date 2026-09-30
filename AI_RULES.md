@@ -657,6 +657,12 @@ modo todos + vertical + `'full'` baja a `'peek'` (para que el pin
 centrado no quede detrás del panel). En el panel de un lugar no hace
 nada — se mantiene la regla de la Etapa 12 (el 📍 no cambia el tamaño).
 
+## 14.7 Tarjeta Polaroid + vista ampliada del evento (2026-09-30)
+
+`EventoCard.render` (`js/evento-card.js`) pinta la tarjeta con el diseño Polaroid — sigue siendo la ÚNICA tarjeta de evento (14.4), no crear otra. La fila inferior lleva 2 recuadros negros (rango de días + `ev.horario`): VERDE si el evento ocurre en la fecha elegida, ROJO si no. La decisión sale de `_eventoOcurreEnFecha` (`js/eventos-fecha-filtro.js`, con huso de ciudad) — **no reimplementar esa comparación**. Quien llama a `render` pasa `opts.fechaDesde`/`opts.fechaHasta` (la fecha de SU filtro); sin ellas, la tarjeta usa el día de hoy en el huso de la ciudad. Hoy: `poi-panel.js` (`fechaFiltroEventos*`, solo con el filtro Eventos activo) y `eventos-todos.js` (su `_estado`, que sigue sin tocar el filtro global).
+
+Tocar la tarjeta abre `EventoCard.openDetail(ev, opts, host)`: vista ampliada que se desliza desde la derecha DENTRO de `.poi-panel` (no es un overlay nuevo → no se registra en `OverlayManager`; muere con el panel). `PoiPanel.close()/open()/openTodosEventos()` llaman `EventoCard.closeDetail(true)`, y `PoiPanel.getSnap()/snapTo()` (nuevas, solo alternan 'full'/'peek') dejan que la vista ampliada suba el panel a 'full' y lo restaure. `EventoCard.render` guarda `{ev, opts}` por `ev.id` para que el click delegado de `bind()` sepa qué abrir: si un contenedor nuevo usa `EventoCard.render`, alcanza con llamar a `EventoCard.bind(contenedor)` y tiene la vista ampliada gratis (debe estar adentro de `.poi-panel`). `opts.onVerLugar(ev)` opcional suma el botón "Ver el lugar". El estilo de todo esto vive en `css/poi-panel.css` (`.evento-card*`, `.evento-detalle*`); fuentes Caveat y Space Mono en el `<link>` de Google Fonts de `index.html`.
+
 ## 15. Ver también
 
 `AI_SESSION.md` — memoria de trabajo temporal de la sesión actual (qué se

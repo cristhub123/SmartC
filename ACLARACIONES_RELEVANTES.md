@@ -1,3 +1,24 @@
+# ACLARACIONES_RELEVANTES — entrega 2026-09-30 (tarjeta Polaroid + vista ampliada de evento)
+
+## Decisiones que tomé yo — confirmá o cambialo
+- **Tocar una tarjeta en "Todos los eventos" ya no abre el lugar:** abre la vista ampliada, y el viaje al lugar quedó en el botón "Ver el lugar" de esa vista. Si preferís lo de antes, avisame.
+- **Los dos recuadros (días y horario) van del mismo color** (verde/rojo), porque el horario depende del mismo día.
+- **La tarjeta ya no muestra** tags, dirección ni contactos: pasaron a la vista ampliada. En la tarjeta quedan foto, nombre, descripción corta, recuadros y entrada.
+- **El horario se muestra tal cual lo escribió quien cargó el evento** (`horario` es texto libre): si escribió "15 a 22hs", sale así en el recuadro.
+- **No agregué el gris/desaturado del mockup** para eventos que no coinciden: ya existe la opacidad reducida del filtro de fecha (Admin → Eventos) y, sin filtro, casi todo sería gris.
+- El botón "Reservar Ticket" del mockup no existe acá (no hay reservas): lo reemplazan "Ver en el mapa" y, en "Todos", "Ver el lugar".
+- El mes ahora se abrevia en el idioma activo (3 letras); antes el formato de fecha estaba fijo en es-AR.
+
+## Sin probar en real (pendiente que confirmes)
+Probado en Chromium con una página de prueba (CSS/JS reales del proyecto), NO con Firebase, Leaflet real, ni celular real: (a) verde/rojo con la fecha de hoy, con un día del filtro y con un rango; (b) la vista ampliada se desliza bien sobre el panel real en vertical y en modo lateral (horizontal); (c) "Volver" devuelve el panel al tamaño que tenía; (d) "Ver en el mapa" y "Ver el lugar"; (e) skin oscuro (`neobrutal-night`); (f) ES/EN/PT.
+
+## Cache-busting
+`?v=20260930` en `poi-panel.css`, `evento-card.js`, `poi-panel.js`, `eventos-todos.js` e `i18n.js`.
+
+---
+
+# (entrega anterior)
+
 # ACLARACIONES_RELEVANTES — entrega 2026-09-29 (Etapa 15: panel "Todos los eventos")
 
 ## Para los próximos pasos

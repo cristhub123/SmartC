@@ -419,7 +419,9 @@ const PoiPanel = (function () {
       const dimOpacity = noCoincideConFecha
         ? (window.getOpacidadReducidaFiltroFecha ? window.getOpacidadReducidaFiltroFecha() : 0.35)
         : null;
-      return window.EventoCard ? EventoCard.render(ev, { catalogo, dimOpacity }) : '';
+      // [2026-09-30] Polaroid: fechaDesde/fechaHasta deciden verde/rojo de los
+      // recuadros (null = EventoCard usa la fecha de hoy).
+      return window.EventoCard ? EventoCard.render(ev, { catalogo, dimOpacity, fechaDesde: fechaActiva, fechaHasta: fechaHastaActiva }) : '';
     }).join('');
     els.eventosList.innerHTML = `<div class="poi-panel__eventos-carousel${eventosDelPoi.length === 1 ? ' poi-panel__eventos-carousel--single' : ''}">${tarjetas}</div>`;
     // Mantiene la pestaña activa que ya tuviera (no fuerza a "eventos"
@@ -1285,6 +1287,7 @@ const PoiPanel = (function () {
    */
   function open(poiId, initialState) {
     function _openNow() {
+      if (window.EventoCard) EventoCard.closeDetail(true); // [2026-09-30] ver close()
       _ensureDom();
       _bindAppStateEvents();
       _applyPanelSizeVars(); // por si cambiaron los sliders o giró la pantalla desde el último open()
@@ -1366,6 +1369,7 @@ const PoiPanel = (function () {
   function openTodosEventos() {
     if (_todosMode && _panelState !== SNAP.CLOSED) { close(); return; }
     function _openNow() {
+      if (window.EventoCard) EventoCard.closeDetail(true); // [2026-09-30] ver close()
       _ensureDom();
       _bindAppStateEvents();
       _applyPanelSizeVars();
@@ -1401,6 +1405,16 @@ const PoiPanel = (function () {
    *  "Todos", pantalla vertical y panel en 'full', el panel tapa casi todo
    *  el mapa y centrar el pin no se vería — por eso ahí (y solo ahí) baja
    *  a 'peek'. En el panel de un lugar no hace nada (no cambia de tamaño). */
+  /** [2026-09-30] Tamaño actual del panel ('full' | 'peek' | 'closed'). Lo usa
+   *  EventoCard para subir a 'full' al abrir la vista ampliada de un evento. */
+  function getSnap() { return _panelState; }
+
+  /** [2026-09-30] Cambia entre 'full' y 'peek' (nunca abre ni cierra el panel). */
+  function snapTo(state) {
+    if (_panelState === SNAP.CLOSED) return;
+    if (state === SNAP.FULL || state === SNAP.PEEK) _snapTo(state);
+  }
+
   function afterLocate() {
     if (_todosMode && _panelState === SNAP.FULL && !_isSideMode()) _snapTo(SNAP.PEEK);
   }
@@ -1408,6 +1422,9 @@ const PoiPanel = (function () {
   /** Cierra el panel y limpia el estado de edición. */
   function close() {
     _isEditMode = false;
+    // [2026-09-30] la vista ampliada de un evento vive DENTRO del panel: se
+    // quita sin animación para que no quede colgada al reabrirlo.
+    if (window.EventoCard) EventoCard.closeDetail(true);
     _snapTo(SNAP.CLOSED);
     // Se retrasa el clear del id hasta terminar la transición de salida,
     // para que un cierre accidental no borre datos a mitad de animación.
@@ -1476,6 +1493,9 @@ const PoiPanel = (function () {
     requestTab,
     isTodosOpen,
     afterLocate,
+    // [2026-09-30] vista ampliada de evento (EventoCard.openDetail)
+    getSnap,
+    snapTo,
   };
 })();
 
