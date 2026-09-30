@@ -1,4 +1,16 @@
-# ACLARACIONES_RELEVANTES — Plan Tab Temas, Pasos 2, 3 y 4 (2026-09-30)
+# ACLARACIONES_RELEVANTES — Plan Tab Temas, pasos 1 a 4 + corrección (2026-09-30)
+
+## Corrección (PLAN_TAB_TEMAS_CORRECCION.md) — decisiones que tomé yo, confirmá o cambialo
+- **Este zip es INTEGRADO:** trae TODOS los archivos que cambiaron desde tu proyecto del 05:12 (pasos 1 a 4 + la corrección). Subilo completo, no solo una parte: el motor está en `js/utils.js` y `js/markers.js`. La tab Temas ahora muestra arriba de la lista una línea **"✔ Motor de temas al día"** o **"✘ DESACTUALIZADO: falta subir js/…"**, así ves al instante si quedó algún archivo viejo. Después de subir, recargá con Ctrl+F5.
+- **Lo que reportaste (1 y 4):** era un malentendido mío; ahora "Tema activo" es el interruptor maestro y las imágenes con sufijo de un tema solo se ven mientras ese tema esté activo. Con el tema apagado sus otros tildes quedan grisados (se conservan los valores).
+- **Lo que reportaste (2 y 3), miniatura y posición:** en las pruebas con datos simulados funcionan. Mi sospecha principal es que tu prueba corrió con `utils.js`/`markers.js` viejos (cada zip traía solo sus archivos). Si con este zip y Ctrl+F5 siguen sin funcionar, avisame con el nombre del lugar y te lo rastreo con tu caso real.
+- **Importante (efecto de la regla nueva):** si existe un tema con sufijo `piedra`, TODAS las imágenes `piedra` de todos los lugares dejan de verse como variantes normales mientras ese tema esté apagado. Si querés ver una de esas imágenes siempre, no crees un tema con ese sufijo.
+- **Tema de noche exceptuado (D6):** la imagen del tema de noche automático NO se oculta por esta regla, aunque exista un tema con ese sufijo. Tampoco se permite un tema con sufijo `main`.
+- El campo **sufijo** sigue editable con el tema apagado (define qué imágenes gobierna el tema).
+
+---
+
+# Pasos 2, 3 y 4 (2026-09-30)
 
 ## Decisiones que tomé yo — confirmá o cambialo
 - **Migración de temas viejos (cambia lo que dije en el Paso 1):** un tema viejo con "Default en el mapa" ya se aplicaba al público sin interruptor, así que ahora migra ENCENDIDO (`active:true`, con "prevalece de noche" tildado) para que el mapa se vea igual que antes. Si migraba apagado, el Paso 2 lo habría dejado de aplicar. Los demás temas viejos migran apagados. Si tenés 2 temas viejos con "Default en el mapa", van a quedar los 2 activos con miniatura: el motor usa el primero de la lista; destildá uno en la tab.

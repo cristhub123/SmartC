@@ -2419,3 +2419,17 @@ Leídos `AI_RULES.md` y `AI_SESSION.md` (ya vistos en la sesión) y la cadena: c
 
 **Pendiente de confirmar por Cris:** crear un tema real y activarlo con una imagen real; que el público vea el cambio tras "Guardar cambios" y recargar; ojito y noche en el celular.
 
+## 2026-09-30 — Corrección Tab Temas (PLAN_TAB_TEMAS_CORRECCION.md): interruptor maestro + imágenes ocultas + aviso de motor
+
+Leídos `AI_RULES.md` y la cadena `getThemeOverrideForPoi` → `getActiveSkinList` / `buildImageFallbackChain` → `resolvePinImageCandidates`; revisados los demás lectores públicos de `poi.skins` (`app-state.js getEffectiveSkin` no se usa para pines).
+
+**Qué se hizo**
+- `js/utils.js`: `getThemeOverrideForPoi` devuelve `governed` (claves del pin gobernadas por un tema de la tab, menos `main` y el sufijo del tema de noche); `getActiveSkinList` las saca de la lista normal y solo reingresan vía override (tema activo + `showInEye`); `buildImageFallbackChain` las excluye del respaldo final. `THEME_ENGINE_VERSION = 3`.
+- `js/markers.js`: `THEME_MARKERS_VERSION = 3` (para el aviso).
+- `js/themes.js`: R1 (controles deshabilitados con tema apagado, guardas en `toggleTemaFlag`/`setTemaEyePosition`, mensaje de conflicto de miniatura sugiere apagar el otro tema), R7 (`main` prohibido como sufijo), `_themeEngineStatus` + línea de estado en la tab.
+- `index.html`: texto de la tab, contenedor `temas-engine-status`, cache-busting `themes.js/utils.js/markers.js ?v=20260930c`. `AI_RULES.md` 14.8 actualizado.
+
+**Pruebas:** `node --check` OK; `<script>` 58/58, `<div>` 614/614. Node: 20 (paso 1), 38 (paso 2, actualizada para R2), 6 (paso 3), 23 nuevas (caso de Cris: tema apagado con todos los tildes, activo + miniatura, posiciones 1/2/3/última/mayor, activo sin ojito ni miniatura, apagar de nuevo, `poi` sin modificar, skin oculta con tema activo/apagado, sin temas = como antes, `main`, noche exceptuada, pin sin la variante, solo imgB64, 2 temas). Chromium real (Playwright, HTML real de la tab + archivos finales): 27 comprobaciones — controles deshabilitados y valores conservados con el tema apagado, activar/apagar desde la UI, miniatura real con `makePinHTML`, posiciones, rechazo de la 2ª miniatura, sufijo `main` rechazado, guardado/recarga, aviso "al día" y aviso "DESACTUALIZADO" con un `utils.js` viejo, sin scroll lateral en 390 px. NO probado con Firebase ni Cloudinary reales ni con los datos reales de Cris (el reporte de miniatura/posición no se pudo reproducir con datos simulados; ver ACLARACIONES).
+
+**Pendiente de confirmar por Cris:** subir el zip integrado completo + Ctrl+F5; ver el aviso verde en la tab Temas; tema apagado = imagen `piedra` invisible; activo = miniatura y posición correctas.
+

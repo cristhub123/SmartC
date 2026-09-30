@@ -1419,12 +1419,16 @@ campo-05:
         minúsculas, números y guion medio). Mientras un tema esté <b>activo</b>,
         los lugares que tengan una imagen con ese sufijo exacto la muestran
         según lo que tildes acá. Solo 1 tema activo puede tener
-        "Miniatura en el mapa".
+        "Miniatura en el mapa".<br>
+        <b>"Tema activo" es el interruptor maestro:</b> con el tema apagado no
+        pasa nada y las imágenes con ese sufijo <b>no se ven</b> (ni en el mapa
+        ni en el ojito); con el tema activo se aplican las opciones tildadas.
       </p>
       <div class="fg" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px">
         <input class="fi" id="tema-new-name" type="text" placeholder="Nombre del tema nuevo (ej: ataque-dragones)" style="width:100%">
         <button class="btn-primary" id="btn-add-tema" style="width:100%">+ Agregar</button>
       </div>
+      <div id="temas-engine-status" style="font-size:11px;margin-bottom:8px"></div>
       <div id="temas-admin-list"></div>
 
       <!-- [NUEVO — Etapa 4.1, PLAN_CORRECCIONES_ADMIN.md] guardado manual
@@ -2081,7 +2085,7 @@ campo-05:
 
   <!-- 3. Core marker logic -->
   <script src="js/pin-visibility.js?v=20260928" defer></script>
-  <script src="js/markers.js?v=20260930" defer></script>
+  <script src="js/markers.js?v=20260930c" defer></script>
   <script src="js/pins-viewport-loader.js?v=20260829" defer></script>
   <script src="js/cluster-grouping.js?v=20260829" defer></script>
   <script src="js/evento-card.js?v=20260930" defer></script>
@@ -2106,13 +2110,13 @@ campo-05:
 
   <!-- 5. Utilities -->
   <script src="js/cloudinary-admin.js?v=20260829" defer></script>
-  <script src="js/utils.js?v=20260930" defer></script>
+  <script src="js/utils.js?v=20260930c" defer></script>
   <script src="js/img-slots.js?v=20260829" defer></script>
   <script src="js/geocoder.js?v=20260831" defer></script>
 
   <!-- 6. Admin sub-panels (use registerTabPlugin) -->
   <script src="js/admin-global.js?v=20260917" defer></script>
-  <script src="js/themes.js?v=20260930b" defer></script>
+  <script src="js/themes.js?v=20260930c" defer></script>
   <script src="js/typography.js?v=20260928" defer></script>
   <script src="js/skins.js?v=20260831" defer></script>
   <script src="js/cities.js?v=20260926" defer></script>
