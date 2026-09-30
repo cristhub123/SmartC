@@ -1,0 +1,763 @@
+/*
+AI PROJECT NOTE — LECTURA OBLIGATORIA PARA CUALQUIER IA:
+Antes de modificar este archivo, toda IA (Claude, ChatGPT u otra) DEBE
+leer primero /AI_RULES.md completo. Sin excepcion, sin importar cuan
+chico o simple parezca el cambio, y sin esperar a que el usuario lo
+pida o lo recuerde — esta nota es la instruccion, no un recordatorio
+opcional. Si /AI_RULES.md ya se leyo en esta misma sesion, alcanza con
+revisar /AI_SESSION.md en su lugar.
+
+Despues de modificar este archivo, actualizar /AI_SESSION.md con el
+cambio hecho y la verificacion realizada.
+*/
+
+/* ═══════════════════════════════════════════
+   DISTANCIA ENTRE 2 PUNTOS (fórmula de Haversine)
+   ---------------------------------------------
+   Reutilizable para "Comer cerca" y para cualquier futura función
+   de "cerca mío" (geolocalización real, etc). Devuelve metros.
+═══════════════════════════════════════════ */
+function distanceMeters(lat1, lng1, lat2, lng2) {
+  const R = 6371000; // radio de la Tierra en metros
+  const toRad = deg => deg * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+/* ═══════════════════════════════════════════
+   CADENA DE RESPALDO DE IMÁGENES
+   ---------------------------------------------
+   Si una imagen no existe en Cloudinary, en vez de mostrar un ícono
+   de "imagen rota", se prueba la siguiente opción de la lista — así
+   nunca se ve como un error, siempre parece que se está mostrando
+   una alternativa a propósito. Orden: principal → noche → alt1 →
+   alt2 → alt3 → pin genérico de la categoría → emoji (último recurso).
+═══════════════════════════════════════════ */
+/* === MODO NOCHE AUTOMÁTICO ===
+   Si está configurado (panel de Temas → hora + tema de noche),
+   se activa solo entre esa hora y las 6am, sin que el admin tenga
+   que tocar nada. Se suma a los temas con interruptor manual. */
+function isNightModeActive() {
+  if (typeof globalSettings === 'undefined') return false;
+  if (globalSettings.nightHour === null || globalSettings.nightHour === undefined || !globalSettings.nightTheme) return false;
+  const hour = new Date().getHours();
+  return hour >= globalSettings.nightHour || hour < 6;
+}
+
+/* ═══════════════════════════════════════════
+   MOTOR DE OVERRIDE DE TEMAS — FUENTE ÚNICA
+   (PLAN_TAB_TEMAS_OVERRIDE.md, Paso 2)
+   ---------------------------------------------
+   Reemplaza a getActiveMapThemeIds()/getActivePanelThemeIds(), que
+   usaban el `id` del tema como nombre de variante (acople implícito) e
+   ignoraban el ojito. Ahora cada tema declara su `keyword` (sufijo
+   exacto de la imagen) y esta función decide, para UN pin, qué imágenes
+   de temas ACTIVOS aplican:
+     - Coincidencia EXACTA y completa: `keyword` === clave de `poi.skins`
+       (nada de "contiene": `halloween` no coincide con `halloween-noche`).
+     - Ignora `skin.active === false`: el override se aplica igual.
+     - NUNCA escribe en `poi` ni en `poi.skins` — es una regla de tiempo de
+       ejecución; al desactivar el tema todo vuelve a como estaba.
+   Devuelve:
+     { mapSkin:  clave del skin que va de miniatura del mapa (o null),
+       mapTheme: el tema dueño de esa miniatura (o null),
+       eye:      [{ name, url, position }] temas que entran al ojito, YA en
+                 orden de inserción: el tema con la miniatura del mapa va
+                 ÚLTIMO, así gana la posición ante el otro (cascada, ver
+                 getActiveSkinList) }
+   Sin TEMAS cargado o sin temas activos con imagen en este pin → vacío
+   (el comportamiento es EXACTAMENTE el de antes del override).
+   Consumidores: getActiveSkinList (ojito + panel) y
+   buildImageFallbackChain (miniatura del mapa). No duplicar esta regla.
+   ═══════════════════════════════════════════ */
+function getThemeOverrideForPoi(poi) {
+  const empty = { mapSkin: null, mapTheme: null, eye: [] };
+  if (typeof TEMAS === 'undefined' || !Array.isArray(TEMAS) || !TEMAS.length) return empty;
+  const skins = (poi && poi.skins) || {};
+
+  const hits = [];
+  TEMAS.forEach((t) => {
+    if (!t || !t.active || typeof t.keyword !== 'string' || !t.keyword) return;
+    if (!Object.prototype.hasOwnProperty.call(skins, t.keyword)) return;
+    const skin = skins[t.keyword];
+    if (!skin || !skin.url) return;
+    hits.push({ theme: t, name: t.keyword, url: skin.url });
+  });
+  if (!hits.length) return empty;
+
+  // Regla de UNA sola miniatura (la UI ya la impide; si el dato viniera
+  // violándola, gana el primer tema de la lista — determinista).
+  const mapHit = hits.find((h) => h.theme.showOnMap) || null;
+
+  const eyeHits = hits.filter((h) => h.theme.showInEye);
+  if (mapHit) eyeHits.sort((a, b) => (a === mapHit) - (b === mapHit)); // sort estable: el de la miniatura, último
+
+  return {
+    mapSkin: mapHit ? mapHit.name : null,
+    mapTheme: mapHit ? mapHit.theme : null,
+    eye: eyeHits.map((h) => ({ name: h.name, url: h.url, position: h.theme.eyePosition })),
+  };
+}
+
+/* === CADENA DE RESPALDO — ahora con temas globales al frente ===
+   [LIMPIEZA 2026-08-12] Antes esto ARMABA urls por fórmula
+   (`cloudinaryImageUrl`, carpeta vieja `ar/cordoba`, extensión
+   `.png` fija, sufijos con guion `-alt1`) — no coincidía con la
+   convención definitiva y podía "encontrar" imágenes en el lugar
+   equivocado de Cloudinary, o directamente en un lugar donde nunca
+   hubo nada. Ahora esta función NO adivina nada: solo devuelve URLs
+   que ya están guardadas de verdad en `poi.skins[...].url` (las que
+   dejó el propio admin, sea por el uploader de a 1 o por la
+   importación masiva). Si un skin no tiene URL guardada, se lo
+   saltea — nunca se arma una URL a ciegas. */
+/* [FIX 2026-08-16] Antes esta lista era fija (`main, noche, alt1, alt2,
+   alt3`): cualquier variante con otro nombre —típicamente las que arma
+   el importador de texto masivo a partir del nombre del archivo, tipo
+   "alt" (sin número) o "artdeco"— quedaba totalmente invisible acá,
+   aunque sí existiera de verdad en `poi.skins` con una URL válida. El
+   resultado era que el pin del mapa nunca la mostraba ni la usaba de
+   respaldo, pero el ojito (que lee `poi.skins` completo sin filtrar
+   nombres, ver getActiveSkinList más abajo) sí la contaba — de ahí
+   contadores tipo "1/6" con solo 4 imágenes reales, y el pin cayendo al
+   ícono roto sin que hubiera ningún respaldo real registrado acá.
+   Ahora esta función arma el orden a partir de TODAS las claves de
+   `poi.skins`, usando exactamente el mismo criterio que
+   getActiveSkinList, para que las dos listas nunca puedan
+   desincronizarse otra vez. */
+/* [NUEVO 2026-08-24] Ahora respeta `skin.order` (número asignado
+   desde el gestor de imágenes del admin — ver img-slots.js) cuando
+   existe: define en qué posición se muestra cada imagen al público
+   (ojito del mapa, panel del lugar). "main" y "noche" se siguen
+   priorizando primero SIEMPRE, como antes (compatibilidad con el
+   sistema de tema día/noche). El resto se ordena por `order`
+   ascendente; los skins legado que nunca pasaron por el gestor nuevo
+   (sin ese campo) caen al criterio viejo, alfabético, al final —
+   deben coincidir el mismo comparador en img-slots.js si se toca. */
+function _orderedSkinNames(skins) {
+  const PRIORITY = ['main', 'noche'];
+  const priorityNames = PRIORITY.filter((n) => skins[n]);
+  const rest = Object.keys(skins)
+    .filter((n) => !PRIORITY.includes(n))
+    .sort((a, b) => {
+      const oa = skins[a] && typeof skins[a].order === 'number' ? skins[a].order : null;
+      const ob = skins[b] && typeof skins[b].order === 'number' ? skins[b].order : null;
+      if (oa !== null && ob !== null) return oa - ob;
+      if (oa !== null) return -1;
+      if (ob !== null) return 1;
+      return a.localeCompare(b);
+    });
+  return [...priorityNames, ...rest];
+}
+
+function buildImageFallbackChain(poi, { forMap = false, forPanel = false } = {}) {
+  const skins = poi.skins || {};
+  const chain = [];
+  const seen = new Set();
+
+  function pushUrl(url) {
+    if (url && !seen.has(url)) { chain.push(url); seen.add(url); }
+  }
+  function pushSkin(id) {
+    const skin = skins[id];
+    if (skin && skin.url) pushUrl(skin.url);
+  }
+
+  if (forMap) {
+    /* Miniatura del mapa = override de tema activo (getThemeOverrideForPoi)
+       + tema de noche automático. D4 del plan: si es de noche y el pin tiene
+       la imagen del tema de noche, gana el tema de noche SALVO que el tema
+       activo con miniatura tenga tildado "prevalece en mapa de noche" — en
+       ese caso la imagen de noche no va al frente (queda solo en el ojito /
+       como respaldo al final de la cadena). De día no hay conflicto: el
+       tema activo con miniatura va primero. ("prevalece en mapa de día" no
+       cambia nada hoy: de día el tema de noche no pide la miniatura.) */
+    const ov = getThemeOverrideForPoi(poi);
+    const nightKey = (typeof TEMAS !== 'undefined' && isNightModeActive()) ? globalSettings.nightTheme : null; // sin TEMAS cargado = comportamiento previo (sin tema de noche)
+    const nightHasImg = !!(nightKey && skins[nightKey] && skins[nightKey].url);
+    if (ov.mapSkin) {
+      if (nightHasImg && nightKey !== ov.mapSkin && !ov.mapTheme.mapPriorityNight) {
+        pushSkin(nightKey);
+        pushSkin(ov.mapSkin);
+      } else {
+        pushSkin(ov.mapSkin);
+      }
+    } else if (nightHasImg) {
+      pushSkin(nightKey);
+    }
+  }
+  if (forPanel) {
+    // Imagen por defecto al abrir el panel = la 1ª del ojito (misma lista).
+    const first = getActiveSkinList(poi)[0];
+    if (first) pushUrl(first.url);
+  }
+
+  _orderedSkinNames(skins).forEach(pushSkin);
+
+  return chain;
+}
+
+/* Engancha un <img> a la cadena de respaldo: si falla, prueba la
+   siguiente URL de la lista; si se agotan todas, muestra el emoji. */
+function attachImageFallbackChain(imgEl, candidates, emojiEl) {
+  let idx = 0;
+  imgEl.addEventListener('error', function tryNext() {
+    idx++;
+    if (idx < candidates.length) {
+      imgEl.src = candidates[idx];
+      // Guardamos qué candidato terminó funcionando — lo usa
+      // markers.js para pedir la versión full-quality del MISMO
+      // candidato (mismo índice) cuando el pin se maximiza, en vez
+      // de asumir siempre el candidato 0.
+      imgEl.dataset.idx = String(idx);
+    } else {
+      imgEl.removeEventListener('error', tryNext);
+      imgEl.style.display = 'none';
+      if (emojiEl) emojiEl.style.display = '';
+    }
+  });
+}
+
+
+/* ═══════════════════════════════════════════
+   IMAGE UPLOAD LOGIC — CONECTADO A CLOUDINARY
+   ---------------------------------------------
+   Nota: las variables se siguen llamando "...ImgB64" por
+   compatibilidad con el resto del código (pin-adjust.js, admin.js),
+   pero desde acá en adelante NO contienen base64 — contienen la
+   URL real de Cloudinary. El <img src="..."> funciona igual con
+   cualquiera de los dos, por eso no hizo falta tocar nada más.
+═══════════════════════════════════════════ */
+window._addImgB64  = null;
+window._editImgB64 = null;
+window._addBannerImg  = null; // [NUEVO 2026-08-15] imagen banner del panel — ver sección de uploaders más abajo
+window._editBannerImg = null;
+
+/* === CREDENCIALES CLOUDINARY (públicas, no sensibles — el preset
+   "unsigned" está pensado para usarse así, directo desde el navegador) === */
+const CLOUDINARY_CLOUD_NAME    = 's92q7vch';
+const CLOUDINARY_UPLOAD_PRESET = 'smartcity_pines_01';
+
+/* [2026-08-21] Preset separado para el BANNER del panel. Uploads
+   unsigned NO pueden pedir transformaciones por parámetro (Cloudinary
+   las rechaza) — la única forma de que Cloudinary redimensione/
+   comprima una imagen de PIN al subirla (y así no gastar cuota
+   guardando el original grande en paralelo) es una "incoming
+   transformation" configurada en el preset desde la consola. Como esa
+   transformación aplica a TODO lo que use ese preset, y el banner NO
+   debe redimensionarse/recortarse (es rectangular, no cuadrado), el
+   banner tiene su propio preset SIN esa transformación.
+   "smartcity_pines_01" (CLOUDINARY_UPLOAD_PRESET) ya tiene configurado
+   en la consola el límite c_limit,w_1024,h_1024 — "smartcity_banner_01"
+   es unsigned y sin ninguna transformación. */
+const CLOUDINARY_UPLOAD_PRESET_BANNER = 'smartcity_banner_01';
+
+/* [Etapa 11 — PLAN_USUARIOS_EVENTOS.md, 2026-09-27] Tercer preset,
+   exclusivo de la FOTO DE UN EVENTO. Ni el de pines (c_limit, deja
+   pasar cualquier proporción) ni el de banner (sin transformación)
+   sirven: las tarjetas de evento tienen que medir todas igual, así
+   que el preset tiene que recortar a 16:9 fijo. Configuración a
+   crear a mano en la consola de Cloudinary (unsigned):
+     Incoming transformation: c_fill,g_auto,w_1024,h_576,q_auto,f_auto
+     Allowed formats:         jpg,jpeg,webp
+   Se elige con `subfolder: 'eventos'` en uploadToCloudinary(). */
+const CLOUDINARY_UPLOAD_PRESET_EVENTOS = 'smartcity_eventos_01';
+
+/* [LIMPIEZA 2026-08-12] `DEFAULT_IMG_FOLDER` ('ar/cordoba') y la
+   fórmula que la usaba (`cloudinaryImageUrl` en markers.js) quedaron
+   eliminadas — ya no existe ningún camino del código que arme una
+   URL apuntando a esa carpeta vieja. La carpeta siempre sale de
+   `CloudinaryAdmin.buildFolder()` (dinámica, según país/provincia/
+   ciudad), con el default de Córdoba con GUION MEDIO (`p-cba/c-cba`)
+   ya corregido ahí mismo (ver js/cloudinary-admin.js). */
+
+/* === SUBE UN ARCHIVO A CLOUDINARY Y DEVUELVE SU URL REAL ===
+   [LIMPIEZA 2026-08-12] Convención definitiva de nombres: el archivo
+   que subís mantiene SU NOMBRE REAL tal cual lo tenías en tu PC/
+   celular (sin extensión, como `public_id`) — el sistema YA NO lo
+   reconstruye a partir de slug+skin. Esto es a propósito: vos ya le
+   das el nombre correcto al archivo ANTES de subirlo (`{slug}_
+   {skin}_{NN}.ext`, ver `validateUploadFilename` más abajo, que se
+   corre antes de esta función y bloquea la subida si el nombre no
+   tiene sentido) — así el nombre en Cloudinary es siempre idéntico
+   al que existe en tu PC, cero discrepancia posible.
+   La carpeta sigue siendo dinámica vía `CloudinaryAdmin.buildFolder()`
+   según país/provincia/ciudad. */
+async function uploadToCloudinary(file, opts = {}) {
+  const { location, folder: folderOverride, publicId: publicIdOverride, subfolder } = opts;
+
+  const hasCloudinaryAdmin = typeof CloudinaryAdmin !== 'undefined';
+  const folder = folderOverride
+    || (hasCloudinaryAdmin ? CloudinaryAdmin.buildFolder(location, subfolder) : `smartcity/media/arg/p-cba/c-cba/${subfolder || 'images'}`);
+
+  // Nombre real preservado: se usa el nombre del archivo (sin
+  // extensión) tal cual lo trae `file.name`, salvo que se pase un
+  // publicId explícito (lo usa, por ejemplo, el pegado de imagen
+  // por Ctrl+V, que no tiene nombre de archivo real).
+  const publicId = publicIdOverride || (file.name || '').replace(/\.[^./\\]+$/, '');
+
+  // [2026-08-21] El preset determina si esta subida lleva la incoming
+  // transformation de resize (solo el preset de PIN debe tenerla —
+  // ver nota junto a CLOUDINARY_UPLOAD_PRESET_BANNER más arriba).
+  // [Etapa 11] 'eventos' → preset propio (recorte 16:9, solo jpg/webp).
+  const _sub = opts.subfolder || 'images';
+  const uploadPreset = _sub === 'banner' ? CLOUDINARY_UPLOAD_PRESET_BANNER
+    : (_sub === 'eventos' ? CLOUDINARY_UPLOAD_PRESET_EVENTOS : CLOUDINARY_UPLOAD_PRESET);
+
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('upload_preset', uploadPreset);
+  formData.append('folder', folder);
+
+  if (publicId) {
+    formData.append('public_id', publicId);
+  } else {
+    console.warn('[utils.js] uploadToCloudinary sin nombre de archivo — sube con nombre random.');
+  }
+
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
+    method: 'POST',
+    body: formData,
+  });
+  if (!res.ok) throw new Error(`Cloudinary respondió ${res.status}`);
+  const data = await res.json();
+  return data.secure_url;
+}
+
+/* === VALIDACIÓN DEL NOMBRE DE ARCHIVO ANTES DE SUBIR ===
+   Convención definitiva (3 campos separados por "_", el número
+   siempre de 2 dígitos al final, extensión libre):
+     {id-del-lugar}_{skin}_{NN}.{ext}
+   Ejemplos válidos:
+     plaza-san-martin_main_01.webp
+     plaza-san-martin-ros_t-retro_01.webp
+     building_night_01.gif
+   El prefijo (todo lo que va antes del primer "_") tiene que ser
+   EXACTAMENTE igual al ID del lugar que se está editando/creando —
+   así nunca hay discrepancia entre lo que vive en Cloudinary y lo
+   que el admin/base de datos espera encontrar. */
+function validateUploadFilename(filename, expectedSlug) {
+  const base = (filename || '').replace(/\.[^./\\]+$/, '');
+  const parts = base.split('_');
+
+  if (parts.length !== 3) {
+    return { valid: false, reason: `Debe tener exactamente 3 partes separadas por "_" (ej. ${expectedSlug || 'id-del-lugar'}_main_01) — encontré ${parts.length}.` };
+  }
+  const [prefix, variant, num] = parts;
+  if (!prefix) {
+    return { valid: false, reason: 'Falta el prefijo (ID del lugar) antes del primer "_".' };
+  }
+  if (expectedSlug && prefix !== expectedSlug) {
+    return { valid: false, reason: `El prefijo "${prefix}" no coincide con el ID del lugar ("${expectedSlug}").` };
+  }
+  if (!variant) {
+    return { valid: false, reason: 'Falta el nombre de la variante entre los dos "_".' };
+  }
+  if (!/^\d{2}$/.test(num)) {
+    return { valid: false, reason: `Debe terminar en un número de 2 dígitos antes de la extensión (ej. _01) — encontré "${num}".` };
+  }
+  return { valid: true };
+}
+
+/* === CONTEXTO DE SUBIDA (slug + ubicación) SEGÚN EL FORMULARIO ===
+   El upload ocurre ANTES de guardar el POI (apenas se elige el
+   archivo), así que el slug/ubicación se leen en vivo del formulario
+   visible en ese momento — no del documento ya guardado. */
+function _slugForUpload(formPrefix) {
+  if (formPrefix === 'edit') {
+    // Editando un lugar existente: el id YA es el slug unificado.
+    if (typeof editingId !== 'undefined' && editingId) return editingId;
+  }
+  // [LIMPIEZA 2026-08-12] Para "Nuevo" esto usaba solo slugify(nombre),
+  // que NO coincide con el ID real que va a quedar guardado si hay
+  // sufijo de ciudad o un ID tipeado a mano (ver `_computeAddSlugPreview`
+  // en pin-adjust.js, la única fuente de verdad del ID final). Ahora
+  // reusa esa misma función para que la validación del nombre de
+  // archivo compare contra el ID REAL, no una aproximación.
+  if (formPrefix === 'add' && typeof _computeAddSlugPreview === 'function') {
+    const preview = _computeAddSlugPreview();
+    if (preview) return preview;
+  }
+  const nameEl = document.getElementById(formPrefix === 'edit' ? 'e-name' : 'a-name');
+  const name = nameEl ? nameEl.value.trim() : '';
+  if (name && typeof slugify === 'function') return slugify(name);
+  // Sin nombre todavía: slug temporal para no romper la subida: se
+  // puede corregir a mano en Cloudinary si hiciera falta, pero no
+  // bloquea el flujo del admin.
+  return `lugar-${Date.now()}`;
+}
+
+function _locationForUpload(formPrefix) {
+  const p = formPrefix === 'edit' ? 'e' : 'a';
+  // Fallback con GUION MEDIO (p-cba/c-cba) — convención definitiva; antes
+  // tenía guion bajo, que no coincidía con las carpetas reales ya usadas
+  // en Cloudinary. Solo se usa si por algún motivo el dropdown no tiene
+  // nada elegido todavía.
+  return {
+    country: document.getElementById(`${p}-country`)?.value || 'arg',
+    state:   document.getElementById(`${p}-state`)?.value   || 'p-cba',
+    city:    document.getElementById(`${p}-city`)?.value    || 'c-cba',
+  };
+}
+
+/* [2026-08-15] Tercer parámetro `subfolder` agregado — por defecto
+   'images' (no cambia nada de lo que ya usaban main/alt), pero el
+   uploader del banner del panel lo llama con 'banner' para que la
+   imagen vaya a la carpeta hermana `.../banner/` en vez de mezclarse
+   con las imágenes del pin. Ver CloudinaryAdmin.buildFolder. */
+function _uploadCtx(formPrefix, skin, subfolder) {
+  return () => ({
+    slug: _slugForUpload(formPrefix),
+    skin,
+    location: _locationForUpload(formPrefix),
+    subfolder: subfolder || 'images',
+  });
+}
+
+/* ═══════════════════════════════════════════
+   LISTA DE SKINS ACTIVOS DE UN POI — FUENTE ÚNICA
+   ---------------------------------------------
+   [2026-08-15] Antes esta lógica vivía duplicada/privada dentro de
+   js/poi-panel.js (`_getActiveSkinList`), usada solo para decidir qué
+   imagen mostraba el banner del panel. Se movió acá, como función
+   global, porque ahora la necesitan DOS lugares distintos:
+     1) js/markers.js — para que el "ojito" recorra estas mismas
+        imágenes sobre el PIN maximizado en el mapa (no en el panel).
+     2) js/poi-panel.js — para pintar el contador del ojito ("2/4").
+   Criterio (sin cambios respecto a la versión anterior):
+     - "main" siempre se considera activo (fallback obligatorio).
+     - Un skin sin campo `active` explícito se toma como activo (dato
+       legado, de antes de que existiera el toggle en img-slots.js).
+     - Se filtran los skins que el admin apagó desde ese toggle.
+     - Si el POI no tiene `skins` pero sí `imgB64` (esquema viejo), se
+       devuelve una sola entrada con esa imagen.
+   NUNCA incluye `poi.banner` — esa es una imagen aparte, ajena a este
+   recorrido (ver _renderHeroImage en poi-panel.js).
+   @param {Object} poi
+   @returns {{name: string, url: string}[]}
+   ═══════════════════════════════════════════ */
+/* [FIX 2026-08-16] Antes recorría `Object.keys(skins)` en el orden que
+   haya quedado guardado el documento (no garantizado, ni relacionado
+   al orden en que se subieron las imágenes) — ahora usa el mismo orden
+   canónico que buildImageFallbackChain (_orderedSkinNames), así "main"
+   siempre es la posición 0 acá igual que en el pin del mapa, y el
+   índice que arranca en 0 el ojito (ver markers.js) coincide siempre
+   con la imagen que en verdad se está mostrando al maximizar el pin. */
+function getActiveSkinList(poi) {
+  const skins = (poi && poi.skins) || {};
+  let list = _orderedSkinNames(skins)
+    .filter((name) => name === 'main' || skins[name].active !== false)
+    .filter((name) => !!skins[name].url)
+    .map((name) => ({ name, url: skins[name].url }));
+
+  if (list.length === 0 && poi && poi.imgB64) return [{ name: 'main', url: poi.imgB64 }];
+
+  /* [Paso 2 — PLAN_TAB_TEMAS_OVERRIDE.md] Override de temas activos: cada
+     imagen de tema se saca de donde estuviera (incluso si estaba marcada
+     NO visible: el override la trae igual) y se inserta en su posición
+     elegida (1ª, 2ª… o última). Insertar empuja a las demás hacia abajo
+     en cascada — ninguna desaparece. Devuelve una lista NUEVA: nunca
+     modifica `poi`. Ojito y panel leen de acá, así que un solo cambio
+     cubre los dos. */
+  const ov = getThemeOverrideForPoi(poi);
+  ov.eye.forEach((e) => {
+    list = list.filter((x) => x.name !== e.name);
+    const entry = { name: e.name, url: e.url };
+    if (e.position === 'last') {
+      list.push(entry);
+    } else {
+      const n = Number.isInteger(e.position) && e.position >= 1 ? e.position : 1;
+      list.splice(Math.min(n - 1, list.length), 0, entry);
+    }
+  });
+  return list;
+}
+
+function applyImgB64(url, prevId, lblId, wrapperId, filename, onLoad) {
+  const prev    = document.getElementById(prevId);
+  const lbl     = document.getElementById(lblId);
+  const wrapper = document.getElementById(wrapperId);
+  prev.innerHTML = `<img src="${url}" alt="preview">`;
+  lbl.textContent = filename || 'Imagen cargada';
+  wrapper.classList.add('has-img');
+  onLoad(url);
+}
+
+function clearImg(inputId, prevId, lblId, wrapperId, defaultLbl, onLoad) {
+  document.getElementById(inputId).value = '';
+  document.getElementById(prevId).innerHTML = '🏙️';
+  document.getElementById(lblId).textContent = defaultLbl;
+  document.getElementById(wrapperId).classList.remove('has-img', 'img-uploader--name-ok', 'img-uploader--name-bad');
+  onLoad(null);
+}
+
+function setupImgUploader(inputId, prevId, lblId, clearId, wrapperId, defaultLbl, onLoad, getUploadCtx) {
+  const input   = document.getElementById(inputId);
+  const clearBtn= document.getElementById(clearId);
+  const wrapper = document.getElementById(wrapperId);
+  const lbl     = document.getElementById(lblId);
+
+  async function loadFile(file) {
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { toast('⚠️ Imagen demasiado grande (máx 5 MB)'); return; }
+
+    const ctx = typeof getUploadCtx === 'function' ? getUploadCtx() : {};
+
+    // [NUEVO 2026-08-12] Chequeo del nombre ANTES de subir — evita que
+    // se suba con un nombre que no va a coincidir con lo que el
+    // sistema espera. Bloquea la subida si el nombre no tiene sentido.
+    wrapper.classList.remove('img-uploader--name-ok', 'img-uploader--name-bad');
+    const check = validateUploadFilename(file.name, ctx.slug);
+    if (!check.valid) {
+      wrapper.classList.add('img-uploader--name-bad');
+      toast(`⚠️ Nombre de archivo incorrecto: ${check.reason}`);
+      return;
+    }
+    wrapper.classList.add('img-uploader--name-ok');
+
+    const originalLbl = lbl.textContent;
+    lbl.textContent = '⏳ Subiendo...';
+    try {
+      const url = await uploadToCloudinary(file, ctx);
+      applyImgB64(url, prevId, lblId, wrapperId, file.name, onLoad);
+      toast('✅ Imagen subida');
+    } catch (err) {
+      lbl.textContent = originalLbl;
+      toast('⚠️ Error al subir la imagen. Probá de nuevo.');
+      console.error('Cloudinary upload error:', err);
+    }
+  }
+
+  input.addEventListener('change', e => loadFile(e.target.files[0]));
+
+  // Drag & drop
+  wrapper.addEventListener('dragover',  e => { e.preventDefault(); wrapper.style.borderColor='var(--accent)'; });
+  wrapper.addEventListener('dragleave', ()  => { wrapper.style.borderColor=''; });
+  wrapper.addEventListener('drop', e => {
+    e.preventDefault(); wrapper.style.borderColor='';
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) loadFile(file);
+    else toast('⚠️ Solo se aceptan imágenes');
+  });
+
+  // Paste (Ctrl+V / ⌘+V) anywhere on page — applies to whichever uploader is visible
+  document.addEventListener('paste', e => {
+    // Only if this uploader's tab is visible
+    if (!wrapper.offsetParent) return;
+    const items = e.clipboardData && e.clipboardData.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        const file = item.getAsFile();
+        if (file) { loadFile(file); toast('📋 Imagen pegada, subiendo...'); }
+        return;
+      }
+    }
+  });
+
+  clearBtn.addEventListener('click', e => {
+    e.stopPropagation(); e.preventDefault();
+    // [FIX Etapa 7 — PLAN_CORRECCIONES_ADMIN.md] riesgo bajo: esto vive
+    // adentro del formulario de Nuevo/Editar lugar y recién impacta en
+    // Firestore si después se guarda ESE formulario — pero perder de
+    // nuevo la imagen que ya se había subido/pegado también molesta,
+    // así que igual se confirma antes de sacarla del slot.
+    confirmarBorrado('¿Quitar esta imagen del slot?', () => {
+      clearImg(inputId, prevId, lblId, wrapperId, defaultLbl, onLoad);
+    }, '¿Quitar imagen?');
+  });
+}
+
+/* ── URL loader helper — también sube el resultado a Cloudinary,
+   así TODAS las imágenes terminan como URL real, sin excepción ── */
+function setupUrlLoader(urlInputId, loadBtnId, prevId, lblId, wrapperId, onLoad, getUploadCtx) {
+  const btn = document.getElementById(loadBtnId);
+  const inp = document.getElementById(urlInputId);
+  if (!btn || !inp) return;
+
+  async function loadUrl(rawUrl) {
+    let url = rawUrl.trim();
+    if (!url) { toast('⚠️ Pegá un URL o un nombre de archivo primero'); return; }
+
+    // [NUEVO 2026-08-24] Si lo que se pegó NO es un link (no arranca
+    // con http/https), se lo trata como nombre de archivo o public ID
+    // de Cloudinary ya subido — se arma la URL completa sola, con la
+    // misma Ubicación Activa y lógica que usa el importador de texto
+    // de Lugares (`_buildBulkImageUrl`). Si pegaron el public ID
+    // completo con carpetas (ej. "smartcity/media/.../images/foo"),
+    // se toma solo el último tramo — la carpeta se reconstruye desde
+    // la Ubicación Activa, no desde lo pegado.
+    if (!/^https?:\/\//i.test(url) && !url.startsWith('data:')) {
+      const bareName = url.split('/').pop();
+      if (bareName && typeof _buildBulkImageUrl === 'function') {
+        url = _buildBulkImageUrl(bareName);
+      }
+    }
+
+    // === CLAVE: si el link ya es de Cloudinary, se usa TAL CUAL ===
+    // No hay que descargarlo ni volver a subirlo — eso es lo que
+    // generaba copias duplicadas con nombre random. Se guarda el
+    // link directo y listo.
+    if (url.includes('res.cloudinary.com')) {
+      const filename = url.split('/').pop().split('?')[0] || 'imagen';
+      const wrapperEl = document.getElementById(wrapperId);
+      if (wrapperEl) wrapperEl.classList.remove('img-uploader--name-ok', 'img-uploader--name-bad');
+      applyImgB64(url, prevId, lblId, wrapperId, filename, onLoad);
+      inp.value = '';
+      toast('✅ Imagen enlazada (ya estaba en Cloudinary, no se duplicó)');
+      return;
+    }
+
+    // Dropbox: convert share link to direct download
+    url = url.replace('www.dropbox.com', 'dl.dropboxusercontent.com')
+             .replace('?dl=0', '').replace('?dl=1', '');
+    // Google Drive: convert share link to direct download
+    const gdrive = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
+    if (gdrive) url = `https://drive.google.com/uc?export=download&id=${gdrive[1]}`;
+
+    btn.textContent = '…'; btn.classList.add('loading');
+    const wrapper = document.getElementById(wrapperId);
+    if (wrapper) wrapper.classList.remove('img-uploader--name-ok', 'img-uploader--name-bad');
+    try {
+      const res = await fetch(url, { mode: 'cors' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const ct = res.headers.get('content-type') || '';
+      if (!ct.startsWith('image/')) throw new Error('No es una imagen');
+      const blob = await res.blob();
+      const filename = url.split('/').pop().split('?')[0] || 'imagen.jpg';
+      const ctx = typeof getUploadCtx === 'function' ? getUploadCtx() : {};
+
+      // Mismo chequeo de nombre que el uploader de archivo — un link
+      // externo también tiene que traer el nombre correcto ya puesto.
+      const check = validateUploadFilename(filename, ctx.slug);
+      if (!check.valid) {
+        if (wrapper) wrapper.classList.add('img-uploader--name-bad');
+        toast(`⚠️ Nombre de archivo incorrecto: ${check.reason}`);
+        btn.textContent = 'Cargar'; btn.classList.remove('loading');
+        return;
+      }
+      if (wrapper) wrapper.classList.add('img-uploader--name-ok');
+
+      const file = new File([blob], filename, { type: ct });
+      const cloudUrl = await uploadToCloudinary(file, ctx);
+      applyImgB64(cloudUrl, prevId, lblId, wrapperId, filename, onLoad);
+      inp.value = '';
+      toast('✅ Imagen cargada y subida');
+    } catch(err) {
+      toast('⚠️ No se pudo cargar. Probá descargando y subiendo el archivo.');
+      console.warn('URL load error:', err);
+    } finally {
+      btn.textContent = 'Cargar'; btn.classList.remove('loading');
+    }
+  }
+
+  btn.addEventListener('click', () => loadUrl(inp.value));
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') loadUrl(inp.value); });
+}
+
+setupImgUploader(
+  'img-input-add', 'img-prev-add', 'img-lbl-add', 'img-clear-add', 'iu-add',
+  'Subir imagen del edificio',
+  b64 => { window._addImgB64 = b64; if (typeof AltSlotsAdd !== 'undefined' && AltSlotsAdd) AltSlotsAdd.refreshMainCell(); },
+  _uploadCtx('add', 'main')
+);
+setupImgUploader(
+  'img-input-edit', 'img-prev-edit', 'img-lbl-edit', 'img-clear-edit', 'iu-edit',
+  'Cambiar imagen',
+  b64 => { window._editImgB64 = b64; if (typeof AltSlotsEdit !== 'undefined' && AltSlotsEdit) AltSlotsEdit.refreshMainCell(); },
+  _uploadCtx('edit', 'main')
+);
+setupUrlLoader('img-url-add',  'img-url-load-add',  'img-prev-add',  'img-lbl-add',  'iu-add',  b64 => { window._addImgB64  = b64; if (typeof AltSlotsAdd !== 'undefined' && AltSlotsAdd) AltSlotsAdd.refreshMainCell(); }, _uploadCtx('add', 'main'));
+setupUrlLoader('img-url-edit', 'img-url-load-edit', 'img-prev-edit', 'img-lbl-edit', 'iu-edit', b64 => { window._editImgB64 = b64; if (typeof AltSlotsEdit !== 'undefined' && AltSlotsEdit) AltSlotsEdit.refreshMainCell(); }, _uploadCtx('edit', 'main'));
+
+/* === IMAGEN BANNER DEL PANEL — [NUEVO 2026-08-15] ===
+   Completamente aparte de la imagen del pin (arriba) y de las
+   variantes/alt (js/img-slots.js). Se sube a la carpeta HERMANA
+   `.../banner/` (ver CloudinaryAdmin.buildFolder), nunca a
+   `.../images/` — por eso el 3er argumento 'banner' en _uploadCtx.
+   Guarda en window._addBannerImg / window._editBannerImg; pin-adjust.js
+   los vuelca en `poi.banner.url` al guardar (saveNew/saveEdit). Si se
+   deja vacío, el panel público simplemente no muestra banner (0px de
+   alto, ver css/poi-panel.css .poi-panel__hero[hidden]) — nunca cae
+   de vuelta a la imagen del pin. */
+if (document.getElementById('img-input-banner-add')) {
+  setupImgUploader(
+    'img-input-banner-add', 'img-prev-banner-add', 'img-lbl-banner-add', 'img-clear-banner-add', 'iu-banner-add',
+    'Subir imagen banner',
+    url => { window._addBannerImg = url; },
+    _uploadCtx('add', 'banner', 'banner')
+  );
+  setupUrlLoader('img-url-banner-add', 'img-url-load-banner-add', 'img-prev-banner-add', 'img-lbl-banner-add', 'iu-banner-add',
+    url => { window._addBannerImg = url; },
+    _uploadCtx('add', 'banner', 'banner')
+  );
+}
+if (document.getElementById('img-input-banner-edit')) {
+  setupImgUploader(
+    'img-input-banner-edit', 'img-prev-banner-edit', 'img-lbl-banner-edit', 'img-clear-banner-edit', 'iu-banner-edit',
+    'Cambiar imagen banner',
+    url => { window._editBannerImg = url; },
+    _uploadCtx('edit', 'banner', 'banner')
+  );
+  setupUrlLoader('img-url-banner-edit', 'img-url-load-banner-edit', 'img-prev-banner-edit', 'img-lbl-banner-edit', 'iu-banner-edit',
+    url => { window._editBannerImg = url; },
+    _uploadCtx('edit', 'banner', 'banner')
+  );
+}
+// Alt images (variantes) — [MIGRADO 2026-08-13] antes eran 3 uploaders
+// fijos acá (alt1/2/3, guardaban en window._addImgAlt1/2/3, un campo
+// legado `imgAlt1/2/3` que nunca se mostraba en ningún lado público).
+// Ahora el manejo es dinámico y sin límite: ver js/img-slots.js
+// (AltSlotsAdd / AltSlotsEdit), que crea/enlaza cada slot al vuelo y
+// guarda directo en `poi.skins` — el mismo lugar que ya usa el
+// carrusel del panel y la vinculación de imágenes por texto.
+
+/* ── Patch startEdit: ya integrado en la definición base arriba ── */
+
+/* ═══════════════════════════════════════════════════════════
+   CONFIRMACIÓN DE BORRADO GENÉRICA [NUEVO — Etapa 1,
+   PLAN_CORRECCIONES_ADMIN.md]
+   ---------------------------------------------------------------
+   Reutiliza el mismo modal #modal-confirm que ya usa Lugares
+   (askDelete/mc-cancel/mc-delete en admin.js) para que otras
+   pestañas (Ubicaciones, Tipografía, y a futuro Temas/Roadmap/
+   Grupos/Categorías/Eventos) puedan pedir la misma confirmación
+   sin reinventar el modal.
+
+   A PROPÓSITO no se toca la lógica de askDelete() de Lugares: acá
+   solo se agregan listeners NUEVOS a los mismos botones (mc-cancel/
+   mc-delete), en paralelo a los que ya tiene admin.js. Cuando se
+   borra un lugar, pendingDelId queda en null salvo que askDelete()
+   lo haya seteado, así que el callback genérico (_pendingConfirmCb)
+   se ejecuta sin pisar ni depender de esa otra lógica, y viceversa.
+
+   Uso: confirmarBorrado('¿Borrar "Centro" de Ubicaciones?', () => {
+     // lo que efectivamente borra
+   });
+   ═══════════════════════════════════════════════════════════ */
+let _pendingConfirmCb = null;
+
+function confirmarBorrado(mensaje, onConfirm, titulo) {
+  const modal = document.getElementById('modal-confirm');
+  if (!modal) { if (onConfirm) onConfirm(); return; } // fallback si el modal no existe en el DOM
+  const titleEl = modal.querySelector('h3');
+  const msgEl = document.getElementById('modal-msg');
+  if (titleEl) titleEl.textContent = titulo || '¿Eliminar?';
+  if (msgEl) msgEl.textContent = mensaje || 'Esta acción no se puede deshacer.';
+  _pendingConfirmCb = onConfirm;
+  modal.classList.add('on');
+}
+
+document.getElementById('mc-cancel')?.addEventListener('click', () => {
+  _pendingConfirmCb = null;
+});
+document.getElementById('mc-delete')?.addEventListener('click', () => {
+  if (!_pendingConfirmCb) return;
+  const cb = _pendingConfirmCb;
+  _pendingConfirmCb = null;
+  cb();
+});
+
+
+

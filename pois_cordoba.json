@@ -1,0 +1,50 @@
+[
+  {
+    "id": "patio-olmos",
+    "name": "Patio Olmos Shopping",
+    "lat": -31.41961,
+    "lng": -64.18783,
+    "category": "Tiendas",
+    "desc": "Uno de los centros comerciales más importantes y emblemáticos del centro de Córdoba, ubicado en la intersección de Av. Vélez Sarsfield y Av. Hipólito Yrigoyen.",
+    "hist": "Inaugurado originalmente en 1909 como Escuela Gobernador Olmos, el edificio fue restaurado y reconvertido en shopping center en la década de 1990, conservando su imponente arquitectura neoclásica exterior.",
+    "skins": {
+      "main": "patio-olmos_main"
+    }
+  },
+  {
+    "id": "alto-paz-tower",
+    "name": "Alto Paz Tower",
+    "lat": -31.40535,
+    "lng": -64.18182,
+    "category": "Arquitectura",
+    "desc": "Torre residencial de gran altura ubicada a orillas del Río Suquía en la zona de Barrio General Paz.",
+    "hist": "Representa uno de los desarrollos inmobiliarios contemporáneos más altos y modernos del perfil urbano cordobés, destacándose por su diseño panorámico e isométrico.",
+    "skins": {
+      "main": "alto-paz-tower_main"
+    }
+  },
+  {
+    "id": "loteria-de-cordoba",
+    "name": "Lotería de la Provincia de Córdoba",
+    "lat": -31.41628,
+    "lng": -64.18569,
+    "category": "Histórico",
+    "desc": "Sede central de la Lotería de la Provincia de Córdoba, ubicada en pleno centro comercial y financiero de la ciudad.",
+    "hist": "Institución histórica de la provincia dedicada a la administración de juegos de azar y acción social, con una fachada patrimonial característica sobre Av. 27 de Abril.",
+    "skins": {
+      "main": "loteria-de-cordoba_main"
+    }
+  },
+  {
+    "id": "palacio-municipal-6-de-julio",
+    "name": "Palacio Municipal '6 de Julio'",
+    "lat": -31.41680,
+    "lng": -64.18890,
+    "category": "Histórico",
+    "desc": "Sede del Poder Ejecutivo de la Municipalidad de Córdoba, ubicado frente a la Plaza Italia.",
+    "hist": "Inaugurado en 1953, el edificio de arquitectura brutalista es obra de los arquitectos SEPRA. Su nombre rinde homenaje a la fecha de fundación de la ciudad de Córdoba en 1573 por Jerónimo Luis de Cabrera.",
+    "skins": {
+      "main": "palacio-municipal-6-de-julio_main"
+    }
+  }
+]

@@ -1,0 +1,22 @@
+FIX — 27/09/2026
+
+Bug reportado: en la pestaña Categorías, al tocar "Guardar cambios" el
+aviso rojo "Tenés cambios sin guardar..." quedaba pegado para siempre
+(en otras pestañas como Global o Editar lugar no pasaba).
+
+Causa: el fix de la Etapa 2 (PLAN_CORRECCIONES_ADMIN.md) agregó el campo
+`icon` al guardar cada categoría base en Firestore, pero las categorías
+base que nunca tuvieron su ícono editado tienen ese valor "undefined" en
+JavaScript — y Firestore no permite guardar un campo undefined, tira un
+error. Ese error hacía fallar el guardado completo (aunque el resto de
+los cambios, como el color, estuvieran bien) y por eso el aviso de
+"cambios sin guardar" nunca se apagaba.
+
+Archivo modificado:
+- js/settings-sync.js → saveCategoriesSettings() ahora guarda `null` en
+  vez de `undefined` cuando una categoría base todavía no tiene ícono
+  propio cargado.
+
+Cómo probar: entrar a Categorías, cambiar cualquier cosa (color, activar/
+desactivar, etc.), tocar "Guardar cambios" → el aviso rojo tiene que
+desaparecer y aparecer el toast verde "✅ Cambios de categorías guardados".

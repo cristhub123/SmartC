@@ -1,0 +1,57 @@
+CAMBIO — Login (Firebase Auth) diferido en la carga de página
+Fecha: 2026-09-02
+
+QUÉ SE HIZO
+-----------
+Se movió el script firebase-auth-compat.js (CDN) de estar al principio
+de index.html a justo antes de js/admin-auth.js — que junto con
+js/user-auth.js son los ÚNICOS 2 archivos del proyecto que usan
+firebase.auth() (confirmado con grep en todo js/).
+
+POR QUÉ
+-------
+Todos los scripts cargan con "defer", que los ejecuta en el orden en que
+aparecen en el HTML, uno después del otro. Antes, firebase-auth-compat.js
+estaba entre los primeros scripts — su descarga+ejecución (SDK de ~40KB,
+que a veces dispara además un iframe.js de OAuth de ~95KB) bloqueaba que
+se ejecutaran map.js, markers.js, pins-viewport-loader.js,
+cluster-grouping.js, poi-panel.js y admin.js — aunque ninguno de esos
+archivos usa Auth para nada. Ahora ese SDK se ejecuta recién donde
+realmente se necesita, después de que el mapa ya está armado.
+
+QUÉ NO CAMBIÓ (a propósito)
+----------------------------
+- Ningún comportamiento de login. admin-auth.js y user-auth.js siguen
+  llamando firebase.auth().onAuthStateChanged(...) exactamente igual
+  que antes — el auto-detectar sesión ya iniciada sigue funcionando
+  igual, solo arranca una fracción de segundo más tarde (imperceptible).
+- firebase-app-compat.js y firebase-firestore-compat.js NO se tocaron
+  de lugar — esos sí los necesita el mapa desde temprano (los datos de
+  los pines vienen de Firestore), no se pueden diferir sin romper el
+  mapa público.
+- Ningún otro archivo (verificado con grep en todo js/) llama
+  firebase.auth() antes de admin-auth.js/user-auth.js, así que no hay
+  riesgo de "firebase.auth is not a function" en ningún otro lado.
+
+ARCHIVO TOCADO
+---------------
+index.html (solo reordenamiento de 3 líneas de <script>, nada de JS
+propio modificado)
+
+VERIFICACIÓN HECHA ACÁ
+------------------------
+- node --check en los 47 archivos .js del proyecto: sin errores.
+- index.html: orden final de scripts revisado a mano (map.js/markers.js/
+  poi-panel.js/admin.js ejecutan antes que firebase-auth-compat.js;
+  admin-auth.js/user-auth.js ejecutan después, con firebase.auth() ya
+  disponible).
+- grep de "firebase.auth(" en todo js/: solo aparece en admin-auth.js y
+  user-auth.js (más un comentario sin llamada real en empleados.js).
+
+PENDIENTE DE CONFIRMAR EN TU ENTORNO REAL
+-------------------------------------------
+- Que el botón de login (👤 en el header) siga detectando sesión ya
+  iniciada normalmente al recargar la página.
+- Que el panel admin (engranaje) siga pidiendo login cuando corresponde.
+- Idealmente, repetir el test de WebPageTest con latencia simulada para
+  confirmar que el LCP/TBT bajó respecto al reporte anterior (18.8s LCP).
