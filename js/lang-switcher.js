@@ -31,6 +31,7 @@ cambio hecho y la verificacion realizada.
   function _applyActiveState(lang) {
     document.querySelectorAll('#lang-switcher [data-lang-switch]').forEach((btn) => {
       btn.classList.toggle('active', btn.dataset.langSwitch === lang);
+      btn.setAttribute('aria-pressed', btn.dataset.langSwitch === lang ? 'true' : 'false');
     });
   }
 
