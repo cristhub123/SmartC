@@ -1,3 +1,21 @@
+# ACLARACIONES_RELEVANTES — entrega 2026-09-30 (banderas en el selector de idioma)
+
+## Decisiones que tomé yo — confirmá o cambialo
+- **Qué bandera para cada idioma:** español = Argentina, inglés = Reino Unido, portugués = Brasil. Para cambiar una, se cambia el `src` de ese botón en `index.html` y se copia el SVG a `img/flags/` (ya no hace falta tocar CSS ni JS).
+- **Inactivas:** en gris con opacidad 60% (no 30%): con 30% la de Argentina casi desaparecía sobre el fondo blanco. Se ajusta en `css/base.css`, regla `#lang-switcher button img` (`grayscale`/`brightness`/`opacity`).
+- **La activa** se marca además con un aro del color de acento, para que no dependa solo del color.
+- **En pantallas angostas** (≤420px) el selector ocupa ~20px más que con las siglas, así que el buscador queda un poco más corto.
+
+## Sin probar en real (pendiente que confirmes)
+Probado en Chromium con el CSS/JS reales del selector y un `AppState` de prueba, NO en el `index.html` completo ni en celular real: (a) cómo se ve con los skins/temas oscuros; (b) el ancho del header en celulares chicos.
+
+## Cache-busting
+`?v=20260930-flags` en `base.css` y `lang-switcher.js`. Los SVG son archivos nuevos en `img/flags/` (licencia MIT de flag-icons incluida).
+
+---
+
+# (entrega anterior)
+
 # ACLARACIONES_RELEVANTES — entrega 2026-09-30 (tarjeta Polaroid + vista ampliada de evento)
 
 ## Decisiones que tomé yo — confirmá o cambialo

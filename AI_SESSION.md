@@ -2363,3 +2363,18 @@ Cris pasó un HTML de Gemini (6 estilos de tarjeta; se eligió el 1, "Polaroid /
 
 **Pruebas:** `node --check` OK en los 4 JS tocados; llaves de `poi-panel.css` balanceadas. Probado en Chromium con una página de prueba que carga el CSS/JS reales y las funciones reales `_diaCalendarioEnHuso`/`_eventoOcurreEnFecha`: verde/rojo con hoy, con un día puntual y con un rango; card → vista ampliada → Volver; "Ver en el mapa"; el 📍 no abre la vista; EN. **NO probado** con Firebase, Leaflet real ni celular real, ni con el panel real en modo lateral (pantalla horizontal).
 
+
+## Sesión: 2026-09-30 — Selector de idioma con banderas cuadradas (en vez de ES/EN/PT)
+
+Cris pidió reemplazar los botones de texto ES/EN/PT del header por 3 banderas cuadradas: la del idioma activo a todo color y las inactivas apagadas (gris/baja opacidad). Pidió buscar un set gratuito, cuadrado y liviano (SVG).
+
+**Fuente elegida:** `lipis/flag-icons` (MIT, sin atribución obligatoria), carpeta `flags/1x1/`, verificada en la web. Se descargaron los SVG de GitHub y se alojan en el proyecto (`img/flags/ar.svg` 3.4 KB, `gb.svg` 0.5 KB, `br.svg` 6.7 KB ≈ 10.6 KB en total); sin CDN externo. Se copió la licencia a `img/flags/LICENSE-flag-icons.txt`. No se usó `es.svg`/`pt.svg` (pesan 82 KB / 8 KB). La URL de cdnjs que sugirió Gemini (`flag-icon-css/6.6.6`) no se usó: `flag-icon-css` está deprecado en 4.1.7 y 6.6.6 es de `flag-icons`, así que no se garantiza que exista.
+
+**Mapeo (decisión mía, cambiable):** es→Argentina, en→Reino Unido, pt→Brasil. Cambiar una bandera = cambiar el `src` de ese botón en `index.html` y copiar el SVG a `img/flags/`.
+
+**Cambios**
+- `index.html`: los 3 botones `[data-lang-switch]` ahora llevan un `<img>` (alt vacío) + `title`/`aria-label` con el nombre del idioma (Español/English/Português) + `aria-pressed`. Cache-busting `?v=20260930-flags` en `base.css` y `lang-switcher.js` (vercel.json los cachea como immutable).
+- `css/base.css`: bloque `#lang-switcher button` reescrito. Inactiva: `grayscale(1) brightness(.85)` + `opacity .6`; hover: `grayscale(.4)`; activa: sin filtro, opacidad 1, aro del color de acento. En ≤420px las banderas pasan de 26px a 22px.
+- `js/lang-switcher.js`: una sola línea nueva en `_applyActiveState` para mantener `aria-pressed` sincronizado. La lógica de idioma (localStorage, AppState) NO cambió.
+
+**Pruebas:** `node --check` OK. Probado en Chromium con una página que carga el `base.css` y `lang-switcher.js` reales, con un `AppState` de mentira: en 1100px y 360px, al tocar una bandera queda a color con aro, las otras en gris, sin errores de consola. **NO probado** en el `index.html` completo (Firebase/Leaflet), ni en celular real, ni con los skins/temas oscuros.
