@@ -1,3 +1,24 @@
+# ACLARACIONES_RELEVANTES — entrega 2026-10-01 (cruces de cierre en cada ventana)
+
+## Qué ventanas tienen cruz ahora
+Panel de un lugar y "Todos los eventos", vista ampliada de un evento, dropdown de zonas, login de administrador, popover del calendario del filtro. Ya la tenían (sin cambios): panel de zona, login/registro público, panel de usuario y panel Admin.
+
+## Decisiones que tomé yo — confirmá o cambialo
+- **Cruz de la vista ampliada de un evento:** cierra SOLO esa vista (vuelve a las tarjetas), igual que el "‹". No cierra el panel entero. Si preferís que cierre todo, es llamar a `PoiPanel` `_cerrarDesdeCruz` desde ahí.
+- **Sin cruz a propósito:** el cuadro de confirmación (ya tiene Cancelar/Aceptar), los resultados del buscador y el calendario inline de "Todos" (vive dentro de un panel que ya tiene cruz). Si querés cruz también ahí, avisame.
+- **Ojito del panel de un lugar:** se corrió un poco a la izquierda para dejar lugar a la cruz.
+- **Cruz en "Todos los eventos":** solo cierra el panel (no hay pin maximizado que minimizar).
+
+## Sin probar en real (pendiente que confirmes)
+Probado en Chromium con los archivos reales y datos simulados, NO con Leaflet/Firebase reales ni en celular: (a) al tocar la cruz del panel, el pin del mapa queda realmente minimizado y desactivado, igual que con un toque en el mapa vacío; (b) la cruz no choca con el ojito/título en pantallas chicas y en modo lateral (horizontal); (c) skin oscuro; (d) la cruz del dropdown de zonas en celular.
+
+## Cache-busting
+`?v=20261001` en `poi-panel.css`, `evento-card.js`, `poi-panel.js`, `admin-auth.js`, `zones.js`, `calendario-eventos.js`, `eventos-fecha-filtro.js`; `base.css?v=20261001-cruces`.
+
+---
+
+# (entrega anterior)
+
 # ACLARACIONES_RELEVANTES — Banderas en el selector de idioma (2026-10-01)
 
 ## Decisiones que tomé yo — confirmá o cambialo

@@ -2509,3 +2509,15 @@ Cris entregó por error un estado previo del proyecto mientras otro plan se actu
 
 **Pruebas:** `node --check` OK en los 4 JS; llaves de `poi-panel.css` balanceadas; mismo arnés en Chromium (CSS/JS reales de V4 + `_diaCalendarioEnHuso`/`_eventoOcurreEnFecha` reales, idénticas a las de la versión anterior): verde/rojo con hoy, día puntual y rango; tarjeta → vista ampliada → Volver; "Ver en el mapa"; el 📍 no abre la vista; PT. NO probado con Firebase, Leaflet real ni celular real.
 
+## Sesión: 2026-10-01 — Cruces de cierre en todas las ventanas
+
+Cris pidió que cada tab/ventana tenga una cruz arriba a la derecha para cerrarla ("no sé cómo cerrar algo"), y que la cruz del panel de un pin minimice también el pin (mismo efecto que tocar un punto vacío del mapa), con el diseño ya existente de la página.
+
+**Relevamiento:** ya tenían cruz zona-panel, login/registro público, panel de usuario y Admin. Faltaban: panel de lugar (+ modo "Todos"), vista ampliada del evento, dropdown de zonas, login de admin y popover del calendario. Quedaron SIN cruz a propósito: confirmación (`#modal-confirm`, ya tiene Cancelar/Aceptar), resultados del buscador (se cierran al borrar el texto/tocar fuera), calendario inline del panel "Todos" (lo abre/cierra su botón y vive dentro de un panel que ya tiene cruz).
+
+**Qué se hizo:** clase `.btn-x` en todas (ver AI_RULES 14.9). `PoiPanel` suma `_cerrarDesdeCruz()` (`collapsePin(expandedId)` + `close()`); en "Todos" solo cierra. `.zd-header` pasa a flex con el rótulo en un `<span data-i18n>`. `CalendarioEventos.mount` acepta `onClose` opcional (la cruz solo se dibuja si viene). Se agregó `padding-right` a `.poi-panel__header`/lang-row (el ojito se corre a la izquierda de la cruz) y `padding: 0 26px` al h3 del login de admin para que la cruz no pise el título.
+
+**Archivos:** `js/poi-panel.js` (CRLF respetado), `js/evento-card.js`, `js/zones.js`, `js/admin-auth.js`, `js/calendario-eventos.js`, `js/eventos-fecha-filtro.js`, `css/poi-panel.css`, `css/base.css`, `index.html` (markup + cache-busting `?v=20261001`), `AI_RULES.md` (14.9), `AI_SESSION.md`, `ACLARACIONES_RELEVANTES.md`. Archivos nuevos: ninguno.
+
+**Pruebas:** `node --check` OK en los 6 JS; llaves de ambos CSS balanceadas. Chromium con los archivos reales (`base.css`, `poi-panel.css`, `i18n.js`, `calendario-eventos.js`, `evento-card.js`, `poi-panel.js`) y stubs de `AppState`/`collapsePin`: cruz del panel → `collapsePin('p1')` llamado y panel cerrado; en "Todos" cierra sin llamar a `collapsePin`; cruz de la vista ampliada cierra solo la vista (el panel sigue abierto); cruz del calendario dispara `onClose`; la cruz de zonas sobrevive a `I18N.apply`. NO probado: con Leaflet/Firebase reales (que el pin realmente se vea minimizado en el mapa), en celular real, ni con el skin `neobrutal-night`.
+
