@@ -248,6 +248,7 @@ window._wireCalendarioFechaBtn = function() {
       hasta: fechaFiltroEventosHasta,
       onConfirm({ desde, hasta }) { _aplicarFechaFiltro(desde, hasta); _cerrarPopoverFecha(); },
       onClear() { _aplicarFechaFiltro(null, null); },
+      onClose() { _cerrarPopoverFecha(); }, // [2026-10-01] cruz de cierre del popover
     });
   }
 

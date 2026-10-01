@@ -211,7 +211,10 @@ const PoiPanel = (function () {
       <div class="poi-panel__handle-zone" data-role="handle-zone">
         <div class="poi-panel__handle"></div>
       </div>
-      <div data-role="lang-row" style="display:flex;justify-content:flex-end;align-items:center;gap:4px;padding:0 1.5rem 0.25rem;">
+      <!-- [2026-10-01] Cruz de cierre (esquina superior derecha), mismo look que
+           los demás .btn-x del proyecto. Ver _cerrarDesdeCruz(). -->
+      <button type="button" class="btn-x poi-panel__close" data-role="close-btn">✕</button>
+      <div data-role="lang-row" style="display:flex;justify-content:flex-end;align-items:center;gap:4px;padding:0 3.6rem 0.25rem 1.5rem;">
         <button type="button" data-role="eye-btn" title="" style="border:none;background:transparent;padding:2px 4px;border-radius:6px;cursor:pointer;font-size:1rem;line-height:1;display:flex;align-items:center;gap:4px;color:#94a3b8;">
           <span data-role="eye-icon">👁️</span><span data-role="eye-count" style="font-size:0.75rem;font-weight:700;"></span>
         </button>
@@ -270,6 +273,7 @@ const PoiPanel = (function () {
     _els = {
       panel,
       handleZone: panel.querySelector('[data-role="handle-zone"]'),
+      closeBtn: panel.querySelector('[data-role="close-btn"]'),
       eyeBtn: panel.querySelector('[data-role="eye-btn"]'),
       eyeIcon: panel.querySelector('[data-role="eye-icon"]'),
       eyeCount: panel.querySelector('[data-role="eye-count"]'),
@@ -301,6 +305,7 @@ const PoiPanel = (function () {
     if (window.ResizeObserver) new ResizeObserver(_updateCatsHints).observe(_els.catsRow);
     _els.tabInfoBtn.addEventListener('click', () => _setActiveTab('info'));
     _els.tabEventosBtn.addEventListener('click', () => _setActiveTab('eventos'));
+    _els.closeBtn.addEventListener('click', _cerrarDesdeCruz);
 
     // [i18n 2026-09-26] Textos fijos del "cascarón" del panel (pestaña
     // Info, título de sección "Datos") que el template arma UNA sola
@@ -321,10 +326,23 @@ const PoiPanel = (function () {
     return _els;
   }
 
+  /** [2026-10-01] Cruz de cierre del panel. Mismo efecto que tocar un punto
+   *  vacío del mapa (js/app.js, "6b"): si hay un pin maximizado se minimiza
+   *  (queda como pin de mapa, desactivado) y se cierra el panel. En el modo
+   *  "Todos los eventos" no hay pin maximizado: solo cierra el panel. */
+  function _cerrarDesdeCruz() {
+    if (typeof expandedId !== 'undefined' && expandedId !== null && typeof collapsePin === 'function') {
+      collapsePin(expandedId);
+    }
+    close();
+  }
+
   function _applyStaticChromeI18n() {
     if (!_els) return;
     const _t = (k) => (window.I18N ? I18N.t(k) : k);
     _els.tabInfoBtn.textContent = _t('poi_tab_info');
+    _els.closeBtn.title = _t('pp_close_title');
+    _els.closeBtn.setAttribute('aria-label', _t('pp_close_title'));
     _els.metaSectionTitle.textContent = _t('pp_datos_label');
   }
 

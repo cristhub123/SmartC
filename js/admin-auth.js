@@ -117,6 +117,9 @@ document.getElementById('admin-login-btn').addEventListener('click', doAdminLogi
 document.getElementById('admin-login-pass').addEventListener('keydown', e => { if (e.key === 'Enter') doAdminLogin(); });
 document.getElementById('admin-logout').addEventListener('click', doAdminLogout);
 
+// [2026-10-01] Cruz de cierre (esquina superior derecha del cuadro de login).
+document.getElementById('admin-login-close').addEventListener('click', hideAdminLogin);
+
 /* Click afuera del cuadro de login lo cierra sin loguear (no cierra
    la app, solo cancela el intento de acceso) */
 // [NUEVO 2026-08-31] Guarda anti-selección-de-texto-arrastrada — ver

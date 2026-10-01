@@ -187,6 +187,7 @@ window.CalendarioEventos = (function () {
         +   `<button type="button" class="cal-nav" data-act="prev" aria-label="${_t('cal_prev')}">‹</button>`
         +   `<span class="cal-title" aria-live="polite">${titulo}</span>`
         +   `<button type="button" class="cal-nav" data-act="next" aria-label="${_t('cal_next')}">›</button>`
+        +   (typeof opts.onClose === 'function' ? `<button type="button" class="btn-x cal-close" data-act="close" aria-label="${_t('cerrar')}" title="${_t('cerrar')}">✕</button>` : '')
         + `</div>`
         + `<div class="cal-week">${wd}</div>`
         + `<div class="cal-grid">${celdas}</div>`
@@ -249,6 +250,8 @@ window.CalendarioEventos = (function () {
         render();
         if (typeof opts.onChange === 'function') opts.onChange(_value());
         if (typeof opts.onClear === 'function') opts.onClear();
+      } else if (act === 'close') {
+        if (typeof opts.onClose === 'function') opts.onClose(); // [2026-10-01] cruz de cierre
       } else if (act === 'ok') {
         if (sel.a && typeof opts.onConfirm === 'function') opts.onConfirm(_value());
       }

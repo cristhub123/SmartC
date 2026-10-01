@@ -204,6 +204,7 @@ window.EventoCard = (function () {
         <div class="evento-detalle__hero${conFoto ? '' : ' evento-detalle__hero--sinfoto'}">
           ${hero}
           <button type="button" class="evento-detalle__back" data-detalle-accion="volver" aria-label="${_esc(_t('evt_det_volver'))}">‹</button>
+          <button type="button" class="evento-detalle__cerrar" data-detalle-accion="volver" aria-label="${_esc(_t('cerrar'))}" title="${_esc(_t('cerrar'))}">✕</button>
           <div class="evento-detalle__hero-txt">
             ${tags.length ? `<span class="evento-detalle__tags">${tags.map(_esc).join(' · ')}</span>` : ''}
             <h2 class="evento-detalle__titulo">${_esc(nombre)}</h2>

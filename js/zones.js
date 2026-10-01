@@ -768,6 +768,8 @@ document.getElementById('btn-zonas').addEventListener('click', e => {
   toggleZonasDropdown();
 });
 document.getElementById('zp-close').addEventListener('click', closeZonaPanel);
+// [2026-10-01] Cruz de cierre del dropdown de zonas (mismo cierre directo que volver a tocar "zonas").
+document.getElementById('zd-close').addEventListener('click', closeZonasDropdown);
 
 // Swipe down to close zona panel
 const zpanel = document.getElementById('zona-panel');
