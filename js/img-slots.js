@@ -118,6 +118,28 @@ function createAltSlotManager(containerId, formPrefix) {
     return n;
   }
 
+  /**
+   * [NUEVO 2026-09-30] REGLA FIJA: una imagen con número de orden >= 50
+   * queda BLOQUEADA en OFF (invisible al público) y NO tiene toggle —
+   * la fila "Imagen activa" se oculta y el estado se fuerza a false.
+   * Vale en cuanto recibe ese número y también al precargar pines ya
+   * guardados. Si el admin la mueve a un número menor, el toggle
+   * reaparece y la imagen pasa a ON (visible). La misma regla
+   * se aplica en el lado público (isSkinHiddenByOrder, utils.js).
+   */
+  const ORDER_OFF_FROM = (typeof SKIN_ORDER_HIDDEN_FROM === 'number') ? SKIN_ORDER_HIDDEN_FROM : 50;
+  function _isLocked(s) {
+    return !!(s && s.hasImg && typeof s.order === 'number' && s.order >= ORDER_OFF_FROM);
+  }
+  function _applyDefaultOff(s) {
+    if (!s) return;
+    const locked = _isLocked(s);
+    if (locked) s.active = false;          // entra/permanece en 50+: OFF bloqueado
+    else if (s.wasLocked) s.active = true; // sale de 50+ hacia un número menor: pasa a ON
+    s.wasLocked = locked;
+    if (s.paintToggle) s.paintToggle();
+  }
+
   function _currentMainUrl() {
     return window[formPrefix === 'edit' ? '_editImgB64' : '_addImgB64'] || null;
   }
@@ -154,6 +176,7 @@ function createAltSlotManager(containerId, formPrefix) {
     altState.url = oldMainUrl;
     altState.hasImg = !!oldMainUrl;
     altState.order = oldMainUrl ? _nextFreeOrder(altState) : undefined;
+    _applyDefaultOff(altState);
     const prevEl = document.getElementById(altState.ids.prevId);
     const lblEl  = document.getElementById(altState.ids.lblId);
     const wrapEl = document.getElementById(altState.ids.wrapId);
@@ -176,7 +199,7 @@ function createAltSlotManager(containerId, formPrefix) {
     const out = {};
     slots.forEach(s => {
       if (s.hasImg && s.url) {
-        out[s.variant] = { url: s.url, active: s.active !== false };
+        out[s.variant] = { url: s.url, active: _isLocked(s) ? false : s.active !== false };
         if (typeof s.order === 'number') out[s.variant].order = s.order;
       }
     });
@@ -209,14 +232,14 @@ function createAltSlotManager(containerId, formPrefix) {
       const cell = document.createElement('div');
       const classes = ['img-grid-thumb'];
       if (!s.hasImg) classes.push('img-grid-thumb--add');
-      if (s.hasImg && s.active === false) classes.push('img-grid-thumb--inactive');
+      if (s.hasImg && (s.active === false || _isLocked(s))) classes.push('img-grid-thumb--inactive');
       if (s.variant === selectedVariant) classes.push('is-selected');
       cell.className = classes.join(' ');
       cell.title = s.hasImg ? (prevUrlFileName(s.url) || s.variant) : 'Agregar imagen';
       cell.innerHTML = s.hasImg
         ? `<img src="${s.url}" alt="">
            <span class="img-grid-badge">${s.order || ''}</span>
-           ${s.active === false ? '<span class="img-grid-off">OFF</span>' : ''}`
+           ${(s.active === false || _isLocked(s)) ? '<span class="img-grid-off">OFF</span>' : ''}`
         : `<span class="img-grid-plus">+</span>`;
       cell.addEventListener('click', () => _selectSlot(s.variant));
       gridEl.appendChild(cell);
@@ -284,7 +307,7 @@ function createAltSlotManager(containerId, formPrefix) {
     orderRow.className = 'za-row img-slot-order-row';
     orderRow.style.marginTop = '4px';
     orderRow.innerHTML = `
-      <span class="za-name">Orden de exhibición<br><span class="img-order-hint">Escribí 1 para que sea la principal</span></span>
+      <span class="za-name">Orden de exhibición<br><span class="img-order-hint">Escribí 1 para que sea la principal · del 50 en adelante quedan siempre en OFF</span></span>
       <input type="number" min="1" step="1" class="fi img-order-input" id="${ids.orderId}">
     `;
     // Toggle "Activo" — controla si esta imagen se muestra al público
@@ -300,7 +323,12 @@ function createAltSlotManager(containerId, formPrefix) {
     detailEl.appendChild(wrap);
     detailEl.appendChild(urlRow);
     detailEl.appendChild(orderRow);
+    const lockedNote = document.createElement('div');
+    lockedNote.className = 'img-order-hint';
+    lockedNote.style.cssText = 'margin-top:4px;display:none';
+    lockedNote.textContent = 'Orden 50 o más: esta imagen queda siempre en OFF (invisible al público).';
     detailEl.appendChild(activeRow);
+    detailEl.appendChild(lockedNote);
     panelEl.appendChild(detailEl);
 
     const state = {
@@ -326,6 +354,8 @@ function createAltSlotManager(containerId, formPrefix) {
       const conflict = slots.find(s => s !== state && s.hasImg && s.order === val);
       if (conflict) conflict.order = state.order;
       state.order = val;
+      _applyDefaultOff(state);
+      if (conflict) _applyDefaultOff(conflict);
       _renderGrid();
       _syncWindowVar();
     });
@@ -336,7 +366,13 @@ function createAltSlotManager(containerId, formPrefix) {
       toggleBtn.setAttribute('aria-pressed', String(state.active));
     }
     _paintToggle();
+    state.paintToggle = () => {
+      _paintToggle();
+      activeRow.style.display = _isLocked(state) ? 'none' : '';
+      lockedNote.style.display = _isLocked(state) ? '' : 'none';
+    };
     toggleBtn.addEventListener('click', () => {
+      if (_isLocked(state)) return; // bloqueada en OFF
       state.active = !state.active;
       _paintToggle();
       _renderGrid();
@@ -351,6 +387,7 @@ function createAltSlotManager(containerId, formPrefix) {
         // Imagen nueva: ocupa el próximo número libre (relleno de huecos).
         state.order = _nextFreeOrder(state);
       }
+      _applyDefaultOff(state);
       if (!state.hasImg) state.order = undefined; // se limpió: libera su número para la próxima
       _paintOrder();
       _ensureTrailingEmptySlot();
@@ -375,6 +412,7 @@ function createAltSlotManager(containerId, formPrefix) {
       state.url = prefillUrl;
       if (typeof state.order !== 'number') state.order = _nextFreeOrder(state); // red de seguridad, no debería disparar (reset ya asigna order)
       _paintOrder();
+      _applyDefaultOff(state); // orden 50+ guardada como activa: se fuerza a OFF y sin toggle
     }
   }
 

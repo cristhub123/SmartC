@@ -431,7 +431,15 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   height: 110px;
   padding: 6px 20px 4px;
   overflow-x: auto;
-  overflow-y: visible;
+  /* [FIX 2026-10-01] el "visible" de acá nunca se respetaba (con overflow-x
+     auto, el navegador lo computa como auto) y dejaba la fila arrastrable
+     también hacia arriba/abajo. Se declara hidden (el recorte vertical ya
+     era el comportamiento real), y touch-action: pan-x hace que el dedo
+     solo pueda desplazar a los lados; overscroll-behavior evita que el
+     gesto "se escape" y mueva la página o el mapa. */
+  overflow-y: hidden;
+  touch-action: pan-x;
+  overscroll-behavior: contain;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
   pointer-events: all;
@@ -671,7 +679,12 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
      todos los navegadores; -webkit-text-stroke suma nitidez extra en
      los que lo soportan (no molesta donde no, porque es del mismo
      color que el shadow). */
-  -webkit-text-stroke: 2px #000;
+  /* [FIX 2026-10-01] se quitó -webkit-text-stroke: 2px #000. Ese trazo se
+     dibuja CENTRADO sobre el borde de cada letra, o sea 1px hacia adentro
+     tapando el relleno blanco, y con letra de 10px la dejaba toda negra.
+     El borde negro externo y la sombra los sigue dando el text-shadow de
+     abajo, que se pinta DEBAJO del texto: letra blanca arriba, borde y
+     sombra negros por debajo. */
   text-shadow:
     -2px -2px 0 #000, 0 -2px 0 #000, 2px -2px 0 #000,
     -2px  0   0 #000,               2px  0   0 #000,

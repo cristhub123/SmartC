@@ -491,6 +491,10 @@ function getCatIcon(cat, id) {
    que el `if (moved) {...}` que ya existía, solo reusable. */
 function _attachFilterBarDragScroll(bar) {
   let isDragging = false, startX = 0, scrollLeft = 0, moved = false, _pid = null;
+  // [FIX 2026-10-01] solo izquierda-derecha: si por cualquier motivo (foco,
+  // scrollIntoView, rebote del navegador) la fila se desplaza en vertical,
+  // se devuelve a 0 de inmediato. El arrastre ya solo toca scrollLeft.
+  bar.addEventListener('scroll', () => { if (bar.scrollTop !== 0) bar.scrollTop = 0; });
   bar.addEventListener('pointerdown', e => {
     isDragging = true; moved = false;
     startX = e.clientX;
@@ -510,6 +514,7 @@ function _attachFilterBarDragScroll(bar) {
     isDragging = false;
     if (bar.hasPointerCapture(e.pointerId)) bar.releasePointerCapture(e.pointerId);
   });
+  bar.addEventListener('pointercancel', () => { isDragging = false; });
   return { consumeDragFlag() { if (moved) { moved = false; return true; } return false; } };
 }
 

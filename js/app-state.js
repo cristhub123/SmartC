@@ -493,7 +493,8 @@ const AppState = (function () {
     if (!poi || !poi.skins) return null;
 
     const desired = poi.skins[_globalSkin];
-    if (desired && desired.active) {
+    const _hid = (typeof isSkinHiddenByOrder === 'function') && isSkinHiddenByOrder(_globalSkin, desired);
+    if (desired && desired.active && !_hid) {
       return { skinName: _globalSkin, url: desired.url };
     }
 
@@ -584,6 +585,12 @@ const AppState = (function () {
       const msg = `[AppState] toggleSkinStatus: el POI "${poiId}" no tiene el skin "${skinName}".`;
       console.error(msg);
       _emit(EVENTS.ERROR, { message: msg });
+      return;
+    }
+
+    // Orden 50+: bloqueada en OFF, nadie puede activarla (ver isSkinHiddenByOrder en utils.js).
+    if (isActive !== false && typeof isSkinHiddenByOrder === 'function' && isSkinHiddenByOrder(skinName, poi.skins[skinName])) {
+      console.warn(`[AppState] El skin "${skinName}" tiene orden 50+ y no puede activarse.`);
       return;
     }
 

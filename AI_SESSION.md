@@ -2490,3 +2490,15 @@ Cris pidió reemplazar los botones de texto ES/EN/PT del header por 3 banderas c
 - `js/lang-switcher.js`: una línea en `_applyActiveState` para sincronizar `aria-pressed`. La lógica de idioma NO cambió.
 
 **Pruebas:** `node --check` OK. Chromium con el `base.css` y `lang-switcher.js` reales y un `AppState` de prueba, a 1100px y 360px: los 3 SVG cargan, al tocar una bandera queda a color con aro y las otras en gris, sin errores de consola. **NO probado** en el `index.html` completo (Firebase/Leaflet), con los temas/skins oscuros nuevos, ni en celular real.
+
+## Sesión: 2026-10-01 — Botones de filtros: letra blanca legible + scroll solo horizontal
+
+Cris pidió (1) letra blanca en los botones de filtros de abajo, conservando el borde negro externo y la sombra por debajo, y (2) que el arrastre de la fila solo se mueva izquierda-derecha, sin alterar la posición arriba-abajo.
+
+**Causa 1:** `.fbtn-label` (css/base.css) ya era `color: white`, pero tenía `-webkit-text-stroke: 2px #000`; ese trazo se dibuja centrado sobre el borde de cada letra (1px hacia adentro) y con 10px de fuente tapaba el relleno → todo negro. **Cambio:** se quitó solo esa línea; el borde negro y la sombra siguen saliendo del `text-shadow` (8 offsets de ±2px), que se pinta debajo del texto blanco.
+
+**Causa 2:** `.filter-row` tenía `overflow-y: visible`, pero con `overflow-x: auto` el navegador lo computa como `auto`, así que la fila podía desplazarse en vertical con el dedo. **Cambios:** `overflow-y: hidden` + `touch-action: pan-x` + `overscroll-behavior: contain` en `.filter-row`; en `_attachFilterBarDragScroll` (js/categories.js) un listener `scroll` que fuerza `scrollTop = 0` y un `pointercancel` que corta el arrastre. La lógica del drag horizontal no cambió.
+
+**Cache-busting:** `base.css?v=20261001-filtros`, `categories.js?v=20261001a`.
+
+**Pruebas:** `node --check js/categories.js` OK. NO probado en celular real ni con el `index.html` completo (Firebase/Leaflet). Pendiente de confirmar por Cris: Ctrl+F5, ver letras blancas con borde negro, arrastrar la fila con el dedo (solo debe moverse a los lados).
