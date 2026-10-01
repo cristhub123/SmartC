@@ -49,14 +49,14 @@ function slugify(str) {
    ya reflejado ahí (caso de pines viejos con imgB64 legado pero sin
    skins.main). */
 /* Versión para el aviso de la tab Temas (archivo al día). */
-const THEME_MARKERS_VERSION = 3;
+const THEME_MARKERS_VERSION = 4;
 
 function resolvePinImageCandidates(poi) {
   const chain = buildImageFallbackChain(poi, { forMap: true });
   // [Paso 2 — PLAN_TAB_TEMAS_OVERRIDE.md] Si un tema activo pone su imagen
   // de miniatura, imgB64 legado NO puede ir al frente (taparía el override):
   // se deja como respaldo al final.
-  const _ovMap = (typeof getThemeOverrideForPoi === 'function') ? getThemeOverrideForPoi(poi).mapSkin : null;
+  const _ovMap = (typeof getPrincipalThemeSkinKey === 'function') ? getPrincipalThemeSkinKey(poi) : null;
   if (poi.imgB64 && !chain.includes(poi.imgB64)) return _ovMap ? [...chain, poi.imgB64] : [poi.imgB64, ...chain];
   if (chain.length > 0) return chain;
   return poi.imgB64 ? [poi.imgB64] : [];

@@ -38,6 +38,22 @@ cambio hecho y la verificacion realizada.
      migrar y los borra del tema.
    }
 */
+/* ═══════════════════════════════════════════════════════════
+   CÓMO ACTÚA UN TEMA (2.ª versión — PLAN_TAB_TEMAS_CORRECCION.md)
+   El tema NO enciende ni apaga imágenes: las MUEVE de casillero en el
+   "orden de exhibición" de cada lugar (campo `order` de cada skin).
+     · orden 1-49  → visible        · orden 50-99 → SIEMPRE invisible
+   Al "Guardar cambios", applyThemesToPins() (abajo) recorre todos los
+   lugares y deja cada imagen cuyo sufijo coincide EXACTO con el `keyword`
+   de un tema así:
+     - tema ACTIVO + "Miniatura en el mapa" → casillero 1 (la principal;
+       las demás se corren solo si el casillero siguiente está ocupado);
+     - tema ACTIVO + "Aparece en el ojito" → casillero 2ª…10ª o el último;
+     - tema ACTIVO sin ninguna de las dos → se queda oculta (50+);
+     - tema APAGADO / borrado / con otro sufijo → baja al 50 (o al
+       siguiente libre) y desaparece.
+   El tema de noche automático (globalSettings.nightTheme) NO se toca.
+   ═══════════════════════════════════════════════════════════ */
 let TEMAS = [];
 
 /* === CONFIG GLOBAL DÍA/NOCHE === */
@@ -101,6 +117,180 @@ function _escTema(s) {
   return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
 }
 
+
+/* ═══════════════════════════════════════════════════════════
+   PLANIFICADOR DE CASILLEROS (función PURA — no toca Firestore)
+   planThemeOrders(skins, temas, retire, nightKey) → { changes, warnings }
+     changes: { variante: { order, active? } } — SOLO lo que hay que
+              escribir (vacío = el lugar ya está bien; idempotente).
+   Reglas:
+     · solo variantes distintas de `main` y con url; coincidencia EXACTA
+       con el keyword de un tema; el sufijo del tema de noche no se toca;
+     · tema inactivo / sin ninguna opción de visibilidad / keyword en
+       `retire` → la imagen baja al 50 o al siguiente libre (si ya está en
+       50+ no se toca);
+     · tema activo → casillero destino (1 con miniatura; si no, 2ª…N o
+       el último). Se inserta ahí; si está ocupado el ocupante pasa al
+       siguiente, y así en cadena SOLO mientras los casilleros estén
+       ocupados (si hay hueco, lo de más allá no se mueve);
+     · una imagen de tema que ya está en su casillero destino no se
+       empuja (dos temas con el mismo destino quedan uno después del otro);
+     · nunca se llega al 50 empujando: si una cadena no entra en 1-49 se
+       deja ese lugar sin tocar y se avisa;
+     · `active` solo se ajusta al CRUZAR el 50 (igual que el admin al
+       cambiar un orden): al subir a 1-49 queda en true, al bajar a 50+ en
+       false. Nunca hay toggles manuales de por medio.
+   ═══════════════════════════════════════════════════════════ */
+const THEME_HIDDEN_FROM = 50;   // = SKIN_ORDER_HIDDEN_FROM de utils.js
+const THEME_LAST_VISIBLE = 49;
+
+function planThemeOrders(skins, temas, retire, nightKey) {
+  const warnings = [];
+  skins = skins || {};
+  retire = new Set(retire || []);
+  const orig = {};   // variante -> order original (number|null)
+  const cur = {};    // variante -> order actual de trabajo
+  Object.keys(skins).forEach((v) => {
+    const sk = skins[v];
+    if (v === 'main' || !sk || !sk.url) return;
+    orig[v] = typeof sk.order === 'number' ? sk.order : null;
+    cur[v] = orig[v];
+  });
+
+  // variante -> { theme|null, kind: 'hide'|'show', target }
+  const themed = {};
+  const byKeyword = {};
+  (temas || []).forEach((t) => { if (t && typeof t.keyword === 'string' && t.keyword) byKeyword[t.keyword] = t; });
+  retire.forEach((k) => { if (!byKeyword[k] || byKeyword[k] === undefined) byKeyword[k] = { keyword: k, active: false }; });
+  // un keyword retirado que además existe como tema vigente NO se retira
+  (temas || []).forEach((t) => { if (t && t.keyword) byKeyword[t.keyword] = t; });
+  Object.keys(byKeyword).forEach((k) => {
+    if (k === 'main' || k === nightKey || !(k in cur)) return;
+    const t = byKeyword[k];
+    const wantsMap = !!t.showOnMap, wantsEye = !!t.showInEye;
+    if (!t.active || (!wantsMap && !wantsEye)) themed[k] = { kind: 'hide' };
+    else if (wantsMap) themed[k] = { kind: 'show', target: 1 };
+    else if (t.eyePosition === 'last') themed[k] = { kind: 'show', last: true };
+    else themed[k] = { kind: 'show', target: Math.max(2, Number.isInteger(t.eyePosition) ? t.eyePosition : 2) };
+  });
+
+  const occupant = (slot, except) => Object.keys(cur).find((v) => v !== except && cur[v] === slot);
+  const usedAny = (slot, except) => Object.keys(cur).some((v) => v !== except && cur[v] === slot);
+
+  // 1) ocultar: al 50 o siguiente libre
+  Object.keys(themed).filter((k) => themed[k].kind === 'hide').forEach((k) => {
+    if (typeof cur[k] === 'number' && cur[k] >= THEME_HIDDEN_FROM) return;
+    let slot = THEME_HIDDEN_FROM;
+    while (usedAny(slot, k)) slot++;
+    cur[k] = slot;
+  });
+
+  // 2) mostrar: de menor a mayor destino (los "último" al final)
+  const shows = Object.keys(themed).filter((k) => themed[k].kind === 'show')
+    .sort((a, b) => (themed[a].last ? 1e9 : themed[a].target) - (themed[b].last ? 1e9 : themed[b].target));
+  const lastKeys = new Set(shows.filter((k) => themed[k].last));
+  const placed = new Set();
+  const snapshotBefore = JSON.stringify(cur);
+  let failed = false;
+
+  shows.forEach((k) => {
+    if (failed) return;
+    const info = themed[k];
+    const maxOther = Math.max(1, ...Object.keys(cur)
+      .filter((v) => v !== k && !lastKeys.has(v) && typeof cur[v] === 'number' && cur[v] < THEME_HIDDEN_FROM)
+      .map((v) => cur[v]));
+    let target = info.target;
+    if (info.last) {
+      if (typeof cur[k] === 'number' && cur[k] < THEME_HIDDEN_FROM && cur[k] > maxOther) { placed.add(k); return; } // ya está al final
+      const maxPlaced = Math.max(0, ...Array.from(placed).filter((v) => lastKeys.has(v)).map((v) => cur[v]));
+      target = Math.max(2, maxOther + 1, maxPlaced + 1);
+    } else if (cur[k] === target) { placed.add(k); return; }
+
+    cur[k] = null; // lo saco de donde estaba
+    let slot = target;
+    while (placed.has(occupant(slot, k))) slot++; // no empuja a otra imagen de tema ya en su destino
+    // inserción con cascada solo mientras haya ocupantes
+    let carry = k;
+    while (true) {
+      if (slot > THEME_LAST_VISIBLE) { failed = true; break; }
+      const occ = occupant(slot, carry);
+      cur[carry] = slot;
+      if (!occ) break;
+      carry = occ;
+      cur[carry] = null;
+      slot++;
+    }
+    placed.add(k);
+  });
+
+  if (failed) {
+    warnings.push('no hay casilleros libres entre el 1 y el 49 para acomodar la imagen de un tema; este lugar no se tocó.');
+    return { changes: {}, warnings };
+  }
+
+  const changes = {};
+  Object.keys(cur).forEach((v) => {
+    const o = orig[v], n = cur[v];
+    const sk = skins[v] || {};
+    const isTheme = !!themed[v];
+    const patch = {};
+    if (n !== o && typeof n === 'number') patch.order = n;
+    if (isTheme && typeof n === 'number') {
+      if (n >= THEME_HIDDEN_FROM && n !== o && sk.active !== false) patch.active = false;
+      if (n < THEME_HIDDEN_FROM && sk.active !== true) patch.active = true;
+    }
+    if (Object.keys(patch).length) changes[v] = patch;
+  });
+  return { changes, warnings };
+}
+
+/* Aplica los temas a TODOS los lugares guardados (colección `pines`):
+   lee cada lugar, calcula con planThemeOrders y escribe SOLO el campo
+   `skins` de los que cambian (merge, en tandas de 400). Después actualiza
+   POIS en memoria, el caché público y redibuja el mapa. */
+async function applyThemesToPins({ retire = [] } = {}) {
+  if (typeof db === 'undefined' || !db) return { ok: false, count: 0, warnings: [] };
+  const nightKey = (typeof globalSettings !== 'undefined' && globalSettings) ? globalSettings.nightTheme : null;
+  const warnings = [];
+  const updates = [];
+  try {
+    const snap = await db.collection('pines').get();
+    snap.forEach((doc) => {
+      const d = doc.data();
+      if (!d || !d.name || !d.skins) return;
+      const plan = planThemeOrders(d.skins, TEMAS, retire, nightKey);
+      plan.warnings.forEach((w) => warnings.push(`${d.name}: ${w}`));
+      if (Object.keys(plan.changes).length) updates.push({ id: doc.id, changes: plan.changes });
+    });
+    for (let i = 0; i < updates.length; i += 400) {
+      const batch = db.batch();
+      updates.slice(i, i + 400).forEach((u) => {
+        batch.set(db.collection('pines').doc(u.id), { skins: u.changes }, { merge: true });
+      });
+      await batch.commit();
+    }
+  } catch (err) {
+    console.error('[themes] No se pudieron aplicar los temas a los lugares:', err);
+    return { ok: false, count: 0, warnings };
+  }
+  warnings.forEach((w) => console.warn('[themes]', w));
+
+  // Memoria + caché + mapa
+  if (updates.length && typeof POIS !== 'undefined' && Array.isArray(POIS)) {
+    updates.forEach((u) => {
+      const p = POIS.find((x) => x.id === u.id);
+      if (!p || !p.skins) return;
+      Object.keys(u.changes).forEach((v) => { if (p.skins[v]) Object.assign(p.skins[v], u.changes[v]); });
+    });
+    try { if (typeof syncAppStateWithPOIS === 'function') syncAppStateWithPOIS(); } catch (e) { /* no crítico */ }
+    try { if (typeof regeneratePublicCache === 'function') await regeneratePublicCache(); } catch (e) { /* no crítico */ }
+  }
+  _refreshThemesOnMap();
+  return { ok: true, count: updates.length, warnings };
+}
+
+const _temasRetire = new Set(); // sufijos de temas renombrados/borrados cuyas imágenes hay que bajar al guardar
+
 /* ═══════════════════════════════════════════════════════════
    REDIBUJADO DEL MAPA AL CAMBIAR UN TEMA [Paso 3 — PLAN_TAB_TEMAS_OVERRIDE.md]
    ---------------------------------------------------------------
@@ -141,17 +331,20 @@ function _refreshThemesOnMap() {
 
 /* === RENDER — dibuja la lista de temas con todos sus controles === */
 function _eyePosOptions(t) {
+  // Con "Miniatura en el mapa" tildada la imagen va SIEMPRE al casillero 1.
+  if (t.showOnMap) return `<option value="1" selected>1ª (miniatura)</option>`;
   const opts = [];
-  const max = Math.max(TEMA_EYE_POSITIONS_MAX, Number.isInteger(t.eyePosition) ? t.eyePosition : 0);
-  for (let i = 1; i <= max; i++) opts.push(`<option value="${i}" ${t.eyePosition === i ? 'selected' : ''}>${i}ª</option>`);
-  opts.push(`<option value="last" ${t.eyePosition === 'last' ? 'selected' : ''}>Última</option>`);
+  const cur = t.eyePosition === 1 ? 2 : t.eyePosition; // sin miniatura la 1ª es de la principal
+  const max = Math.max(TEMA_EYE_POSITIONS_MAX, Number.isInteger(cur) ? cur : 0);
+  for (let i = 2; i <= max; i++) opts.push(`<option value="${i}" ${cur === i ? 'selected' : ''}>${i}ª</option>`);
+  opts.push(`<option value="last" ${cur === 'last' ? 'selected' : ''}>Última</option>`);
   return opts.join('');
 }
 
 /* Estado del motor: avisa si quedó algún archivo viejo (utils.js / markers.js). */
 function _themeEngineStatus() {
-  const okU = typeof THEME_ENGINE_VERSION !== 'undefined' && THEME_ENGINE_VERSION >= 3 && typeof getThemeOverrideForPoi === 'function';
-  const okM = typeof THEME_MARKERS_VERSION !== 'undefined' && THEME_MARKERS_VERSION >= 3;
+  const okU = typeof THEME_ENGINE_VERSION !== 'undefined' && THEME_ENGINE_VERSION >= 4 && typeof getPrincipalThemeSkinKey === 'function';
+  const okM = typeof THEME_MARKERS_VERSION !== 'undefined' && THEME_MARKERS_VERSION >= 4;
   if (okU && okM) return { ok: true, text: '✔ Motor de temas al día (utils.js y markers.js actualizados)' };
   const faltan = [!okU ? 'js/utils.js' : null, !okM ? 'js/markers.js' : null].filter(Boolean).join(' y ');
   return { ok: false, text: `✘ Motor de temas DESACTUALIZADO: falta subir ${faltan} (y recargar con Ctrl+F5). Mientras tanto los temas no van a funcionar bien.` };
@@ -205,7 +398,7 @@ function renderTemasAdmin() {
           </label>
           <label style="display:flex;align-items:center;gap:5px;${t.showInEye ? '' : 'opacity:.45'}">
             Posición:
-            <select class="fi" ${(t.active && t.showInEye) ? '' : 'disabled'} style="width:auto;padding:2px 6px"
+            <select class="fi" ${(t.active && t.showInEye && !t.showOnMap) ? '' : 'disabled'} style="width:auto;padding:2px 6px"
                     onchange="setTemaEyePosition('${_escTema(t.id)}', this.value)">${_eyePosOptions(t)}</select>
           </label>
         </div>
@@ -292,7 +485,6 @@ window.toggleTemaFlag = function(id, flag, value) {
   t[flag] = value;
   renderTemasAdmin();
   _markTemasDirty();
-  _refreshThemesOnMap();
   toast(`✅ ${t.name}: "${_TEMA_FLAG_LABELS[flag]}" ${value ? 'activado' : 'desactivado'} — no olvides "Guardar cambios"`);
 };
 
@@ -304,7 +496,6 @@ window.setTemaEyePosition = function(id, raw) {
   t.eyePosition = raw === 'last' ? 'last' : Math.max(1, parseInt(raw, 10) || 1);
   renderTemasAdmin();
   _markTemasDirty();
-  _refreshThemesOnMap();
   toast(`✅ ${t.name}: posición en el ojito ${t.eyePosition === 'last' ? 'última' : t.eyePosition + 'ª'} — no olvides "Guardar cambios"`);
 };
 
@@ -318,13 +509,14 @@ window.setTemaKeyword = function(id, inputEl) {
   const dup = TEMAS.find(x => x.id !== t.id && x.keyword === v.value);
   if (dup) { toast(`⚠️ El sufijo "${v.value}" ya lo usa el tema "${dup.name}".`); renderTemasAdmin(); return; }
   const old = t.keyword;
+  _temasRetire.add(old); // las imágenes con el sufijo viejo se bajan al 50 en el próximo guardado
+  _temasRetire.delete(v.value);
   t.keyword = v.value;
   // El tema de noche se guarda por keyword: si apuntaba a este tema, lo seguimos
   // (en memoria; se persiste con "Guardar configuración día/noche").
   if (globalSettings.nightTheme === old) globalSettings.nightTheme = v.value;
   renderTemasAdmin();
   _markTemasDirty();
-  _refreshThemesOnMap();
   toast(`✅ ${t.name}: sufijo "${v.value}" — no olvides "Guardar cambios"`);
 };
 
@@ -339,10 +531,10 @@ window.deleteTema = function(id) {
   // sacarlo de la lista en memoria.
   confirmarBorrado(`¿Eliminar el tema "${t.name}"? Esta acción no se puede deshacer.`, () => {
     TEMAS = TEMAS.filter(x => x.id !== id);
+    _temasRetire.add(t.keyword); // sus imágenes se bajan al 50 en el próximo guardado
     if (globalSettings.nightTheme === t.keyword) globalSettings.nightTheme = null;
     renderTemasAdmin();
     _markTemasDirty();
-    _refreshThemesOnMap();
     toast(`🗑️ Tema "${t.name}" eliminado — no olvides "Guardar cambios"`);
   }, '¿Eliminar tema?');
 };
@@ -388,8 +580,20 @@ window.addEventListener('beforeunload', (e) => {
   btn.addEventListener('click', async () => {
     btn.disabled = true;
     const ok = await saveThemesSettings();
+    if (ok) {
+      _clearTemasDirty();
+      toast('⏳ Temas guardados. Aplicándolos a todos los lugares…');
+      const r = await applyThemesToPins({ retire: Array.from(_temasRetire) });
+      if (r.ok) {
+        _temasRetire.clear();
+        toast(r.count
+          ? `✅ Temas aplicados: se movieron imágenes en ${r.count} lugar(es)` + (r.warnings.length ? ` — ⚠️ ${r.warnings.length} aviso(s), ver consola` : '')
+          : '✅ Temas aplicados: no hubo nada que mover');
+      } else {
+        toast('⚠️ Los temas se guardaron, pero NO se pudieron aplicar a los lugares. Probá de nuevo (¿sesión de admin?).');
+      }
+    }
     btn.disabled = false;
-    if (ok) { _clearTemasDirty(); _refreshThemesOnMap(); toast('✅ Temas guardados'); }
     // si ok es false, saveThemesSettings() ya mostró su propio toast
     // de error — no duplicar el aviso.
   });

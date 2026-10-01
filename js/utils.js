@@ -47,81 +47,36 @@ function isNightModeActive() {
 }
 
 /* ═══════════════════════════════════════════
-   MOTOR DE OVERRIDE DE TEMAS — FUENTE ÚNICA
-   (PLAN_TAB_TEMAS_OVERRIDE.md, Paso 2)
+   TEMAS POR ORDEN DE EXHIBICIÓN (PLAN_TAB_TEMAS_CORRECCION.md, 2.ª versión)
    ---------------------------------------------
-   Reemplaza a getActiveMapThemeIds()/getActivePanelThemeIds(), que
-   usaban el `id` del tema como nombre de variante (acople implícito) e
-   ignoraban el ojito. Ahora cada tema declara su `keyword` (sufijo
-   exacto de la imagen) y esta función decide, para UN pin, qué imágenes
-   de temas ACTIVOS aplican:
-     - Coincidencia EXACTA y completa: `keyword` === clave de `poi.skins`
-       (nada de "contiene": `halloween` no coincide con `halloween-noche`).
-     - Ignora `skin.active === false`: el override se aplica igual.
-     - NUNCA escribe en `poi` ni en `poi.skins` — es una regla de tiempo de
-       ejecución; al desactivar el tema todo vuelve a como estaba.
-   Devuelve:
-     { mapSkin:  clave del skin que va de miniatura del mapa (o null),
-       mapTheme: el tema dueño de esa miniatura (o null),
-       eye:      [{ name, url, position }] temas que entran al ojito, YA en
-                 orden de inserción: el tema con la miniatura del mapa va
-                 ÚLTIMO, así gana la posición ante el otro (cascada, ver
-                 getActiveSkinList) }
-   Sin TEMAS cargado o sin temas activos con imagen en este pin → vacío
-   (el comportamiento es EXACTAMENTE el de antes del override).
-   Consumidores: getActiveSkinList (ojito + panel) y
-   buildImageFallbackChain (miniatura del mapa). No duplicar esta regla.
+   El sistema anterior (un "override" que se calculaba en cada dibujado
+   y competía con la regla del orden 50+) se ELIMINÓ. Ahora la tab Temas
+   solo MUEVE imágenes entre casilleros del "orden de exhibición" de cada
+   lugar y de ahí en más rige la regla fija de siempre:
+     - orden 1 a 49 → visible (según su toggle, como cualquier imagen);
+     - orden 50 a 99 → SIEMPRE invisible (isSkinHiddenByOrder).
+   Tema activo → su imagen sube al casillero elegido (con "miniatura en el
+   mapa" = casillero 1). Tema apagado → su imagen baja al 50 o siguiente
+   libre. Ese movimiento lo hace applyThemesToPins() en js/themes.js (al
+   "Guardar cambios"). Acá solo queda UNA regla de lectura:
+   el casillero 1 está reservado para la principal (`main`); una imagen
+   que NO sea `main` y tenga orden 1 es la que un tema dejó como
+   principal → va PRIMERA (miniatura del mapa y 1ª del ojito) y `main`
+   pasa a ser la siguiente. Ver _orderedSkinNames más abajo.
    ═══════════════════════════════════════════ */
-function getThemeOverrideForPoi(poi) {
-  const empty = { mapSkin: null, mapTheme: null, eye: [], governed: new Set() };
-  if (typeof TEMAS === 'undefined' || !Array.isArray(TEMAS) || !TEMAS.length) return empty;
-  const skins = (poi && poi.skins) || {};
-
-  /* [Corrección del plan — PLAN_TAB_TEMAS_CORRECCION.md, reglas R1/R2/R6/R7]
-     `governed` = claves de ESTE pin cuyo sufijo coincide EXACTO con el
-     keyword de algún tema de la tab. Esas imágenes NO se ven como imágenes
-     normales del lugar: solo se ven si su tema está ACTIVO y según lo que
-     tenga tildado (ojito / miniatura). Tema apagado ⇒ la imagen desaparece
-     del ojito, del panel y de la miniatura (R2), sin tocar `poi` (R4).
-     Excepciones: 'main' nunca se oculta (R7) y el sufijo del tema de noche
-     automático sigue gobernado por la lógica día/noche (R6). */
-  const nightKey = (typeof globalSettings !== 'undefined' && globalSettings) ? globalSettings.nightTheme : null;
-  const governed = new Set();
-  TEMAS.forEach((t) => {
-    if (!t || typeof t.keyword !== 'string' || !t.keyword) return;
-    if (t.keyword === 'main' || t.keyword === nightKey) return;
-    if (Object.prototype.hasOwnProperty.call(skins, t.keyword)) governed.add(t.keyword);
+function _principalSkinKey(skins) {
+  const k = Object.keys(skins || {}).find((n) => {
+    if (n === 'main') return false;
+    const sk = skins[n];
+    return !!sk && sk.url && typeof sk.order === 'number' && sk.order === 1;
   });
-
-  const hits = [];
-  TEMAS.forEach((t) => {
-    if (!t || !t.active || typeof t.keyword !== 'string' || !t.keyword) return;
-    if (t.keyword === 'main') return;
-    if (!Object.prototype.hasOwnProperty.call(skins, t.keyword)) return;
-    const skin = skins[t.keyword];
-    if (!skin || !skin.url) return;
-    hits.push({ theme: t, name: t.keyword, url: skin.url });
-  });
-  if (!hits.length) return { mapSkin: null, mapTheme: null, eye: [], governed };
-
-  // Regla de UNA sola miniatura (la UI ya la impide; si el dato viniera
-  // violándola, gana el primer tema de la lista — determinista).
-  const mapHit = hits.find((h) => h.theme.showOnMap) || null;
-
-  const eyeHits = hits.filter((h) => h.theme.showInEye);
-  if (mapHit) eyeHits.sort((a, b) => (a === mapHit) - (b === mapHit)); // sort estable: el de la miniatura, último
-
-  return {
-    mapSkin: mapHit ? mapHit.name : null,
-    mapTheme: mapHit ? mapHit.theme : null,
-    eye: eyeHits.map((h) => ({ name: h.name, url: h.url, position: h.theme.eyePosition })),
-    governed,
-  };
+  return k || null;
 }
+function getPrincipalThemeSkinKey(poi) { return _principalSkinKey(poi && poi.skins); }
 
 /* Versión del motor de temas: la tab Temas la lee para avisar si quedó algún
    archivo viejo (ver _themeEngineStatus en themes.js). Subir si cambia la API. */
-const THEME_ENGINE_VERSION = 3;
+const THEME_ENGINE_VERSION = 4;
 
 /* === CADENA DE RESPALDO — ahora con temas globales al frente ===
    [LIMPIEZA 2026-08-12] Antes esto ARMABA urls por fórmula
@@ -157,11 +112,26 @@ const THEME_ENGINE_VERSION = 3;
    ascendente; los skins legado que nunca pasaron por el gestor nuevo
    (sin ese campo) caen al criterio viejo, alfabético, al final —
    deben coincidir el mismo comparador en img-slots.js si se toca. */
+/* [NUEVO 2026-09-30] REGLA FIJA — imágenes con orden 50 o más = SIEMPRE
+   invisibles al público, sin excepción (ni toggle, ni tema, ni respaldo
+   del mapa, ni dato viejo guardado como activo). Mientras el número de
+   orden de una imagen esté en ese rango, esta función manda. Es la fuente
+   única: img-slots.js (admin) y app-state.js la usan también. "main"
+   nunca tiene orden y queda exceptuada. */
+const SKIN_ORDER_HIDDEN_FROM = 50;
+function isSkinHiddenByOrder(name, skin) {
+  if (name === 'main') return false;
+  return !!skin && typeof skin.order === 'number' && skin.order >= SKIN_ORDER_HIDDEN_FROM;
+}
+
 function _orderedSkinNames(skins) {
   const PRIORITY = ['main', 'noche'];
-  const priorityNames = PRIORITY.filter((n) => skins[n]);
+  // Casillero 1 ocupado por una imagen que no es `main` (la dejó un tema):
+  // va primera de todas; `main` queda detrás (ver _principalSkinKey).
+  const principal = _principalSkinKey(skins);
+  const priorityNames = PRIORITY.filter((n) => skins[n] && n !== principal);
   const rest = Object.keys(skins)
-    .filter((n) => !PRIORITY.includes(n))
+    .filter((n) => !PRIORITY.includes(n) && n !== principal)
     .sort((a, b) => {
       const oa = skins[a] && typeof skins[a].order === 'number' ? skins[a].order : null;
       const ob = skins[b] && typeof skins[b].order === 'number' ? skins[b].order : null;
@@ -170,7 +140,7 @@ function _orderedSkinNames(skins) {
       if (ob !== null) return 1;
       return a.localeCompare(b);
     });
-  return [...priorityNames, ...rest];
+  return principal ? [principal, ...priorityNames, ...rest] : [...priorityNames, ...rest];
 }
 
 function buildImageFallbackChain(poi, { forMap = false, forPanel = false } = {}) {
@@ -183,30 +153,24 @@ function buildImageFallbackChain(poi, { forMap = false, forPanel = false } = {})
   }
   function pushSkin(id) {
     const skin = skins[id];
-    if (skin && skin.url) pushUrl(skin.url);
+    if (skin && skin.url && !isSkinHiddenByOrder(id, skin)) pushUrl(skin.url);
   }
 
   if (forMap) {
-    /* Miniatura del mapa = override de tema activo (getThemeOverrideForPoi)
-       + tema de noche automático. D4 del plan: si es de noche y el pin tiene
-       la imagen del tema de noche, gana el tema de noche SALVO que el tema
-       activo con miniatura tenga tildado "prevalece en mapa de noche" — en
-       ese caso la imagen de noche no va al frente (queda solo en el ojito /
-       como respaldo al final de la cadena). De día no hay conflicto: el
-       tema activo con miniatura va primero. ("prevalece en mapa de día" no
-       cambia nada hoy: de día el tema de noche no pide la miniatura.) */
-    const ov = getThemeOverrideForPoi(poi);
-    const nightKey = (typeof TEMAS !== 'undefined' && isNightModeActive()) ? globalSettings.nightTheme : null; // sin TEMAS cargado = comportamiento previo (sin tema de noche)
-    const nightHasImg = !!(nightKey && skins[nightKey] && skins[nightKey].url);
-    if (ov.mapSkin) {
-      if (nightHasImg && nightKey !== ov.mapSkin && !ov.mapTheme.mapPriorityNight) {
-        pushSkin(nightKey);
-        pushSkin(ov.mapSkin);
-      } else {
-        pushSkin(ov.mapSkin);
-      }
-    } else if (nightHasImg) {
-      pushSkin(nightKey);
+    /* Miniatura del mapa: la 1ª de _orderedSkinNames (si un tema dejó una
+       imagen en el casillero 1, es esa; si no, `main`). Única excepción, el
+       tema de noche automático: si es de noche y el pin tiene la imagen del
+       tema de noche, esa va primero SALVO que la imagen del casillero 1
+       pertenezca a un tema con "prevalece en mapa de noche" tildado.
+       ("Prevalece en mapa de día" no cambia nada: de día no hay conflicto.) */
+    const principal = _principalSkinKey(skins);
+    const nightKey = isNightModeActive() ? globalSettings.nightTheme : null;
+    const nightHasImg = !!(nightKey && skins[nightKey] && skins[nightKey].url && !isSkinHiddenByOrder(nightKey, skins[nightKey]));
+    if (nightHasImg) {
+      const th = (principal && principal !== nightKey && typeof TEMAS !== 'undefined' && Array.isArray(TEMAS))
+        ? TEMAS.find((t) => t && t.keyword === principal) : null;
+      const themeWins = !!(th && th.mapPriorityNight);
+      if (!themeWins) pushSkin(nightKey);
     }
   }
   if (forPanel) {
@@ -215,11 +179,8 @@ function buildImageFallbackChain(poi, { forMap = false, forPanel = false } = {})
     if (first) pushUrl(first.url);
   }
 
-  // Respaldo: el resto de las imágenes del lugar. Las gobernadas por un tema
-  // (activo o apagado) NO entran acá: solo se ven por el camino del override
-  // de arriba, nunca "colándose" al final de la cadena (R2).
-  const _gov = getThemeOverrideForPoi(poi).governed;
-  _orderedSkinNames(skins).filter((n) => !_gov.has(n)).forEach(pushSkin);
+  // Respaldo: el resto de las imágenes del lugar, en el orden canónico.
+  _orderedSkinNames(skins).forEach(pushSkin);
 
   return chain;
 }
@@ -472,34 +433,13 @@ function _uploadCtx(formPrefix, skin, subfolder) {
    con la imagen que en verdad se está mostrando al maximizar el pin. */
 function getActiveSkinList(poi) {
   const skins = (poi && poi.skins) || {};
-  const ov = getThemeOverrideForPoi(poi);
-  // Las imágenes gobernadas por un tema salen de la lista normal (R2): solo
-  // vuelven a entrar abajo si su tema está activo y tiene "Aparece en el ojito".
-  let list = _orderedSkinNames(skins)
-    .filter((name) => !ov.governed.has(name))
+  const list = _orderedSkinNames(skins)
+    .filter((name) => !isSkinHiddenByOrder(name, skins[name])) // orden 50+: nunca visible
     .filter((name) => name === 'main' || skins[name].active !== false)
     .filter((name) => !!skins[name].url)
     .map((name) => ({ name, url: skins[name].url }));
 
-  if (list.length === 0 && poi && poi.imgB64) list = [{ name: 'main', url: poi.imgB64 }];
-
-  /* [Paso 2 — PLAN_TAB_TEMAS_OVERRIDE.md] Override de temas activos: cada
-     imagen de tema se saca de donde estuviera (incluso si estaba marcada
-     NO visible: el override la trae igual) y se inserta en su posición
-     elegida (1ª, 2ª… o última). Insertar empuja a las demás hacia abajo
-     en cascada — ninguna desaparece. Devuelve una lista NUEVA: nunca
-     modifica `poi`. Ojito y panel leen de acá, así que un solo cambio
-     cubre los dos. */
-  ov.eye.forEach((e) => {
-    list = list.filter((x) => x.name !== e.name);
-    const entry = { name: e.name, url: e.url };
-    if (e.position === 'last') {
-      list.push(entry);
-    } else {
-      const n = Number.isInteger(e.position) && e.position >= 1 ? e.position : 1;
-      list.splice(Math.min(n - 1, list.length), 0, entry);
-    }
-  });
+  if (list.length === 0 && poi && poi.imgB64) return [{ name: 'main', url: poi.imgB64 }];
   return list;
 }
 
