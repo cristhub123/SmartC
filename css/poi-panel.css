@@ -308,6 +308,11 @@ cambio hecho y la verificacion realizada.
   gap: 0.5rem;
   padding: 0 1.5rem 0.5rem;
 }
+/* [FIX 2026-10-01] Con 0 eventos vigentes en el lugar, poi-panel.js pone `hidden`
+   en esta fila (Info + Eventos), pero el `display: flex` de arriba le ganaba al
+   `[hidden]` del navegador, así que la fila y el botón Eventos se veían igual
+   aunque el lugar no tuviera ningún evento. Esta regla hace que `hidden` se respete. */
+.poi-panel__tabs-row[hidden] { display: none; }
 .poi-panel__tab-btn {
   border: none;
   background: var(--poi-panel-gray-200);
