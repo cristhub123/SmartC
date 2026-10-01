@@ -172,7 +172,16 @@ cambio hecho y la verificacion realizada.
    -------------------------------------------------------------------- */
 .poi-panel__header {
   flex: 0 0 auto;
-  padding: 0 1.5rem 0.75rem;
+  padding: 0 3.6rem 0.75rem 1.5rem; /* [2026-10-01] aire a la derecha: la cruz de cierre */
+}
+
+/* [2026-10-01] Cruz de cierre del panel: esquina superior derecha, por encima
+   de la zona del asa (que es hermana, no la tapa). Look = .btn-x (base.css). */
+.poi-panel__close {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.85rem;
+  z-index: 3;
 }
 
 .poi-panel__category {
@@ -531,6 +540,23 @@ cambio hecho y la verificacion realizada.
   background: rgba(255, 255, 255, 0.85);
   color: #0f172a;
   font-size: 1.7rem;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.25);
+}
+.evento-detalle__cerrar {
+  position: absolute;
+  top: 0.9rem;
+  right: 0.9rem;
+  z-index: 2;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  color: #0f172a;
+  font-size: 1rem;
   line-height: 1;
   cursor: pointer;
   box-shadow: 0 1px 4px rgba(15, 23, 42, 0.25);

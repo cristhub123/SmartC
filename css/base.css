@@ -515,6 +515,9 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   -webkit-tap-highlight-color: transparent;
 }
 .cal-nav:hover { background: var(--border); }
+/* [2026-10-01] Cruz de cierre opcional del calendario (solo si quien lo monta pasa `onClose`:
+   hoy el popover del filtro del mapa). Es un .btn-x, más chico para que entre en la cabecera. */
+.cal-close { width: 30px; height: 30px; margin-left: 6px; font-size: 12px; }
 .cal-week {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
@@ -787,6 +790,7 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   background-attachment: local, local, scroll, scroll;
 }
 .zd-header {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; /* [2026-10-01] rótulo + cruz */
   padding: 12px 18px 10px;
   font-family: var(--font-m);
   font-size: 9px;
@@ -1576,7 +1580,8 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   border: 1px solid rgba(0,0,0,.06);
   display: flex; flex-direction: column; gap: 12px;
 }
-#admin-login-box h3 { font-family: var(--font-d); font-size: 20px; font-weight: 800; margin-bottom: 4px; }
+#admin-login-close { position: absolute; top: 10px; right: 10px; } /* [2026-10-01] cruz de cierre, mismo .btn-x que zona/admin */
+#admin-login-box h3 { padding: 0 26px; /* [2026-10-01] el título (centrado) no pisa la cruz */ font-family: var(--font-d); font-size: 20px; font-weight: 800; margin-bottom: 4px; }
 #admin-login-box input {
   padding: 12px 14px; border-radius: var(--r-sm);
   border: 1px solid var(--border2); font-size: 14px; font-family: var(--font-b);
