@@ -1180,6 +1180,9 @@ const PoiPanel = (function () {
     if (e.touches.length !== 1) return;
     const target = e.target;
     if (target && target.closest && target.closest('[data-role="handle-zone"], input, textarea, select')) return;
+    // [2026-10-01] Dentro de la vista ampliada de un evento el dedo solo scrollea ese
+    // contenido (touch-action:pan-y); si no, el panel lo tomaba como arrastre y no dejaba bajar a leer.
+    if (target && target.closest && target.closest('.evento-detalle')) return;
     const t = e.touches[0];
     _touch = {
       x: t.clientX, y: t.clientY, lastY: t.clientY,
