@@ -2502,3 +2502,10 @@ Cris pidió (1) letra blanca en los botones de filtros de abajo, conservando el 
 **Cache-busting:** `base.css?v=20261001-filtros`, `categories.js?v=20261001a`.
 
 **Pruebas:** `node --check js/categories.js` OK. NO probado en celular real ni con el `index.html` completo (Firebase/Leaflet). Pendiente de confirmar por Cris: Ctrl+F5, ver letras blancas con borde negro, arrastrar la fila con el dedo (solo debe moverse a los lados).
+
+## Sesión: 2026-10-01 — Re-aplicación del Polaroid de eventos sobre el proyecto V4 (sin cambios de diseño)
+
+Cris entregó por error un estado previo del proyecto mientras otro plan se actualizaba; el zip V4 (`botones filtro arreglados`) ya traía la DOCUMENTACIÓN y el `index.html` de la entrega del 2026-09-30 (sección 14.7 de `AI_RULES.md`, entrada de AI_SESSION, `ACLARACIONES_RELEVANTES.md`, fuentes Caveat/Space Mono, cache-busting `?v=20260930`) pero NO el código. Se re-aplicaron, idénticos a la entrega original, los 5 archivos de código: `js/evento-card.js`, `js/poi-panel.js` (CRLF respetado), `js/eventos-todos.js`, `js/i18n.js` (8 claves ES/EN/PT) y `css/poi-panel.css`. Sin archivos nuevos y sin tocar `index.html`/docs de 14.7 (ya correctos). Detalle de qué hace y decisiones a confirmar: ver la sesión 2026-09-30 y `ACLARACIONES_RELEVANTES.md`.
+
+**Pruebas:** `node --check` OK en los 4 JS; llaves de `poi-panel.css` balanceadas; mismo arnés en Chromium (CSS/JS reales de V4 + `_diaCalendarioEnHuso`/`_eventoOcurreEnFecha` reales, idénticas a las de la versión anterior): verde/rojo con hoy, día puntual y rango; tarjeta → vista ampliada → Volver; "Ver en el mapa"; el 📍 no abre la vista; PT. NO probado con Firebase, Leaflet real ni celular real.
+

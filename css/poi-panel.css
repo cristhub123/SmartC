@@ -326,7 +326,7 @@ cambio hecho y la verificacion realizada.
   overscroll-behavior-x: contain;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
-  padding: 0.25rem 0 0.75rem;
+  padding: 0.5rem 0.5rem 1rem; /* aire para que se vea la sombra del marco Polaroid */
 }
 .poi-panel__eventos-carousel > .evento-card {
   flex: 0 0 min(85%, 20rem);
@@ -337,16 +337,26 @@ cambio hecho y la verificacion realizada.
   max-width: 26rem;
 }
 
+/* [2026-09-30] Diseño Polaroid (mockup Gemini, opción 1): marco blanco con
+   más aire abajo, esquinas rectas y sombra marcada. La tarjeta completa es
+   clickeable (abre .evento-detalle). */
 .evento-card {
   position: relative;
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
+  padding: 0.6rem 0.6rem 1.4rem;
   background: var(--poi-panel-white);
-  border: 1px solid var(--poi-panel-slate-200);
-  border-radius: 0.9rem;
-  overflow: hidden;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+  border: none;
+  border-radius: 0;
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.18);
+  cursor: pointer;
+  transition: transform 0.2s ease;
 }
+@media (hover: hover) {
+  .evento-card:hover { transform: translateY(-3px); }
+}
+.evento-card:focus-visible { outline: 2px solid var(--poi-panel-accent); outline-offset: 2px; }
 .evento-card__media {
   position: relative;
   width: 100%;
@@ -410,35 +420,199 @@ cambio hecho y la verificacion realizada.
 .evento-card__body {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  padding: 0.75rem 0.9rem 0.9rem;
+  gap: 0.3rem;
+  padding: 0.85rem 0.35rem 0;
 }
 .evento-card__nombre {
-  font-size: 0.95rem;
+  font-family: 'Caveat', cursive;
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1;
   color: var(--poi-panel-slate-900);
   overflow-wrap: anywhere;
-}
-.evento-card__fechas {
-  font-size: 0.75rem;
-  color: var(--poi-panel-slate-400);
-}
-.evento-card__cat {
-  align-self: flex-start;
-  font-size: 0.65rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--poi-panel-accent);
-  background: rgba(var(--poi-panel-accent-rgb), 0.1);
-  padding: 0.15rem 0.5rem;
-  border-radius: 999px;
 }
 .evento-card__desc {
   font-size: 0.8rem;
   color: var(--poi-panel-slate-700);
-  line-height: 1.5;
-  margin: 0.15rem 0 0;
+  line-height: 1.45;
+  margin: 0;
   overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+/* Fila inferior: recuadros de fecha/horario + entrada en texto gris. */
+.evento-card__fila,
+.evento-detalle__fila {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.35rem;
+}
+.evento-card__entrada {
+  margin-left: auto;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--poi-panel-slate-400);
+}
+/* Recuadro negro con letra monoespaciada. VERDE = el evento ocurre en la
+   fecha elegida en el filtro (o en hoy si no hay ninguna); ROJO = no. */
+.evento-card__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.5rem;
+  border-radius: 0.25rem;
+  background: #111;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+  font-family: 'Space Mono', monospace;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.evento-card__badge--on  { color: #39ff14; text-shadow: 0 0 8px rgba(57, 255, 20, 0.4); }
+.evento-card__badge--off { color: #ff4d4d; }
+
+/* [2026-09-30] VISTA AMPLIADA de un evento (EventoCard.openDetail). Vive
+   dentro de .poi-panel (position:fixed + overflow:hidden), así que
+   `absolute + inset:0` la deja cubriendo el panel y el translateX(100%)
+   inicial la esconde recortada a la derecha; al abrir se desliza al lugar. */
+.evento-detalle {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  background: var(--poi-panel-white);
+  transform: translateX(100%);
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.evento-detalle.is-open { transform: translateX(0); }
+@media (prefers-reduced-motion: reduce) {
+  .evento-detalle, .evento-card { transition: none; }
+}
+.evento-detalle__scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+}
+.evento-detalle__scroll::-webkit-scrollbar { display: none; }
+.evento-detalle__hero {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  background: rgba(var(--poi-panel-accent-rgb), 0.12);
+  overflow: hidden;
+}
+.evento-detalle__img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.evento-detalle__hero::after { /* degradé para que el título se lea sobre la foto */
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, var(--poi-panel-white) 0%, rgba(255, 255, 255, 0) 55%, rgba(0, 0, 0, 0.35) 100%);
+  pointer-events: none;
+}
+.evento-detalle__hero--sinfoto::after { background: linear-gradient(to top, var(--poi-panel-white) 0%, rgba(255, 255, 255, 0) 45%); }
+.evento-detalle__back {
+  position: absolute;
+  top: 0.9rem;
+  left: 0.9rem;
+  z-index: 2;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0 0 0.2rem;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  color: #0f172a;
+  font-size: 1.7rem;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.25);
+}
+.evento-detalle__hero-txt {
+  position: absolute;
+  left: 1.25rem;
+  right: 1.25rem;
+  bottom: 0.9rem;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.4rem;
+}
+.evento-detalle__tags {
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.8);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.evento-detalle__titulo {
+  margin: 0;
+  font-family: 'Caveat', cursive;
+  font-size: 2.4rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--poi-panel-slate-900);
+  overflow-wrap: anywhere;
+}
+.evento-detalle__cuerpo {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 0.5rem 1.25rem 1.5rem;
+}
+.evento-detalle__sec h3 {
+  margin: 0 0 0.4rem;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--poi-panel-slate-900);
+}
+.evento-detalle__sec p {
+  margin: 0 0 0.25rem;
+  font-size: 0.85rem;
+  line-height: 1.6;
+  color: var(--poi-panel-slate-700);
+  overflow-wrap: anywhere;
+}
+.evento-detalle__barra {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 1.25rem;
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+  background: var(--poi-panel-white);
+  border-top: 1px solid var(--poi-panel-slate-200);
+  box-shadow: 0 -10px 20px rgba(15, 23, 42, 0.05);
+}
+.evento-detalle__precio { display: flex; flex-direction: column; min-width: 0; }
+.evento-detalle__precio small { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; color: var(--poi-panel-slate-400); }
+.evento-detalle__precio strong { font-size: 1.05rem; font-weight: 800; color: var(--poi-panel-slate-900); overflow-wrap: anywhere; }
+.evento-detalle__acciones { display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: flex-end; }
+.evento-detalle__btn {
+  border: none;
+  border-radius: 1rem;
+  padding: 0.7rem 1.1rem;
+  background: #111;
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.evento-detalle__btn--sec {
+  background: var(--poi-panel-gray-200);
+  color: var(--poi-panel-slate-700);
 }
 
 .poi-panel__body {
@@ -724,7 +898,6 @@ cambio hecho y la verificacion realizada.
   align-items: start;
 }
 .todos-ev__grid[hidden] { display: none; }
-.todos-ev__grid > .evento-card { cursor: pointer; }
 .todos-ev__vacio {
   margin: 1.5rem 0;
   text-align: center;

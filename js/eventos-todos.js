@@ -63,7 +63,7 @@ window.EventosTodos = (function () {
   let _root = null;      // contenedor que entrega PoiPanel
   let _els = null;       // referencias a los nodos armados
   let _calendario = null;
-  let _visibleEnPanel = [];   // eventos hoy pintados (para resolver el click de una tarjeta)
+  let _visibleEnPanel = [];   // eventos hoy pintados (ya no resuelve clicks: la tarjeta lo hace EventoCard, 2026-09-30)
   let _debounce = null;
 
   // ── Datos ────────────────────────────────────────────────
@@ -169,16 +169,12 @@ window.EventosTodos = (function () {
       });
     }
 
-    // Tarjetas: 📍 y foto rota los maneja EventoCard; el resto del click
-    // sobre la tarjeta abre el panel del lugar.
+    // Tarjetas: 📍, foto rota y click en la tarjeta los maneja EventoCard.
+    // [2026-09-30] Tocar una tarjeta ahora abre su vista ampliada (Polaroid);
+    // el viaje al lugar que hacía antes ese click vive en el botón "Ver el
+    // lugar" de esa vista (`onVerLugar`, ver _pintarLista) — mismo
+    // `abrirLugarDeEvento`, no se reimplementó.
     if (window.EventoCard) EventoCard.bind(_els.grid);
-    _els.grid.addEventListener('click', (e) => {
-      if (e.target.closest && e.target.closest('[data-evento-locate]')) return;
-      const card = e.target.closest && e.target.closest('.evento-card');
-      if (!card || !_els.grid.contains(card)) return;
-      const ev = _visibleEnPanel.find(x => String(x.id || '') === card.dataset.eventoId);
-      if (ev && ev.poi_id) abrirLugarDeEvento(ev.poi_id);
-    });
   }
 
   function _toggleCalendario(forzar) {
@@ -219,7 +215,12 @@ window.EventosTodos = (function () {
     _visibleEnPanel = lista;
     const catalogo = _catalogo();
     _els.grid.innerHTML = window.EventoCard
-      ? lista.map(ev => EventoCard.render(ev, { catalogo })).join('')
+      ? lista.map(ev => EventoCard.render(ev, {
+          catalogo,
+          // Verde/rojo de los recuadros según la fecha de ESTE buscador (null = hoy).
+          fechaDesde: _estado.desde, fechaHasta: _estado.hasta,
+          onVerLugar: (e) => { if (e && e.poi_id) abrirLugarDeEvento(e.poi_id); },
+        })).join('')
       : '';
     const filtrando = !!(_estado.q.trim() || _estado.desde);
     _els.vacio.hidden = lista.length > 0;
