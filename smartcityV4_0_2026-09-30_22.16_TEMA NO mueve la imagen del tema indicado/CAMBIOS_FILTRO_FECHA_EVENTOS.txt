@@ -1,0 +1,61 @@
+CAMBIOS_FILTRO_FECHA_EVENTOS.txt — 2026-09-03
+Ejecuta PLAN_FILTRO_FECHA_EVENTOS.md, Partes 1+2+3 completas.
+
+ARCHIVOS TOCADOS (sueltos, reemplazan a los del zip subido):
+- js/config.js            (1 var global nueva: fechaFiltroEventos)
+- js/categories.js        (applyFilter + updateFilterBar)
+- js/poi-panel.js         (open, _eventosVigentesDelPoi, _renderEventosTab, + refresh())
+- js/app.js                (suma loadFiltroFechaSettings al Promise.all de arranque)
+- js/eventos-fecha-filtro.js   (NUEVO — toda la lógica de esta feature)
+- index.html               (barra de fecha en el mapa + sección Admin → Mapa + script nuevo)
+- css/base.css              (estilos mínimos de la barra de fecha)
+
+QUÉ HACE
+1. Con el filtro "Eventos" activo, aparece un selector de fecha arriba de la
+   fila de categorías. Al elegir una fecha, los pines con ≥1 evento ese día
+   quedan a opacidad completa; el resto de los pines visibles bajo ese
+   filtro quedan atenuados (no ocultos).
+2. Al maximizar un pin con la fecha elegida activa, el panel abre directo en
+   la pestaña "Eventos" (antes siempre abría en "Info"). Arriba de la lista
+   aparecen los eventos de ese pin que ocurren ese día; debajo, atenuados,
+   el resto de los eventos del pin (otras fechas) — sin ocultarlos.
+3. Admin → Mapa → "FILTRO DE FECHA DE EVENTOS": toggle para activar/
+   desactivar toda la feature (con el toggle OFF, todo se comporta 100%
+   como antes) + campo numérico para la opacidad de lo que no coincide
+   (0 a 1, default 0.35). Persiste en Firestore settings/filtroFechaEventos.
+
+DECISIÓN DE MATCHING (confirmada)
+Un evento "está" en la fecha elegida si esa fecha cae en cualquier día
+dentro del rango fecha_inicio → fecha_fin del evento (inclusive). Sin
+fecha_fin cargada, se toma como evento de 1 solo día. Además requiere
+ev.activo === true (mismo toggle base que _eventoEsVigente).
+
+NO SE TOCÓ
+- El look final del selector de fecha y del resaltado (CSS mínimo a
+  propósito, "se ve aparte" según lo charlado).
+- makeMarker()/cluster-grouping.js: la opacidad se aplica sobre el wrapper
+  #pw-<id> ya existente (mismo elemento que categories.js ya mostraba/
+  ocultaba), no hizo falta tocar el dibujado de marcadores ni el clustering.
+- _eventoEsVigente / ciclo de vida de pines evento_temporal: sin cambios,
+  esos criterios siguen siendo "respecto a hoy" como siempre.
+
+VERIFICACIÓN HECHA ACÁ
+- node --check OK en los 5 .js tocados/nuevos.
+- Sin colisión de nombres nuevos con el resto del proyecto (grep cruzado).
+- index.html: 1 sola definición de #filter-bar, 1 sola de #eventos-fecha-bar,
+  script nuevo referenciado, conteo de <script> consistente.
+- NO probado contra Firebase real ni navegador.
+
+PENDIENTE QUE CONFIRMES EN TU ENTORNO
+1. Con el filtro "Eventos" activo aparece el selector de fecha; al elegir
+   una fecha, los pines con evento ese día quedan más visibles que el resto.
+2. Tocar un pin con fecha elegida abre directo en "Eventos"; arriba salen
+   los eventos de ese día, debajo (atenuados) los de otras fechas.
+3. Cambiar la fecha con el panel de un pin ya abierto actualiza la lista
+   sin tener que cerrar y volver a abrir el pin.
+4. Sin fecha elegida, o con otro filtro de categoría activo, el mapa se ve
+   exactamente igual que antes (sin atenuados, tab Info por defecto).
+5. Admin → Mapa → toggle OFF de "Filtro de fecha de eventos" apaga toda la
+   feature (no aparece el selector, no hay atenuados) y sobrevive un F5.
+6. El valor de opacidad configurado en Admin se refleja tanto en los pines
+   del mapa como en las tarjetas de evento dentro del panel del pin.

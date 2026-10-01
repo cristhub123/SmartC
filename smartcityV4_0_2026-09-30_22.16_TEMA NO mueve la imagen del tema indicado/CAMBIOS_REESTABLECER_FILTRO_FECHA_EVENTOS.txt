@@ -1,0 +1,65 @@
+CAMBIOS_REESTABLECER_FILTRO_FECHA_EVENTOS.txt — 2026-09-04
+
+DIAGNÓSTICO (por qué no pasaba nada al elegir la fecha)
+Entre la entrega anterior y este zip que subiste corrió
+PLAN_VISIBILIDAD_PINES_UNIFICADA.md (2026-09-03), que reescribió
+categories.js y creó js/pin-visibility.js como ÚNICA fuente de verdad
+de "¿este pin se ve?" (antes esa lógica estaba repetida en 7 lugares).
+Ese cambio, sin saberlo, pisó por completo la parte del filtro de
+fecha que vivía adentro de categories.js → applyFilter(): esa función
+ahora delega TODO a applyAllPinVisibility() (pin-visibility.js) y ya
+no tocaba pines individuales, así que mi lógica de opacidad quedó sin
+efecto. Además index.html perdió la barra de fecha, el script nuevo y
+la sección de Admin (probablemente sobrescritos al mergear cambios de
+otra entrega). js/eventos-fecha-filtro.js, js/poi-panel.js, js/config.js
+y css/base.css SÍ seguían intactos.
+
+QUÉ SE HIZO (reintegración, no reescritura desde cero)
+- js/pin-visibility.js: applyPinVisibility() (el único punto real que
+  aplica visibilidad/estilo a cada pin) ahora también aplica la
+  opacidad reducida cuando el filtro "Eventos" está activo, hay una
+  fecha elegida, y ese pin no tiene evento ese día. Es el reemplazo
+  correcto de lo que antes vivía en categories.js.
+- js/categories.js: updateFilterBar() vuelve a mostrar/ocultar y
+  wirear la barra de fecha (al cargar y en cada click de filtro) — sin
+  tocar el fix de drag-to-scroll que ya está reciente ahí.
+- index.html: se reagregó la barra de fecha (#eventos-fecha-bar) en el
+  mapa, el <script src="js/eventos-fecha-filtro.js">, y la sección
+  Admin → Mapa → "FILTRO DE FECHA DE EVENTOS" (toggle + opacidad).
+- js/app.js: se reagregó loadFiltroFechaSettings() al Promise.all de
+  arranque.
+- js/eventos-fecha-filtro.js: SIN cambios funcionales, solo se corrigió
+  un comentario que ya no describía bien dónde se aplica la opacidad.
+- js/config.js, js/poi-panel.js, css/base.css: sin cambios, ya estaban
+  intactos en el zip que subiste.
+
+ARCHIVOS EN ESTE ZIP (reemplazan a los del proyecto)
+- js/pin-visibility.js
+- js/categories.js
+- index.html
+- js/app.js
+- js/eventos-fecha-filtro.js
+- js/roadmap.js (2026-09-04 — agrega al roadmap el ítem "Auditoría de
+  consolidación de lógica repetida", sin relación con el fix de arriba;
+  ver PLAN_AUDITORIA_CONSOLIDACION.md, entregado aparte)
+
+VERIFICACIÓN HECHA ACÁ
+- node --check OK en los 4 .js tocados.
+- index.html: 1 sola definición de #filter-bar y #eventos-fecha-bar,
+  1 sola de cada input/toggle nuevo, script referenciado, conteo de
+  <script> consistente.
+- Comparado contra tu zip: js/config.js, js/poi-panel.js y css/base.css
+  confirmados idénticos a la entrega anterior (no hacía falta tocarlos).
+- NO probado contra Firebase real ni navegador.
+
+PENDIENTE QUE CONFIRMES EN TU ENTORNO
+1. Con el filtro "Eventos" activo aparece el selector de fecha.
+2. Al elegir una fecha, los pines con evento ese día se ven más
+   visibles que el resto (que quedan atenuados, no ocultos).
+3. Tocar un pin con fecha elegida abre directo en "Eventos", con los
+   de ese día arriba y el resto (atenuados) debajo.
+4. Admin → Mapa → toggle de "Filtro de fecha de eventos" apaga toda la
+   feature y sobrevive un F5.
+5. Sin fecha elegida, o con otro filtro, el mapa se ve exactamente
+   igual que antes (esto ya debería estar OK, pero conviene confirmar
+   que no se rompió nada del filtro de categorías ni del clustering).
