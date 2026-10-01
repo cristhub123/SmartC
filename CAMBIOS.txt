@@ -1,4 +1,5 @@
-FIX 2026-10-01 — Categorías no dejaba guardar
-- js/settings-sync.js: la categoría especial "Eventos" se guarda con la clave "special_eventos" (Firestore no admite nombres de campo con "__" al principio y al final). Aviso de error de Categorías ahora muestra la causa real.
-- index.html: cache-busting de settings-sync.js (?v=20261001a).
+FIX 2026-10-01 — Botones principales invisibles al cerrar una categoría (PC)
+- js/categories.js: updateFilterBar() ya no borra los botones principales cuando hay una categoría abierta (los esconde, como la animación); el cierre tiene una red de seguridad que rearma la fila si faltara algo.
+- index.html: cache-busting de categories.js (?v=20261001b).
 - AI_SESSION.md: registro del fix.
+(El fix anterior de guardado de Categorías, js/settings-sync.js, ya estaba incluido en este proyecto.)
