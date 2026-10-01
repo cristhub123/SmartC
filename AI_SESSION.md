@@ -2531,3 +2531,11 @@ Cris pidió (1) un signo + dentro del campo de búsqueda (alineado a la derecha)
 **Archivos:** `js/eventos-todos.js` (estado `tags`, `_agregarTag`, `_pintarTags`, `_calcularLista` con OR), `css/poi-panel.css` (`.todos-ev__field/__add/__tags/__tag/__tag-x`, `.todos-ev__cal-x` ahora es un `<span role=button>` dentro del botón), `index.html` (cache-busting `?v=20261001-tags`). Sin claves i18n nuevas (la cruz de cada tag reusa `eventos_fecha_clear_title`).
 
 **Pruebas:** `node --check` OK; llaves del CSS balanceadas. NO probado en navegador real ni en celular.
+
+## Sesión: 2026-10-01 — PC: botones del buscador de "Todos" iguales a celular + scroll en la vista ampliada del evento
+
+**PC:** los navegadores de escritorio dibujan su propia "x" azul dentro de `input[type=search]` (se encimaba con el +); en celular no aparece. `css/poi-panel.css`: se anula esa x (`::-webkit-search-cancel-button` y afines), se unifica `appearance`/`font-family` de +, fecha y tags, y se agrega hover/foco visible solo con mouse (`@media (hover: hover)`).
+
+**Scroll:** `js/poi-panel.js` → `_onPanelTouchStart` ahora ignora los toques dentro de `.evento-detalle`; antes el panel tomaba el gesto vertical como arrastre del panel (`preventDefault`) y el contenido de la tarjeta abierta no se podía scrollear. El `.evento-detalle__scroll` ya tenía `overflow-y:auto` y `touch-action:pan-y`.
+
+**Archivos:** `css/poi-panel.css`, `js/poi-panel.js` (CRLF respetado), `js/eventos-todos.js`, `index.html` (cache-busting `?v=20261001-tags2` / `-scroll`), `AI_SESSION.md`. **Pruebas:** `node --check` OK; Chromium escritorio y celular (arnés con CSS/JS reales): sin x azul, + y fecha alineados. NO probado el scroll táctil en celular real.

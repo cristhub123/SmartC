@@ -1,0 +1,15 @@
+smartcityV4_0 — 2026-10-01 — SOLO archivos nuevos/modificados
+
+1) Panel "Todos los eventos": buscador con signo + (palabras clave en tags, búsqueda aditiva) y cruz de fecha dentro del botón de fecha.
+2) PC: se quita la "x" azul nativa del navegador de escritorio que se encimaba con el +; botones iguales a celular (+ hover con mouse).
+3) Tarjeta de evento abierta: ahora se puede scrollear arriba/abajo con el dedo para leer todo (el panel ya no roba el gesto).
+
+Archivos:
+  css/poi-panel.css
+  js/eventos-todos.js
+  js/poi-panel.js
+  index.html
+  AI_SESSION.md
+  CAMBIOS_TAGS_SCROLL.txt (este archivo)
+
+Ctrl+F5 después de subir. NO probado en celular real.
