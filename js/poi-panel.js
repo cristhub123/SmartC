@@ -407,6 +407,10 @@ const PoiPanel = (function () {
     const els = _els;
     const hayEventos = eventosDelPoi.length > 0;
     els.tabsRow.hidden = !hayEventos;
+    // [FIX 2026-10-01] Doble seguro: el CSS de la fila tenía `display:flex`, que le ganaba al
+    // atributo `hidden` y dejaba visible el botón Eventos en lugares SIN eventos. Además de la
+    // regla `.poi-panel__tabs-row[hidden]` (css/poi-panel.css), se oculta/muestra también por estilo.
+    els.tabsRow.style.display = hayEventos ? '' : 'none';
     if (!hayEventos) {
       els.eventosList.innerHTML = '';
       if (_activeTab === 'eventos') _setActiveTab('info');
