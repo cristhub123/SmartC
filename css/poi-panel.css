@@ -918,6 +918,20 @@ cambio hecho y la verificacion realizada.
   cursor: pointer;
 }
 .todos-ev__tag-x:hover { color: #dc2626; }
+.todos-ev__input { -webkit-appearance: none; appearance: none; }
+/* [2026-10-01] PC: Chrome/Edge/Brave de escritorio dibujan su propia "x" azul en
+   los input type=search y pisaba al +; en celular no aparece. Se anula en todos. */
+.todos-ev__input::-webkit-search-cancel-button,
+.todos-ev__input::-webkit-search-decoration,
+.todos-ev__input::-webkit-search-results-button,
+.todos-ev__input::-webkit-search-results-decoration { -webkit-appearance: none; appearance: none; display: none; }
+.todos-ev__add, .todos-ev__cal-btn, .todos-ev__tag-x { font-family: inherit; -webkit-appearance: none; appearance: none; -webkit-tap-highlight-color: transparent; }
+.todos-ev__add:focus-visible, .todos-ev__cal-btn:focus-visible { outline: 2px solid rgba(var(--poi-panel-accent-rgb), 0.5); outline-offset: 2px; }
+@media (hover: hover) {
+  .todos-ev__add:not(:disabled):hover { filter: brightness(1.1); }
+  .todos-ev__cal-btn:not(.has-value):hover { border-color: var(--poi-panel-accent); }
+  .todos-ev__cal-btn.has-value:hover { filter: brightness(1.08); }
+}
 .todos-ev__input:focus {
   outline: 2px solid rgba(var(--poi-panel-accent-rgb), 0.5);
   outline-offset: 1px;
