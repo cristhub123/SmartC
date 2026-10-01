@@ -1,3 +1,20 @@
+# ACLARACIONES_RELEVANTES — Tema que no movía la imagen (2026-09-30)
+
+## Qué encontré
+- **El tema buscaba la imagen por su nombre interno, no por el nombre del archivo.** Las imágenes que cargás desde la grilla del lugar se guardan por dentro como `alt1`, `alt2`… (aunque el archivo se llame `…_piedra_01.webp`); solo las vinculadas por texto usan `piedra` como nombre interno. Por eso el tema "no la veía". Ahora la busca por las dos cosas: nombre interno y sufijo del archivo.
+- **No pude ver tus datos reales**, así que esta es la causa más probable, no confirmada. Si después de esto sigue igual, pasame el ID del lugar y el nombre exacto del archivo.
+
+## Cómo probarlo
+1. Tab Temas → tema con sufijo `piedra`, "Tema activo" + "Miniatura en el mapa" tildados → **"Guardar cambios"** (tildar solo no mueve nada; mueve al guardar).
+2. Mirá el aviso: dice cuántos lugares se movieron. Si ninguna imagen coincide ahora te avisa con el sufijo, en vez de decir solo "no hubo nada que mover".
+3. Ctrl+F5 y abrí el lugar.
+
+## Decisiones que tomé yo — confirmá o cambialo
+- El sufijo del archivo es el 2.º segmento entre `_` (`prefijo_SUFIJO_01.ext`), en minúsculas. Primero manda el nombre interno; el archivo es el respaldo.
+- No cambié nada del lado público ni del gestor de imágenes.
+
+---
+
 # ACLARACIONES_RELEVANTES — Temas por casilleros (2.ª versión, 2026-09-30)
 
 ## Qué cambió y por qué

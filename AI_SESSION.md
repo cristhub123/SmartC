@@ -2460,3 +2460,18 @@ Partió del proyecto de Cris del 10:47 (que ya traía la regla "orden 50+ = siem
 
 **Pendiente de confirmar por Cris:** probar con el lugar real (activar con miniatura → Guardar; ver el mapa y el ojito; apagar → Guardar).
 
+
+## 2026-09-30 — Tab Temas: el tema no movía imágenes cargadas desde la grilla (matching por sufijo del archivo)
+
+Cris reportó: con un tema activo (sufijo `piedra`, miniatura/posición 1) la imagen con ese sufijo no se movía al casillero indicado.
+
+**Causa probable (confirmar con su dato real):** `planThemeOrders` (js/themes.js) buscaba la imagen solo por la CLAVE interna del skin (`poi.skins[clave]`). Las imágenes cargadas desde la grilla del gestor se guardan con clave `altN`; solo las vinculadas por texto ("### IMG") usan el sufijo como clave. Una imagen `cabildo-cba_piedra_01.webp` con clave `alt2` nunca coincidía con el tema.
+
+**Cambio (solo `js/themes.js` + cache-busting en `index.html` → `themes.js?v=20260930f`):**
+- Nuevo `_skinSuffixFromUrl(url)`: saca el sufijo (2.º segmento separado por `_`) del nombre de archivo de la URL.
+- `planThemeOrders` ahora recorre las IMÁGENES: coincide por clave (como antes) y, si no, por el sufijo de la URL. Lo demás (tema de noche exceptuado también por sufijo, `main`, cascada, 50+, idempotencia) queda igual. Devuelve además `matched` (sufijos que sí encontraron imagen).
+- `applyThemesToPins` devuelve `unmatched` (temas activos sin ninguna imagen en ningún lugar) y el toast de "Guardar cambios" lo avisa con el sufijo, en vez de decir solo "no hubo nada que mover".
+
+**Pruebas:** `node --check`; Node con las funciones reales: clave `piedra`, clave `alt2` + archivo `_piedra_`, ya en 1 (sin cambios), tema apagado (baja al 50 y `active:false`), sufijo = tema de noche (no se toca), sufijo parcial (`piedrabonita`, no coincide), URL con `?v=`. El lado público (`_principalSkinKey`/`_orderedSkinNames`) no depende de la clave, no se tocó. NO probado con Firebase/Cloudinary reales.
+
+**Pendiente de confirmar por Cris:** tilde del tema → "Guardar cambios" de la tab Temas (es lo que mueve las imágenes) → ver el toast; recargar con Ctrl+F5.
