@@ -1,3 +1,22 @@
+# ACLARACIONES_RELEVANTES — Banderas en el selector de idioma (2026-10-01)
+
+## Decisiones que tomé yo — confirmá o cambialo
+- **Banderas:** español = España (como pediste), inglés = Reino Unido, portugués = Brasil. Para cambiar una: el `src` del botón en `index.html` + el SVG en `img/flags/`.
+- **Set de banderas:** usé `kapowaz/square-flags` (MIT) y no `lipis/flag-icons`, porque la bandera de España de lipis pesa 82 KB (escudo detallado) contra 2,2 KB. Las 3 juntas pesan ~3,4 KB. El escudo de España queda simplificado, a 26px no se nota.
+- **Inactivas** en gris con opacidad 60% (no 30%): con 30% se perdían sobre el fondo blanco. Se ajusta en `css/base.css`, regla `#lang-switcher button img`.
+- **La activa** lleva además un aro del color de acento del tema, para que no dependa solo del color.
+- **En pantallas angostas** (≤420px) el selector ocupa ~20px más que con las siglas: el buscador queda un poco más corto.
+
+## Sin probar en real (pendiente que confirmes)
+Probado en Chromium con el CSS/JS reales del selector y un `AppState` de prueba, NO en el `index.html` completo ni en celular real: (a) cómo se ve con los temas/skins oscuros; (b) el ancho del header en celulares chicos.
+
+## Cache-busting
+`?v=20261001-flags` en `base.css` y `lang-switcher.js`. SVG nuevos en `img/flags/`.
+
+---
+
+# (entrega anterior)
+
 # ACLARACIONES_RELEVANTES — Tema que no movía la imagen (2026-09-30)
 
 ## Qué encontré

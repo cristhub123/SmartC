@@ -2475,3 +2475,18 @@ Cris reportó: con un tema activo (sufijo `piedra`, miniatura/posición 1) la im
 **Pruebas:** `node --check`; Node con las funciones reales: clave `piedra`, clave `alt2` + archivo `_piedra_`, ya en 1 (sin cambios), tema apagado (baja al 50 y `active:false`), sufijo = tema de noche (no se toca), sufijo parcial (`piedrabonita`, no coincide), URL con `?v=`. El lado público (`_principalSkinKey`/`_orderedSkinNames`) no depende de la clave, no se tocó. NO probado con Firebase/Cloudinary reales.
 
 **Pendiente de confirmar por Cris:** tilde del tema → "Guardar cambios" de la tab Temas (es lo que mueve las imágenes) → ver el toast; recargar con Ctrl+F5.
+
+## Sesión: 2026-10-01 — Selector de idioma con banderas cuadradas (en este proyecto; reemplaza el intento sobre el proyecto viejo)
+
+Cris pidió reemplazar los botones de texto ES/EN/PT del header por 3 banderas cuadradas: la del idioma activo a todo color, las inactivas apagadas. Pidió expresamente la bandera de **España** para el español.
+
+**Fuente:** `kapowaz/square-flags` (MIT), SVG 1x1 verificado desde GitHub. Alojados en el proyecto, sin CDN: `img/flags/es.svg` (2,2 KB), `gb.svg` (0,6 KB), `br.svg` (0,5 KB) ≈ 3,4 KB en total, licencia en `img/flags/LICENSE-square-flags.md`. Se descartó `lipis/flag-icons` para España: su `es.svg` pesa 82 KB por el escudo (80 KB aun optimizado con svgo). Los SVG de kapowaz usan `var(--flag-palette-*, #color)` con color de respaldo: dentro de `<img>` se usa el respaldo, funciona.
+
+**Mapeo (cambiable):** es→España, en→Reino Unido, pt→Brasil. Cambiar una bandera = cambiar el `src` del botón en `index.html` y copiar el SVG a `img/flags/`.
+
+**Cambios**
+- `index.html`: botones `[data-lang-switch]` con `<img>` (alt vacío) + `title`/`aria-label` (Español/English/Português) + `aria-pressed`. Cache-busting `?v=20261001-flags` en `base.css` y `lang-switcher.js` (vercel.json los cachea como immutable).
+- `css/base.css`: bloque `#lang-switcher button` reescrito. Inactiva: `grayscale(1) brightness(.85)` + `opacity .6`; hover más claro; activa: color completo + aro `var(--accent)` (sigue el color de acento del tema). ≤420px: banderas de 22px en vez de 26px.
+- `js/lang-switcher.js`: una línea en `_applyActiveState` para sincronizar `aria-pressed`. La lógica de idioma NO cambió.
+
+**Pruebas:** `node --check` OK. Chromium con el `base.css` y `lang-switcher.js` reales y un `AppState` de prueba, a 1100px y 360px: los 3 SVG cargan, al tocar una bandera queda a color con aro y las otras en gris, sin errores de consola. **NO probado** en el `index.html` completo (Firebase/Leaflet), con los temas/skins oscuros nuevos, ni en celular real.
