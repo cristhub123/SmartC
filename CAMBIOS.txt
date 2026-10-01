@@ -1,5 +1,6 @@
-FIX 2026-10-01 — Botones principales invisibles al cerrar una categoría (PC)
-- js/categories.js: updateFilterBar() ya no borra los botones principales cuando hay una categoría abierta (los esconde, como la animación); el cierre tiene una red de seguridad que rearma la fila si faltara algo.
-- index.html: cache-busting de categories.js (?v=20261001b).
+FIX 2026-10-01 — Botón "Eventos" del panel del lugar solo si el lugar tiene eventos visibles
+- css/poi-panel.css: regla .poi-panel__tabs-row[hidden] { display:none } (el display:flex pisaba el atributo hidden).
+- js/poi-panel.js: _renderEventosTab también oculta/muestra la fila por estilo (doble seguro).
+- index.html: cache-busting de poi-panel.css y poi-panel.js (?v=20261001-tabsfix).
 - AI_SESSION.md: registro del fix.
-(El fix anterior de guardado de Categorías, js/settings-sync.js, ya estaba incluido en este proyecto.)
+(Incluye los arreglos anteriores del mismo día: guardado de Categorías y botones del filtro.)
