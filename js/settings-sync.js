@@ -22,6 +22,20 @@ cambio hecho y la verificacion realizada.
    se le aplican a CUALQUIER persona que abra la app, no solo a vos.
 ═══════════════════════════════════════════ */
 
+/* [FIX 2026-10-01] Aviso de error de guardado con la causa REAL.
+   Antes TODOS los guardados mostraban "¿Iniciaste sesión?" ante cualquier
+   error (incluso errores de datos inválidos que no tienen nada que ver
+   con la sesión), lo que escondió el bug de Categorías. Ahora solo se
+   habla de sesión si Firestore dice de verdad "permission-denied". */
+function _toastErrorGuardado(err, queCosa) {
+  const code = (err && err.code) || '';
+  if (code === 'permission-denied' || code === 'unauthenticated') {
+    toast('⚠️ No se guardó ' + queCosa + '. Tu sesión no tiene permiso (¿iniciaste sesión como admin?)');
+  } else {
+    toast('⚠️ No se guardó ' + queCosa + '. Error: ' + (code || (err && err.message) || 'desconocido'));
+  }
+}
+
 async function saveGlobalSettings() {
   try {
     await db.collection('settings').doc('appearance').set(globalSettings);
@@ -190,6 +204,14 @@ async function loadActiveSkin() {
    para no perder el estado ya guardado en instalaciones anteriores a
    este cambio. `languageFieldsCount` (candado de cantidad de idiomas,
    Etapa B) vive en el mismo documento. */
+/* Nombre de campo seguro para Firestore: "__eventos__" <-> "special_eventos". */
+function _specialKeyToFirestore(id) {
+  return id.replace(/^__(.*)__$/, 'special_$1');
+}
+function _specialKeyFromFirestore(key) {
+  return /^special_/.test(key) ? '__' + key.slice(8) + '__' : key;
+}
+
 async function saveCategoriesSettings() {
   try {
     const builtinData = {};
@@ -218,7 +240,10 @@ async function saveCategoriesSettings() {
     const specialData = {};
     if (typeof SPECIAL_CATS !== 'undefined') {
       Object.keys(SPECIAL_CATS).forEach(id => {
-        specialData[id] = {
+        // [FIX 2026-10-01] Firestore PROHÍBE nombres de campo que empiecen
+        // y terminen con "__" (como "__eventos__") y rechaza TODO el guardado
+        // antes de salir del navegador. Se guarda con otro nombre ("special_eventos").
+        specialData[_specialKeyToFirestore(id)] = {
           label: SPECIAL_CATS[id].label,
           subcategories: SPECIAL_CATS[id].subcategories || {},
           active: SPECIAL_CATS[id].active !== false,
@@ -236,7 +261,7 @@ async function saveCategoriesSettings() {
     return true;
   } catch (err) {
     console.error('No se pudo guardar las categorías:', err);
-    toast('⚠️ No se guardaron las categorías. ¿Iniciaste sesión?');
+    _toastErrorGuardado(err, 'las categorías');
     return false;
   }
 }
@@ -268,7 +293,8 @@ async function loadCategoriesSettings() {
       });
     }
     if (data.specialData && typeof data.specialData === 'object' && typeof SPECIAL_CATS !== 'undefined') {
-      Object.entries(data.specialData).forEach(([id, saved]) => {
+      Object.entries(data.specialData).forEach(([fsKey, saved]) => {
+        const id = _specialKeyFromFirestore(fsKey);
         if (!SPECIAL_CATS[id] || !saved) return;
         if (saved.label) SPECIAL_CATS[id].label = saved.label;
         if (saved.subcategories) SPECIAL_CATS[id].subcategories = saved.subcategories;
