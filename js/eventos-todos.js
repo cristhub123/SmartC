@@ -59,7 +59,7 @@ window.EventosTodos = (function () {
 
   // Estado del buscador — se conserva entre aperturas del panel (volver
   // desde un lugar y encontrar la búsqueda como se dejó).
-  const _estado = { q: '', desde: null, hasta: null };
+  const _estado = { q: '', tags: [], desde: null, hasta: null };  // tags = palabras clave agregadas con el +
   let _root = null;      // contenedor que entrega PoiPanel
   let _els = null;       // referencias a los nodos armados
   let _calendario = null;
@@ -103,7 +103,11 @@ window.EventosTodos = (function () {
     const todos = (typeof EVENTOS !== 'undefined' && Array.isArray(EVENTOS)) ? EVENTOS : [];
     const pines = _mapaDePines();
     const catalogo = _catalogo();
-    const q = _norm(_estado.q);
+    // Búsqueda aditiva: cada palabra clave (las del + y lo que se está
+    // escribiendo) SUMA eventos a la lista. Sin palabras → todos.
+    const terminos = _estado.tags.map(_norm);
+    const qLive = _norm(_estado.q);
+    if (qLive) terminos.push(qLive);
     const conFecha = !!_estado.desde;
 
     const lista = todos.filter(ev => {
@@ -116,7 +120,10 @@ window.EventosTodos = (function () {
         ? (typeof _eventoOcurreEnFecha === 'function' && _eventoOcurreEnFecha(ev, _estado.desde, undefined, _estado.hasta))
         : (typeof _eventoEsVigente === 'function' && _eventoEsVigente(ev));
       if (!entra) return false;
-      if (q && !_textoBuscable(ev, poi, catalogo).includes(q)) return false;
+      if (terminos.length) {
+        const txt = _textoBuscable(ev, poi, catalogo);
+        if (!terminos.some(t => txt.includes(t))) return false;
+      }
       return true;
     });
     // El que antes vence (o antes empieza) va arriba; sin fechas, al final.
@@ -129,13 +136,17 @@ window.EventosTodos = (function () {
     root.innerHTML = `
       <div class="todos-ev">
         <div class="todos-ev__search">
-          <input type="search" class="todos-ev__input" data-role="q" autocomplete="off" enterkeyhint="search">
+          <div class="todos-ev__field">
+            <input type="search" class="todos-ev__input" data-role="q" autocomplete="off" enterkeyhint="search">
+            <button type="button" class="todos-ev__add" data-role="add" disabled>+</button>
+          </div>
           <button type="button" class="todos-ev__cal-btn" data-role="cal-btn" aria-expanded="false">
             <span class="todos-ev__cal-ico">${(typeof LUCIDE !== 'undefined' && LUCIDE.calendar) || '📅'}</span>
             <span class="todos-ev__cal-txt" data-role="cal-txt"></span>
+            <span class="todos-ev__cal-x" data-role="cal-x" role="button" tabindex="0" hidden>✕</span>
           </button>
-          <button type="button" class="todos-ev__cal-x" data-role="cal-x" hidden>✕</button>
         </div>
+        <div class="todos-ev__tags" data-role="tags" hidden></div>
         <div class="todos-ev__cal" data-role="cal" hidden></div>
         <div class="todos-ev__grid" data-role="grid"></div>
         <p class="todos-ev__vacio" data-role="vacio" hidden></p>
@@ -145,6 +156,8 @@ window.EventosTodos = (function () {
       calBtn: root.querySelector('[data-role="cal-btn"]'),
       calTxt: root.querySelector('[data-role="cal-txt"]'),
       calX: root.querySelector('[data-role="cal-x"]'),
+      add: root.querySelector('[data-role="add"]'),
+      tags: root.querySelector('[data-role="tags"]'),
       cal: root.querySelector('[data-role="cal"]'),
       grid: root.querySelector('[data-role="grid"]'),
       vacio: root.querySelector('[data-role="vacio"]'),
@@ -152,12 +165,28 @@ window.EventosTodos = (function () {
 
     _els.q.addEventListener('input', () => {
       _estado.q = _els.q.value;
+      _els.add.disabled = !_els.q.value.trim();
       clearTimeout(_debounce);
       _debounce = setTimeout(_pintarLista, 150);
     });
 
+    _els.add.addEventListener('click', _agregarTag);
+    _els.q.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); _agregarTag(); }
+    });
+    _els.tags.addEventListener('click', (e) => {
+      const x = e.target.closest('[data-tag-x]');
+      if (!x) return;
+      _estado.tags.splice(Number(x.getAttribute('data-tag-x')), 1);
+      _pintarTags();
+      _pintarLista();
+    });
+
     _els.calBtn.addEventListener('click', () => _toggleCalendario());
-    _els.calX.addEventListener('click', () => _aplicarFecha(null, null, true));
+    // La cruz vive DENTRO del botón de fecha: no debe abrir el calendario.
+    const _quitarFecha = (e) => { e.stopPropagation(); e.preventDefault(); _aplicarFecha(null, null, true); };
+    _els.calX.addEventListener('click', _quitarFecha);
+    _els.calX.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') _quitarFecha(e); });
 
     // Calendario propio de la Etapa 14, montado inline (no popover).
     if (window.CalendarioEventos) {
@@ -175,6 +204,28 @@ window.EventosTodos = (function () {
     // lugar" de esa vista (`onVerLugar`, ver _pintarLista) — mismo
     // `abrirLugarDeEvento`, no se reimplementó.
     if (window.EventoCard) EventoCard.bind(_els.grid);
+  }
+
+  /** Convierte lo escrito en una palabra clave (tag) y la suma a la búsqueda. */
+  function _agregarTag() {
+    if (!_els) return;
+    const txt = _els.q.value.trim();
+    if (!txt) return;
+    if (!_estado.tags.some(t => _norm(t) === _norm(txt))) _estado.tags.push(txt);
+    _estado.q = '';
+    _els.q.value = '';
+    _els.add.disabled = true;
+    _pintarTags();
+    _pintarLista();
+    _els.q.focus();
+  }
+
+  function _pintarTags() {
+    if (!_els) return;
+    _els.tags.hidden = _estado.tags.length === 0;
+    _els.tags.innerHTML = _estado.tags.map((t, i) =>
+      `<span class="todos-ev__tag">${_esc(t)}<button type="button" class="todos-ev__tag-x" data-tag-x="${i}" aria-label="${_esc(_t('eventos_fecha_clear_title'))}">✕</button></span>`
+    ).join('');
   }
 
   function _toggleCalendario(forzar) {
@@ -222,7 +273,7 @@ window.EventosTodos = (function () {
           onVerLugar: (e) => { if (e && e.poi_id) abrirLugarDeEvento(e.poi_id); },
         })).join('')
       : '';
-    const filtrando = !!(_estado.q.trim() || _estado.desde);
+    const filtrando = !!(_estado.q.trim() || _estado.tags.length || _estado.desde);
     _els.vacio.hidden = lista.length > 0;
     _els.vacio.textContent = filtrando ? _t('todos_vacio_filtro') : _t('todos_vacio');
     _els.grid.hidden = lista.length === 0;
@@ -239,6 +290,8 @@ window.EventosTodos = (function () {
       _armar(contenedor);
     }
     _els.q.value = _estado.q;
+    _els.add.disabled = !_estado.q.trim();
+    _pintarTags();
     _pintarChrome();
     if (_calendario) _calendario.refresh();
     _pintarLista();

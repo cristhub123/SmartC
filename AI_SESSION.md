@@ -2521,3 +2521,13 @@ Cris pidió que cada tab/ventana tenga una cruz arriba a la derecha para cerrarl
 
 **Pruebas:** `node --check` OK en los 6 JS; llaves de ambos CSS balanceadas. Chromium con los archivos reales (`base.css`, `poi-panel.css`, `i18n.js`, `calendario-eventos.js`, `evento-card.js`, `poi-panel.js`) y stubs de `AppState`/`collapsePin`: cruz del panel → `collapsePin('p1')` llamado y panel cerrado; en "Todos" cierra sin llamar a `collapsePin`; cruz de la vista ampliada cierra solo la vista (el panel sigue abierto); cruz del calendario dispara `onClose`; la cruz de zonas sobrevive a `I18N.apply`. NO probado: con Leaflet/Firebase reales (que el pin realmente se vea minimizado en el mapa), en celular real, ni con el skin `neobrutal-night`.
 
+
+## Sesión: 2026-10-01 — Panel "Todos los eventos": búsqueda aditiva con tags + cruz de fecha dentro del botón
+
+Cris pidió (1) un signo + dentro del campo de búsqueda (alineado a la derecha) que convierta la palabra escrita en un tag; los tags se muestran debajo en UNA sola línea (mismo aspecto que las categorías del pin) con una crucecita chica para quitarlos; (2) que la cruz de la fecha quede integrada en el propio botón de fecha para ocupar menos lugar.
+
+**Criterio de búsqueda:** aditiva (OR) — cada tag SUMA eventos a la lista; lo que se está escribiendo también cuenta en vivo. Sin tags ni texto → todos los vigentes. Enter también agrega el tag (igual que el +). Tags repetidos no se duplican.
+
+**Archivos:** `js/eventos-todos.js` (estado `tags`, `_agregarTag`, `_pintarTags`, `_calcularLista` con OR), `css/poi-panel.css` (`.todos-ev__field/__add/__tags/__tag/__tag-x`, `.todos-ev__cal-x` ahora es un `<span role=button>` dentro del botón), `index.html` (cache-busting `?v=20261001-tags`). Sin claves i18n nuevas (la cruz de cada tag reusa `eventos_fecha_clear_title`).
+
+**Pruebas:** `node --check` OK; llaves del CSS balanceadas. NO probado en navegador real ni en celular.
