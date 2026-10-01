@@ -779,11 +779,23 @@ function updateFilterBar() {
 
   bar.innerHTML = '';
 
-  const mainItemsToShow = openCat ? items.filter(it => it.id === activeFilter) : items;
-  mainItemsToShow.forEach((item, idx) => {
-    const realIdx = items.findIndex(it => it.id === item.id);
-    const btn = _buildMainBtn(item, openCat ? 0 : realIdx * FILTER_SLOT_W, item.id === activeFilter);
+  // [FIX 2026-10-01 — bug "los botones principales desaparecen y no se
+  // pueden recuperar"] Antes, con una categoría abierta, esta función
+  // reconstruía la fila con SOLO el botón de la categoría activa y
+  // BORRABA los demás botones principales del DOM. Pero esta función se
+  // vuelve a llamar sola cada vez que el mapa trae pines nuevos (zoom/
+  // arrastre → drawLoadedPins) o se cambia el idioma. Si eso pasaba con
+  // una categoría abierta, el cierre animado (_animateCloseSubcatRow)
+  // quedaba sin nada que restaurar: "Todo", "Eventos", etc. ya no
+  // existían. Ahora la fila reconstruida queda IGUAL que después de la
+  // animación de apertura: todos los principales en el DOM, y los que no
+  // son la categoría abierta escondidos con .fbtn-exit-down (invisibles
+  // y sin click, tal cual los deja la coreografía).
+  items.forEach((item, realIdx) => {
+    const esLaAbierta = item.id === activeFilter;
+    const btn = _buildMainBtn(item, (openCat && esLaAbierta) ? 0 : realIdx * FILTER_SLOT_W, esLaAbierta);
     btn.dataset.idx = realIdx; // posición "de origen" — la usa el cierre animado para saber a dónde volver
+    if (openCat && !esLaAbierta) btn.classList.add('fbtn-exit-down');
     bar.appendChild(btn);
   });
 
@@ -965,6 +977,11 @@ function _animateCloseSubcatRow(bar, catId) {
     // [FIX 2026-09-07] último paso real de esta coreografía — recién
     // acá desbloquea updateFilterBar() y los clicks nuevos.
     bar.classList.remove('is-animating');
+    // [FIX 2026-10-01] Red de seguridad: si por cualquier motivo faltan
+    // botones principales en el DOM (la fila se reconstruyó a mitad de
+    // camino), no hay nada que "restaurar" — se arma la fila completa
+    // de cero. activeFilter ya vale 'all' acá, así que queda bien.
+    if (mainBtns.length !== _getMainFilterItems().length) updateFilterBar();
   }, subBtns.length * 30 + 250);
 
   activeFilter = 'all';
