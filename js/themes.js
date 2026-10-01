@@ -141,6 +141,21 @@ function _escTema(s) {
        cambiar un orden): al subir a 1-49 queda en true, al bajar a 50+ en
        false. Nunca hay toggles manuales de por medio.
    ═══════════════════════════════════════════════════════════ */
+/* [NUEVO 2026-09-30] Sufijo de una imagen según el NOMBRE DE ARCHIVO de su
+   URL (prefijo_SUFIJO_indice.ext → "SUFIJO"). Las imágenes cargadas desde la
+   grilla del gestor se guardan con clave interna "altN" (no con el sufijo);
+   solo las vinculadas por texto usan el sufijo como clave. Un tema debe
+   encontrar la imagen en AMBOS casos. Un sufijo de tema nunca lleva "_"
+   (ver validateTemaKeyword), por eso alcanza con el 2.º segmento. */
+function _skinSuffixFromUrl(url) {
+  if (typeof url !== 'string' || !url) return null;
+  let file = url.split('#')[0].split('?')[0].split('/').pop() || '';
+  try { file = decodeURIComponent(file); } catch (e) { /* queda como vino */ }
+  file = file.replace(/\.[A-Za-z0-9]+$/, '');
+  const parts = file.split('_');
+  return parts.length >= 2 && parts[1] ? parts[1].toLowerCase() : null;
+}
+
 const THEME_HIDDEN_FROM = 50;   // = SKIN_ORDER_HIDDEN_FROM de utils.js
 const THEME_LAST_VISIBLE = 49;
 
@@ -164,14 +179,21 @@ function planThemeOrders(skins, temas, retire, nightKey) {
   retire.forEach((k) => { if (!byKeyword[k] || byKeyword[k] === undefined) byKeyword[k] = { keyword: k, active: false }; });
   // un keyword retirado que además existe como tema vigente NO se retira
   (temas || []).forEach((t) => { if (t && t.keyword) byKeyword[t.keyword] = t; });
-  Object.keys(byKeyword).forEach((k) => {
-    if (k === 'main' || k === nightKey || !(k in cur)) return;
+  const matchedKeywords = new Set();
+  Object.keys(cur).forEach((v) => {
+    if (v === 'main') return;
+    // 1.º por clave de la imagen (como antes); 2.º por el sufijo del nombre de archivo de su URL
+    const sfx = _skinSuffixFromUrl((skins[v] || {}).url);
+    const k = byKeyword[v] ? v : ((sfx && byKeyword[sfx]) ? sfx : null);
+    if (!k || k === 'main') return;
+    if (v === nightKey || k === nightKey || sfx === nightKey) return;
     const t = byKeyword[k];
+    matchedKeywords.add(k);
     const wantsMap = !!t.showOnMap, wantsEye = !!t.showInEye;
-    if (!t.active || (!wantsMap && !wantsEye)) themed[k] = { kind: 'hide' };
-    else if (wantsMap) themed[k] = { kind: 'show', target: 1 };
-    else if (t.eyePosition === 'last') themed[k] = { kind: 'show', last: true };
-    else themed[k] = { kind: 'show', target: Math.max(2, Number.isInteger(t.eyePosition) ? t.eyePosition : 2) };
+    if (!t.active || (!wantsMap && !wantsEye)) themed[v] = { kind: 'hide' };
+    else if (wantsMap) themed[v] = { kind: 'show', target: 1 };
+    else if (t.eyePosition === 'last') themed[v] = { kind: 'show', last: true };
+    else themed[v] = { kind: 'show', target: Math.max(2, Number.isInteger(t.eyePosition) ? t.eyePosition : 2) };
   });
 
   const occupant = (slot, except) => Object.keys(cur).find((v) => v !== except && cur[v] === slot);
@@ -225,7 +247,7 @@ function planThemeOrders(skins, temas, retire, nightKey) {
 
   if (failed) {
     warnings.push('no hay casilleros libres entre el 1 y el 49 para acomodar la imagen de un tema; este lugar no se tocó.');
-    return { changes: {}, warnings };
+    return { changes: {}, warnings, matched: Array.from(matchedKeywords) };
   }
 
   const changes = {};
@@ -241,7 +263,7 @@ function planThemeOrders(skins, temas, retire, nightKey) {
     }
     if (Object.keys(patch).length) changes[v] = patch;
   });
-  return { changes, warnings };
+  return { changes, warnings, matched: Array.from(matchedKeywords) };
 }
 
 /* Aplica los temas a TODOS los lugares guardados (colección `pines`):
@@ -253,12 +275,14 @@ async function applyThemesToPins({ retire = [] } = {}) {
   const nightKey = (typeof globalSettings !== 'undefined' && globalSettings) ? globalSettings.nightTheme : null;
   const warnings = [];
   const updates = [];
+  const matched = new Set();
   try {
     const snap = await db.collection('pines').get();
     snap.forEach((doc) => {
       const d = doc.data();
       if (!d || !d.name || !d.skins) return;
       const plan = planThemeOrders(d.skins, TEMAS, retire, nightKey);
+      (plan.matched || []).forEach((k) => matched.add(k));
       plan.warnings.forEach((w) => warnings.push(`${d.name}: ${w}`));
       if (Object.keys(plan.changes).length) updates.push({ id: doc.id, changes: plan.changes });
     });
@@ -286,7 +310,9 @@ async function applyThemesToPins({ retire = [] } = {}) {
     try { if (typeof regeneratePublicCache === 'function') await regeneratePublicCache(); } catch (e) { /* no crítico */ }
   }
   _refreshThemesOnMap();
-  return { ok: true, count: updates.length, warnings };
+  // Temas ACTIVOS cuyo sufijo no coincide con ninguna imagen de ningún lugar
+  const unmatched = (TEMAS || []).filter((t) => t && t.active && t.keyword && !matched.has(t.keyword)).map((t) => t.keyword);
+  return { ok: true, count: updates.length, warnings, unmatched };
 }
 
 const _temasRetire = new Set(); // sufijos de temas renombrados/borrados cuyas imágenes hay que bajar al guardar
@@ -586,9 +612,12 @@ window.addEventListener('beforeunload', (e) => {
       const r = await applyThemesToPins({ retire: Array.from(_temasRetire) });
       if (r.ok) {
         _temasRetire.clear();
-        toast(r.count
+        const noMatch = (r.unmatched && r.unmatched.length)
+          ? ` — ⚠️ ninguna imagen de ningún lugar tiene el sufijo ${r.unmatched.map(k => '"' + k + '"').join(', ')} (el archivo debe llamarse prefijo_SUFIJO_01.ext)`
+          : '';
+        toast((r.count
           ? `✅ Temas aplicados: se movieron imágenes en ${r.count} lugar(es)` + (r.warnings.length ? ` — ⚠️ ${r.warnings.length} aviso(s), ver consola` : '')
-          : '✅ Temas aplicados: no hubo nada que mover');
+          : '✅ Temas aplicados: no hubo nada que mover') + noMatch);
       } else {
         toast('⚠️ Los temas se guardaron, pero NO se pudieron aplicar a los lugares. Probá de nuevo (¿sesión de admin?).');
       }
