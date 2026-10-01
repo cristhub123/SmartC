@@ -1,3 +1,36 @@
+# ACLARACIONES_RELEVANTES — Temas por casilleros (2.ª versión, 2026-09-30)
+
+## Qué cambió y por qué
+- **Se sacó el sistema anterior** (el "override" que se calculaba en cada dibujado). Competía con tu regla del 50+ y por eso nada funcionaba. Ahora el tema **mueve imágenes de casillero** y tu regla (1-49 se ve, 50-99 nunca) hace el resto. No hay toggles de por medio.
+- **Se aplica al tocar "Guardar cambios"** de la tab Temas (no al tildar): ahí se recorren TODOS los lugares y se escriben los cambios en Firebase. Tildar solo prepara; hasta guardar no se mueve nada ni se ve nada.
+- **Tema activo + "Miniatura en el mapa":** la imagen con el sufijo va al casillero 1 y se ve como miniatura del mapa y 1ª del ojito; `main` pasa a ser la siguiente. **Tema activo + ojito:** va a la posición elegida (2ª en adelante; las demás se corren solo si el casillero está ocupado). **Tema apagado, borrado o con otro sufijo:** la imagen baja al 50 (o al siguiente libre) y desaparece.
+
+## Decisiones que tomé yo — confirmá o cambialo
+- **`main` no se mueve de verdad:** no tiene número de orden (el 1 es "de la principal"). Para que la imagen del tema pase a ser la principal, la app trata a una imagen con orden 1 que no sea `main` como la primera. En el gestor de imágenes del lugar vas a ver la imagen del tema con el número 1.
+- **`active`:** al subir una imagen de 50+ a 1-49 queda activa, y al bajarla a 50+ queda inactiva. Es lo mismo que hace el gestor del admin cuando cambiás un número; no es un toggle manual.
+- **Guardar también acomoda los temas que nunca activaste:** si una imagen de un tema apagado estaba en 1-49, al guardar baja al 50.
+- **Si borrás un tema o le cambiás el sufijo**, sus imágenes (con el sufijo viejo) bajan al 50 en el siguiente guardado.
+- **El tema de noche automático no se toca nunca.** Tampoco `main`.
+- Con "Miniatura en el mapa" tildada la posición del ojito queda fija en 1ª; sin miniatura, las posiciones empiezan en 2ª (la 1ª es de la principal).
+- El historial de dónde estaba cada imagen **no se guarda**: al apagar un tema va al 50, no vuelve al número que tenía antes.
+
+## Costo
+- Cada "Guardar cambios" lee todos los lugares una vez y escribe solo los que cambian.
+
+---
+
+# ACLARACIONES_RELEVANTES — Orden 50+ bloqueado en OFF (2026-09-30)
+
+## Decisiones que tomé yo — confirmá o cambialo
+- **Umbral ">= 50", sin tope en 99:** el casillero no tiene máximo, así que un 100 o más también queda bloqueado (si no, sería una salida al bloqueo).
+- **Las ya guardadas con orden 50+ y en ON también se bloquean:** al abrir el pin aparecen en OFF y al guardar se graba `active:false`; y en el público ya no se ven aunque el dato viejo diga ON.
+- **Ni los temas la muestran:** una imagen con orden 50+ cuyo sufijo coincide con un tema activo tampoco aparece.
+- **Importación masiva:** asigna órdenes 2, 3, 4…; solo un pin con 49+ imágenes llegaría a 50. "Vincular imágenes" reemplaza el skin entero y pierde su orden: queda sin número (fuera del bloqueo).
+- **Si la movés a un número menor (< 50):** el toggle reaparece y la imagen pasa a ON (visible al público). Corregido según lo que pediste.
+- **Subí el zip completo y recargá con Ctrl+F5:** la regla está en `js/utils.js` (público) y en `js/img-slots.js` (admin), más `js/app-state.js` e `index.html`.
+
+---
+
 # ACLARACIONES_RELEVANTES — Plan Tab Temas, pasos 1 a 4 + corrección (2026-09-30)
 
 ## Corrección (PLAN_TAB_TEMAS_CORRECCION.md) — decisiones que tomé yo, confirmá o cambialo

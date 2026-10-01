@@ -1416,13 +1416,16 @@ campo-05:
         Los archivos de imagen se nombran <code>prefijo_sufijo_indice.ext</code>
         (ej. <code>cabildo-cba_dragones-de-fuego_01.webp</code>). Cada tema tiene
         un <b>sufijo exacto</b> (el texto entre los dos <code>_</code>; solo
-        minúsculas, números y guion medio). Mientras un tema esté <b>activo</b>,
-        los lugares que tengan una imagen con ese sufijo exacto la muestran
-        según lo que tildes acá. Solo 1 tema activo puede tener
-        "Miniatura en el mapa".<br>
-        <b>"Tema activo" es el interruptor maestro:</b> con el tema apagado no
-        pasa nada y las imágenes con ese sufijo <b>no se ven</b> (ni en el mapa
-        ni en el ojito); con el tema activo se aplican las opciones tildadas.
+        minúsculas, números y guion medio).<br>
+        <b>Cómo funciona:</b> un tema no prende ni apaga imágenes, las
+        <b>mueve de casillero</b> en el "Orden de exhibición" de cada lugar
+        (del 1 al 49 se ven; del 50 al 99 quedan siempre ocultas). Al tocar
+        <b>"Guardar cambios"</b>, todos los lugares se actualizan:
+        con el tema <b>activo</b>, la imagen con ese sufijo sube al casillero 1
+        (si tildás "Miniatura en el mapa") o a la posición elegida del ojito, y
+        las demás se corren solo si hace falta; con el tema <b>apagado</b> (o
+        borrado), la imagen baja al casillero 50 y desaparece. Solo 1 tema
+        activo puede tener "Miniatura en el mapa".
       </p>
       <div class="fg" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px">
         <input class="fi" id="tema-new-name" type="text" placeholder="Nombre del tema nuevo (ej: ataque-dragones)" style="width:100%">
@@ -2061,7 +2064,7 @@ campo-05:
   <script src="js/firestore-sync.js?v=20260829" defer></script>
 
   <!-- Módulo de Estado Centralizado (Central Store) -->
-  <script src="js/app-state.js?v=20260829" defer></script>
+  <script src="js/app-state.js?v=20260930d" defer></script>
   <script src="js/lang-switcher.js?v=20260829" defer></script>
   <script src="js/i18n.js?v=20260930" defer></script>
   <!-- [DESCONECTADO 2026-08-13 — smartcityV3.0_fix-mapa-pines. NO BORRAR ESTA NOTA
@@ -2085,7 +2088,7 @@ campo-05:
 
   <!-- 3. Core marker logic -->
   <script src="js/pin-visibility.js?v=20260928" defer></script>
-  <script src="js/markers.js?v=20260930c" defer></script>
+  <script src="js/markers.js?v=20260930e" defer></script>
   <script src="js/pins-viewport-loader.js?v=20260829" defer></script>
   <script src="js/cluster-grouping.js?v=20260829" defer></script>
   <script src="js/evento-card.js?v=20260930" defer></script>
@@ -2110,13 +2113,13 @@ campo-05:
 
   <!-- 5. Utilities -->
   <script src="js/cloudinary-admin.js?v=20260829" defer></script>
-  <script src="js/utils.js?v=20260930c" defer></script>
-  <script src="js/img-slots.js?v=20260829" defer></script>
+  <script src="js/utils.js?v=20260930e" defer></script>
+  <script src="js/img-slots.js?v=20260930d" defer></script>
   <script src="js/geocoder.js?v=20260831" defer></script>
 
   <!-- 6. Admin sub-panels (use registerTabPlugin) -->
   <script src="js/admin-global.js?v=20260917" defer></script>
-  <script src="js/themes.js?v=20260930c" defer></script>
+  <script src="js/themes.js?v=20260930e" defer></script>
   <script src="js/typography.js?v=20260928" defer></script>
   <script src="js/skins.js?v=20260831" defer></script>
   <script src="js/cities.js?v=20260926" defer></script>

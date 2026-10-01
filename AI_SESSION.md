@@ -2433,3 +2433,30 @@ Leídos `AI_RULES.md` y la cadena `getThemeOverrideForPoi` → `getActiveSkinLis
 
 **Pendiente de confirmar por Cris:** subir el zip integrado completo + Ctrl+F5; ver el aviso verde en la tab Temas; tema apagado = imagen `piedra` invisible; activo = miniatura y posición correctas.
 
+
+## 2026-09-30 — Imágenes con orden 50+ bloqueadas en OFF (sin toggle, sin excepción)
+
+Cris pidió que toda imagen con número de "Orden de exhibición" entre 50 y 99 quede invisible al público SIN posibilidad de encenderla: sin toggle on/off y sin que el sistema pueda mostrarla, mientras conserve ese número. Reemplaza la versión anterior de esta misma sesión ("OFF por defecto", con toggle).
+
+**Regla única:** `isSkinHiddenByOrder(name, skin)` + `SKIN_ORDER_HIDDEN_FROM = 50` en `js/utils.js` (orden numérico >= 50; "main" exceptuada). Se aplica en:
+- `js/utils.js`: `getActiveSkinList` (ojito/panel), `buildImageFallbackChain` (miniatura del mapa, tema de noche y respaldo final) y `getThemeOverrideForPoi` (un tema activo tampoco puede mostrarla).
+- `js/app-state.js`: `toggleSkinStatus` rechaza activarla y `getEffectiveSkin` la ignora.
+- `js/img-slots.js` (admin): con orden >= 50 la fila "Imagen activa" se oculta (aparece un aviso), el estado se fuerza a false, al guardar siempre sale `active:false`, y aplica también al precargar pines ya guardados. Si se la mueve a un número menor (< 50), el toggle reaparece y la imagen pasa a ON (visible) — corrección pedida por Cris: antes quedaba en OFF. Se detecta con `state.wasLocked` en `_applyDefaultOff`; también aplica al intercambio por conflicto y al vaciar el slot.
+- `index.html`: cache-busting `?v=20260930d` para utils.js, img-slots.js y app-state.js.
+
+**Pruebas:** `node --check` de los 3 JS + pruebas con jsdom (admin: precarga de una guardada en ON con orden 60 → OFF y sin toggle; tipear 75 la bloquea; clic en toggle oculto no enciende; volver a 4 muestra el toggle en OFF; swap; público: ojito, mapa y panel no muestran orden 50+, ni siquiera con un tema activo con ese sufijo). NO probado con Firebase real ni navegador.
+
+## 2026-09-30 — Temas por casilleros (2.ª versión): el tema mueve imágenes de orden, sin override
+
+Partió del proyecto de Cris del 10:47 (que ya traía la regla "orden 50+ = siempre invisible, ni por tema" en `utils.js`/`img-slots.js`/`app-state.js`). Esa regla chocaba con el override en tiempo de dibujado de la corrección anterior (una imagen en 50+ no se mostraba aunque el tema estuviera activo); Cris pidió que el tema solo MUEVA imágenes de casillero.
+
+**Qué se hizo**
+- `js/utils.js`: se eliminó `getThemeOverrideForPoi` (y `governed`); `getActiveSkinList` volvió a la lista por orden (sin 50+, sin `active:false`); `_orderedSkinNames` pone primero una imagen no-`main` con `order===1` (`_principalSkinKey`, `getPrincipalThemeSkinKey`); `buildImageFallbackChain` ya no usa override (solo la excepción del tema de noche con `mapPriorityNight`). `THEME_ENGINE_VERSION = 4`.
+- `js/markers.js`: `resolvePinImageCandidates` usa `getPrincipalThemeSkinKey`; `THEME_MARKERS_VERSION = 4`.
+- `js/themes.js`: `planThemeOrders` (pura, idempotente), `applyThemesToPins` (lee `pines`, escribe `skins` por merge en tandas, actualiza POIS/caché/mapa), `_temasRetire` (sufijos renombrados/borrados), el botón Guardar aplica a los lugares; se quitó la vista previa en memoria; posiciones desde 2ª y fija en 1ª con miniatura.
+- `index.html`: texto de la tab y cache-busting `?v=20260930e` (themes/utils/markers). `AI_RULES.md` 14.8 reescrito.
+
+**Pruebas:** `node --check` OK. Node: 28 comprobaciones del planificador y la lectura (subir al 1, cascada solo con ocupantes, hueco que frena la cascada, 50 ocupado → 51, "último", 2 temas con el mismo destino y 2 "último" estables, tema borrado/renombrado, noche y `main` intactos, 1-49 llenos, `active` al cruzar el 50, idempotencia, entrada sin mutar). Chromium real (Playwright, HTML real de la tab + archivos finales + Firestore simulado): 21 comprobaciones — activar con miniatura y guardar (solo se escriben los lugares afectados; el mapa y el ojito muestran la imagen del tema), apagar y guardar (baja al 50 y todo vuelve a la normalidad), posición 2 con cascada, borrar tema activo, tema nuevo y renombrar sufijo, sin scroll lateral en 390 px. NO probado con Firebase/Cloudinary reales ni con el gestor de imágenes del admin tras un `order:1` en una imagen no principal.
+
+**Pendiente de confirmar por Cris:** probar con el lugar real (activar con miniatura → Guardar; ver el mapa y el ojito; apagar → Guardar).
+
