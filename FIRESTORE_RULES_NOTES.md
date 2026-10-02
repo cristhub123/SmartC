@@ -184,6 +184,12 @@ service cloud.firestore {
     //     campos de contenido del evento — nunca `poi_id`, `city`,
     //     `activo`, `creadorUid`/`usuarioAsignadoUid` ni subir el
     //     contador (eso es admin-only, ya cubierto por `allow write`).
+    //   - [2026-10-01, PLAN_HORARIOS_ESTRUCTURADOS_EVENTOS.txt] se sumó
+    //     `horarios` (array de filas {desde, hasta, abre, cierra}) a la lista
+    //     de campos permitidos de la edición por autoservicio. SIN volver a
+    //     pegar este bloque en la consola, un usuario común que edite su
+    //     evento recibe error de permisos al guardar. El alta (`create`) no
+    //     lista campos, no necesita cambio; el admin tampoco.
     //   - [Etapa 11, 27/09] la lista de campos permitidos se corrigió:
     //     estaba desactualizada (le faltaban horario, entradaGratis,
     //     valorEntrada, direccion, tags, contacto*) y se sumó `imagenUrl`
@@ -205,7 +211,7 @@ service cloud.firestore {
                    && request.resource.data.cambiosRestantes == resource.data.cambiosRestantes - 1
                    && request.resource.data.diff(resource.data).affectedKeys()
                         .hasOnly(['nombre', 'nombreSlug', 'descripcion', 'categoria',
-                                  'fecha_inicio', 'fecha_fin', 'horario',
+                                  'fecha_inicio', 'fecha_fin', 'horario', 'horarios',
                                   'entradaGratis', 'valorEntrada', 'direccion', 'tags',
                                   'contactoEmail', 'contactoRedSocial', 'contactoTelefono',
                                   'contactoWeb', 'imagenUrl', 'cambiosRestantes']);

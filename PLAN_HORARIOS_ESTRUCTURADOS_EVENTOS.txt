@@ -1,0 +1,249 @@
+PLAN_HORARIOS_ESTRUCTURADOS_EVENTOS.txt
+Proyecto: SmartCity (SmartC-V4_0) - fecha del plan: 2026-10-01
+Estado: IMPLEMENTADO (2026-10-01) con las opciones propuestas en la seccion 9.
+Cambio respecto del plan: una fila a medio completar (ej. solo 1 hora) NO deja guardar y avisa;
+una fila completa sin apretar OK se incluye sola. Detalle en ACLARACIONES_RELEVANTES.md.
+Estimacion: 3 a 4 horas, 1 sola entrega, riesgo bajo.
+
+======================================================================
+1. QUE SE PIDIO (resumen fiel)
+======================================================================
+- Al crear/editar un evento, el horario NO se escribe mas en texto libre.
+  El cuadro de texto libre "Horario" actual queda INACTIVO.
+- El organizador carga el horario con un sistema de FILAS. Cada fila:
+      [dia desde]  [dia hasta]  [hora desde]  [hora hasta]  [OK]
+  y un boton "+" para agregar otra fila.
+- Los 2 selectores de dia tienen los 7 dias de la semana.
+- Se puede combinar como se quiera. Ejemplo:
+      lun-mie  15:00-20:00
+      jue      18:00-21:00
+      vie-dom  16:00-22:00
+- Si el organizador carga SOLO horas, sin dias, es 1 unico rango horario
+  para todos los dias del evento.
+- Si dos filas se pisan (dias u horarios), mientras se carga aparece una
+  ADVERTENCIA en texto rojo arriba o abajo del bloque. NO es restrictiva:
+  si el organizador quiere seguir, puede guardar igual.
+- Objetivo de fondo: formato siempre igual (sin letras ni formatos raros)
+  para que la pagina lo traduzca en vivo al cambiar de idioma. Los nombres
+  de los dias deben estar en los 3 idiomas (es / en / pt).
+
+Aclaracion de Cris (02/10): el horario es SOLO un visualizador para quien
+mira la tarjeta del evento. No tiene que ser super exacto. Usarlo para
+el vencimiento del evento seria "buena idea pero no necesario".
+
+======================================================================
+2. QUE NO SE TOCA (a proposito, para mantenerlo simple)
+======================================================================
+- Fechas de inicio y fin: siguen exactamente como estan hoy
+  (datetime-local). No se pasan a "solo dia".
+- Vencimiento del evento (_eventoEsVigente en js/eventos.js): sin cambios.
+  No depende del horario nuevo.
+- El badge verde/rojo de la tarjeta ("ocurre hoy") sigue calculandose
+  solo con fechas, no con las filas de horario.
+- No se migran los eventos ya guardados con horario en texto (son de prueba).
+
+======================================================================
+3. COMO SE GUARDA (modelo de datos)
+======================================================================
+Campo NUEVO en cada documento de la coleccion `eventos`:
+
+  horarios: [
+    { desde: 'lun', hasta: 'mie', abre: '15:00', cierra: '20:00' },
+    { desde: 'jue', hasta: null,  abre: '18:00', cierra: '21:00' },
+    { desde: 'vie', hasta: 'dom', abre: '16:00', cierra: '22:00' }
+  ]
+
+- Claves de dia (siempre las mismas, sin tildes, nunca traducidas):
+  lun, mar, mie, jue, vie, sab, dom.
+- `hasta: null` = dia suelto (ej. solo "jue").
+- `desde: null` y `hasta: null` = fila SIN dias = vale para todos los
+  dias del evento.
+- Horas en formato 24 h "HH:MM", siempre.
+- Se permite rango que "da la vuelta" (vie -> lun) y horas que cruzan
+  medianoche (22:00 -> 02:00). No son error.
+- Sin limite de filas.
+
+Campo viejo `horario` (texto):
+- Se mantiene en los documentos viejos y se sigue mostrando tal cual
+  (sin traducir) si el evento NO tiene `horarios`.
+- Cuando un evento se guarda con `horarios` cargados, `horario` se
+  guarda como '' (vacio) para que la tarjeta use solo el sistema nuevo.
+- `horario` ya esta en la lista permitida de las reglas de Firestore,
+  asi que escribirlo vacio no requiere cambios por ese lado.
+
+======================================================================
+4. COMO SE MUESTRA (traduccion en vivo)
+======================================================================
+El texto NO se guarda traducido: se ARMA al dibujar la tarjeta, con el
+idioma activo, a partir de los datos guardados.
+
+  Espanol:   Lun a Mie · 15:00-20:00
+             Jue · 18:00-21:00
+             Vie a Dom · 16:00-22:00
+  Ingles:    Mon to Wed · 15:00-20:00 / Thu · ... / Fri to Sun · ...
+  Portugues: Seg a Qua · 15:00-20:00 / Qui · ... / Sex a Dom · ...
+
+- El conector "a"/"to" reutiliza la clave existente `evt_rango_a`
+  (es "a", en "to", pt "a").
+- Fila sin dias: se muestra solo el rango de horas, ej. "15:00-20:00".
+- Cada fila se muestra como un recuadro (mismo estilo negro actual del
+  horario en la tarjeta).
+- Al cambiar de idioma la tarjeta se redibuja y cambia sola, igual que
+  el resto de textos de la tarjeta.
+
+Nombres de dia (se agregan a js/i18n.js, 3 idiomas):
+  es: Lun Mar Mie(con tilde) Jue Vie Sab(con tilde) Dom
+  en: Mon Tue Wed Thu Fri Sat Sun
+  pt: Seg Ter Qua Qui Sex Sab(con tilde) Dom
+
+======================================================================
+5. FORMULARIO (los 2: admin `evt-` y usuario `up-evt-`)
+======================================================================
+Se implementa UNA vez en js/eventos-form-shared.js (modulo
+EventosFormCommon, ya compartido por los 2 formularios) y los 2 paneles
+lo usan pasando solo su prefijo de ids.
+
+Comportamiento:
+1. Bloque "Horarios" que reemplaza al input de texto actual.
+   El input de texto viejo queda inactivo (disabled/oculto); no se borra
+   del HTML para no romper referencias, pero nadie puede escribir ahi.
+2. Una fila de edicion: 2 selectores de dia + 2 selectores de hora + OK.
+3. Al apretar OK la fila pasa a ser una "etiqueta" confirmada (ej.
+   "Lun a Mie · 15:00-20:00") con botones para editar y borrar.
+4. Boton "+" abre una fila nueva de edicion.
+5. Solo validacion obligatoria dentro de una fila:
+   - las 2 horas son obligatorias;
+   - si se elige "dia desde" puede dejarse "dia hasta" vacio (dia suelto);
+   - no se puede elegir "dia hasta" sin "dia desde".
+6. Para poder guardar el evento: al menos 1 fila confirmada
+   (reemplaza al "Completa el horario del evento" actual).
+7. Una fila completa que quedo sin apretar OK al guardar: se incluye
+   automaticamente (decision a confirmar, ver seccion 9).
+
+Selector de hora:
+- Se usa el selector nativo del dispositivo (input type="time").
+- Siempre se guarda en 24 h. Algunos celulares/PC lo muestran con AM/PM
+  mientras se elige; la tarjeta publica siempre muestra 24 h.
+
+======================================================================
+6. ADVERTENCIA DE SUPERPOSICION (no restrictiva)
+======================================================================
+- Se calcula en vivo, cada vez que se confirma, edita o borra una fila.
+- Se muestra en texto ROJO, debajo del bloque de horarios.
+- NUNCA bloquea el guardado: es solo un aviso.
+
+Cuando avisa:
+  a) Dos filas comparten al menos 1 dia.
+     Mensaje base: "Hay dias que aparecen en mas de una fila: <dias>."
+     Si ademas las horas de esas filas se pisan:
+     "...y los horarios tambien se superponen."
+     (Si es horario cortado, ej. 10-13 y 16-20 el mismo dia, el aviso
+     aparece igual y el organizador puede ignorarlo.)
+  b) Hay una fila SIN dias (vale para todos) y ademas otras filas:
+     "Una fila sin dias vale para todos los dias y se superpone con las
+     demas."
+- Rangos que dan la vuelta (vie -> lun) se interpretan circularmente
+  al comparar.
+- Mensajes con claves i18n en es / en / pt.
+- NO se valida que falten dias (ej. evento vie-dom con solo lun-vie
+  cargado): se muestra tal cual, el horario es informativo.
+
+======================================================================
+7. ARCHIVOS A TOCAR (estructura de carpetas igual a la app real)
+======================================================================
+  index.html                  - reemplaza el input de texto "Horario" por
+                                el contenedor del bloque nuevo en los 2
+                                formularios (evt- y up-evt-); cache-busting
+  js/eventos-form-shared.js   - editor de filas, lectura/precarga/limpieza
+                                (readCamposComunes / precargarCamposComunes /
+                                resetCamposComunes), deteccion de
+                                superposicion, formateador de texto por idioma
+  js/eventos.js               - validacion (_evtValidateComunes: pasa de
+                                "horario texto" a "al menos 1 fila"), objeto
+                                que se guarda (campo `horarios`), lista admin
+                                (linea de resumen usa el formateador)
+  js/user-panel.js            - objeto que se guarda y lista "Mis eventos"
+                                (mismo cambio que eventos.js)
+  js/evento-card.js           - _badges: usa `horarios` si existe; si no,
+                                cae al texto viejo `horario`
+  js/eventos-todos.js         - el buscador indexa tambien el texto del
+                                horario armado en el idioma activo
+  js/i18n.js                  - claves nuevas (dias, etiquetas, botones,
+                                avisos) en es / en / pt
+  css/base.css (o css/poi-panel.css segun donde vivan los estilos del
+  formulario) - estilos de filas, etiquetas y aviso rojo
+  FIRESTORE_RULES_NOTES.md    - agregar 'horarios' a la lista hasOnly del
+                                update de usuario sobre `eventos`
+  AI_RULES.md, AI_SESSION.md, ACLARACIONES_RELEVANTES.md - documentacion
+  de la entrega
+
+No se agregan archivos JS nuevos.
+
+======================================================================
+8. UNICA ACCION MANUAL DE CRIS EN FIREBASE
+======================================================================
+Las reglas de Firestore (se gestionan a mano en la consola, no estan en
+el repo) limitan con hasOnly([...]) que campos puede escribir un usuario
+comun al editar un evento. Hay que SUMAR 'horarios' a esa lista:
+
+   .hasOnly(['nombre', 'nombreSlug', 'descripcion', 'categoria',
+             'fecha_inicio', 'fecha_fin', 'horario', 'horarios',
+             'entradaGratis', 'valorEntrada', 'direccion', 'tags',
+             'contactoEmail', 'contactoRedSocial', 'contactoTelefono',
+             'contactoWeb', 'imagenUrl', 'cambiosRestantes'])
+
+Si no se actualiza, el admin puede guardar igual, pero un usuario comun
+NO podria guardar eventos con el horario nuevo. Queda escrito en
+FIRESTORE_RULES_NOTES.md. Revisar tambien la regla de creacion (create)
+de eventos de usuario por si lista campos permitidos.
+
+======================================================================
+9. DECISIONES A CONFIRMAR ANTES DE ARRANCAR
+======================================================================
+ 1. Selector de hora nativo del dispositivo (input type="time").
+    Alternativa: 2 desplegables propios (hora + minutos) para forzar 24 h
+    siempre; suma ~1 h.
+ 2. Una fila completa sin apretar OK al guardar: se incluye sola
+    (propuesto) o se avisa y no se guarda hasta apretar OK.
+ 3. La advertencia por dia compartido tambien avisa en el caso de
+    horario cortado (10-13 y 16-20 el mismo dia). Propuesto: si, avisa
+    igual, y como es solo advertencia se ignora.
+ 4. Al guardar con `horarios`, el texto viejo `horario` se guarda vacio
+    (propuesto).
+
+======================================================================
+10. ESTIMACION DE HORAS
+======================================================================
+  Editor de filas + OK/+ + etiquetas editables (shared)      1,0 h
+  Lectura / precarga / limpieza / validacion en 2 formularios 0,75 h
+  Advertencia de superposicion (logica + texto rojo)          0,5 h
+  Formateador traducido + tarjeta + listas + buscador         0,5 h
+  i18n (dias, etiquetas, avisos) x 3 idiomas                  0,25 h
+  CSS + prueba (node --check + arnes en navegador/jsdom)      0,5-1 h
+  Docs + reglas Firestore + ACLARACIONES                      0,25 h
+  TOTAL                                                       3 a 4 h
+
+Riesgo: bajo. Los 2 formularios ya comparten eventos-form-shared.js, asi
+que el grueso del cambio vive en un solo lugar. El punto mas delicado es
+que las listas y la tarjeta sigan mostrando bien los eventos viejos
+(texto) junto a los nuevos (filas).
+
+======================================================================
+11. PRUEBAS PREVISTAS Y LIMITES
+======================================================================
+- node --check en cada JS tocado.
+- Arnes con los archivos reales: cargar filas, OK, +, editar, borrar;
+  evento con solo horas (sin dias); dia suelto; rango que da la vuelta;
+  advertencias (dia compartido, horas pisadas, fila sin dias + otras);
+  cambio de idioma es/en/pt redibuja la tarjeta; evento viejo con texto
+  sigue visible; precarga al editar un evento nuevo y uno viejo.
+- NO se podra probar: Firebase real, reglas de Firestore, celular real
+  (selector de hora nativo).
+
+======================================================================
+12. QUEDA FUERA (posible mejora posterior)
+======================================================================
+- Que la tarjeta marque "no ocurre hoy" segun los dias de cada fila.
+- Usar el horario para el vencimiento del evento.
+- Avisar cuando faltan dias dentro del rango de fechas del evento.
+- Calendario propio en vez del nativo para las fechas.

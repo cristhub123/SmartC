@@ -679,6 +679,31 @@ Tocar la tarjeta abre `EventoCard.openDetail(ev, opts, host)`: vista ampliada qu
 
 **Gotchas:** (1) `data-i18n` reemplaza el TEXTO del elemento que lo lleva — un botón hijo se borra; por eso en `.zd-header` el rótulo va en un `<span data-i18n>` aparte. (2) El calendario (`js/calendario-eventos.js`) repinta su `innerHTML`: la cruz va DENTRO de ese render y solo aparece si quien lo monta pasa `onClose` (hoy solo el popover del filtro; el calendario inline de "Todos" no la lleva porque vive dentro del panel, que ya tiene la suya). (3) El selector de idioma de i18n usa la clave existente `cerrar` / `pp_close_title`: no se agregaron claves.
 
+## 14.10 Horarios estructurados del evento (2026-10-01, PLAN_HORARIOS_ESTRUCTURADOS_EVENTOS.txt)
+
+El horario de un evento ya NO es texto libre. Campo nuevo `horarios` en
+`eventos/{id}`: `[{ desde, hasta, abre, cierra }]` — `desde`/`hasta` son
+claves de día FIJAS (`lun mar mie jue vie sab dom`, nunca traducidas;
+`hasta:null` = día suelto; `desde:null` = sin días = todos los días del
+evento), `abre`/`cierra` en 24 h `"HH:MM"`. El texto lo ARMA
+`EventoCard.horarioLineas(ev)` / `horarioFilaTexto(h)` (js/evento-card.js,
+única fuente de verdad) con `I18N.t('hor_d_<dia>')` + `evt_rango_a`, así
+cambia solo al cambiar de idioma. Evento viejo con solo `horario` (texto):
+se muestra tal cual, sin traducir. Al guardar con `horarios`, `horario` se
+guarda `''`. El `<input id="evt-horario"/"up-evt-horario">` quedó oculto y
+deshabilitado (no se lee).
+
+El editor vive UNA vez en `js/eventos-form-shared.js` (`wireHorarios`,
+`getHorarios`, `setHorarios`, `resetHorarios`, `analizarSolapes`) y se
+engancha a `#evt-horarios-wrap` / `#up-evt-horarios-wrap`. `readCamposComunes`
+devuelve `horarios` + `horariosIncompleto`; `validateComunes` exige ≥1 fila y
+rechaza una fila a medio completar. Una fila completa sin apretar OK se
+incluye sola al guardar. La advertencia de superposición (texto rojo) NO
+bloquea. `formatEventoResumen` devuelve además `horarioTxt` (listas admin/usuario).
+Las fechas y el vencimiento (`_eventoEsVigente`) NO se tocaron. Reglas de
+Firestore: hay que sumar `'horarios'` al `hasOnly` de la edición de usuario
+(ver `FIRESTORE_RULES_NOTES.md`).
+
 ## 15. Ver también
 
 `AI_SESSION.md` — memoria de trabajo temporal de la sesión actual (qué se

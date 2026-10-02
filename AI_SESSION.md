@@ -2555,3 +2555,12 @@ Cris pidió (1) un signo + dentro del campo de búsqueda (alineado a la derecha)
 **Cambios:** (1) css/poi-panel.css: `.poi-panel__tabs-row[hidden] { display:none; }`. (2) js/poi-panel.js `_renderEventosTab`: además de `hidden`, `els.tabsRow.style.display = hayEventos ? '' : 'none'` (doble seguro). (3) cache-busting de ambos en index.html (`?v=20261001-tabsfix`).
 **Criterio de "evento visible al público" (sin cambios):** `activo === true` y (sin fecha_fin o fecha_fin futura); con filtro Eventos + fecha elegida, también los que ocurren ese día. No existe otro filtro por `estado` en el código público.
 **Pruebas:** `node --check` OK. NO probado en navegador real (no hay uno en el entorno; jsdom no reproduce bien la cascada CSS). Pendiente que Cris confirme: lugar sin eventos → no aparece la fila Info/Eventos; lugar con eventos → aparece.
+
+## 2026-10-01 — Horarios del evento por filas (días + horas), traducibles
+
+Cris pidió reemplazar el cuadro de texto libre "Horario" por un sistema de filas (día desde / día hasta / hora desde / hora hasta / OK, con "+" para otra fila) en los 2 formularios de evento, para que el horario se muestre traducido (es/en/pt) en la tarjeta. Plan: `PLAN_HORARIOS_ESTRUCTURADOS_EVENTOS.txt`. Aclaró que el horario es solo visual (no tiene que ser exacto) y que la advertencia de superposición debe ser roja y NO restrictiva.
+
+**Cambios:** `js/eventos-form-shared.js` (editor compartido + solapes + `horarioTxt` en `formatEventoResumen`), `js/evento-card.js` (`horarioLineas`/`horarioFilaTexto`; `_badges` dibuja 1 recuadro por fila), `js/eventos.js` y `js/user-panel.js` (validación, campo `horarios` al guardar, lista), `js/eventos-todos.js` (el buscador indexa el horario armado), `js/i18n.js` (días + textos, 3 idiomas), `index.html` (bloque en ambos forms + cache-busting `?v=20261001-horarios`), `css/base.css` (`.hor-*`), `FIRESTORE_RULES_NOTES.md` (`horarios` en `hasOnly`). CRLF respetado en `eventos.js`/`user-panel.js`. Sin archivos JS nuevos; fechas y vencimiento sin cambios.
+
+**Pruebas:** `node --check` OK en los 6 JS; arnés jsdom con `i18n.js`/`evento-card.js`/`eventos-form-shared.js` reales: filas lun-mié/jue/vie-dom, día suelto, solo horas, traducción en vivo es/en/pt (chips y tarjeta), editar/borrar, avisos (días compartidos, horas pisadas, fila sin días + otras, vuelta vie→lun y medianoche), fila incompleta, evento viejo (texto) y precarga. NO probado: navegador real/celular (selector de hora nativo, estilos), Firebase real ni reglas de Firestore.
+

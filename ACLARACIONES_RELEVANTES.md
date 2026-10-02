@@ -1,3 +1,26 @@
+# ACLARACIONES_RELEVANTES — entrega 2026-10-01 (horarios del evento por filas)
+
+## Acción tuya en Firebase (obligatoria para usuarios comunes)
+Pegá de nuevo en la consola el bloque de `eventos` de `FIRESTORE_RULES_NOTES.md`: se sumó `'horarios'` al `hasOnly` de la edición por autoservicio. Sin eso, un usuario común no puede guardar el horario nuevo al EDITAR su evento (el admin sí). El alta (`create`) no cambia.
+
+## Decisiones que tomé yo — confirmá o cambialas
+- **Selector de hora nativo** (`type="time"`): se guarda siempre en 24 h, pero algunos celulares/PC lo muestran con AM/PM al elegir. La tarjeta siempre muestra 24 h. Alternativa (2 desplegables propios, ~1 h más) si no te gusta.
+- **Fila completa sin apretar OK** al guardar: se incluye sola. **Fila a medio completar** (ej. solo una hora): NO deja guardar y avisa (esto es una validación que agregué sobre el plan para no perder datos en silencio).
+- **Aviso rojo** (no bloquea): se muestra si 2 filas comparten algún día (también en horario cortado, ej. 10-13 y 16-20 el mismo día; ahí lo podés ignorar) o si hay una fila sin días junto a otras. Si además se pisan las horas, lo dice.
+- **Al guardar con filas**, el texto viejo `horario` queda vacío. Eventos viejos con texto siguen mostrándose tal cual (sin traducir); al editarlos aparece "Horario anterior" y hay que cargar las filas nuevas (es obligatorio ≥1 fila).
+- **Panel admin:** el título "Horarios *" no se traduce (como el resto de ese formulario), pero los desplegables, botones, avisos y etiquetas sí siguen el idioma activo.
+- **Sin tocar:** fechas de inicio/fin, vencimiento del evento y el verde/rojo de la tarjeta (se calculan solo con fechas).
+
+## Sin probar en real
+Probado en jsdom con los archivos reales; NO en navegador/celular (estilos de la fila de edición, selector de hora), ni con Firebase real.
+
+## Cache-busting
+`?v=20261001-horarios` en `base.css`, `i18n.js`, `evento-card.js`, `eventos-form-shared.js`, `eventos.js`, `user-panel.js`, `eventos-todos.js`.
+
+---
+
+# (entrega anterior)
+
 # ACLARACIONES_RELEVANTES — entrega 2026-10-01 (cruces de cierre en cada ventana)
 
 ## Qué ventanas tienen cruz ahora
