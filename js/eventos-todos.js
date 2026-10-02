@@ -93,7 +93,8 @@ window.EventosTodos = (function () {
   function _textoBuscable(ev, poi, catalogo) {
     const tags = (ev.tags || []).map(id => (catalogo.find(c => c.id === id) || {}).label || id);
     return _norm([
-      ev.nombre, ev.descripcion, ev.direccion, ev.horario,
+      ev.nombre, ev.descripcion, ev.direccion,
+      (window.EventoCard && EventoCard.horarioLineas ? EventoCard.horarioLineas(ev).join(' ') : ev.horario),
       poi && poi.name, tags.join(' '),
     ].filter(Boolean).join(' '));
   }

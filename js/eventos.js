@@ -244,7 +244,9 @@ function _evtResolveDireccionFinal(idPrefix, camino, pinId) {
    ═══════════════════════════════════════════════════════════ */
 function _evtValidateComunes(data) {
   if (!data.fecha_inicio || !data.fecha_fin) return '⚠️ Completá la fecha de inicio y la fecha de fin del evento';
-  if (!data.horario) return '⚠️ Completá el horario del evento';
+  // [2026-10-01] horario por filas (EventosFormCommon): al menos 1 fila; nada a medio completar.
+  if (data.horariosIncompleto) return '⚠️ Hay un horario sin terminar — completá las 2 horas y apretá OK, o borrá esa fila';
+  if (!Array.isArray(data.horarios) || !data.horarios.length) return '⚠️ Cargá al menos un horario del evento (hora desde y hora hasta, y apretá OK)';
   if (!data.direccion) return '⚠️ Falta la dirección del evento';
   if (!data.contactoEmail && !data.contactoRedSocial && !data.contactoTelefono && !data.contactoWeb) {
     return '⚠️ Completá al menos 1 dato de contacto (mail, red social, teléfono o página web)';
@@ -711,7 +713,7 @@ async function saveEvento() {
   // campos exclusivos del admin (activo/asignado/destacado/ciudad/
   // cambios) se siguen leyendo acá mismo, aparte.
   const comunes = EventosFormCommon.readCamposComunes('evt-');
-  const { nombre, descripcion, fecha_inicio, fecha_fin, horario, entradaGratis, valorEntrada,
+  const { nombre, descripcion, fecha_inicio, fecha_fin, horario, horarios, horariosIncompleto, entradaGratis, valorEntrada,
           contactoEmail, contactoRedSocial, contactoTelefono, contactoWeb, tags } = comunes;
   if (!nombre) { toast('⚠️ Ingresá el nombre del evento'); return; }
 
@@ -722,7 +724,7 @@ async function saveEvento() {
 
   const direccion = _evtResolveDireccionFinal('evt-', _evtCamino, _evtSelectedPinId);
  
-  const errComun = _evtValidateComunes({ fecha_inicio, fecha_fin, horario, direccion, contactoEmail, contactoRedSocial, contactoTelefono, contactoWeb, tags });
+  const errComun = _evtValidateComunes({ fecha_inicio, fecha_fin, horarios, horariosIncompleto, direccion, contactoEmail, contactoRedSocial, contactoTelefono, contactoWeb, tags });
   if (errComun) { if (errEl) errEl.textContent = errComun; return; }
  
   const originalBtnText = editando ? '💾 Guardar cambios' : '✓ Crear evento';
@@ -791,7 +793,7 @@ async function saveEvento() {
  
   const evento = {
     nombre, nombreSlug, descripcion,
-    fecha_inicio, fecha_fin, horario,
+    fecha_inicio, fecha_fin, horario, horarios,
     entradaGratis, valorEntrada,
     direccion, tags,
     contactoEmail, contactoRedSocial, contactoTelefono, contactoWeb,
@@ -952,7 +954,7 @@ async function _loadEventosAdminList() {
   listEl.innerHTML = _eventosCache.map(ev => {
     // [Etapa 10, Parte 3] cálculo de pin/fechas/entrada centralizado —
     // mismo helper que usa la lista "Mis eventos" del panel usuario.
-    const { pin, pinLabel, fechas, entradaTxt } = EventosFormCommon.formatEventoResumen(ev);
+    const { pin, pinLabel, fechas, entradaTxt, horarioTxt } = EventosFormCommon.formatEventoResumen(ev);
     // [Etapa 4] si el pin es evento_temporal y ya se auto-desactivó
     // (sin eventos vigentes), se avisa acá mismo con 1 click para
     // reactivarlo a mano — ver decisión 3 en checkEventosTemporalesLifecycle.
@@ -967,7 +969,7 @@ async function _loadEventosAdminList() {
         <div class="evt-admin-row-main">
           <strong>${_escHtml(ev.nombre || '(sin nombre)')}</strong>
           <span class="evt-admin-row-pin">📍 ${_escHtml(pinLabel)}${ev.city ? ` · ${_escHtml(ev.city)}` : ''}</span>
-          ${fechas ? `<span class="evt-admin-row-fechas">🗓 ${_escHtml(fechas)}${ev.horario ? ` · ${_escHtml(ev.horario)}` : ''}</span>` : ''}
+          ${fechas ? `<span class="evt-admin-row-fechas">🗓 ${_escHtml(fechas)}${horarioTxt ? ` · ${_escHtml(horarioTxt)}` : ''}</span>` : ''}
           <span class="evt-admin-row-estado">${_escHtml(ev.estado || 'aprobado')}</span>
           <span class="evt-admin-row-estado">${entradaTxt}</span>
           ${tagsLabels ? `<span class="evt-admin-row-estado">🏷 ${_escHtml(tagsLabels)}</span>` : ''}

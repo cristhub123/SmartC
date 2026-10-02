@@ -201,7 +201,7 @@ function _upRenderMisEventos() {
   listEl.innerHTML = _upMisEventos.map(ev => {
     // [Etapa 10, Parte 3] cálculo de pin/fechas/entrada centralizado —
     // mismo helper que usa la lista del panel admin.
-    const { pinLabel, fechas, entradaTxt } = EventosFormCommon.formatEventoResumen(ev);
+    const { pinLabel, fechas, entradaTxt, horarioTxt } = EventosFormCommon.formatEventoResumen(ev);
     const cambios = (typeof ev.cambiosRestantes === 'number') ? ev.cambiosRestantes : 0;
     const puedeEditar = cambios > 0;
     return `
@@ -209,7 +209,7 @@ function _upRenderMisEventos() {
         <div class="evt-admin-row-main">
           <strong>${_escHtml(ev.nombre || '(sin nombre)')}</strong>
           <span class="evt-admin-row-pin">📍 ${_escHtml(pinLabel)}</span>
-          ${fechas ? `<span class="evt-admin-row-fechas">🗓 ${_escHtml(fechas)}${ev.horario ? ` · ${_escHtml(ev.horario)}` : ''}</span>` : ''}
+          ${fechas ? `<span class="evt-admin-row-fechas">🗓 ${_escHtml(fechas)}${horarioTxt ? ` · ${_escHtml(horarioTxt)}` : ''}</span>` : ''}
           <span class="evt-admin-row-estado">${ev.activo ? 'activo' : 'esperando aprobación del admin'}</span>
           <span class="evt-admin-row-estado">${entradaTxt}</span>
           <span class="evt-admin-row-cambios">✏️ ${cambios} cambio${cambios === 1 ? '' : 's'} disponible${cambios === 1 ? '' : 's'}</span>
@@ -351,7 +351,7 @@ async function saveUpEvento() {
   // [Etapa 10, Parte 2] campos de contenido comunes — lectura
   // centralizada (misma función que usa el panel admin).
   const comunes = EventosFormCommon.readCamposComunes('up-evt-');
-  const { nombre, descripcion, fecha_inicio, fecha_fin, horario, entradaGratis, valorEntrada,
+  const { nombre, descripcion, fecha_inicio, fecha_fin, horario, horarios, horariosIncompleto, entradaGratis, valorEntrada,
           contactoEmail, contactoRedSocial, contactoTelefono, contactoWeb, tags } = comunes;
   if (!nombre) { toast(window.I18N ? I18N.t('toast_evt_nombre_required') : '⚠️ Ingresá el nombre del evento'); return; }
 
@@ -418,7 +418,7 @@ async function saveUpEvento() {
   const direccion = EventosShared.resolveDireccionFinal('up-evt-', 'a', poi_id)
     || EventosShared.resolveDireccionFinal('up-evt-', 'b', null);
 
-  const errComun = EventosShared.validateComunes({ fecha_inicio, fecha_fin, horario, direccion, contactoEmail, contactoRedSocial, contactoTelefono, contactoWeb, tags });
+  const errComun = EventosShared.validateComunes({ fecha_inicio, fecha_fin, horarios, horariosIncompleto, direccion, contactoEmail, contactoRedSocial, contactoTelefono, contactoWeb, tags });
   if (errComun) {
     if (errEl) errEl.textContent = errComun;
     btn.textContent = originalBtnText; btn.disabled = false;
@@ -447,7 +447,7 @@ async function saveUpEvento() {
   try {
     if (editando) {
       await db.collection('eventos').doc(_upEvtEditingId).update({
-        nombre, nombreSlug, descripcion, fecha_inicio, fecha_fin, horario,
+        nombre, nombreSlug, descripcion, fecha_inicio, fecha_fin, horario, horarios,
         entradaGratis, valorEntrada, direccion, tags,
         contactoEmail, contactoRedSocial, contactoTelefono, contactoWeb,
         ...(imgRes.changed ? { imagenUrl: imgRes.url } : {}), // [Etapa 11]
@@ -457,7 +457,7 @@ async function saveUpEvento() {
     } else {
       const cfg = EventosShared.getConfig();
       await db.collection('eventos').add({
-        nombre, nombreSlug, descripcion, fecha_inicio, fecha_fin, horario,
+        nombre, nombreSlug, descripcion, fecha_inicio, fecha_fin, horario, horarios,
         entradaGratis, valorEntrada, direccion, tags,
         contactoEmail, contactoRedSocial, contactoTelefono, contactoWeb,
         poi_id, city,

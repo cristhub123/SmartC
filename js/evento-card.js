@@ -121,11 +121,41 @@ window.EventoCard = (function () {
   function _badge(texto, coincide) {
     return `<span class="evento-card__badge evento-card__badge--${coincide ? 'on' : 'off'}">${_esc(texto)}</span>`;
   }
-  /** Los 2 recuadros negros: rango de días + horario (mismo color los dos). */
+  // ── Horarios estructurados (PLAN_HORARIOS_ESTRUCTURADOS_EVENTOS) ──
+  // `ev.horarios` = [{ desde, hasta, abre, cierra }]; los días se guardan
+  // como claves fijas (lun…dom) y el texto se ARMA acá, en el idioma
+  // activo, por eso se traduce solo al cambiar de idioma. Una sola
+  // fuente de verdad: el formulario (js/eventos-form-shared.js), las
+  // listas del admin/usuario y el buscador llaman a estas 2 funciones.
+  const HORARIO_DIAS = ['lun', 'mar', 'mie', 'jue', 'vie', 'sab', 'dom'];
+
+  /** Una fila → "Lun a Mié · 15:00–20:00" · "Jue · 18:00–21:00" · "15:00–20:00" (sin días). */
+  function horarioFilaTexto(h) {
+    if (!h) return '';
+    const horas = (h.abre && h.cierra) ? `${h.abre}–${h.cierra}` : (h.abre || h.cierra || '');
+    if (!h.desde || HORARIO_DIAS.indexOf(h.desde) === -1) return horas;
+    let dias = _t('hor_d_' + h.desde);
+    if (h.hasta && h.hasta !== h.desde && HORARIO_DIAS.indexOf(h.hasta) !== -1) {
+      dias += ` ${_t('evt_rango_a')} ${_t('hor_d_' + h.hasta)}`;
+    }
+    return horas ? `${dias} · ${horas}` : dias;
+  }
+
+  /** Líneas de horario de un evento, en el idioma activo. Si el evento
+   *  es viejo (solo texto libre en `horario`) se muestra tal cual. */
+  function horarioLineas(ev) {
+    if (!ev) return [];
+    if (Array.isArray(ev.horarios) && ev.horarios.length) {
+      return ev.horarios.map(horarioFilaTexto).filter(Boolean);
+    }
+    return ev.horario ? [String(ev.horario)] : [];
+  }
+
+  /** Los recuadros negros: rango de días + 1 recuadro por fila de horario (mismo color todos). */
   function _badges(ev, opts) {
     const on = _coincide(ev, opts);
     const dias = _rangoDias(ev);
-    return (dias ? _badge(dias, on) : '') + (ev.horario ? _badge(ev.horario, on) : '');
+    return (dias ? _badge(dias, on) : '') + horarioLineas(ev).map(l => _badge(l, on)).join('');
   }
   const _entradaTxt = (ev) => ev.entradaGratis === false
     ? (ev.valorEntrada || _t('evt_entrada_paga'))
@@ -332,5 +362,5 @@ window.EventoCard = (function () {
     }, true);
   }
 
-  return { render, bind, openDetail, closeDetail };
+  return { render, bind, openDetail, closeDetail, horarioFilaTexto, horarioLineas, HORARIO_DIAS };
 })();

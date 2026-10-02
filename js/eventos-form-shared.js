@@ -12,6 +12,15 @@ cambio hecho y la verificacion realizada.
 */
 
 /**
+ * [2026-10-01 — PLAN_HORARIOS_ESTRUCTURADOS_EVENTOS.txt] El horario ya
+ * NO es texto libre: bloque "Horarios" por filas (día desde / día hasta
+ * / hora desde / hora hasta / OK / +), implementado ACÁ una sola vez
+ * para los 2 formularios (`evt-` y `up-evt-`). Se guarda como
+ * `horarios: [{desde, hasta, abre, cierra}]` (claves de día fijas
+ * lun…dom, nunca traducidas); el texto lo arma `EventoCard.horarioLineas`
+ * en el idioma activo. Aviso de superposición en rojo, NO restrictivo.
+ * Ver `wireHorarios`, `getHorarios`, `setHorarios`, `resetHorarios`.
+ *
  * [Etapa 11 — PLAN_USUARIOS_EVENTOS.md, 2026-09-27] Foto opcional del
  * evento (`imagenUrl`, Cloudinary preset `smartcity_eventos_01`):
  * bloque "Foto del evento" agregado ACÁ (una sola implementación para
@@ -180,12 +189,15 @@ window.EventosFormCommon = (function () {
   function readCamposComunes(idPrefix) {
     const val = suffix => (document.getElementById(idPrefix + suffix)?.value || '').trim();
     const entradaGratis = !!document.getElementById(idPrefix + 'entrada-gratis')?.checked;
+    const hor = getHorarios(idPrefix); // [2026-10-01] horarios por filas
     return {
       nombre: val('nombre'),
       descripcion: val('descripcion'),
       fecha_inicio: (window.EventosShared ? EventosShared.dateInputToIso(idPrefix + 'fecha-inicio') : null),
       fecha_fin: (window.EventosShared ? EventosShared.dateInputToIso(idPrefix + 'fecha-fin') : null),
-      horario: val('horario'),
+      horarios: hor.rows,
+      horariosIncompleto: hor.incompleto,
+      horario: '', // el texto libre viejo ya no se carga (queda vacío al guardar con `horarios`)
       entradaGratis,
       valorEntrada: entradaGratis ? '' : val('valor-entrada'),
       contactoEmail: val('contacto-email'),
@@ -210,7 +222,7 @@ window.EventosFormCommon = (function () {
     setVal('descripcion', ev.descripcion || '');
     setVal('fecha-inicio', ev.fecha_inicio ? ev.fecha_inicio.slice(0, 16) : '');
     setVal('fecha-fin', ev.fecha_fin ? ev.fecha_fin.slice(0, 16) : '');
-    setVal('horario', ev.horario || '');
+    setHorarios(idPrefix, ev); // [2026-10-01] horarios por filas (evento viejo: avisa el texto anterior)
     const entradaGratisEl = document.getElementById(idPrefix + 'entrada-gratis');
     if (entradaGratisEl) entradaGratisEl.checked = ev.entradaGratis !== false;
     const valorBlock = document.getElementById(idPrefix + 'valor-entrada-block');
@@ -230,7 +242,7 @@ window.EventosFormCommon = (function () {
    *  No toca nada de las secciones solo-admin (ciudad, asignación,
    *  destacado, cambios) — eso lo sigue limpiando cada panel aparte. */
   function resetCamposComunes(idPrefix) {
-    ['nombre', 'descripcion', 'fecha-inicio', 'fecha-fin', 'horario', 'valor-entrada',
+    ['nombre', 'descripcion', 'fecha-inicio', 'fecha-fin', 'valor-entrada',
      'direccion', 'contacto-email', 'contacto-social', 'contacto-telefono', 'contacto-web'
     ].forEach(suffix => {
       const el = document.getElementById(idPrefix + suffix);
@@ -242,6 +254,7 @@ window.EventosFormCommon = (function () {
     if (valorBlock) valorBlock.style.display = 'none';
     if (window.EventosShared) EventosShared.renderTagsSelector(idPrefix + 'tags-wrap', []);
     resetImagen(idPrefix); // [Etapa 11]
+    resetHorarios(idPrefix); // [2026-10-01]
     const errEl = document.getElementById(idPrefix + 'form-error');
     if (errEl) errEl.textContent = '';
     const previewEl = document.getElementById(idPrefix + 'nombre-preview');
@@ -263,8 +276,198 @@ window.EventosFormCommon = (function () {
       .map(iso => new Date(iso).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }))
       .join(' → ');
     const entradaTxt = ev.entradaGratis === false ? `💵 ${ev.valorEntrada || 'con costo'}` : '🆓 Gratis';
-    return { pin, pinLabel, fechas, entradaTxt };
+    // [2026-10-01] horario armado en el idioma activo (filas nuevas, o texto viejo)
+    const horarioTxt = (window.EventoCard && EventoCard.horarioLineas) ? EventoCard.horarioLineas(ev).join(' / ') : (ev.horario || '');
+    return { pin, pinLabel, fechas, entradaTxt, horarioTxt };
   }
+
+  /* ═══════════════════════════════════════════════════════════
+     HORARIOS ESTRUCTURADOS (filas de días + horas)
+     Estado por formulario (clave = idPrefix):
+       { rows:[{desde,hasta,abre,cierra}], draft:{desde,hasta,abre,cierra},
+         open:boolean (editor visible), legacy:string, err:string }
+     ═══════════════════════════════════════════════════════════ */
+  const HOR_DIAS = ['lun', 'mar', 'mie', 'jue', 'vie', 'sab', 'dom'];
+  const _hor = {};
+  const _ht = k => (window.I18N ? I18N.t(k) : k);
+  const _hEsc = v => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  function _hs(p) {
+    return _hor[p] || (_hor[p] = { rows: [], draft: { desde: '', hasta: '', abre: '', cierra: '' }, open: true, legacy: '', err: '' });
+  }
+  const _draftVacio = d => !d.desde && !d.hasta && !d.abre && !d.cierra;
+  const _draftCompleto = d => !!(d.abre && d.cierra && !(d.hasta && !d.desde));
+
+  /** Fila "limpia" lista para guardar: días como claves válidas o null. */
+  function _limpiarFila(d) {
+    const desde = HOR_DIAS.includes(d.desde) ? d.desde : null;
+    const hasta = (desde && HOR_DIAS.includes(d.hasta) && d.hasta !== desde) ? d.hasta : null;
+    return { desde, hasta, abre: d.abre, cierra: d.cierra };
+  }
+
+  /** Días que cubre una fila (índices 0-6). Sin días = los 7. Rango que
+   *  "da la vuelta" (vie→lun) se recorre circularmente. */
+  function _diasDeFila(h) {
+    if (!h.desde) return HOR_DIAS.map((_, i) => i);
+    const a = HOR_DIAS.indexOf(h.desde);
+    const b = h.hasta ? HOR_DIAS.indexOf(h.hasta) : a;
+    const out = [];
+    for (let i = a, n = 0; n < 7; i = (i + 1) % 7, n++) { out.push(i); if (i === b) break; }
+    return out;
+  }
+  const _min = hhmm => { const [h, m] = String(hhmm || '0:0').split(':').map(Number); return (h || 0) * 60 + (m || 0); };
+  /** ¿Se pisan las horas de 2 filas? Soporta rangos que cruzan medianoche. */
+  function _horasSePisan(a, b) {
+    let a1 = _min(a.abre), a2 = _min(a.cierra), b1 = _min(b.abre), b2 = _min(b.cierra);
+    if (a2 <= a1) a2 += 1440;
+    if (b2 <= b1) b2 += 1440;
+    return [-1440, 0, 1440].some(sh => a1 < b2 + sh && b1 + sh < a2);
+  }
+
+  /** Solo aviso (nunca bloquea): días compartidos entre filas, horas pisadas,
+   *  o una fila sin días conviviendo con otras. */
+  function analizarSolapes(rows) {
+    const out = { diasCompartidos: [], horasPisadas: false, todosConOtras: false };
+    if (!rows || rows.length < 2) return out;
+    const compartidos = new Set();
+    for (let i = 0; i < rows.length; i++) {
+      for (let j = i + 1; j < rows.length; j++) {
+        if (!rows[i].desde || !rows[j].desde) { out.todosConOtras = true; continue; }
+        const di = _diasDeFila(rows[i]), dj = _diasDeFila(rows[j]);
+        const comun = di.filter(x => dj.includes(x));
+        if (comun.length) {
+          comun.forEach(x => compartidos.add(x));
+          if (_horasSePisan(rows[i], rows[j])) out.horasPisadas = true;
+        }
+      }
+    }
+    out.diasCompartidos = Array.from(compartidos).sort((x, y) => x - y).map(i => HOR_DIAS[i]);
+    return out;
+  }
+
+  function _warnTexto(rows) {
+    const r = analizarSolapes(rows);
+    const partes = [];
+    if (r.diasCompartidos.length) {
+      partes.push(_ht('hor_warn_dias').replace('{dias}', r.diasCompartidos.map(d => _ht('hor_d_' + d)).join(', '))
+        + (r.horasPisadas ? _ht('hor_warn_horas') : ''));
+    }
+    if (r.todosConOtras) partes.push(_ht('hor_warn_todos'));
+    return partes.length ? partes.join(' ') + ' ' + _ht('hor_warn_nota') : '';
+  }
+
+  function _optsDias(sel) {
+    return '<option value=""' + (sel ? '' : ' selected') + ' data-i18n="__PH__"></option>'
+      + HOR_DIAS.map(d => `<option value="${d}" data-i18n="hor_d_${d}"${sel === d ? ' selected' : ''}></option>`).join('');
+  }
+
+  function renderHorarios(p) {
+    const wrap = document.getElementById(p + 'horarios-wrap');
+    if (!wrap) return;
+    const st = _hs(p);
+    const fila = h => (window.EventoCard ? EventoCard.horarioFilaTexto(h) : `${h.desde || ''} ${h.abre}-${h.cierra}`);
+    const d = st.draft;
+    const chips = st.rows.map((h, i) => `
+      <span class="hor-chip" data-i="${i}">
+        <span class="hor-chip-txt">${_hEsc(fila(h))}</span>
+        <button type="button" class="hor-chip-btn" data-act="edit" data-i18n-title="hor_edit_title" aria-label="edit">✎</button>
+        <button type="button" class="hor-chip-btn" data-act="del" data-i18n-title="hor_del_title" aria-label="del">✕</button>
+      </span>`).join('');
+    const editor = st.open ? `
+      <div class="hor-editor">
+        <select class="fi hor-sel" data-f="desde" data-i18n-title="hor_desde" aria-label="hor_desde">${_optsDias(d.desde).replace('__PH__', 'hor_desde')}</select>
+        <select class="fi hor-sel" data-f="hasta" data-i18n-title="hor_hasta" aria-label="hor_hasta">${_optsDias(d.hasta).replace('__PH__', 'hor_hasta')}</select>
+        <input class="fi hor-time" type="time" data-f="abre" value="${_hEsc(d.abre)}" data-i18n-title="hor_hora_desde" aria-label="hor_hora_desde">
+        <input class="fi hor-time" type="time" data-f="cierra" value="${_hEsc(d.cierra)}" data-i18n-title="hor_hora_hasta" aria-label="hor_hora_hasta">
+        <button type="button" class="hor-ok" data-act="ok" data-i18n="hor_ok"></button>
+      </div>` : '';
+    const add = (!st.open && st.rows.length) ? '<button type="button" class="hor-add" data-act="add" data-i18n-title="hor_add_title" aria-label="add">+</button>' : '';
+    wrap.innerHTML = `
+      ${st.legacy ? `<div class="hor-legacy">${_hEsc(st.legacy)}</div>` : ''}
+      <div class="hor-list">${chips}${add}</div>
+      ${editor}
+      <div class="hor-err">${_hEsc(st.err)}</div>
+      <div class="hor-warn">${_hEsc(_warnTexto(st.rows))}</div>
+      <div class="hor-hint" data-i18n="hor_hint"></div>`;
+    if (window.I18N) I18N.apply(wrap);
+    // aria-label legibles (los placeholders "hor_xxx" se resuelven con I18N)
+    wrap.querySelectorAll('[aria-label^="hor_"]').forEach(el => el.setAttribute('aria-label', _ht(el.getAttribute('aria-label'))));
+  }
+
+  /** Engancha el bloque de horarios de un formulario (delegación de eventos). */
+  function wireHorarios(idPrefix) {
+    const wrap = document.getElementById(idPrefix + 'horarios-wrap');
+    if (!wrap) return;
+    const st = _hs(idPrefix);
+    wrap.addEventListener('input', e => {
+      const f = e.target && e.target.dataset && e.target.dataset.f;
+      if (f) { st.draft[f] = e.target.value; st.err = ''; wrap.querySelector('.hor-err').textContent = ''; }
+    });
+    wrap.addEventListener('change', e => {
+      const f = e.target && e.target.dataset && e.target.dataset.f;
+      if (f) st.draft[f] = e.target.value;
+    });
+    wrap.addEventListener('click', e => {
+      const btn = e.target.closest && e.target.closest('[data-act]');
+      if (!btn || !wrap.contains(btn)) return;
+      const act = btn.dataset.act;
+      if (act === 'ok') {
+        const d = st.draft;
+        if (d.hasta && !d.desde) { st.err = _ht('hor_err_dias'); renderHorarios(idPrefix); return; }
+        if (!d.abre || !d.cierra) { st.err = _ht('hor_err_horas'); renderHorarios(idPrefix); return; }
+        st.rows.push(_limpiarFila(d));
+        st.draft = { desde: '', hasta: '', abre: '', cierra: '' };
+        st.open = false; st.err = '';
+        renderHorarios(idPrefix);
+      } else if (act === 'add') {
+        st.open = true; st.err = '';
+        renderHorarios(idPrefix);
+      } else if (act === 'del') {
+        const i = parseInt(btn.closest('.hor-chip').dataset.i, 10);
+        st.rows.splice(i, 1);
+        if (!st.rows.length) st.open = true;
+        st.err = '';
+        renderHorarios(idPrefix);
+      } else if (act === 'edit') {
+        const i = parseInt(btn.closest('.hor-chip').dataset.i, 10);
+        const h = st.rows.splice(i, 1)[0];
+        st.draft = { desde: h.desde || '', hasta: h.hasta || '', abre: h.abre || '', cierra: h.cierra || '' };
+        st.open = true; st.err = '';
+        renderHorarios(idPrefix);
+      }
+    });
+    if (window.AppState && AppState.on && AppState.EVENTS) {
+      AppState.on(AppState.EVENTS.LANGUAGE_CHANGED, () => renderHorarios(idPrefix));
+    }
+    renderHorarios(idPrefix);
+  }
+
+  /** Filas a guardar + si quedó una fila a medio completar. Una fila
+   *  completa que quedó sin apretar OK se incluye sola. */
+  function getHorarios(idPrefix) {
+    const st = _hs(idPrefix);
+    const rows = st.rows.map(_limpiarFila);
+    let incompleto = false;
+    if (!_draftVacio(st.draft)) {
+      if (_draftCompleto(st.draft)) rows.push(_limpiarFila(st.draft));
+      else incompleto = true;
+    }
+    return { rows, incompleto };
+  }
+
+  /** Precarga al editar: filas nuevas, o (evento viejo) solo se avisa el texto anterior. */
+  function setHorarios(idPrefix, ev) {
+    const st = _hs(idPrefix);
+    const rows = (ev && Array.isArray(ev.horarios) ? ev.horarios : [])
+      .filter(h => h && h.abre && h.cierra).map(_limpiarFila);
+    st.rows = rows;
+    st.draft = { desde: '', hasta: '', abre: '', cierra: '' };
+    st.open = rows.length === 0;
+    st.err = '';
+    st.legacy = (!rows.length && ev && ev.horario) ? `${_ht('hor_legacy')} ${ev.horario}` : '';
+    renderHorarios(idPrefix);
+  }
+
+  function resetHorarios(idPrefix) { setHorarios(idPrefix, null); }
 
   /* ═══════════════════════════════════════════════════════════
      [Etapa 11] FOTO OPCIONAL DEL EVENTO
@@ -412,9 +615,18 @@ window.EventosFormCommon = (function () {
     precargarCamposComunes,
     resetCamposComunes,
     formatEventoResumen,
+    wireHorarios,
+    getHorarios,
+    setHorarios,
+    resetHorarios,
+    analizarSolapes,
   };
 })();
 
 // [Etapa 11] engancha los inputs de foto de los 2 formularios (admin y usuario).
 EventosFormCommon.wireImagenInput('evt-');
 EventosFormCommon.wireImagenInput('up-evt-');
+
+// [2026-10-01] engancha el bloque de horarios por filas de los 2 formularios.
+EventosFormCommon.wireHorarios('evt-');
+EventosFormCommon.wireHorarios('up-evt-');
