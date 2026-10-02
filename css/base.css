@@ -2244,6 +2244,37 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
 }
 .evt-camino-btn.on { border-color: var(--accent); color: var(--accent); background: rgba(var(--accent-rgb), .06); }
 
+/* [2026-10-01] Horarios por filas del formulario de evento (admin y usuario):
+   etiquetas confirmadas + fila de edición (día desde/hasta, hora desde/hasta, OK)
+   + "+" para otra fila + aviso rojo de superposición (no restrictivo). */
+.hor-wrap { display: flex; flex-direction: column; gap: 6px; }
+.hor-list { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.hor-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 6px 4px 10px; border-radius: 999px;
+  border: 1px solid var(--border2); background: white;
+  font-family: var(--font-b); font-size: 12px; font-weight: 700; color: var(--text2, #333);
+}
+.hor-chip-btn {
+  border: none; background: transparent; cursor: pointer; padding: 2px 5px;
+  font-size: 12px; line-height: 1; color: var(--text3);
+}
+.hor-chip-btn:hover { color: var(--accent); }
+.hor-editor { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.hor-editor .hor-sel { flex: 1 1 96px; min-width: 0; }
+.hor-editor .hor-time { flex: 1 1 88px; min-width: 0; }
+.hor-ok, .hor-add {
+  border: 1px solid var(--accent); background: rgba(var(--accent-rgb), .08); color: var(--accent);
+  border-radius: var(--r-sm); cursor: pointer; font-family: var(--font-b);
+  font-size: 12px; font-weight: 800; padding: 8px 12px; line-height: 1;
+}
+.hor-add { font-size: 16px; padding: 4px 11px; border-radius: 999px; }
+.hor-ok:hover, .hor-add:hover { background: var(--accent); color: white; }
+.hor-err, .hor-warn { color: #ef4444; font-size: 12px; font-weight: 600; line-height: 1.35; }
+.hor-err:empty, .hor-warn:empty { display: none; }
+.hor-legacy { font-size: 12px; color: var(--text3); font-style: italic; overflow-wrap: anywhere; }
+.hor-hint { font-size: 11px; color: var(--text3); }
+
 /* [Etapa 9 — simplificada] selector de tags de categoría de evento —
    checkboxes con pinta de chip, mismo lenguaje visual que evt-camino-btn. */
 .evt-tags-wrap { display: flex; flex-wrap: wrap; gap: 6px; }
