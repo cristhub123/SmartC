@@ -276,6 +276,9 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
 #btn-admin:hover { background: var(--accent); color: white; box-shadow: 0 6px 20px rgba(var(--accent-rgb), .3); }
 #btn-admin:active { transform: scale(.95); }
 #btn-admin.active { background: var(--accent); color: white; }
+/* [2026-10-06] Oculta salvo sesión de admin real (js/admin-auth.js) — hace
+   falta explícito porque el display:flex de arriba le gana al [hidden] nativo */
+#btn-admin[hidden] { display: none; }
 
 /* [Etapa 1, PLAN_USUARIOS_EVENTOS.md] Botón "mi cuenta" del header
    público — mismo lenguaje visual que #btn-admin/#btn-zonas */
@@ -1558,40 +1561,11 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
 }
 #modal-confirm.on { opacity: 1; pointer-events: all; }
 
-/* === LOGIN DE ADMINISTRADOR — mismo patrón visual que modal-confirm === */
-#admin-login-overlay {
-  position: fixed; inset: 0; z-index: 1300;
-  display: flex; align-items: center; justify-content: center;
-  padding: 20px;
-  opacity: 0; pointer-events: none;
-  transition: opacity .2s;
-}
-#admin-login-overlay.on { opacity: 1; pointer-events: all; }
-#admin-login-overlay::before {
-  content: ''; position: absolute; inset: 0;
-  background: rgba(0,0,0,.5);
-  backdrop-filter: blur(4px);
-}
-#admin-login-box {
-  position: relative; background: rgba(var(--surface-rgb), 0.98);
-  border-radius: var(--r-lg); padding: 30px 26px;
-  width: 100%; max-width: 320px;
-  box-shadow: var(--shadow-panel); text-align: center;
-  border: 1px solid rgba(0,0,0,.06);
-  display: flex; flex-direction: column; gap: 12px;
-}
-#admin-login-close { position: absolute; top: 10px; right: 10px; } /* [2026-10-01] cruz de cierre, mismo .btn-x que zona/admin */
-#admin-login-box h3 { padding: 0 26px; /* [2026-10-01] el título (centrado) no pisa la cruz */ font-family: var(--font-d); font-size: 20px; font-weight: 800; margin-bottom: 4px; }
-#admin-login-box input {
-  padding: 12px 14px; border-radius: var(--r-sm);
-  border: 1px solid var(--border2); font-size: 14px; font-family: var(--font-b);
-  width: 100%;
-}
-#admin-login-box input:focus { outline: none; border-color: var(--accent); }
-#admin-login-error { color: #d9432b; font-size: 13px; min-height: 16px; margin: 0; }
+/* [2026-10-06] Se eliminó el login de administrador propio (ex #admin-login-*):
+   el admin entra por el login público (#user-auth-overlay). */
 
 /* [Etapa 1, PLAN_USUARIOS_EVENTOS.md] LOGIN/REGISTRO PÚBLICO —
-   mismo patrón visual que #admin-login-overlay (overlay + caja
+   mismo patrón visual que el ex #admin-login-overlay (overlay + caja
    centrada), con tabs y selector de tipo de cuenta agregados. */
 #user-auth-overlay {
   position: fixed; inset: 0; z-index: 1300;
@@ -1671,6 +1645,12 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   font-family: var(--font-b); font-size: 13px; cursor: pointer;
   padding: 4px;
 }
+/* [2026-10-06] Cambiar contraseña — ver js/user-auth.js, doUserChangePassword */
+.user-auth-pass-title {
+  font-family: var(--font-d); font-size: 17px; font-weight: 800;
+  text-align: center; margin: 0 0 2px;
+}
+.user-auth-error.ok { color: #1f9d55; }
 
 /* [Etapa 6, PLAN_USUARIOS_EVENTOS.md] Panel de usuario unificado —
    3 solapas (Info/Pines/Eventos), mismo lenguaje visual que ya usaban
@@ -2243,37 +2223,6 @@ html, body { height: 100%; font-family: var(--font-b); background: var(--bg); co
   color: var(--text3); cursor: pointer; transition: all .15s;
 }
 .evt-camino-btn.on { border-color: var(--accent); color: var(--accent); background: rgba(var(--accent-rgb), .06); }
-
-/* [2026-10-01] Horarios por filas del formulario de evento (admin y usuario):
-   etiquetas confirmadas + fila de edición (día desde/hasta, hora desde/hasta, OK)
-   + "+" para otra fila + aviso rojo de superposición (no restrictivo). */
-.hor-wrap { display: flex; flex-direction: column; gap: 6px; }
-.hor-list { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.hor-chip {
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 4px 6px 4px 10px; border-radius: 999px;
-  border: 1px solid var(--border2); background: white;
-  font-family: var(--font-b); font-size: 12px; font-weight: 700; color: var(--text2, #333);
-}
-.hor-chip-btn {
-  border: none; background: transparent; cursor: pointer; padding: 2px 5px;
-  font-size: 12px; line-height: 1; color: var(--text3);
-}
-.hor-chip-btn:hover { color: var(--accent); }
-.hor-editor { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.hor-editor .hor-sel { flex: 1 1 96px; min-width: 0; }
-.hor-editor .hor-time { flex: 1 1 88px; min-width: 0; }
-.hor-ok, .hor-add {
-  border: 1px solid var(--accent); background: rgba(var(--accent-rgb), .08); color: var(--accent);
-  border-radius: var(--r-sm); cursor: pointer; font-family: var(--font-b);
-  font-size: 12px; font-weight: 800; padding: 8px 12px; line-height: 1;
-}
-.hor-add { font-size: 16px; padding: 4px 11px; border-radius: 999px; }
-.hor-ok:hover, .hor-add:hover { background: var(--accent); color: white; }
-.hor-err, .hor-warn { color: #ef4444; font-size: 12px; font-weight: 600; line-height: 1.35; }
-.hor-err:empty, .hor-warn:empty { display: none; }
-.hor-legacy { font-size: 12px; color: var(--text3); font-style: italic; overflow-wrap: anywhere; }
-.hor-hint { font-size: 11px; color: var(--text3); }
 
 /* [Etapa 9 — simplificada] selector de tags de categoría de evento —
    checkboxes con pinta de chip, mismo lenguaje visual que evt-camino-btn. */
