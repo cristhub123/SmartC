@@ -1,21 +1,28 @@
-# ACLARACIONES_RELEVANTES — entrega 2026-10-01 (horarios del evento por filas)
+# ACLARACIONES_RELEVANTES — entrega 2026-10-06 (login único + tuerca solo admin + cambiar contraseña)
 
-## Acción tuya en Firebase (obligatoria para usuarios comunes)
-Pegá de nuevo en la consola el bloque de `eventos` de `FIRESTORE_RULES_NOTES.md`: se sumó `'horarios'` al `hasOnly` de la edición por autoservicio. Sin eso, un usuario común no puede guardar el horario nuevo al EDITAR su evento (el admin sí). El alta (`create`) no cambia.
+> Reemplaza a la entrega anterior del mismo día (la del link "🔑 Cambiar contraseña"). Si ya habías subido esa, estos archivos la pisan.
 
-## Decisiones que tomé yo — confirmá o cambialas
-- **Selector de hora nativo** (`type="time"`): se guarda siempre en 24 h, pero algunos celulares/PC lo muestran con AM/PM al elegir. La tarjeta siempre muestra 24 h. Alternativa (2 desplegables propios, ~1 h más) si no te gusta.
-- **Fila completa sin apretar OK** al guardar: se incluye sola. **Fila a medio completar** (ej. solo una hora): NO deja guardar y avisa (esto es una validación que agregué sobre el plan para no perder datos en silencio).
-- **Aviso rojo** (no bloquea): se muestra si 2 filas comparten algún día (también en horario cortado, ej. 10-13 y 16-20 el mismo día; ahí lo podés ignorar) o si hay una fila sin días junto a otras. Si además se pisan las horas, lo dice.
-- **Al guardar con filas**, el texto viejo `horario` queda vacío. Eventos viejos con texto siguen mostrándose tal cual (sin traducir); al editarlos aparece "Horario anterior" y hay que cargar las filas nuevas (es obligatorio ≥1 fila).
-- **Panel admin:** el título "Horarios *" no se traduce (como el resto de ese formulario), pero los desplegables, botones, avisos y etiquetas sí siguen el idioma activo.
-- **Sin tocar:** fechas de inicio/fin, vencimiento del evento y el verde/rojo de la tarjeta (se calculan solo con fechas).
+## Cómo queda
+- **Un solo login, el del 👤**, para todas las cuentas: usuario, dueño de negocio, empleado y admin. El cuadro "Acceso de administrador" ya no existe.
+- **La tuerca ⚙ no se ve** hasta que inicia sesión una cuenta admin (las que están en la colección `admins` de Firestore). Al cerrar sesión desaparece y, si el panel admin estaba abierto, se cierra.
+- **"Cambiar contraseña"** es un botón más del login, igual que "Continuar con Google". Adentro: cambiarla sabiendo la actual, o pedir un mail si no la recordás.
 
-## Sin probar en real
-Probado en jsdom con los archivos reales; NO en navegador/celular (estilos de la fila de edición, selector de hora), ni con Firebase real.
+## Decisiones que tomé yo — confirmá o cambialo
+- **En el panel del 👤, un admin figura como "Administrador"** si no tiene perfil de usuario propio (doc en `usuarios`).
+- **Admin que entra con Google:** no le pregunta "¿qué tipo de cuenta?", entra directo.
+- **"🔓 Salir" del panel admin** cierra la sesión entera (admin y 👤 son ahora la misma sesión).
+- **Cambiar la contraseña no te deja logueado:** te devuelve a "Ingresar" para que entres con la nueva.
+- Cuentas de Google sin contraseña propia: usan la opción del mail.
+
+## Para revisar en la consola de Firebase (sin tocar código)
+- **Authentication → Templates → Restablecimiento de contraseña:** remitente, asunto y texto del mail.
+- Al cambiar la contraseña, Firebase cierra la sesión de esa cuenta en los otros dispositivos.
+
+## Sin probar en real (pendiente que confirmes)
+Probado en Chromium con los archivos reales y Firebase simulado, NO contra Firebase real ni en celular: (a) entrar por el 👤 con tu cuenta admin y que aparezca la tuerca (puede tardar una fracción de segundo, es la consulta a `admins`); (b) con una cuenta común, que la tuerca no aparezca; (c) "Salir" del admin; (d) cambiar contraseña y que llegue el mail.
 
 ## Cache-busting
-`?v=20261001-horarios` en `base.css`, `i18n.js`, `evento-card.js`, `eventos-form-shared.js`, `eventos.js`, `user-panel.js`, `eventos-todos.js`.
+`?v=20261006-admin` en `base.css`, `i18n.js`, `admin.js`, `admin-auth.js`, `user-auth.js` — recargá con Ctrl+F5.
 
 ---
 

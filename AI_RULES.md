@@ -86,7 +86,7 @@ se dibujaran. **No reactivar sin entender esa nota primero.**
 | `markers.js` | Dibuja pines en el mapa (`makeMarker`), resuelve URLs de imagen (thumb/full), `pinClick` (legacy, no se usa — ver sección 6), `expandPin`/`collapsePin` base |
 | `poi-panel.js` | Módulo `PoiPanel` — panel público que se abre al tocar un pin (lee de `AppState`, no de `markers`) |
 | `admin.js` | Panel admin: tabs, listado de lugares, filtros por barritas, toasts, modo "pickear en mapa" |
-| `admin-auth.js` | Login/logout de Firebase Auth para el admin |
+| `admin-auth.js` | **[2026-10-06]** Ya no tiene login propio: escucha la sesión, verifica `admins/{uid}` → `_adminUser`, y muestra/oculta la tuerca (`_syncAdminGear`). Logout del botón "🔓 Salir" del admin |
 | `user-auth.js` | Módulo `UserAuth` — login/registro PÚBLICO (email+contraseña y Google) con 2 roles: `usuario_comun`/`dueno_negocio`, guardados en `usuarios/{uid}`. Separado del admin — ver Etapa 1 de `PLAN_USUARIOS_EVENTOS.md` |
 | `owner-panel.js` | Módulo `OwnerPanel` — panel del dueño de negocio: lista sus pines (`ownerId` == su uid) y edita SOLO `desc/hist/phone/hours/tags/content.es`. Ver Etapa 2 de `PLAN_USUARIOS_EVENTOS.md` |
 | `admin-global.js` | Configuración global (contorno de pin, dim, glow) aplicada a todos los marcadores |
@@ -679,30 +679,19 @@ Tocar la tarjeta abre `EventoCard.openDetail(ev, opts, host)`: vista ampliada qu
 
 **Gotchas:** (1) `data-i18n` reemplaza el TEXTO del elemento que lo lleva — un botón hijo se borra; por eso en `.zd-header` el rótulo va en un `<span data-i18n>` aparte. (2) El calendario (`js/calendario-eventos.js`) repinta su `innerHTML`: la cruz va DENTRO de ese render y solo aparece si quien lo monta pasa `onClose` (hoy solo el popover del filtro; el calendario inline de "Todos" no la lleva porque vive dentro del panel, que ya tiene la suya). (3) El selector de idioma de i18n usa la clave existente `cerrar` / `pp_close_title`: no se agregaron claves.
 
-## 14.10 Horarios estructurados del evento (2026-10-01, PLAN_HORARIOS_ESTRUCTURADOS_EVENTOS.txt)
+## 14.10 Un solo login para todas las cuentas + tuerca solo para admin + cambiar contraseña (2026-10-06)
 
-El horario de un evento ya NO es texto libre. Campo nuevo `horarios` en
-`eventos/{id}`: `[{ desde, hasta, abre, cierra }]` — `desde`/`hasta` son
-claves de día FIJAS (`lun mar mie jue vie sab dom`, nunca traducidas;
-`hasta:null` = día suelto; `desde:null` = sin días = todos los días del
-evento), `abre`/`cierra` en 24 h `"HH:MM"`. El texto lo ARMA
-`EventoCard.horarioLineas(ev)` / `horarioFilaTexto(h)` (js/evento-card.js,
-única fuente de verdad) con `I18N.t('hor_d_<dia>')` + `evt_rango_a`, así
-cambia solo al cambiar de idioma. Evento viejo con solo `horario` (texto):
-se muestra tal cual, sin traducir. Al guardar con `horarios`, `horario` se
-guarda `''`. El `<input id="evt-horario"/"up-evt-horario">` quedó oculto y
-deshabilitado (no se lee).
+**Login único.** Se eliminó el cuadro "Acceso de administrador" (`#admin-login-overlay`, `showAdminLogin`/`doAdminLogin`, su CSS). Usuario común, dueño de negocio, empleado y administrador inician sesión TODOS por el 👤 (`#user-auth-overlay`, `js/user-auth.js`) — están en el mismo Firebase Auth; el rol vive en Firestore (`usuarios/{uid}.rol` o `admins/{uid}`). **No volver a crear un login aparte para el admin.**
 
-El editor vive UNA vez en `js/eventos-form-shared.js` (`wireHorarios`,
-`getHorarios`, `setHorarios`, `resetHorarios`, `analizarSolapes`) y se
-engancha a `#evt-horarios-wrap` / `#up-evt-horarios-wrap`. `readCamposComunes`
-devuelve `horarios` + `horariosIncompleto`; `validateComunes` exige ≥1 fila y
-rechaza una fila a medio completar. Una fila completa sin apretar OK se
-incluye sola al guardar. La advertencia de superposición (texto rojo) NO
-bloquea. `formatEventoResumen` devuelve además `horarioTxt` (listas admin/usuario).
-Las fechas y el vencimiento (`_eventoEsVigente`) NO se tocaron. Reglas de
-Firestore: hay que sumar `'horarios'` al `hasOnly` de la edición de usuario
-(ver `FIRESTORE_RULES_NOTES.md`).
+**Tuerca (`#btn-admin`).** Arranca oculta (atributo `hidden` en `index.html` + `#btn-admin[hidden]{display:none}` en `css/base.css`, porque su `display:flex` le gana al `hidden` nativo). `js/admin-auth.js` escucha `onAuthStateChanged`, verifica `admins/{uid}` y llama a `_syncAdminGear()` — ÚNICA fuente de verdad de si se ve: la muestra solo con `_adminUser`, la oculta sin sesión o con cuenta no-admin y cierra el panel admin si estaba abierto. El click (`js/admin.js`) abre el admin solo con `_adminUser`; si no, solo re-sincroniza (ya no hay login al que mandar). "🔓 Salir" del admin cierra la sesión entera (es la misma del 👤).
+
+**Admin en el login público.** `_esAdminActual()` (`js/user-auth.js`, lee `_adminUser`): un admin sin documento en `usuarios` cuenta como logueado en el 👤 y su rol se muestra como "Administrador" (`ua_rol_admin`). Con Google, si la cuenta está en `admins` no pasa por "elegí tu tipo de cuenta". `_syncAdminGear` re-renderiza el 👤 cuando termina el chequeo async de admin.
+
+**Cambiar contraseña.** Botón "Cambiar contraseña" en el panel Ingresar (mismo estilo que "Continuar con Google", `.user-auth-google-btn`, sin íconos) → `#user-auth-pane-pass` (3er panel sin solapa: `switchUserAuthTab('pass')`). Lógica en `js/user-auth.js` (`showUserChangePassword`, `doUserChangePassword`, `doUserPasswordResetEmail`):
+- **Sabe la actual:** se valida iniciando sesión en una instancia SECUNDARIA de Firebase (`'pass-change-secondary'`, persistencia `NONE`, mismo patrón que `js/empleados.js`) + `updatePassword`, y `signOut` de esa instancia en el `finally`. La sesión principal nunca se toca. Al terminar vuelve a Ingresar con el correo escrito y el aviso en verde (`.user-auth-error.ok`).
+- **No la recuerda / entra con Google:** `firebase.auth().sendPasswordResetEmail` con `languageCode` = idioma activo. Mensaje neutro ("si hay una cuenta…") aunque Firebase devuelva `user-not-found`.
+- Firebase invalida las sesiones abiertas en OTROS dispositivos al cambiar la contraseña.
+- Textos: `ua_to_pass_btn`, `ua_pass_*`, `ua_err_pass_*`, `ua_err_email_falta`, `ua_err_reset_generic`, `ua_err_cuenta_deshabilitada`, `ua_ok_*`, `ua_rol_admin` en `js/i18n.js` (ES/EN/PT).
 
 ## 15. Ver también
 

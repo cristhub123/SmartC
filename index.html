@@ -44,9 +44,9 @@ cambio hecho y la verificacion realizada.
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Nunito:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=Caveat:wght@600;700&family=Space+Mono:wght@700&display=swap" rel="stylesheet">
 
   <!-- App CSS -->
-  <link rel="stylesheet" href="css/base.css?v=20261001-horarios">
+  <link rel="stylesheet" href="css/base.css?v=20261006-admin">
   <!-- CSS del Panel POI -->
-  <link rel="stylesheet" href="css/poi-panel.css?v=20261001-tabsfix">
+  <link rel="stylesheet" href="css/poi-panel.css?v=20261001-tags2">
 
   <!-- Critical inline: prevents white flash -->
   <style>
@@ -78,7 +78,9 @@ cambio hecho y la verificacion realizada.
        inicial (logueado en otro idioma guardado, etc.); ver nota en
        ese archivo. -->
   <button id="btn-user-account" data-i18n-title="btn_account_title_out" title="Ingresar / Registrarme">👤</button>
-  <button id="btn-admin" data-i18n-title="btn_admin_title" title="Administrador">⚙</button>
+  <!-- [2026-10-06] Oculta hasta que js/admin-auth.js confirma que la
+       cuenta logueada es admin (admins/{uid}) -->
+  <button id="btn-admin" data-i18n-title="btn_admin_title" title="Administrador" hidden>⚙</button>
 </div>
 <div id="search-results"></div>
 
@@ -168,21 +170,14 @@ cambio hecho y la verificacion realizada.
 <div id="overlay"></div>
 
 <!-- Admin Panel -->
-<!-- LOGIN DE ADMINISTRADOR — se muestra antes de dar acceso al panel -->
-<div id="admin-login-overlay">
-  <div id="admin-login-box">
-    <button type="button" id="admin-login-close" class="btn-x" title="Cerrar">✕</button>
-    <h3>⚙ Acceso de administrador</h3>
-    <input id="admin-login-email" type="email" placeholder="Correo electrónico" autocomplete="username">
-    <input id="admin-login-pass"  type="password" placeholder="Contraseña" autocomplete="current-password">
-    <button id="admin-login-btn" class="btn-primary">Ingresar</button>
-    <p id="admin-login-error"></p>
-  </div>
-</div>
+<!-- [2026-10-06] Ya NO hay login de administrador propio: el admin
+     entra por el 👤 (#user-auth-overlay) como cualquier cuenta, y la
+     tuerca (#btn-admin) aparece sola si esa cuenta está en
+     admins/{uid}. Ver js/admin-auth.js y AI_RULES.md 14.10. -->
 
 <!-- [Etapa 1, PLAN_USUARIOS_EVENTOS.md] LOGIN/REGISTRO PÚBLICO —
      usuario común / dueño de negocio. Separado del login de
-     administrador (#admin-login-overlay) — ver js/user-auth.js -->
+     administrador (eliminado 2026-10-06: el admin también entra por acá) — ver js/user-auth.js -->
 <div id="user-auth-overlay">
   <div id="user-auth-box">
     <button id="user-auth-close" class="btn-x" data-i18n-title="cerrar" title="Cerrar">✕</button>
@@ -199,7 +194,30 @@ cambio hecho y la verificacion realizada.
       <button id="user-auth-login-btn" class="btn-primary" data-i18n="ua_login_btn">Ingresar</button>
       <div class="user-auth-divider"><span data-i18n="ua_divider_o">o</span></div>
       <button id="user-auth-google-btn" class="user-auth-google-btn" data-i18n="ua_google_btn">Continuar con Google</button>
+      <!-- [2026-10-06] Cambio de contraseña: un botón más del login,
+           mismo estilo que "Continuar con Google". Sirve para
+           cualquier tipo de cuenta — ver doUserChangePassword en
+           js/user-auth.js -->
+      <button type="button" id="user-auth-to-pass-btn" class="user-auth-google-btn" data-i18n="ua_to_pass_btn">Cambiar contraseña</button>
       <p id="user-auth-login-error" class="user-auth-error"></p>
+    </div>
+
+    <!-- [2026-10-06] Cambiar contraseña — cualquier tipo de cuenta
+         (usuario, dueño de negocio, empleado, administrador): todas
+         viven en el mismo Firebase Auth. 2 caminos: (a) sabe la
+         actual → la cambia acá mismo; (b) no la recuerda → mail de
+         Firebase con link para elegir una nueva. Ver js/user-auth.js -->
+    <div id="user-auth-pane-pass" class="user-auth-pane">
+      <h4 class="user-auth-pass-title" data-i18n="ua_pass_title">Cambiar contraseña</h4>
+      <input id="user-auth-pass-email" type="email" data-i18n-placeholder="ua_email_ph" placeholder="Correo electrónico" autocomplete="username">
+      <input id="user-auth-pass-actual" type="password" data-i18n-placeholder="ua_pass_actual_ph" placeholder="Contraseña actual" autocomplete="current-password">
+      <input id="user-auth-pass-nueva" type="password" data-i18n-placeholder="ua_pass_nueva_ph" placeholder="Contraseña nueva (mín. 6 caracteres)" autocomplete="new-password">
+      <input id="user-auth-pass-repetir" type="password" data-i18n-placeholder="ua_pass_repetir_ph" placeholder="Repetí la contraseña nueva" autocomplete="new-password">
+      <button id="user-auth-pass-btn" class="btn-primary" data-i18n="ua_pass_change_btn">Cambiar contraseña</button>
+      <div class="user-auth-divider"><span data-i18n="ua_pass_olvide">¿No recordás la actual?</span></div>
+      <button type="button" id="user-auth-reset-btn" class="user-auth-google-btn" data-i18n="ua_pass_reset_btn">Mandarme un mail para elegir una nueva</button>
+      <p id="user-auth-pass-msg" class="user-auth-error"></p>
+      <button type="button" id="user-auth-pass-back-btn" class="user-auth-cancel-btn" data-i18n="ua_pass_volver">← Volver a Ingresar</button>
     </div>
 
     <!-- Tab: Crear cuenta -->
@@ -395,10 +413,8 @@ cambio hecho y la verificacion realizada.
           </div>
         </div>
         <div class="fg">
-          <label class="fl" data-i18n="hor_label">Horarios *</label>
-          <!-- [2026-10-01] el texto libre "Horario" quedó INACTIVO; se carga por filas (js/eventos-form-shared.js) -->
-          <input id="up-evt-horario" type="hidden" disabled>
-          <div class="hor-wrap" id="up-evt-horarios-wrap"></div>
+          <label class="fl" data-i18n="up_evt_horario_label">Horario *</label>
+          <input class="fi" id="up-evt-horario" type="text" data-i18n-placeholder="up_evt_horario_ph" placeholder='Ej: "Viernes a domingo, 16 a 22hs" o "Sábado 3 y domingo 4, de 10 a 18hs"'>
         </div>
         <div class="fg" style="display:flex;align-items:center;gap:8px">
           <input type="checkbox" id="up-evt-entrada-gratis" checked style="width:auto">
@@ -936,10 +952,8 @@ campo-05:
         </div>
       </div>
       <div class="fg">
-        <label class="fl">Horarios *</label>
-        <!-- [2026-10-01] el texto libre "Horario" quedó INACTIVO; se carga por filas (js/eventos-form-shared.js) -->
-        <input id="evt-horario" type="hidden" disabled>
-        <div class="hor-wrap" id="evt-horarios-wrap"></div>
+        <label class="fl">Horario *</label>
+        <input class="fi" id="evt-horario" type="text" placeholder='Ej: "Viernes a domingo, 16 a 22hs" o "Sábado 3 y domingo 4, de 10 a 18hs"'>
       </div>
       <div class="fg" style="display:flex;align-items:center;gap:8px">
         <input type="checkbox" id="evt-entrada-gratis" checked style="width:auto">
@@ -2078,7 +2092,7 @@ campo-05:
   <!-- Módulo de Estado Centralizado (Central Store) -->
   <script src="js/app-state.js?v=20260930d" defer></script>
   <script src="js/lang-switcher.js?v=20261001-flags" defer></script>
-  <script src="js/i18n.js?v=20261001-horarios" defer></script>
+  <script src="js/i18n.js?v=20261006-admin" defer></script>
   <!-- [DESCONECTADO 2026-08-13 — smartcityV3.0_fix-mapa-pines. NO BORRAR ESTA NOTA
        en una limpieza futura: explica por qué este script sigue en el repo pero
        sin cargarse.] js/pois-loader.js hidrataba AppState/window.POIS con los 4
@@ -2103,8 +2117,8 @@ campo-05:
   <script src="js/markers.js?v=20260930e" defer></script>
   <script src="js/pins-viewport-loader.js?v=20260829" defer></script>
   <script src="js/cluster-grouping.js?v=20260829" defer></script>
-  <script src="js/evento-card.js?v=20261001-horarios" defer></script>
-  <script src="js/poi-panel.js?v=20261001-tabsfix" defer></script>
+  <script src="js/evento-card.js?v=20261001" defer></script>
+  <script src="js/poi-panel.js?v=20261001-scroll" defer></script>
   <!-- [DESCONECTADO 2026-08-13 — smartcityV3.0_fix-mapa-pines. NO BORRAR ESTA NOTA
        en una limpieza futura.] js/pois-bootstrap.js reemplazaba makeMarker global
        por una versión "guardia" que solo dibujaba un pin si existía en AppState
@@ -2114,13 +2128,13 @@ campo-05:
   <!-- <script src="js/pois-bootstrap.js?v=20260829" defer></script> -->
 
   <!-- 4. Admin panel (defines switchTab) -->
-  <script src="js/admin.js?v=20260928b" defer></script>
+  <script src="js/admin.js?v=20261006-admin" defer></script>
   <!-- [2026-09-02] firebase-auth-compat.js movido acá (ver nota arriba, junto
        a firebase-app-compat.js/firebase-firestore-compat.js) — recién acá lo
        necesitan admin-auth.js y user-auth.js. -->
   <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js" defer fetchpriority="low"></script>
-  <script src="js/admin-auth.js?v=20261001" defer></script>
-  <script src="js/user-auth.js?v=20260831" defer></script>
+  <script src="js/admin-auth.js?v=20261006-admin" defer></script>
+  <script src="js/user-auth.js?v=20261006-admin" defer></script>
   <script src="js/owner-panel.js?v=20260829" defer></script>
 
   <!-- 5. Utilities -->
@@ -2140,22 +2154,22 @@ campo-05:
   <script src="js/roadmap.js?v=20260930" defer></script>
   <script src="js/zones.js?v=20261001" defer></script>
   <script src="js/groups.js?v=20260927" defer></script>
-  <script src="js/categories.js?v=20261001b" defer></script>
+  <script src="js/categories.js?v=20261001a" defer></script>
   <script src="js/shadow-eye.js?v=20260829" defer></script>
 
   <!-- 7. Features -->
   <script src="js/pin-adjust.js?v=20260927" defer></script>
   <script src="js/pin-geocode.js?v=20260829" defer></script>
-  <script src="js/eventos-form-shared.js?v=20261001-horarios" defer></script>
-  <script src="js/eventos.js?v=20261001-horarios" defer></script>
+  <script src="js/eventos-form-shared.js?v=20260927d" defer></script>
+  <script src="js/eventos.js?v=20260927d" defer></script>
   <!-- [Etapa 14, 2026-09-28] componente de calendario compartido —
        carga antes de eventos-fecha-filtro.js (lo monta) y va a servir
        también para el buscador de la Etapa 15. -->
   <script src="js/calendario-eventos.js?v=20261001" defer></script>
   <script src="js/eventos-fecha-filtro.js?v=20261001" defer></script>
   <!-- [Etapa 15] contenido del panel "Todos los eventos" (buscador + calendario + grilla). Usa CalendarioEventos, EventoCard, _eventoEsVigente y _eventoOcurreEnFecha — todos ya cargados arriba; el panel en sí es PoiPanel. -->
-  <script src="js/eventos-todos.js?v=20261001-horarios" defer></script>
-  <script src="js/user-panel.js?v=20261001-horarios" defer></script>
+  <script src="js/eventos-todos.js?v=20261001-tags" defer></script>
+  <script src="js/user-panel.js?v=20260927d" defer></script>
   <script src="js/usuarios-admin.js?v=20260927" defer></script>
   <script src="js/empleados.js?v=20260829" defer></script>
   <script src="js/cluster.js?v=20260928b" defer></script>
