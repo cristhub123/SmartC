@@ -165,7 +165,11 @@ document.getElementById('btn-admin').addEventListener('click', () => {
     if (window.OverlayManager) window.OverlayManager.beforeOpen('admin', openAdmin);
     else openAdmin();
   }
-  else showAdminLogin();
+  // [2026-10-06] Sin sesión de admin no hay login propio: la tuerca ni
+  // siquiera está visible (js/admin-auth.js, _syncAdminGear). Si igual
+  // llegara un click (ej. sesión que se cerró en otra pestaña), solo se
+  // vuelve a ocultar.
+  else if (typeof _syncAdminGear === 'function') _syncAdminGear();
 });
 document.getElementById('admin-close').addEventListener('click', closeAdmin);
 // [NUEVO 2026-08-31] Guarda anti-selección-de-texto-arrastrada — ver

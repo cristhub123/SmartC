@@ -35,96 +35,55 @@ cambio hecho y la verificacion realizada.
    reglas, pero la UI no debería haberse abierto para empezar. Ahora
    `_adminUser` solo se completa si, además de haber sesión, esa
    cuenta existe en `admins/{uid}`.
+
+   [2026-10-06 — SIN LOGIN PROPIO DE ADMIN, pedido de Cris] Se eliminó
+   el cuadro "Acceso de administrador" (#admin-login-overlay). El admin
+   inicia sesión por el 👤 (js/user-auth.js) como cualquier cuenta.
+   Este archivo solo escucha la sesión: si la cuenta está en
+   `admins/{uid}`, completa `_adminUser` y MUESTRA la tuerca
+   (#btn-admin, oculta por defecto con el atributo `hidden`); si no hay
+   sesión o la cuenta no es admin, la oculta y cierra el panel admin si
+   estaba abierto. Las reglas de Firestore siguen siendo la protección
+   real de las escrituras — esto es solo la interfaz.
    ═══════════════════════════════════════════ */
 
 let _adminUser = null;    // solo si hay sesión Y esa cuenta es admin de verdad (admins/{uid})
 let _isCheckingAdmin = false; // evita que el click del engranaje corra mientras el chequeo async todavía no terminó
 
+/* [2026-10-06] Única fuente de verdad de si la tuerca se ve o no. */
+function _syncAdminGear() {
+  const btn = document.getElementById('btn-admin');
+  if (btn) btn.hidden = !_adminUser;
+  if (!_adminUser && document.getElementById('admin')?.classList.contains('open')) {
+    closeAdmin();
+  }
+  // El botón 👤 muestra "Administrador" como rol si la cuenta es admin
+  // y no tiene documento en `usuarios` (ver _userRoleLabel, user-auth.js).
+  if (typeof _renderUserAccountButton === 'function') _renderUserAccountButton();
+}
+
 firebase.auth().onAuthStateChanged(async user => {
   _adminUser = null;
-  if (!user) return;
+  if (!user) { _syncAdminGear(); return; }
   _isCheckingAdmin = true;
   try {
     const doc = await db.collection('admins').doc(user.uid).get();
     _adminUser = doc.exists ? user : null;
-    if (!doc.exists && document.getElementById('admin')?.classList.contains('open')) {
-      // Sesión de una cuenta no-admin que de alguna forma tenía el
-      // panel abierto (ej. quedó abierto de una sesión admin previa
-      // en el mismo navegador) — se cierra ya mismo, por las dudas.
-      closeAdmin();
-    }
   } catch (err) {
     console.warn('[admin-auth] No se pudo verificar admins/{uid}:', err);
     _adminUser = null;
   } finally {
     _isCheckingAdmin = false;
+    _syncAdminGear();
   }
 });
 
-function showAdminLogin() {
-  document.getElementById('admin-login-overlay').classList.add('on');
-  document.getElementById('admin-login-error').textContent = '';
-  document.getElementById('admin-login-email').focus();
-}
-function hideAdminLogin() {
-  document.getElementById('admin-login-overlay').classList.remove('on');
-}
-
-async function doAdminLogin() {
-  const email = document.getElementById('admin-login-email').value.trim();
-  const pass  = document.getElementById('admin-login-pass').value;
-  const errEl = document.getElementById('admin-login-error');
-  const btn   = document.getElementById('admin-login-btn');
-  if (!email || !pass) { errEl.textContent = '⚠️ Completá los dos campos'; return; }
-
-  btn.textContent = 'Ingresando...'; btn.disabled = true;
-  try {
-    const cred = await firebase.auth().signInWithEmailAndPassword(email, pass);
-    // [2026-08-26] No alcanza con que el login/contraseña sean
-    // correctos: hay que confirmar que ESA cuenta está en
-    // `admins/{uid}` antes de abrir el panel — ver nota de arriba.
-    const doc = await db.collection('admins').doc(cred.user.uid).get();
-    if (!doc.exists) {
-      await firebase.auth().signOut();
-      errEl.textContent = '⚠️ Esta cuenta no tiene permisos de administrador.';
-      return;
-    }
-    _adminUser = cred.user;
-    hideAdminLogin();
-    document.getElementById('admin-login-pass').value = '';
-    openAdmin();
-  } catch (err) {
-    console.warn('Login error:', err.code);
-    if (err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found') {
-      errEl.textContent = '⚠️ Correo o contraseña incorrectos';
-    } else if (err.code === 'auth/too-many-requests') {
-      errEl.textContent = '⚠️ Demasiados intentos. Probá de nuevo en unos minutos.';
-    } else {
-      errEl.textContent = '⚠️ No se pudo iniciar sesión. Revisá tu conexión.';
-    }
-  } finally {
-    btn.textContent = 'Ingresar'; btn.disabled = false;
-  }
-}
-
+/* Botón "🔓 Salir" del panel admin — cierra la sesión entera (es la
+   misma sesión del 👤). onAuthStateChanged oculta la tuerca solo. */
 function doAdminLogout() {
   firebase.auth().signOut();
   closeAdmin();
   toast('🔓 Sesión cerrada');
 }
 
-document.getElementById('admin-login-btn').addEventListener('click', doAdminLogin);
-document.getElementById('admin-login-pass').addEventListener('keydown', e => { if (e.key === 'Enter') doAdminLogin(); });
 document.getElementById('admin-logout').addEventListener('click', doAdminLogout);
-
-// [2026-10-01] Cruz de cierre (esquina superior derecha del cuadro de login).
-document.getElementById('admin-login-close').addEventListener('click', hideAdminLogin);
-
-/* Click afuera del cuadro de login lo cierra sin loguear (no cierra
-   la app, solo cancela el intento de acceso) */
-// [NUEVO 2026-08-31] Guarda anti-selección-de-texto-arrastrada — ver
-// js/ui-guards.js (Punto 1, PLAN_FIX_CIERRE_PANELES.md).
-document.getElementById('admin-login-overlay').addEventListener('click', e => {
-  if (window.UIGuards && window.UIGuards.wasTextDragRelease(e)) return;
-  if (e.target.id === 'admin-login-overlay') hideAdminLogin();
-});
